@@ -4,16 +4,61 @@
 
 #include <cstdlib>
 #include <cassert>
-#include <cstring>
+#include <string>
+#include <vector>
 
 #include "types.h"
 
 namespace Memory
 {
 
-typedef int MemoryAttr;
+class Region
+{
+public:
+    Region(u64 address, u64 size, Region *container = NULL);
+    virtual ~Region();
 
-static const MemoryAttr BigEndian = 1;
+    bool bigendian;
+    bool ram;
+    bool readonly;
+    bool device;
+
+    u64 address;
+    u64 size;
+    u8 *block;          /**< Optional ram block. */
+
+    std::vector<Region *>subregions;
+    Region *container;
+
+    virtual u64 load(uint bytes, u64 addr);
+    virtual void store(uint bytes, u64 addr, u64 value);
+    // virtual bool accept(uint bytes, u64 addr);
+
+    void print();
+    void insert(Region *region);
+    void insertRam(u64 addr, u64 size);
+    void insertRom(u64 addr, u64 size, const std::string file);
+
+protected:
+    void adjustEndianness(uint bytes, u64 *value);
+    Region *lookup(u64 addr);
+};
+
+class AddressSpace
+{
+public:
+    AddressSpace();
+    ~AddressSpace();
+
+    Region *root;
+
+    u64 load(uint bytes, u64 addr);
+    void store(uint bytes, u64 addr, u64 value);
+    void copy(u64 dst, u64 src, uint bytes);
+
+protected:
+    Region *lookup(u64 addr);
+};
 
 /**
  * @brief Translate a virtual memory address into a physical memory address
@@ -24,21 +69,6 @@ static const MemoryAttr BigEndian = 1;
  * @return the physical memory address \p vAddr is mapped to
  */
 u64 translateAddress(u64 vAddr, bool writeAccess);
-
-/**
- *
- */
-u64 load(MemoryAttr memAttr, uint bytes, u64 pAddr, u64 vAddr);
-
-/**
- *
- */
-void store(MemoryAttr memAttr, uint bytes, u64 pAddr, u64 vAddr, u64 value);
-
-
-void loadRom(const char *path);
-void dma(u64 dest, u64 source, size_t size);
-void dump(u8 *start, size_t size);
 
 };
 
