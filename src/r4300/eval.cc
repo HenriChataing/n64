@@ -3,21 +3,21 @@
 
 #include <mips/asm.h>
 #include <r4300/cpu.h>
-#include <memory.h>
+#include <r4300/hw.h>
 
 #include "eval.h"
 
 namespace R4300 {
 namespace Eval {
 
-#define SignExtend(imm) ({ \
-    u16 valu16 = (imm); \
-    i16 vali16 = valu16; \
-    i64 vali64 = vali16; \
+#define SignExtend(imm, size) ({ \
+    u##size valu##size = (imm); \
+    i##size vali##size = valu##size; \
+    i64 vali64 = vali##size; \
     (u64)vali64; \
 })
 
-#define ZeroExtend(imm) ({ \
+#define ZeroExtend(imm, size) ({ \
     (u64)(imm); \
 })
 
@@ -36,7 +36,7 @@ namespace Eval {
     case opcode: { \
         u32 rs = Mips::getRs(instr); \
         u32 rt = Mips::getRt(instr); \
-        u64 imm = extend(Mips::getImmediate(instr)); \
+        u64 imm = extend(Mips::getImmediate(instr), 16); \
         std::cout << std::dec << #opcode; \
         std::cout << " r" << rt << ", r" << rs; \
         std::cout << std::hex << ", $" << imm << std::endl; \
@@ -70,10 +70,10 @@ namespace Eval {
  */
 static void step()
 {
-    Memory::MemoryAttr attr = R4300::RE() ? 0 : Memory::BigEndian;
     u64 vAddr = R4300::state.reg.pc;
     u64 pAddr = Memory::translateAddress(vAddr, 0);
-    u32 instr = Memory::load(attr, 4, pAddr, vAddr);
+    u32 instr = R4300::physmem.load(4, pAddr);
+    u32 opcode;
 
     using namespace Mips::Opcode;
     using namespace Mips::Special;
@@ -84,7 +84,7 @@ static void step()
 
     std::cout << std::hex << "i pa:" << pAddr << " va:" << vAddr << " " << instr << std::endl;
 
-    switch (Mips::getOpcode(instr)) {
+    switch (opcode = Mips::getOpcode(instr)) {
         case SPECIAL:
             switch (Mips::getFunct(instr)) {
                 RType(ADD, instr, {
@@ -345,31 +345,41 @@ static void step()
         case COP2:
         case COP3:
             if (instr & Mips::COFUN) {
-                std::cerr << "COFUN" << std::endl;
+                cop[opcode & 0x3]->COFUN(instr);
                 break;
             }
             switch (Mips::getRs(instr)) {
                 RType(MF, instr, {
+                    cop[opcode & 0x3]->MF(rt, rd);
                 })
                 RType(DMF, instr, {
+                    cop[opcode & 0x3]->DMF(rt, rd);
                 })
                 RType(CF, instr, {
+                    cop[opcode & 0x3]->CF(rt, rd);
                 })
                 RType(MT, instr, {
+                    cop[opcode & 0x3]->MT(rt, rd);
                 })
                 RType(DMT, instr, {
+                    cop[opcode & 0x3]->DMT(rt, rd);
                 })
                 RType(CT, instr, {
+                    cop[opcode & 0x3]->CT(rt, rd);
                 })
                 case BC:
                     switch (Mips::getRt(instr)) {
                         IType(BCF, instr, SignExtend, {
+                            cop[opcode & 0x3]->BCF(rs, imm);
                         })
                         IType(BCT, instr, SignExtend, {
+                            cop[opcode & 0x3]->BCT(rs, imm);
                         })
                         IType(BCFL, instr, SignExtend, {
+                            cop[opcode & 0x3]->BCFL(rs, imm);
                         })
                         IType(BCTL, instr, SignExtend, {
+                            cop[opcode & 0x3]->BCTL(rs, imm);
                         })
                         default:
                             throw "Reserved instruction";
@@ -417,10 +427,14 @@ static void step()
             break;
         case LLD:
             break;
-        case LUI:
-            break;
-        case LW:
-            break;
+        IType(LUI, instr, SignExtend, {
+            state.reg.gpr[rt] = imm << 16;
+        })
+        IType(LW, instr, SignExtend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            state.reg.gpr[rt] = SignExtend(R4300::physmem.load(4, pAddr), 32);
+        })
         case LWC1:
             break;
         case LWC2:
