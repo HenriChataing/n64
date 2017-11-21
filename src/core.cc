@@ -19,6 +19,7 @@ void emulate()
         R4300::Eval::run();
     } catch (const char *exn) {
         cerr << "Caught exception '" << exn << "'" << endl;
+        cerr << R4300::state << endl;
     }
 }
 

@@ -7,7 +7,7 @@ BINDIR    := bin
 EXE       := n64
 
 CXXFLAGS  := -Wall -Wno-unused-function -m32 -std=c++11
-CXXFLAGS  += -I$(SRCDIR) -I$(SRCDIR)
+CXXFLAGS  += -I$(SRCDIR) -I$(SRCDIR) -DTARGET_BIGENDIAN
 LDFLAGS   := -m32
 LIBS      := -lpthread
 
@@ -17,7 +17,7 @@ LDFLAGS   += -pg
 endif
 
 SRC       := main.cc memory.cc core.cc
-SRC       += r4300/cpu.cc r4300/eval.cc r4300/mmu.cc
+SRC       += r4300/cpu.cc r4300/hw.cc r4300/eval.cc r4300/mmu.cc
 
 OBJS      := $(patsubst %.cc,$(OBJDIR)/%.o, $(SRC))
 DEPS      := $(patsubst %.cc,$(OBJDIR)/%.d, $(SRC))
