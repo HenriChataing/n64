@@ -2,6 +2,8 @@
 #ifndef _CPU_H_INCLUDED_
 #define _CPU_H_INCLUDED_
 
+#include <iostream>
+
 #include "types.h"
 
 namespace R4300 {
@@ -76,10 +78,31 @@ public:
     struct cp0reg cp0reg;       /**< Co-processor 0 registers */
     struct tlbEntry tlb[tlbEntryCount];    /**< Translation look-aside buffer */
     ulong cycles;
+};
 
+class Coprocessor
+{
+public:
+    Coprocessor() {}
+    ~Coprocessor() {}
+
+    virtual void COFUN(u32 instr) {}
+
+    virtual void MF(u32 rt, u32 rd) {}
+    virtual void DMF(u32 rt, u32 rd) {}
+    virtual void CF(u32 rt, u32 rd) {}
+    virtual void MT(u32 rt, u32 rd) {}
+    virtual void DMT(u32 rt, u32 rd) {}
+    virtual void CT(u32 rt, u32 rd) {}
+
+    virtual void BCF(u32 rd, u64 imm) {}
+    virtual void BCT(u32 rd, u64 imm) {}
+    virtual void BCFL(u32 rd, u64 imm) {}
+    virtual void BCTL(u32 rd, u64 imm) {}
 };
 
 extern State state;
+extern Coprocessor *cop[4];
 
 static inline bool CU3() { return (state.cp0reg.sr & (1lu << 31)) != 0; }
 static inline bool CU2() { return (state.cp0reg.sr & (1lu << 30)) != 0; }
@@ -98,5 +121,7 @@ static inline bool EXL() { return (state.cp0reg.sr & (1lu << 1)) != 0; }
 static inline bool IE()  { return (state.cp0reg.sr & (1lu << 0)) != 0; }
 
 };
+
+std::ostream &operator<<(std::ostream &os, const R4300::State &state);
 
 #endif /* _CPU_H_INCLUDED_ */
