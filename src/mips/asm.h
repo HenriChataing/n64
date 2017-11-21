@@ -216,7 +216,7 @@ static inline u32 getRt(u32 instr) {
  * @brief Extract the instruction destination register.
  */
 static inline u32 getRd(u32 instr) {
-    return (instr >> 16) & 0x1flu;
+    return (instr >> 11) & 0x1flu;
 }
 
 /**
