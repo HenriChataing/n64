@@ -296,10 +296,10 @@ static void step()
             u64 r = state.reg.gpr[rs] + imm;
             if (r < state.reg.gpr[rs])
                 throw "Integer overflow";
-            state.reg.gpr[rt] = r;
+            state.reg.gpr[rt] = SignExtend(r, 32);
         })
         IType(ADDIU, instr, SignExtend, {
-            state.reg.gpr[rt] = state.reg.gpr[rs] + imm;
+            state.reg.gpr[rt] = SignExtend(state.reg.gpr[rs] + imm, 32);
         })
         IType(ANDI, instr, ZeroExtend, {
             state.reg.gpr[rt] = state.reg.gpr[rs] & imm;
@@ -339,6 +339,9 @@ static void step()
         IType(BNEL, instr, SignExtend, {
             if (state.reg.gpr[rt] != state.reg.gpr[rs])
                 state.reg.pc += (i64)(imm << 2);
+        })
+        IType(CACHE, instr, SignExtend, {
+            // @todo
         })
         case COP0:
         case COP1:
@@ -447,8 +450,9 @@ static void step()
             break;
         case LWU:
             break;
-        case ORI:
-            break;
+        IType(ORI, instr, ZeroExtend, {
+            state.reg.gpr[rt] = state.reg.gpr[rs] | imm;
+        })
         case SB:
             break;
         case SC:
@@ -471,8 +475,11 @@ static void step()
             break;
         case SLTIU:
             break;
-        case SW:
-            break;
+        IType(SW, instr, SignExtend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            R4300::physmem.store(4, pAddr, state.reg.gpr[rt]);
+        })
         case SWC1:
             break;
         case SWC2:

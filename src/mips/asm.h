@@ -42,6 +42,7 @@ const static u32 BLEZ       = 0x06;
 const static u32 BLEZL      = 0x16;
 const static u32 BNE        = 0x05;
 const static u32 BNEL       = 0x15;
+const static u32 CACHE      = 0x2f;
 const static u32 COP0       = 0x10;
 const static u32 COP1       = 0x11;
 const static u32 COP2       = 0x12;
