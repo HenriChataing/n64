@@ -2,6 +2,11 @@
 #include <r4300/cpu.h>
 #include <memory.h>
 
+#define CKSEG3  UINT64_C(0xffffffffe0000000)
+#define CKSSEG  UINT64_C(0xffffffffc0000000)
+#define CKSEG1  UINT64_C(0xffffffffa0000000)
+#define CKSEG0  UINT64_C(0xffffffff80000000)
+
 namespace Memory {
 
 u64 translateAddress(u64 vAddr, bool writeAccess)
@@ -15,11 +20,11 @@ u64 translateAddress(u64 vAddr, bool writeAccess)
         // Kernel mode
         // also entered when ERL=1 || EXL=1
         if (R4300::KX())
-            throw "32b now supported (KX)";
-        if (vAddr >= U64_2GB && vAddr < U64_2_5GB)
-            return vAddr - U64_2GB; // Unmapped access, cached.
-        if (vAddr >= U64_2_5GB && vAddr < U64_3GB)
-            return vAddr - U64_2_5GB; // Unmapped access, non cached.
+            throw "32b not supported (KX)";
+        if (vAddr >= CKSEG0 && vAddr < CKSEG1)
+            return vAddr - CKSEG0; // Unmapped access, cached.
+        if (vAddr >= CKSEG1 && vAddr < CKSSEG)
+            return vAddr - CKSEG1; // Unmapped access, non cached.
     }
     else if (ksu == 0x1) {
         // Supervisor mode
