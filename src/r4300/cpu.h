@@ -27,7 +27,7 @@ struct cp0reg {
     u64 context;        /**< Pointer to kernel PTE table */
     u32 pageMask;       /**< TLB page mask */
     u32 wired;          /**< Number of wire TLB entries */
-    // u32 cpr7;            /**< Unused */
+    u32 cpr7;           /**< Unused */
     u64 badVAddr;       /**< Bad virtual address */
     u32 count;          /**< Timer count */
     u64 entryHi;        /**< High half of TLB entry */
@@ -41,18 +41,17 @@ struct cp0reg {
     u32 watchLo;        /**< Memory reference trap address lower bits */
     u32 watchHi;        /**< Memory reference trap address upper bits */
     u64 xContext;       /**< Context register for MIPS-III addressing */
-    // u32 cpr21;           /**< Unused */
-    // u32 cpr22;           /**< Unused */
-    // u32 cpr23;           /**< Unused */
-    // u32 cpr24;           /**< Unused */
-    // u32 cpr25;           /**< Unused */
+    u32 cpr21;          /**< Unused */
+    u32 cpr22;          /**< Unused */
+    u32 cpr23;          /**< Unused */
+    u32 cpr24;          /**< Unused */
+    u32 cpr25;          /**< Unused */
     u32 pErr;           /**< Not Used */
     u32 cacheErr;       /**< Not Used */
     u32 tagLo;          /**< Cache tag register */
     u32 tagHi;          /**< Cache tag register (reserved) */
     u32 errPc;          /**< Error exception program counter */
-    // u32 cpr31;           /**< Unused */
-
+    u32 cpr31;          /**< Unused */
 };
 
 struct tlbEntry {
@@ -99,6 +98,13 @@ public:
     virtual void BCT(u32 rd, u64 imm) {}
     virtual void BCFL(u32 rd, u64 imm) {}
     virtual void BCTL(u32 rd, u64 imm) {}
+};
+
+class Register
+{
+public:
+    virtual u64 read(uint bytes) const { return 0; }
+    virtual void write(uint bytes, u64 val) const {}
 };
 
 extern State state;
