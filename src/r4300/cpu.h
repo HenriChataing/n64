@@ -85,14 +85,9 @@ public:
     Coprocessor() {}
     ~Coprocessor() {}
 
-    virtual void COFUN(u32 instr) {}
-
-    virtual void MF(u32 rt, u32 rd) {}
-    virtual void DMF(u32 rt, u32 rd) {}
-    virtual void CF(u32 rt, u32 rd) {}
-    virtual void MT(u32 rt, u32 rd) {}
-    virtual void DMT(u32 rt, u32 rd) {}
-    virtual void CT(u32 rt, u32 rd) {}
+    virtual void cofun(u32 instr) {}
+    virtual u64 read(uint bytes, u32 rd) { return 0; }
+    virtual void write(uint bytes, u32 rd, u64 imm) {}
 
     virtual void BCF(u32 rd, u64 imm) {}
     virtual void BCT(u32 rd, u64 imm) {}

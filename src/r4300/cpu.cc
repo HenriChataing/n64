@@ -49,50 +49,16 @@ public:
     }
     ~Cop0() {}
 
-    virtual void COFUN(u32 instr) {
-        std::cerr << "COP0 " << instr << std::endl;
+    virtual void cofun(u32 instr) {
+        std::cerr << "COP0 COFUN " << instr << std::endl;
     }
 
-    virtual void MF(u32 rt, u32 rd) {
-        std::cerr << "COP0" << std::endl;
+    virtual u64 read(uint bytes, u32 rd) {
+        return regs[rd]->read(bytes);
     }
 
-    virtual void DMF(u32 rt, u32 rd) {
-        std::cerr << "COP0" << std::endl;
-    }
-
-    virtual void CF(u32 rt, u32 rd) {
-        std::cerr << "COP0" << std::endl;
-    }
-
-    virtual void MT(u32 rt, u32 rd) {
-        std::cerr << "MTC0 " << rd << std::endl;
-        u32 data = state.reg.gpr[rt];
-        regs[rd]->write(2, data);
-    }
-
-    virtual void DMT(u32 rt, u32 rd) {
-        std::cerr << "COP0" << std::endl;
-    }
-
-    virtual void CT(u32 rt, u32 rd) {
-        std::cerr << "COP0" << std::endl;
-    }
-
-    virtual void BCF(u32 rd, u64 imm) {
-        std::cerr << "COP0" << std::endl;
-    }
-
-    virtual void BCT(u32 rd, u64 imm) {
-        std::cerr << "COP0" << std::endl;
-    }
-
-    virtual void BCFL(u32 rd, u64 imm) {
-        std::cerr << "COP0" << std::endl;
-    }
-
-    virtual void BCTL(u32 rd, u64 imm) {
-        std::cerr << "COP0" << std::endl;
+    virtual void write(uint bytes, u32 rd, u64 imm) {
+        regs[rd]->write(bytes, imm);
     }
 
 private:
@@ -105,58 +71,40 @@ public:
     Cop1() {}
     ~Cop1() {}
 
-    virtual void COFUN(u32 instr) {
+    virtual void cofun(u32 instr) {
+        std::cerr << "COP1 COFUN " << instr << std::endl;
     }
 
-    virtual void MF(u32 rt, u32 fs) {
+    virtual u64 read(uint bytes, u32 fs) {
+        if (bytes == 8) {
+            if (FR())
+                return state.reg.fgr[fs];
+            else if ((fs % 2) == 0)
+                return state.reg.fgr[fs / 2];
+        }
+        return 0; // undefined
     }
 
-    virtual void DMF(u32 rt, u32 fs) {
-        if (FR())
-            state.reg.gpr[rt] = state.reg.fgr[fs];
-        else if ((fs % 2) == 0)
-            state.reg.gpr[rt] = state.reg.fgr[fs / 2];
-        else
-            state.reg.gpr[rt] = 0; // undefined
-    }
-
-    virtual void CF(u32 rt, u32 fs) {
-    }
-
-    virtual void MT(u32 rt, u32 fs) {
-        if (FR())
-            state.reg.fgr[fs] = state.reg.gpr[rt]; // semi undefined
-        else if (fs % 2)
-            state.reg.fgr[fs / 2] =
-                (state.reg.fgr[fs / 2] & 0xffffffff) |
-                (state.reg.gpr[rt] << 32);
-        else
-            state.reg.fgr[fs / 2] =
-                (state.reg.fgr[fs / 2] & ~0xffffffff) |
-                (state.reg.gpr[rt] & 0xffffffff);
-    }
-
-    virtual void DMT(u32 rt, u32 fs) {
-        if (FR())
-            state.reg.fgr[fs] = state.reg.gpr[rt];
-        else if ((fs % 2) == 0)
-            state.reg.fgr[fs / 2] = state.reg.gpr[rt];
-        // undefined otherwise
-    }
-
-    virtual void CT(u32 rt, u32 fs) {
-    }
-
-    virtual void BCF(u32 rd, u64 imm) {
-    }
-
-    virtual void BCT(u32 rd, u64 imm) {
-    }
-
-    virtual void BCFL(u32 rd, u64 imm) {
-    }
-
-    virtual void BCTL(u32 rd, u64 imm) {
+    virtual void write(uint bytes, u32 fs, u64 imm)
+    {
+        if (bytes == 8) {
+            if (FR())
+                state.reg.fgr[fs] = imm;
+            else if ((fs % 2) == 0)
+                state.reg.fgr[fs / 2] = imm;
+            // undefined otherwise
+        } else {
+            if (FR())
+                state.reg.fgr[fs] = imm; // semi undefined
+            else if (fs % 2)
+                state.reg.fgr[fs / 2] =
+                    (state.reg.fgr[fs / 2] & 0xffffffff) |
+                    (imm << 32);
+            else
+                state.reg.fgr[fs / 2] =
+                    (state.reg.fgr[fs / 2] & ~0xffffffff) |
+                    (imm & 0xffffffff);
+        }
     }
 };
 

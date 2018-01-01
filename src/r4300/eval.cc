@@ -82,7 +82,7 @@ static void step()
     using namespace Mips::Copz;
     using namespace R4300;
 
-    std::cout << std::hex << "i pa:" << pAddr << " va:" << vAddr << " " << instr << std::endl;
+    // std::cout << std::hex << "i pa:" << pAddr << " va:" << vAddr << " " << instr << std::endl;
 
     switch (opcode = Mips::getOpcode(instr)) {
         case SPECIAL:
@@ -134,95 +134,52 @@ static void step()
                     state.reg.multHi = state.reg.gpr[rs] % state.reg.gpr[rt];
                     state.reg.gpr[rd] = state.reg.multLo;
                 })
-                case DMULT:
-                    break;
-                case DMULTU:
-                    break;
-                case DSLL:
-                    break;
-                case DSLL32:
-                    break;
-                case DSLLV:
-                    break;
-                case DSRA:
-                    break;
-                case DSRA32:
-                    break;
-                case DSRAV:
-                    break;
-                case DSRL:
-                    break;
-                case DSRL32:
-                    break;
-                case DSRLV:
-                    break;
-                case DSUB:
-                    break;
-                case DSUBU:
-                    break;
-                case JALR:
-                    break;
-                case JR:
-                    break;
-                case MFHI:
-                    break;
-                case MFLO:
-                    break;
-                case MOVN:
-                    break;
-                case MOVZ:
-                    break;
-                case MTHI:
-                    break;
-                case MTLO:
-                    break;
-                case MULT:
-                    break;
-                case MULTU:
-                    break;
-                case NOR:
-                    break;
-                case OR:
-                    break;
+                RType(DMULT, instr, {})
+                RType(DMULTU, instr, {})
+                RType(DSLL, instr, {})
+                RType(DSLL32, instr, {})
+                RType(DSLLV, instr, {})
+                RType(DSRA, instr, {})
+                RType(DSRA32, instr, {})
+                RType(DSRAV, instr, {})
+                RType(DSRL, instr, {})
+                RType(DSRL32, instr, {})
+                RType(DSRLV, instr, {})
+                RType(DSUB, instr, {})
+                RType(DSUBU, instr, {})
+                RType(JALR, instr, {})
+                RType(JR, instr, {})
+                RType(MFHI, instr, {})
+                RType(MFLO, instr, {})
+                RType(MOVN, instr, {})
+                RType(MOVZ, instr, {})
+                RType(MTHI, instr, {})
+                RType(MTLO, instr, {})
+                RType(MULT, instr, {})
+                RType(MULTU, instr, {})
+                RType(NOR, instr, {})
+                RType(OR, instr, {})
                 RType(SLL, instr, {
                     state.reg.gpr[rd] = state.reg.gpr[rt] << shamnt;
                 })
-                case SLLV:
-                    break;
-                case SLT:
-                    break;
-                case SLTU:
-                    break;
-                case SRA:
-                    break;
-                case SRAV:
-                    break;
-                case SRL:
-                    break;
-                case SRLV:
-                    break;
-                case SUB:
-                    break;
-                case SUBU:
-                    break;
-                case SYNC:
-                    break;
-                case SYSCALL:
-                    break;
-                case TEQ:
-                    break;
-                case TGE:
-                    break;
-                case TGEU:
-                    break;
-                case TLT:
-                    break;
-                case TLTU:
-                    break;
-                case TNE:
-                    break;
-                case XOR:
-                    break;
+                RType(SLLV, instr, {})
+                RType(SLT, instr, {})
+                RType(SLTU, instr, {})
+                RType(SRA, instr, {})
+                RType(SRAV, instr, {})
+                RType(SRL, instr, {})
+                RType(SRLV, instr, {})
+                RType(SUB, instr, {})
+                RType(SUBU, instr, {})
+                RType(SYNC, instr, {})
+                RType(SYSCALL, instr, {})
+                RType(TEQ, instr, {})
+                RType(TGE, instr, {})
+                RType(TGEU, instr, {})
+                RType(TLT, instr, {})
+                RType(TLTU, instr, {})
+                RType(TNE, instr, {})
+                RType(XOR, instr, {})
                 default:
                     throw "Unsupported Special";
             }
@@ -274,18 +231,12 @@ static void step()
                     if (r < 0)
                         state.reg.pc += (i64)(imm << 2);
                 })
-                case TEQI:
-                    break;
-                case TGEI:
-                    break;
-                case TGEIU:
-                    break;
-                case TLTI:
-                    break;
-                case TLTIU:
-                    break;
-                case TNEI:
-                    break;
+                IType(TEQI, instr, SignExtend, {})
+                IType(TGEI, instr, SignExtend, {})
+                IType(TGEIU, instr, SignExtend, {})
+                IType(TLTI, instr, SignExtend, {})
+                IType(TLTIU, instr, SignExtend, {})
+                IType(TNEI, instr, SignExtend, {})
                 default:
                     throw "Unupported Regimm";
                     break;
@@ -347,41 +298,41 @@ static void step()
         case COP2:
         case COP3:
             if (instr & Mips::COFUN) {
-                cop[opcode & 0x3]->COFUN(instr);
+                cop[opcode & 0x3]->cofun(instr);
                 break;
             }
             switch (Mips::getRs(instr)) {
                 RType(MF, instr, {
-                    cop[opcode & 0x3]->MF(rt, rd);
+                    state.reg.gpr[rt] = cop[opcode & 0x3]->read(4, rd);
                 })
                 RType(DMF, instr, {
-                    cop[opcode & 0x3]->DMF(rt, rd);
+                    state.reg.gpr[rt] = cop[opcode & 0x3]->read(8, rd);
                 })
                 RType(CF, instr, {
-                    cop[opcode & 0x3]->CF(rt, rd);
+                    throw "Unsupported";
                 })
                 RType(MT, instr, {
-                    cop[opcode & 0x3]->MT(rt, rd);
+                    cop[opcode & 0x3]->write(4, rd, state.reg.gpr[rt]);
                 })
                 RType(DMT, instr, {
-                    cop[opcode & 0x3]->DMT(rt, rd);
+                    cop[opcode & 0x3]->write(8, rd, state.reg.gpr[rt]);
                 })
                 RType(CT, instr, {
-                    cop[opcode & 0x3]->CT(rt, rd);
+                    throw "Unsupported";
                 })
                 case BC:
                     switch (Mips::getRt(instr)) {
                         IType(BCF, instr, SignExtend, {
-                            cop[opcode & 0x3]->BCF(rs, imm);
+                            throw "Unsupported";
                         })
                         IType(BCT, instr, SignExtend, {
-                            cop[opcode & 0x3]->BCT(rs, imm);
+                            throw "Unsupported";
                         })
                         IType(BCFL, instr, SignExtend, {
-                            cop[opcode & 0x3]->BCFL(rs, imm);
+                            throw "Unsupported";
                         })
                         IType(BCTL, instr, SignExtend, {
-                            cop[opcode & 0x3]->BCTL(rs, imm);
+                            throw "Unsupported";
                         })
                         default:
                             throw "Reserved instruction";
@@ -437,12 +388,21 @@ static void step()
             u64 pAddr = Memory::translateAddress(vAddr, 0);
             state.reg.gpr[rt] = SignExtend(R4300::physmem.load(4, pAddr), 32);
         })
-        case LWC1:
-            break;
-        case LWC2:
-            break;
-        case LWC3:
-            break;
+        IType(LWC1, instr, SignExtend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            cop[1]->write(4, rt, SignExtend(R4300::physmem.load(4, pAddr), 32));
+        })
+        IType(LWC2, instr, SignExtend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            cop[2]->write(4, rt, SignExtend(R4300::physmem.load(4, pAddr), 32));
+        })
+        IType(LWC3, instr, SignExtend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            cop[3]->write(4, rt, SignExtend(R4300::physmem.load(4, pAddr), 32));
+        })
         case LWL:
             break;
         case LWR:
@@ -479,12 +439,21 @@ static void step()
             u64 pAddr = Memory::translateAddress(vAddr, 0);
             R4300::physmem.store(4, pAddr, state.reg.gpr[rt]);
         })
-        case SWC1:
-            break;
-        case SWC2:
-            break;
-        case SWC3:
-            break;
+        IType(SWC1, instr, SignExtend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            R4300::physmem.store(4, pAddr, cop[1]->read(4, rt));
+        })
+        IType(SWC2, instr, SignExtend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            R4300::physmem.store(4, pAddr, cop[1]->read(4, rt));
+        })
+        IType(SWC3, instr, SignExtend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            R4300::physmem.store(4, pAddr, cop[1]->read(4, rt));
+        })
         case SWL:
             break;
         case SWR:
