@@ -293,10 +293,9 @@ static void step()
             break;
 
         IType(ADDI, instr, SignExtend, {
-            u64 r = state.reg.gpr[rs] + imm;
-            if (r < state.reg.gpr[rs])
-                throw "Integer overflow";
-            state.reg.gpr[rt] = SignExtend(r, 32);
+            u64 r = SignExtend(state.reg.gpr[rs] + imm, 32);
+            // @todo detect integer overflows
+            state.reg.gpr[rt] = r;
         })
         IType(ADDIU, instr, SignExtend, {
             state.reg.gpr[rt] = SignExtend(state.reg.gpr[rs] + imm, 32);
