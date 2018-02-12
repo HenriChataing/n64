@@ -12,6 +12,11 @@ namespace Eval {
  */
 void run();
 
+/**
+ * @brief Execute exactly one instruction.
+ */
+void step();
+
 };
 };
 

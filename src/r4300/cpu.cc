@@ -143,7 +143,7 @@ void State::boot()
 
 std::ostream &operator<<(std::ostream &os, const State &state)
 {
-    os << "pc  : $" << state.reg.pc << std::endl;
+    os << "pc  : $" << std::hex << state.reg.pc << std::endl;
     for (uint r = 0; r < 32; r++)
         os << "gpr[" << r << "]" << "  : $" << state.reg.gpr[r] << std::endl;
     return os;

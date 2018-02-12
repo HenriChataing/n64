@@ -28,11 +28,12 @@ namespace Eval {
  * instruction and added as rs, rt, imm in a new scope. The immediate value
  * is sign extended into a 64 bit unsigned integer.
  *
+ * @param opcode            Instruction opcode
  * @param instr             Original instruction
  * @param extend            Extension method (sign or zero extend)
- * @param implementation    Instruction implementation
+ * @param ...               Instruction implementation
  */
-#define IType(opcode, instr, extend, implementation) \
+#define IType(opcode, instr, extend, ...) \
     case opcode: { \
         u32 rs = Mips::getRs(instr); \
         u32 rt = Mips::getRt(instr); \
@@ -41,7 +42,28 @@ namespace Eval {
         std::cout << " r" << rt << ", r" << rs; \
         std::cout << std::hex << ", $" << imm << std::endl; \
         (void)rs; (void)rt; (void)imm; \
-        implementation; \
+        __VA_ARGS__; \
+        break; \
+    }
+
+/**
+ * @brief Preprocessor template for J-type instructions.
+ *
+ * The target is automatically extracted from the instruction and added as
+ * tg in a new scope. The target is sign extended into a 64 bit unsigned
+ * integer.
+ *
+ * @param opcode            Instruction opcode
+ * @param instr             Original instruction
+ * @param ...               Instruction implementation
+ */
+#define JType(opcode, instr, ...) \
+    case opcode: { \
+        u64 tg = Mips::getTarget(instr); \
+        std::cout << std::hex << #opcode; \
+        std::cout << " $" << tg << std::endl; \
+        (void)tg; \
+        __VA_ARGS__; \
         break; \
     }
 
@@ -50,8 +72,12 @@ namespace Eval {
  *
  * The registers are automatically extracted from the instruction and added
  * as rd, rs, rt, shamt in a new scope.
+ *
+ * @param opcode            Instruction opcode
+ * @param instr             Original instruction
+ * @param ...               Instruction implementation
  */
-#define RType(opcode, instr, implementation) \
+#define RType(opcode, instr, ...) \
     case opcode: { \
         u32 rd = Mips::getRd(instr); \
         u32 rs = Mips::getRs(instr); \
@@ -61,14 +87,14 @@ namespace Eval {
         std::cout << " r" << rd << ", r" << rt << ", r" << rs; \
         std::cout << ", " << shamnt << std::endl; \
         (void)rd; (void)rs; (void)rt; (void)shamnt; \
-        implementation; \
+        __VA_ARGS__; \
         break; \
     }
 
 /**
  * @brief Fetch and interpret a single instruction from memory.
  */
-static void step()
+void step()
 {
     u64 vAddr = R4300::state.reg.pc;
     u64 pAddr = Memory::translateAddress(vAddr, 0);
@@ -134,52 +160,77 @@ static void step()
                     state.reg.multHi = state.reg.gpr[rs] % state.reg.gpr[rt];
                     state.reg.gpr[rd] = state.reg.multLo;
                 })
-                RType(DMULT, instr, {})
-                RType(DMULTU, instr, {})
-                RType(DSLL, instr, {})
-                RType(DSLL32, instr, {})
-                RType(DSLLV, instr, {})
-                RType(DSRA, instr, {})
-                RType(DSRA32, instr, {})
-                RType(DSRAV, instr, {})
-                RType(DSRL, instr, {})
-                RType(DSRL32, instr, {})
-                RType(DSRLV, instr, {})
-                RType(DSUB, instr, {})
-                RType(DSUBU, instr, {})
-                RType(JALR, instr, {})
-                RType(JR, instr, {})
-                RType(MFHI, instr, {})
-                RType(MFLO, instr, {})
-                RType(MOVN, instr, {})
-                RType(MOVZ, instr, {})
-                RType(MTHI, instr, {})
-                RType(MTLO, instr, {})
-                RType(MULT, instr, {})
-                RType(MULTU, instr, {})
-                RType(NOR, instr, {})
-                RType(OR, instr, {})
+                RType(DMULT, instr, { throw "Unsupported"; })
+                RType(DMULTU, instr, { throw "Unsupported"; })
+                RType(DSLL, instr, { throw "Unsupported"; })
+                RType(DSLL32, instr, { throw "Unsupported"; })
+                RType(DSLLV, instr, { throw "Unsupported"; })
+                RType(DSRA, instr, { throw "Unsupported"; })
+                RType(DSRA32, instr, { throw "Unsupported"; })
+                RType(DSRAV, instr, { throw "Unsupported"; })
+                RType(DSRL, instr, { throw "Unsupported"; })
+                RType(DSRL32, instr, { throw "Unsupported"; })
+                RType(DSRLV, instr, { throw "Unsupported"; })
+                RType(DSUB, instr, { throw "Unsupported"; })
+                RType(DSUBU, instr, { throw "Unsupported"; })
+                RType(JALR, instr, { throw "Unsupported"; })
+                RType(JR, instr, {
+                    // @todo instruction takes 2 cycles
+                    state.reg.pc = state.reg.gpr[rs];
+                })
+                RType(MFHI, instr, {
+                    // @todo undefined if an instruction that follows modify
+                    // the special registers LO / HI
+                    state.reg.gpr[rd] = state.reg.multHi;
+                })
+                RType(MFLO, instr, {
+                    // @todo undefined if an instruction that follows modify
+                    // the special registers LO / HI
+                    state.reg.gpr[rd] = state.reg.multLo;
+                })
+                RType(MOVN, instr, { throw "Unsupported"; })
+                RType(MOVZ, instr, { throw "Unsupported"; })
+                RType(MTHI, instr, { throw "Unsupported"; })
+                RType(MTLO, instr, { throw "Unsupported"; })
+                RType(MULT, instr, { throw "Unsupported"; })
+                RType(MULTU, instr, {
+                    // @todo undefined if rs or rt is not a sign extended
+                    // 32bit val
+                    // @todo instruction tkaes 3 cycles
+                    u64 m = state.reg.gpr[rs] * state.reg.gpr[rt];
+                    state.reg.multLo = m & 0xffffffff;
+                    state.reg.multHi = (m >> 32) & 0xffffffff;
+                })
+                RType(NOR, instr, { throw "Unsupported"; })
+                RType(OR, instr, {
+                    state.reg.gpr[rd] = state.reg.gpr[rs] | state.reg.gpr[rt];
+                })
                 RType(SLL, instr, {
                     state.reg.gpr[rd] = state.reg.gpr[rt] << shamnt;
                 })
-                RType(SLLV, instr, {})
-                RType(SLT, instr, {})
-                RType(SLTU, instr, {})
-                RType(SRA, instr, {})
-                RType(SRAV, instr, {})
-                RType(SRL, instr, {})
-                RType(SRLV, instr, {})
-                RType(SUB, instr, {})
-                RType(SUBU, instr, {})
-                RType(SYNC, instr, {})
-                RType(SYSCALL, instr, {})
-                RType(TEQ, instr, {})
-                RType(TGE, instr, {})
-                RType(TGEU, instr, {})
-                RType(TLT, instr, {})
-                RType(TLTU, instr, {})
-                RType(TNE, instr, {})
-                RType(XOR, instr, {})
+                RType(SLLV, instr, { throw "Unsupported"; })
+                RType(SLT, instr, { throw "Unsupported"; })
+                RType(SLTU, instr, { throw "Unsupported"; })
+                RType(SRA, instr, { throw "Unsupported"; })
+                RType(SRAV, instr, { throw "Unsupported"; })
+                RType(SRL, instr, {
+                    // @todo undefined if rt is not a signed extended 32bit val
+                    state.reg.gpr[rd] = state.reg.gpr[rt] >> rs;
+                })
+                RType(SRLV, instr, { throw "Unsupported"; })
+                RType(SUB, instr, { throw "Unsupported"; })
+                RType(SUBU, instr, {
+                    state.reg.gpr[rd] = state.reg.gpr[rs] - state.reg.gpr[rt];
+                })
+                RType(SYNC, instr, { throw "Unsupported"; })
+                RType(SYSCALL, instr, { throw "Unsupported"; })
+                RType(TEQ, instr, { throw "Unsupported"; })
+                RType(TGE, instr, { throw "Unsupported"; })
+                RType(TGEU, instr, { throw "Unsupported"; })
+                RType(TLT, instr, { throw "Unsupported"; })
+                RType(TLTU, instr, { throw "Unsupported"; })
+                RType(TNE, instr, { throw "Unsupported"; })
+                RType(XOR, instr, { throw "Unsupported"; })
                 default:
                     throw "Unsupported Special";
             }
@@ -354,32 +405,23 @@ static void step()
             // @todo raise Reserved instruction exception in 32 bit mode
             state.reg.gpr[rt] = state.reg.gpr[rs] + imm;
         })
-        case J:
-            break;
-        case JAL:
-            break;
-        case LB:
-            break;
-        case LBU:
-            break;
-        case LD:
-            break;
-        case LDC1:
-            break;
-        case LDC2:
-            break;
-        case LDL:
-            break;
-        case LDR:
-            break;
-        case LH:
-            break;
-        case LHU:
-            break;
-        case LL:
-            break;
-        case LLD:
-            break;
+        JType(J, instr, { throw "Unsupported"; })
+        JType(JAL, instr, {
+            tg = (state.reg.pc & 0xfffffffff0000000) | (tg << 2);
+            state.reg.gpr[31] = state.reg.pc + 8;
+            state.reg.pc = tg - 4;
+        })
+        IType(LB, instr, SignExtend, { throw "Unsupported"; })
+        IType(LBU, instr, SignExtend, { throw "Unsupported"; })
+        IType(LD, instr, SignExtend, { throw "Unsupported"; })
+        IType(LDC1, instr, SignExtend, { throw "Unsupported"; })
+        IType(LDC2, instr, SignExtend, { throw "Unsupported"; })
+        IType(LDL, instr, SignExtend, { throw "Unsupported"; })
+        IType(LDR, instr, SignExtend, { throw "Unsupported"; })
+        IType(LH, instr, SignExtend, { throw "Unsupported"; })
+        IType(LHU, instr, SignExtend, { throw "Unsupported"; })
+        IType(LL, instr, SignExtend, { throw "Unsupported"; })
+        IType(LLD, instr, SignExtend, { throw "Unsupported"; })
         IType(LUI, instr, SignExtend, {
             state.reg.gpr[rt] = imm << 16;
         })
@@ -403,37 +445,25 @@ static void step()
             u64 pAddr = Memory::translateAddress(vAddr, 0);
             cop[3]->write(4, rt, SignExtend(R4300::physmem.load(4, pAddr), 32));
         })
-        case LWL:
-            break;
-        case LWR:
-            break;
-        case LWU:
-            break;
+        IType(LWL, instr, SignExtend, { throw "Unsupported"; })
+        IType(LWR, instr, SignExtend, { throw "Unsupported"; })
+        IType(LWU, instr, SignExtend, { throw "Unsupported"; })
         IType(ORI, instr, ZeroExtend, {
             state.reg.gpr[rt] = state.reg.gpr[rs] | imm;
         })
-        case SB:
-            break;
-        case SC:
-            break;
-        case SCD:
-            break;
-        case SD:
-            break;
-        case SDC1:
-            break;
-        case SDC2:
-            break;
-        case SDL:
-            break;
-        case SDR:
-            break;
-        case SH:
-            break;
-        case SLTI:
-            break;
-        case SLTIU:
-            break;
+        IType(SB, instr, SignExtend, { throw "Unsupported"; })
+        IType(SC, instr, SignExtend, { throw "Unsupported"; })
+        IType(SCD, instr, SignExtend, { throw "Unsupported"; })
+        IType(SD, instr, SignExtend, { throw "Unsupported"; })
+        IType(SDC1, instr, SignExtend, { throw "Unsupported"; })
+        IType(SDC2, instr, SignExtend, { throw "Unsupported"; })
+        IType(SDL, instr, SignExtend, { throw "Unsupported"; })
+        IType(SDR, instr, SignExtend, { throw "Unsupported"; })
+        IType(SH, instr, SignExtend, { throw "Unsupported"; })
+        IType(SLTI, instr, SignExtend, {
+            state.reg.gpr[rt] = state.reg.gpr[rs] < imm;
+        })
+        IType(SLTIU, instr, SignExtend, { throw "Unsupported"; })
         IType(SW, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr = Memory::translateAddress(vAddr, 0);
@@ -454,12 +484,11 @@ static void step()
             u64 pAddr = Memory::translateAddress(vAddr, 0);
             R4300::physmem.store(4, pAddr, cop[1]->read(4, rt));
         })
-        case SWL:
-            break;
-        case SWR:
-            break;
-        case XORI:
-            break;
+        IType(SWL, instr, SignExtend, { throw "Unsupported"; })
+        IType(SWR, instr, SignExtend, { throw "Unsupported"; })
+        IType(XORI, instr, ZeroExtend, {
+            state.reg.gpr[rt] = state.reg.gpr[rs] ^ imm;
+        })
 
         default:
             throw "Unsupported Opcode";
