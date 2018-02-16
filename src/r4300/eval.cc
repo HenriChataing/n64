@@ -92,11 +92,50 @@ namespace Eval {
     }
 
 /**
+ * @brief Preprocessor template for branching instructions.
+ *
+ * The macro generates the code for the "normal" and "branch likely"
+ * instructions.
+ *
+ * The registers and immediate value are automatically extracted from the
+ * instruction and added as rs, rt, imm in a new scope. The immediate value
+ * is sign extended into a 64 bit unsigned integer.
+ *
+ * @param opcode            Instruction opcode
+ * @param instr             Original instruction
+ * @param ...               Test condition
+ */
+#define BType(opcode, instr, ...) \
+    IType(opcode, instr, SignExtend, { \
+        if (__VA_ARGS__) { \
+            eval(state.reg.pc + 4); \
+            state.reg.pc += 4 + ((u64)imm << 2); \
+        } \
+    }) \
+    IType(opcode##L, instr, SignExtend, { \
+        if (__VA_ARGS__) { \
+            eval(state.reg.pc + 4); \
+            state.reg.pc += 4 + ((u64)imm << 2); \
+        } else \
+            state.reg.pc += 4; \
+    })
+
+/**
  * @brief Fetch and interpret a single instruction from memory.
  */
 void step()
 {
-    u64 vAddr = R4300::state.reg.pc;
+    u64 pc = R4300::state.reg.pc;
+    eval(pc);
+    if (R4300::state.reg.pc == pc)
+        R4300::state.reg.pc += 4;
+}
+
+/**
+ * @brief Fetch and interpret a single instruction from the provided address.
+ */
+void eval(u64 vAddr)
+{
     u64 pAddr = Memory::translateAddress(vAddr, 0);
     u32 instr = R4300::physmem.load(4, pAddr);
     u32 opcode;
@@ -107,8 +146,6 @@ void step()
     using namespace Mips::Cop0;
     using namespace Mips::Copz;
     using namespace R4300;
-
-    // std::cout << std::hex << "i pa:" << pAddr << " va:" << vAddr << " " << instr << std::endl;
 
     switch (opcode = Mips::getOpcode(instr)) {
         case SPECIAL:
@@ -215,7 +252,7 @@ void step()
                 RType(SRAV, instr, { throw "Unsupported"; })
                 RType(SRL, instr, {
                     // @todo undefined if rt is not a signed extended 32bit val
-                    state.reg.gpr[rd] = state.reg.gpr[rt] >> rs;
+                    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
                 })
                 RType(SRLV, instr, { throw "Unsupported"; })
                 RType(SUB, instr, { throw "Unsupported"; })
@@ -305,42 +342,10 @@ void step()
         IType(ANDI, instr, ZeroExtend, {
             state.reg.gpr[rt] = state.reg.gpr[rs] & imm;
         })
-        IType(BEQ, instr, SignExtend, {
-            if (state.reg.gpr[rt] == state.reg.gpr[rs])
-                state.reg.pc += (i64)(imm << 2);
-        })
-        IType(BEQL, instr, SignExtend, {
-            if (state.reg.gpr[rt] == state.reg.gpr[rs])
-                state.reg.pc += (i64)(imm << 2);
-        })
-        IType(BGTZ, instr, SignExtend, {
-            i64 r = state.reg.gpr[rs];
-            if (r > 0)
-                state.reg.pc += (i64)(imm << 2);
-        })
-        IType(BGTZL, instr, SignExtend, {
-            i64 r = state.reg.gpr[rs];
-            if (r > 0)
-                state.reg.pc += (i64)(imm << 2);
-        })
-        IType(BLEZ, instr, SignExtend, {
-            i64 r = state.reg.gpr[rs];
-            if (r <= 0)
-                state.reg.pc += (i64)(imm << 2);
-        })
-        IType(BLEZL, instr, SignExtend, {
-            i64 r = state.reg.gpr[rs];
-            if (r <= 0)
-                state.reg.pc += (i64)(imm << 2);
-        })
-        IType(BNE, instr, SignExtend, {
-            if (state.reg.gpr[rt] != state.reg.gpr[rs])
-                state.reg.pc += (i64)(imm << 2);
-        })
-        IType(BNEL, instr, SignExtend, {
-            if (state.reg.gpr[rt] != state.reg.gpr[rs])
-                state.reg.pc += (i64)(imm << 2);
-        })
+        BType(BEQ, instr, state.reg.gpr[rt] == state.reg.gpr[rs])
+        BType(BGTZ, instr, (i64)state.reg.gpr[rs] > 0)
+        BType(BLEZ, instr, (i64)state.reg.gpr[rs] <= 0)
+        BType(BNE, instr, state.reg.gpr[rt] != state.reg.gpr[rs])
         IType(CACHE, instr, SignExtend, {
             // @todo
         })
@@ -409,7 +414,7 @@ void step()
         JType(JAL, instr, {
             tg = (state.reg.pc & 0xfffffffff0000000) | (tg << 2);
             state.reg.gpr[31] = state.reg.pc + 8;
-            state.reg.pc = tg - 4;
+            state.reg.pc = tg;
         })
         IType(LB, instr, SignExtend, { throw "Unsupported"; })
         IType(LBU, instr, SignExtend, { throw "Unsupported"; })
@@ -494,7 +499,6 @@ void step()
             throw "Unsupported Opcode";
             break;
     }
-    state.reg.pc += 4;
 }
 
 void run()
