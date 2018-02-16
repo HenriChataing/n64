@@ -245,16 +245,24 @@ void eval(u64 vAddr)
                 RType(SLL, instr, {
                     state.reg.gpr[rd] = state.reg.gpr[rt] << shamnt;
                 })
-                RType(SLLV, instr, { throw "Unsupported"; })
-                RType(SLT, instr, { throw "Unsupported"; })
-                RType(SLTU, instr, { throw "Unsupported"; })
+                RType(SLLV, instr, {
+                    state.reg.gpr[rd] = state.reg.gpr[rt] << state.reg.gpr[rs];
+                })
+                RType(SLT, instr, {
+                    state.reg.gpr[rd] = (i64)state.reg.gpr[rs] < (i64)state.reg.gpr[rt];
+                })
+                RType(SLTU, instr, {
+                    state.reg.gpr[rd] = state.reg.gpr[rs] < state.reg.gpr[rt];
+                })
                 RType(SRA, instr, { throw "Unsupported"; })
                 RType(SRAV, instr, { throw "Unsupported"; })
                 RType(SRL, instr, {
                     // @todo undefined if rt is not a signed extended 32bit val
                     state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
                 })
-                RType(SRLV, instr, { throw "Unsupported"; })
+                RType(SRLV, instr, {
+                    state.reg.gpr[rd] = state.reg.gpr[rt] >> state.reg.gpr[rs];
+                })
                 RType(SUB, instr, { throw "Unsupported"; })
                 RType(SUBU, instr, {
                     state.reg.gpr[rd] = state.reg.gpr[rs] - state.reg.gpr[rt];
@@ -267,7 +275,9 @@ void eval(u64 vAddr)
                 RType(TLT, instr, { throw "Unsupported"; })
                 RType(TLTU, instr, { throw "Unsupported"; })
                 RType(TNE, instr, { throw "Unsupported"; })
-                RType(XOR, instr, { throw "Unsupported"; })
+                RType(XOR, instr, {
+                    state.reg.gpr[rd] = state.reg.gpr[rs] ^ state.reg.gpr[rt];
+                })
                 default:
                     throw "Unsupported Special";
             }
@@ -275,49 +285,41 @@ void eval(u64 vAddr)
 
         case REGIMM:
             switch (Mips::getRt(instr)) {
-                IType(BGEZ, instr, SignExtend, {
-                    i64 r = state.reg.gpr[rs];
-                    if (r >= 0)
-                        state.reg.pc += (i64)(imm << 2);
-                })
+                BType(BGEZ, instr, (i64)state.reg.gpr[rs] >= 0)
+                BType(BLTZ, instr, (i64)state.reg.gpr[rs] < 0)
                 IType(BGEZAL, instr, SignExtend, {
                     i64 r = state.reg.gpr[rs];
                     state.reg.gpr[31] = state.reg.pc + 8;
-                    if (r >= 0)
-                        state.reg.pc += (i64)(imm << 2);
+                    if (r >= 0) {
+                        eval(state.reg.pc + 4);
+                        state.reg.pc += 4 + (i64)(imm << 2);
+                    }
                 })
                 IType(BGEZALL, instr, SignExtend, {
                     i64 r = state.reg.gpr[rs];
                     state.reg.gpr[31] = state.reg.pc + 8;
-                    if (r >= 0)
-                        state.reg.pc += (i64)(imm << 2);
-                })
-                IType(BGEZL, instr, SignExtend, {
-                    i64 r = state.reg.gpr[rs];
-                    if (r >= 0)
-                        state.reg.pc += (i64)(imm << 2);
-                })
-                IType(BLTZ, instr, SignExtend, {
-                    i64 r = state.reg.gpr[rs];
-                    if (r < 0)
-                        state.reg.pc += (i64)(imm << 2);
+                    if (r >= 0) {
+                        eval(state.reg.pc + 4);
+                        state.reg.pc += 4 + (i64)(imm << 2);
+                    } else
+                        state.reg.pc += 4;
                 })
                 IType(BLTZAL, instr, SignExtend, {
                     i64 r = state.reg.gpr[rs];
                     state.reg.gpr[31] = state.reg.pc + 8;
-                    if (r < 0)
-                        state.reg.pc += (i64)(imm << 2);
+                    if (r < 0) {
+                        eval(state.reg.pc + 4);
+                        state.reg.pc += 4 + (i64)(imm << 2);
+                    }
                 })
                 IType(BLTZALL, instr, SignExtend, {
                     i64 r = state.reg.gpr[rs];
                     state.reg.gpr[31] = state.reg.pc + 8;
-                    if (r < 0)
-                        state.reg.pc += (i64)(imm << 2);
-                })
-                IType(BLTZL, instr, SignExtend, {
-                    i64 r = state.reg.gpr[rs];
-                    if (r < 0)
-                        state.reg.pc += (i64)(imm << 2);
+                    if (r < 0) {
+                        eval(state.reg.pc + 4);
+                        state.reg.pc += 4 + (i64)(imm << 2);
+                    } else
+                        state.reg.pc += 4;
                 })
                 IType(TEQI, instr, SignExtend, {})
                 IType(TGEI, instr, SignExtend, {})
