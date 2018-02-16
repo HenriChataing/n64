@@ -17,6 +17,12 @@ void run();
  */
 void step();
 
+/**
+ * @brief Fetch and interpret a single instruction from the provided address.
+ * @param vAddr         Virtual address from which to load the instruction
+ */
+void eval(u64 vAddr);
+
 };
 };
 
