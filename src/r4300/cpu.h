@@ -98,8 +98,13 @@ public:
 class Register
 {
 public:
-    virtual u64 read(uint bytes) const { return 0; }
-    virtual void write(uint bytes, u64 val) const {}
+    virtual u64 read(uint bytes) const {
+        throw "UndefinedRegister";
+        return 0;
+    }
+    virtual void write(uint bytes, u64 val) const {
+        throw "UndefinedRegister";
+    }
 };
 
 extern State state;
