@@ -10,62 +10,8 @@
 
 using namespace R4300;
 
+extern
 Register Undefined;
-
-class Cop0 : public Coprocessor
-{
-public:
-    Cop0() {
-        regs[0] = &R4300::Index;
-        regs[1] = &R4300::Random;
-        regs[2] = &R4300::EntryLo0;
-        regs[3] = &R4300::EntryLo1;
-        regs[4] = &R4300::Context;
-        regs[5] = &R4300::PageMask;
-        regs[6] = &R4300::Wired;
-        regs[7] = &Undefined;
-        regs[8] = &R4300::BadVAddr;
-        regs[9] = &R4300::Count;
-        regs[10] = &R4300::EntryHi;
-        regs[11] = &R4300::Compare;
-        regs[12] = &R4300::SR;
-        regs[13] = &R4300::Cause;
-        regs[14] = &R4300::EPC;
-        regs[15] = &R4300::PrId;
-        regs[16] = &R4300::Config;
-        regs[17] = &R4300::LLAddr;
-        regs[18] = &R4300::WatchLo;
-        regs[19] = &R4300::WatchHi;
-        regs[20] = &R4300::XContext;
-        regs[21] = &Undefined;
-        regs[22] = &Undefined;
-        regs[23] = &Undefined;
-        regs[24] = &Undefined;
-        regs[25] = &Undefined;
-        regs[26] = &R4300::PErr;
-        regs[27] = &R4300::CacheErr;
-        regs[28] = &R4300::TagLo;
-        regs[29] = &R4300::TagHi;
-        regs[30] = &R4300::ErrPC;
-        regs[31] = &Undefined;
-    }
-    ~Cop0() {}
-
-    virtual void cofun(u32 instr) {
-        std::cerr << "COP0 COFUN " << instr << std::endl;
-    }
-
-    virtual u64 read(uint bytes, u32 rd) {
-        return regs[rd]->read(bytes);
-    }
-
-    virtual void write(uint bytes, u32 rd, u64 imm) {
-        regs[rd]->write(bytes, imm);
-    }
-
-private:
-    const Register *regs[32];
-};
 
 class Cop1 : public Coprocessor
 {
@@ -111,9 +57,12 @@ public:
 };
 
 namespace R4300 {
+
+extern Coprocessor cop0;
+
 State state;
 Coprocessor *cop[4] = {
-    new Cop0(),
+    &cop0,
     new Cop1(),
     new Coprocessor(),
     new Coprocessor(),
