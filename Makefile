@@ -16,8 +16,8 @@ CXXFLAGS  += -g -pg -DDEBUG=$(DEBUG)
 LDFLAGS   += -pg
 endif
 
-SRC       := main.cc memory.cc core.cc
-SRC       += r4300/cpu.cc r4300/cop0.cc r4300/hw.cc r4300/eval.cc r4300/mmu.cc
+SRC       := main.cc memory.cc core.cc terminal.cc
+SRC       += r4300/cpu.cc r4300/cop0.cc r4300/cop1.cc r4300/hw.cc r4300/eval.cc r4300/mmu.cc
 
 OBJS      := $(patsubst %.cc,$(OBJDIR)/%.o, $(SRC))
 DEPS      := $(patsubst %.cc,$(OBJDIR)/%.d, $(SRC))
