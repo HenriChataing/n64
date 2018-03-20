@@ -147,6 +147,8 @@ void eval(u64 vAddr)
     using namespace Mips::Copz;
     using namespace R4300;
 
+    std::cerr << std::hex << vAddr << ": ";
+
     switch (opcode = Mips::getOpcode(instr)) {
         case SPECIAL:
             switch (Mips::getFunct(instr)) {

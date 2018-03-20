@@ -38,6 +38,9 @@ public:
     void insert(Region *region);
     void insertRam(u64 addr, u64 size);
     void insertRom(u64 addr, u64 size, const std::string file);
+    void insertIOmem(u64 addr, u64 size,
+                     u64 (*read)(uint bytes, u64 addr),
+                     void (*write)(uint bytes, u64 addr, u64 value));
 
 protected:
     void adjustEndianness(uint bytes, u64 *value);

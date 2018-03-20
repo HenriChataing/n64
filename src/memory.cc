@@ -49,7 +49,7 @@ u64 Region::load(uint bytes, u64 addr)
         return sub->load(bytes, addr - sub->address);
     }
     std::cerr << "InvalidAddress(" << std::hex << addr << ")" << std::endl;
-    // throw "InvalidAddress2";
+    throw "InvalidAddress2";
     return 0;
 }
 
@@ -66,7 +66,7 @@ void Region::store(uint bytes, u64 addr, u64 value)
         return;
     }
     std::cerr << "InvalidAddress(" << std::hex << addr << ")" << std::endl;
-    // throw "InvalidAddress4";
+    throw "InvalidAddress4";
 }
 
 void Region::adjustEndianness(uint bytes, u64 *value)
@@ -207,6 +207,40 @@ void RamRegion::store(uint bytes, u64 addr, u64 value)
     }
 }
 
+class IOmemRegion : public Region
+{
+public:
+    typedef u64 (*Reader)(uint bytes, u64 addr);
+    typedef void (*Writer)(uint bytes, u64 addr, u64 value);
+
+    IOmemRegion(u64 address, u64 size,
+                Reader read, Writer write,
+                Region *container = NULL);
+    virtual ~IOmemRegion() {}
+
+    virtual u64 load(uint bytes, u64 addr) {
+        return read(bytes, addr);
+    }
+    virtual void store(uint bytes, u64 addr, u64 value) {
+        write(bytes, addr, value);
+    }
+
+private:
+    Reader read;
+    Writer write;
+};
+
+IOmemRegion::IOmemRegion(u64 address, u64 size,
+                         Reader read, Writer write,
+                         Region *container)
+    : Region(address, size, container), read(read), write(write)
+{
+    bigendian = false;
+    ram = false;
+    readonly = false;
+    device = true;
+}
+
 void Region::insertRam(u64 addr, u64 size)
 {
     insert(new RamRegion(addr, size, this));
@@ -215,6 +249,13 @@ void Region::insertRam(u64 addr, u64 size)
 void Region::insertRom(u64 addr, u64 size, const std::string file)
 {
     insert(new RamRegion(addr, size, file, this));
+}
+
+void Region::insertIOmem(u64 addr, u64 size,
+                         IOmemRegion::Reader read,
+                         IOmemRegion::Writer write)
+{
+    insert(new IOmemRegion(addr, size, read, write, this));
 }
 
 AddressSpace::AddressSpace() : root(NULL)

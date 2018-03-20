@@ -6,10 +6,10 @@ OBJDIR    := obj
 BINDIR    := bin
 EXE       := n64
 
-CXXFLAGS  := -Wall -Wno-unused-function -m32 -std=c++11
+CXXFLAGS  := -Wall -Wno-unused-function -std=c++11
 CXXFLAGS  += -I$(SRCDIR) -I$(SRCDIR) -DTARGET_BIGENDIAN
-LDFLAGS   := -m32
-LIBS      := -lpthread
+LDFLAGS   :=
+LIBS      := -lpthread -lcurses
 
 ifneq ($(DEBUG),)
 CXXFLAGS  += -g -pg -DDEBUG=$(DEBUG)
