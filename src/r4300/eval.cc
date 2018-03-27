@@ -1,4 +1,5 @@
 
+#include <iomanip>
 #include <iostream>
 
 #include <mips/asm.h>
@@ -38,9 +39,6 @@ namespace Eval {
         u32 rs = Mips::getRs(instr); \
         u32 rt = Mips::getRt(instr); \
         u64 imm = extend(Mips::getImmediate(instr), 16); \
-        std::cout << std::dec << #opcode; \
-        std::cout << " r" << rt << ", r" << rs; \
-        std::cout << std::hex << ", $" << imm << std::endl; \
         (void)rs; (void)rt; (void)imm; \
         __VA_ARGS__; \
         break; \
@@ -60,8 +58,6 @@ namespace Eval {
 #define JType(opcode, instr, ...) \
     case opcode: { \
         u64 tg = Mips::getTarget(instr); \
-        std::cout << std::hex << #opcode; \
-        std::cout << " $" << tg << std::endl; \
         (void)tg; \
         __VA_ARGS__; \
         break; \
@@ -83,9 +79,6 @@ namespace Eval {
         u32 rs = Mips::getRs(instr); \
         u32 rt = Mips::getRt(instr); \
         u32 shamnt = Mips::getShamnt(instr); \
-        std::cout << std::dec << #opcode; \
-        std::cout << " r" << rd << ", r" << rt << ", r" << rs; \
-        std::cout << ", " << shamnt << std::endl; \
         (void)rd; (void)rs; (void)rt; (void)shamnt; \
         __VA_ARGS__; \
         break; \
@@ -140,14 +133,16 @@ void eval(u64 vAddr)
     u32 instr = R4300::physmem.load(4, pAddr);
     u32 opcode;
 
+    std::cout << std::hex << std::setw(8) << vAddr << "    ";
+    Mips::disas(instr);
+    std::cout << std::endl;
+
     using namespace Mips::Opcode;
     using namespace Mips::Special;
     using namespace Mips::Regimm;
     using namespace Mips::Cop0;
     using namespace Mips::Copz;
     using namespace R4300;
-
-    std::cerr << std::hex << vAddr << ": ";
 
     switch (opcode = Mips::getOpcode(instr)) {
         case SPECIAL:

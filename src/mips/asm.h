@@ -248,4 +248,9 @@ static inline u32 getFunct(u32 instr) {
     return instr & 0x3flu;
 }
 
+/**
+ * @brief Pretty print an instruction.
+ */
+void disas(u32 instr);
+
 };
