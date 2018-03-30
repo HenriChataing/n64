@@ -666,17 +666,111 @@ void write(uint bytes, u64 addr, u64 value)
 
 namespace AI {
 
+enum Register {
+    // AI DRAM address
+    // (W): [23:0] starting RDRAM address (8B-aligned)
+    AI_DRAM_ADDR_REG = 0x0,
+    // AI length
+    // (RW): [14:0] transfer length (v1.0) - Bottom 3 bits are ignored
+    //       [17:0] transfer length (v2.0) - Bottom 3 bits are ignored
+    AI_LEN_REG = 0x4,
+    // AI control
+    // (W): [0] DMA enable - if LSB == 1, DMA is enabled
+    AI_CONTROL_REG = 0x8,
+    // AI status
+    // (R): [31]/[0] ai_full (addr & len buffer full)
+    //      [30] ai_busy
+    //      Note that a 1to0 transition in ai_full will set interrupt
+    // (W): clear audio interrupt
+    AI_STATUS_REG = 0xc,
+    // AI DAC sample period register
+    // (W): [13:0] dac rate
+    //          - vid_clock/(dperiod + 1) is the DAC sample rate
+    //          - (dperiod + 1) >= 66 * (aclockhp + 1) must be true
+    AI_DACRATE_REG = 0x10,
+    // AI bit rate
+    // (W): [3:0] bit rate (abus clock half period register - aclockhp)
+    //          - vid_clock/(2*(aclockhp + 1)) is the DAC clock rate
+    //          - The abus clock stops if aclockhp is zero
+    AI_BITRATE_REG = 0x14,
+};
+
+static u32 DramAddr;
+static u32 Len;
+static u32 Control;
+static u32 Status;
+static u32 DACRate;
+static u32 BitRate;
+
 u64 read(uint bytes, u64 addr)
 {
     std::cerr << "AI::read(" << std::hex << addr << ")" << std::endl;
-    throw "Unsupported";
+
+    if (bytes != 4)
+        throw "AI::ReadInvalidWidth";
+
+    switch (addr) {
+        case AI_DRAM_ADDR_REG:
+            std::cerr << "AI_DRAM_ADDR_REG" << std::endl;
+            return DramAddr;
+        case AI_LEN_REG:
+            std::cerr << "AI_LEN_REG" << std::endl;
+            return Len;
+        case AI_CONTROL_REG:
+            std::cerr << "AI_CONTROL_REG" << std::endl;
+            return Control;
+        case AI_STATUS_REG:
+            std::cerr << "AI_STATUS_REG" << std::endl;
+            return Status;
+        case AI_DACRATE_REG:
+            std::cerr << "AI_DACRATE_REG" << std::endl;
+            return DACRate;
+        case AI_BITRATE_REG:
+            std::cerr << "AI_BITRATE_REG" << std::endl;
+            return BitRate;
+        default:
+            throw "AI::unsupported";
+            break;
+    }
     return 0;
 }
 
 void write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "AI::write(" << std::hex << addr << ")" << std::endl;
-    throw "Unsupported";
+
+    if (bytes != 4)
+        throw "AI::WriteInvalidWidth";
+
+    switch (addr) {
+        case AI_DRAM_ADDR_REG:
+            std::cerr << "AI_DRAM_ADDR_REG" << std::endl;
+            DramAddr = value;
+            break;
+        case AI_LEN_REG:
+            std::cerr << "AI_LEN_REG" << std::endl;
+            Len = value;
+            break;
+        case AI_CONTROL_REG:
+            std::cerr << "AI_CONTROL_REG" << std::endl;
+            Control = value;
+            break;
+        case AI_STATUS_REG:
+            std::cerr << "AI_STATUS_REG" << std::endl;
+            Status = value;
+            break;
+        case AI_DACRATE_REG:
+            std::cerr << "AI_DACRATE_REG" << std::endl;
+            DACRate = value;
+            break;
+        case AI_BITRATE_REG:
+            std::cerr << "AI_BITRATE_REG" << std::endl;
+            BitRate = value;
+            break;
+        default:
+            throw "AI::unsupported";
+            break;
+    }
 }
 
 }; /* namespace AI */
