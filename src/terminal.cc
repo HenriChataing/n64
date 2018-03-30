@@ -10,6 +10,7 @@
 #include <list>
 #include <string>
 
+#include <mips/asm.h>
 #include <r4300/cpu.h>
 #include <r4300/eval.h>
 #include <r4300/hw.h>
@@ -200,15 +201,18 @@ bool printHelp(Shell &sh, std::vector<char *> &args)
 bool printRegisters(Shell &sh, std::vector<char *> &args)
 {
     using namespace std;
-    cout << "PC       LR       SP       FP" << endl;
+    cout << setw(6) << left << "pc";
     cout << hex << setw(8) << left << (uint32_t)R4300::state.reg.pc << endl;
-    cout << "GPR" << endl;
-    for (int i = 0; i < 32; i++) {
-        uint32_t reg = R4300::state.reg.gpr[i];
+
+    for (int i = 0; i < 32; i ++) {
+        uint32_t reg;
+
         if (i && !(i % 4))
             cout << endl;
-        cout << hex << setw(8) << left;
-        cout << reg << " ";
+
+        reg = R4300::state.reg.gpr[i];
+        cout << setw(6) << setfill(' ') << left << Mips::getRegisterName(i);
+        cout << setw(8) << setfill('0') << left << hex << reg << "    ";
     }
     cout << endl;
     return false;

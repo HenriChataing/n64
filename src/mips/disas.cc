@@ -56,7 +56,7 @@ char const *getRegisterName(uint reg)
         u32 rs = Mips::getRs(instr); \
         u16 imm = Mips::getImmediate(instr); \
         (void)rs; (void)rt; (void)imm; \
-        std::cout << name << " "; \
+        std::cout << std::setw(8) << std::left << name << " "; \
         IType_##fmt(rt, rs, imm); \
         break; \
     }
@@ -116,7 +116,7 @@ char const *getRegisterName(uint reg)
 #define JType(opcode, name, instr) \
     case opcode: { \
         u64 tg = Mips::getTarget(instr); \
-        std::cout << name << " $" << std::hex; \
+        std::cout << std::setw(8) << std::left << name << " $" << std::hex; \
         std::cout << std::setfill('0') << std::setw(8) << tg; \
         break; \
     }
@@ -139,7 +139,7 @@ char const *getRegisterName(uint reg)
         u32 rt = Mips::getRt(instr); \
         u32 shamnt = Mips::getShamnt(instr); \
         (void)rd; (void)rs; (void)rt; (void)shamnt; \
-        std::cout << name << " "; \
+        std::cout << std::setw(8) << std::left << name << " "; \
         RType_##fmt(rd, rs, rt, shamnt); \
         break; \
     }

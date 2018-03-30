@@ -253,4 +253,9 @@ static inline u32 getFunct(u32 instr) {
  */
 void disas(u32 instr);
 
+/**
+ * @brief Return the standardized name for a general purpose register.
+ */
+char const *getRegisterName(u32 reg);
+
 };
