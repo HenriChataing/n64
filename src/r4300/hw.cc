@@ -443,17 +443,223 @@ void write(uint bytes, u64 addr, u64 value)
 
 namespace VI {
 
+enum Register {
+    // VI status/control
+    // (RW): [1:0] type[1:0] (pixel size)
+    //              0: blank (no data, no sync)
+    //              1: reserved
+    //              2: 5/5/5/3 ("16" bit)
+    //              3: 8/8/8/8 (32 bit)
+    //       [2] gamma_dither_enable (normally on, unless "special effect")
+    //       [3] gamma_enable (normally on, unless MPEG/JPEG)
+    //       [4] divot_enable (normally on if antialiased,
+    //           unless decal lines)
+    //       [5] reserved - always off
+    //       [6] serrate (always on if interlaced, off if not)
+    //       [7] reserved - diagnostics only
+    //       [9:8] anti-alias (aa) mode[1:0]
+    //              0: aa & resamp (always fetch extra lines)
+    //              1: aa & resamp (fetch extra lines if needed)
+    //              2: resamp only (treat as all fully covered)
+    //              3: neither (replicate pixels, no interpolate)
+    //       [11] reserved - diagnostics only
+    //       [15:12] reserved
+    VI_CONTROL_REG = 0x0, // VI_STATUS_REG
+    // VI origin
+    // (RW): [23:0] frame buffer origin in bytes
+    VI_DRAM_ADDR_REG = 0x4, // VI_ORIGIN_REG
+    // VI width
+    // (RW): [11:0] frame buffer line width in pixels
+    VI_WIDTH_REG = 0x8, // VI_H_WIDTH_REG
+    // VI vertical intr
+    // (RW): [9:0] interrupt when current half-line = V_INTR
+    VI_INTR_REG = 0xc, // VI_V_INTR_REG
+    // VI current vertical line
+    // (RW): [9:0] current half line, sampled once per line (the lsb of
+    //             V_CURRENT is constant within a field, and in
+    //             interlaced modes gives the field number - which is
+    //             constant for non-interlaced modes)
+    //             - Writes clears interrupt line
+    VI_CURRENT_REG = 0x10, // VI_V_CURRENT_LINE_REG
+    // VI video timing
+    // (RW): [7:0] horizontal sync width in pixels
+    //       [15:8] color burst width in pixels
+    //       [19:16] vertical sync width in half lines
+    //       [29:20] start of color burst in pixels from h-sync
+    VI_BURST_REG = 0x14, // VI_TIMING_REG
+    // VI vertical sync
+    // (RW): [9:0] number of half-lines per field
+    VI_V_SYNC_REG = 0x18,
+    // VI horizontal sync
+    // (RW): [11:0] total duration of a line in 1/4 pixel
+    //       [20:16] a 5-bit leap pattern used for PAL only (h_sync_period)
+    VI_H_SYNC_REG = 0x1c,
+    // VI horizontal sync leap
+    // (RW): [11:0] identical to h_sync_period
+    //       [27:16] identical to h_sync_period
+    VI_LEAP_REG = 0x20, // VI_H_SYNC_LEAP_REG
+    // VI horizontal video
+    // (RW): [9:0] end of active video in screen pixels
+    //       [25:16] start of active video in screen pixels
+    VI_H_START_REG = 0x24, // VI_H_VIDEO_REG
+    // VI vertical video
+    // (RW): [9:0] end of active video in screen half-lines
+    //       [25:16] start of active video in screen half-lines
+    VI_V_START_REG = 0x28, // VI_V_VIDEO_REG
+    // VI vertical burst
+    // (RW): [9:0] end of color burst enable in half-lines
+    //       [25:16] start of color burst enable in half-lines
+    VI_V_BURST_REG = 0x2c,
+    // VI x-scale
+    // (RW): [11:0] 1/horizontal scale up factor (2.10 format)
+    //       [27:16] horizontal subpixel offset (2.10 format)
+    VI_X_SCALE_REG = 0x30,
+    // VI y-scale
+    // (RW): [11:0] 1/vertical scale up factor (2.10 format)
+    //       [27:16] vertical subpixel offset (2.10 format)
+    VI_Y_SCALE_REG = 0x34,
+};
+
+static u32 Control;
+static u32 DramAddr;
+static u32 Width;
+static u32 Intr;
+static u32 Current;
+static u32 Burst;
+static u32 VSync;
+static u32 HSync;
+static u32 Leap;
+static u32 HStart;
+static u32 VStart;
+static u32 VBurst;
+static u32 XScale;
+static u32 YScale;
+
 u64 read(uint bytes, u64 addr)
 {
     std::cerr << "VI::read(" << std::hex << addr << ")" << std::endl;
-    throw "Unsupported";
+
+    if (bytes != 4)
+        throw "VI::ReadInvalidWidth";
+
+    switch (addr) {
+        case VI_CONTROL_REG:
+            std::cerr << "VI_CONTROL_REG" << std::endl;
+            return Control;
+        case VI_DRAM_ADDR_REG:
+            std::cerr << "VI_DRAM_ADDR_REG" << std::endl;
+            return DramAddr;
+        case VI_WIDTH_REG:
+            std::cerr << "VI_WIDTH_REG" << std::endl;
+            return Width;
+        case VI_INTR_REG:
+            std::cerr << "VI_INTR_REG" << std::endl;
+            return Intr;
+        case VI_CURRENT_REG:
+            std::cerr << "VI_CURRENT_REG" << std::endl;
+            return Current;
+        case VI_BURST_REG:
+            std::cerr << "VI_BURST_REG" << std::endl;
+            return Burst;
+        case VI_V_SYNC_REG:
+            std::cerr << "VI_V_SYNC_REG" << std::endl;
+            return VSync;
+        case VI_H_SYNC_REG:
+            std::cerr << "VI_H_SYNC_REG" << std::endl;
+            return HSync;
+        case VI_LEAP_REG:
+            std::cerr << "VI_LEAP_REG" << std::endl;
+            return Leap;
+        case VI_H_START_REG:
+            std::cerr << "VI_H_START_REG" << std::endl;
+            return HStart;
+        case VI_V_START_REG:
+            std::cerr << "VI_V_START_REG" << std::endl;
+            return VStart;
+        case VI_V_BURST_REG:
+            std::cerr << "VI_V_BURST_REG" << std::endl;
+            return VBurst;
+        case VI_X_SCALE_REG:
+            std::cerr << "VI_X_SCALE_REG" << std::endl;
+            return XScale;
+        case VI_Y_SCALE_REG:
+            std::cerr << "VI_Y_SCALE_REG" << std::endl;
+            return YScale;
+        default:
+            throw "VI Unsupported";
+            break;
+    }
     return 0;
 }
 
 void write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "VI::write(" << std::hex << addr << ")" << std::endl;
-    throw "Unsupported";
+
+    if (bytes != 4)
+        throw "VI::WriteInvalidWidth";
+
+    switch (addr) {
+        case VI_CONTROL_REG:
+            std::cerr << "VI_CONTROL_REG" << std::endl;
+            Control = value;
+            break;
+        case VI_DRAM_ADDR_REG:
+            std::cerr << "VI_DRAM_ADDR_REG" << std::endl;
+            DramAddr = value;
+            break;
+        case VI_WIDTH_REG:
+            std::cerr << "VI_WIDTH_REG" << std::endl;
+            Width = value;
+            break;
+        case VI_INTR_REG:
+            std::cerr << "VI_INTR_REG" << std::endl;
+            Intr = value;
+            break;
+        case VI_CURRENT_REG:
+            std::cerr << "VI_CURRENT_REG" << std::endl;
+            Current = value;
+            break;
+        case VI_BURST_REG:
+            std::cerr << "VI_BURST_REG" << std::endl;
+            Burst = value;
+            break;
+        case VI_V_SYNC_REG:
+            std::cerr << "VI_V_SYNC_REG" << std::endl;
+            VSync = value;
+            break;
+        case VI_H_SYNC_REG:
+            std::cerr << "VI_H_SYNC_REG" << std::endl;
+            HSync = value;
+            break;
+        case VI_LEAP_REG:
+            std::cerr << "VI_LEAP_REG" << std::endl;
+            Leap = value;
+            break;
+        case VI_H_START_REG:
+            std::cerr << "VI_H_START_REG" << std::endl;
+            HStart = value;
+            break;
+        case VI_V_START_REG:
+            std::cerr << "VI_V_START_REG" << std::endl;
+            VStart = value;
+            break;
+        case VI_V_BURST_REG:
+            std::cerr << "VI_V_BURST_REG" << std::endl;
+            VBurst = value;
+            break;
+        case VI_X_SCALE_REG:
+            std::cerr << "VI_X_SCALE_REG" << std::endl;
+            XScale = value;
+            break;
+        case VI_Y_SCALE_REG:
+            std::cerr << "VI_Y_SCALE_REG" << std::endl;
+            YScale = value;
+            break;
+        default:
+            throw "VI Unsupported";
+            break;
+    }
 }
 
 }; /* namespace VI */
