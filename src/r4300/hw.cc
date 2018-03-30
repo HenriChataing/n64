@@ -764,17 +764,74 @@ void write(uint bytes, u64 addr, u64 value)
 
 namespace SI {
 
+enum Register {
+    // SI DRAM address
+    // (R/W): [23:0] starting RDRAM address
+    SI_DRAM_ADDR_REG = 0x0,
+    // SI address read 64B
+    // (W): [] any write causes a 64B DMA write
+    SI_PIF_ADDR_RD64B_REG = 0x4,
+    // SI address write 64B
+    // (W): [] any write causes a 64B DMA read
+    SI_PIF_ADDR_WR64B_REG = 0x10,
+    // SI status
+    // (W): [] any write clears interrupt
+    // (R): [0] DMA busy
+    //      [1] IO read busy
+    //      [2] reserved
+    //      [3] DMA error
+    //      [12] interrupt
+    SI_STATUS_REG = 0x18,
+};
+
+static u32 DramAddr;
+static u32 Status;
+
 u64 read(uint bytes, u64 addr)
 {
     std::cerr << "SI::read(" << std::hex << addr << ")" << std::endl;
-    throw "Unsupported";
+    if (bytes != 4)
+        throw "SI::ReadInvalidWidth";
+    switch (addr) {
+        case SI_DRAM_ADDR_REG:
+            std::cerr << "SI_DRAM_ADDR_REG" << std::endl;
+            return DramAddr;
+        case SI_STATUS_REG:
+            std::cerr << "SI_STATUS_REG" << std::endl;
+            return Status;
+        default:
+            throw "SI Unsupported";
+            break;
+    }
     return 0;
 }
 
 void write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "SI::write(" << std::hex << addr << ")" << std::endl;
-    throw "Unsupported";
+    if (bytes != 4)
+        throw "SI::ReadInvalidWidth";
+    switch (addr) {
+        case SI_DRAM_ADDR_REG:
+            std::cerr << "SI_DRAM_ADDR_REG" << std::endl;
+            DramAddr = value;
+            break;
+        case SI_PIF_ADDR_RD64B_REG:
+            std::cerr << "SI_PIF_ADDR_RD64B_REG" << std::endl;
+            throw "SI unsupported";
+            break;
+        case SI_PIF_ADDR_WR64B_REG:
+            std::cerr << "SI_PIF_ADDR_WR64B_REG" << std::endl;
+            throw "SI unsupported";
+            break;
+        case SI_STATUS_REG:
+            std::cerr << "SI_STATUS_REG" << std::endl;
+            Status = 0;
+            break;
+        default:
+            throw "SI Unsupported";
+            break;
+    }
 }
 
 }; /* namespace SI */
