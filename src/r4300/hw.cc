@@ -21,23 +21,25 @@ enum Register {
     RDRAM_DEVICE_MANUF_REG = 0x24,
 };
 
-static uint32_t DeviceType;
-static uint32_t DeviceId;
-static uint32_t Delay;
-static uint32_t Mode;
-static uint32_t RefInterval;
-static uint32_t RefRow;
-static uint32_t RasInterval;
-static uint32_t MinInterval;
-static uint32_t AddrSelect;
-static uint32_t DeviceManuf;
+static u32 DeviceType;
+static u32 DeviceId;
+static u32 Delay;
+static u32 Mode;
+static u32 RefInterval;
+static u32 RefRow;
+static u32 RasInterval;
+static u32 MinInterval;
+static u32 AddrSelect;
+static u32 DeviceManuf;
 
 u64 read(uint bytes, u64 addr)
 {
     std::cerr << "RdRam::read(" << std::hex << addr << ")" << std::endl;
+
     if (bytes != 4)
         throw "RI::ReadInvalidWidth";
-    switch (addr & ~0x7) {
+
+    switch (addr) {
         case RDRAM_DEVICE_TYPE_REG:
             std::cerr << "RDRAM_DEVICE_TYPE_REG" << std::endl;
             return DeviceType;
@@ -78,9 +80,11 @@ u64 read(uint bytes, u64 addr)
 void write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "RdRam::write(" << std::hex << addr << "," << value << ")" << std::endl;
+
     if (bytes != 4)
         throw "RI::WriteInvalidWidth";
-    switch (addr & ~0x7) {
+
+    switch (addr) {
         case RDRAM_DEVICE_TYPE_REG:
             std::cerr << "RDRAM_DEVICE_TYPE_REG" << std::endl;
             DeviceType = value;
@@ -379,14 +383,18 @@ enum Register {
     MI_INTR_MASK_REG = 0xc,
 };
 
-static uint32_t Mode;
-static uint32_t Version;
-static uint32_t Intr;
-static uint32_t IntrMask;
+static u32 Mode;
+static u32 Version;
+static u32 Intr;
+static u32 IntrMask;
 
 u64 read(uint bytes, u64 addr)
 {
     std::cerr << "MI::read(" << std::hex << addr << ")" << std::endl;
+
+    if (bytes != 4)
+        throw "MI::ReadInvalidWidth";
+
     switch (addr) {
         case MI_MODE_REG:
             std::cerr << "MI_MODE_REG" << std::endl;
@@ -410,6 +418,10 @@ u64 read(uint bytes, u64 addr)
 void write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "MI::write(" << std::hex << addr << ")" << std::endl;
+
+    if (bytes != 4)
+        throw "MI::WriteInvalidWidth";
+
     switch (addr) {
         case MI_MODE_REG:
             std::cerr << "MI_MODE_REG" << std::endl;
@@ -509,23 +521,26 @@ enum Register {
     PI_BSD_DOM2_RLS_REG = 0x30,
 };
 
-u32 DramAddr;
-u32 CartAddr;
-u32 ReadLen;
-u32 WriteLen;
-u32 Status = 0;
-u32 BsdDom1Lat;
-u32 BsdDom1Pwd;
-u32 BsdDom1Pgs;
-u32 BsdDom1Rls;
-u32 BsdDom2Lat;
-u32 BsdDom2Pwd;
-u32 BsdDom2Pgs;
-u32 BsdDom2Rls;
+static u32 DramAddr;
+static u32 CartAddr;
+static u32 ReadLen;
+static u32 WriteLen;
+static u32 Status = 0;
+static u32 BsdDom1Lat;
+static u32 BsdDom1Pwd;
+static u32 BsdDom1Pgs;
+static u32 BsdDom1Rls;
+static u32 BsdDom2Lat;
+static u32 BsdDom2Pwd;
+static u32 BsdDom2Pgs;
+static u32 BsdDom2Rls;
 
 u64 read(uint bytes, u64 addr)
 {
     std::cerr << "PI::read(" << std::hex << addr << ")" << std::endl;
+
+    if (bytes != 4)
+        throw "PI::ReadInvalidWidth";
 
     switch (addr) {
         case PI_DRAM_ADDR_REG:
@@ -577,6 +592,10 @@ u64 read(uint bytes, u64 addr)
 void write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "PI::write(" << std::hex << addr << "," << value << ")" << std::endl;
+
+    if (bytes != 4)
+        throw "PI::WriteInvalidWidth";
+
     switch (addr) {
         case PI_DRAM_ADDR_REG:
             std::cerr << "PI_DRAM_ADDR_REG" << std::endl;
@@ -642,15 +661,6 @@ void write(uint bytes, u64 addr, u64 value)
 
 namespace RI {
 
-static uint32_t Mode;
-static uint32_t Config;
-static uint32_t CurrentLoad;
-static uint32_t Select;
-static uint32_t Refresh;
-static uint32_t Latency;
-static uint32_t RError;
-static uint32_t WError;
-
 enum Register {
     // (RW): [1:0] operating mode
     //       [2] stop T active
@@ -679,11 +689,22 @@ enum Register {
     RI_WERROR_REG = 0x1c,
 };
 
+static u32 Mode;
+static u32 Config;
+static u32 CurrentLoad;
+static u32 Select;
+static u32 Refresh;
+static u32 Latency;
+static u32 RError;
+static u32 WError;
+
 u64 read(uint bytes, u64 addr)
 {
     std::cerr << "RI::read(" << std::hex << addr << ")" << std::endl;
+
     if (bytes != 4)
         throw "RI::ReadInvalidWidth";
+
     switch (addr) {
         case RI_MODE_REG:
             std::cerr << "RI_MODE_REG" << std::endl;
@@ -719,8 +740,10 @@ u64 read(uint bytes, u64 addr)
 void write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "RI::write(" << std::hex << addr << "," << value << ")" << std::endl;
+
     if (bytes != 4)
         throw "RI::WriteInvalidWidth";
+
     switch (addr) {
         case RI_MODE_REG:
             std::cerr << "RI_MODE_REG" << std::endl;
@@ -790,8 +813,10 @@ static u32 Status;
 u64 read(uint bytes, u64 addr)
 {
     std::cerr << "SI::read(" << std::hex << addr << ")" << std::endl;
+
     if (bytes != 4)
         throw "SI::ReadInvalidWidth";
+
     switch (addr) {
         case SI_DRAM_ADDR_REG:
             std::cerr << "SI_DRAM_ADDR_REG" << std::endl;
@@ -809,8 +834,10 @@ u64 read(uint bytes, u64 addr)
 void write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "SI::write(" << std::hex << addr << ")" << std::endl;
+
     if (bytes != 4)
         throw "SI::ReadInvalidWidth";
+
     switch (addr) {
         case SI_DRAM_ADDR_REG:
             std::cerr << "SI_DRAM_ADDR_REG" << std::endl;
