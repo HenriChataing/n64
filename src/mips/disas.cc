@@ -26,16 +26,9 @@ char const *getRegisterName(uint reg)
     return (reg > 31) ? "?" : RegisterNames[reg];
 }
 
-#define SignExtend(imm, size) ({ \
-    u##size valu##size = (imm); \
-    i##size vali##size = valu##size; \
-    i64 vali64 = vali##size; \
-    (u64)vali64; \
-})
-
-#define ZeroExtend(imm, size) ({ \
-    (u64)(imm); \
-})
+#define Unknown(instr) \
+    std::cout << "?" << std::hex << std::setfill('0') << std::setw(8); \
+    std::cout << instr << "?";
 
 /**
  * @brief Unparametrized instruction.
@@ -252,7 +245,8 @@ void disas(u32 instr)
                 SType(SYSCALL, "syscall")
                 RType(XOR, "xor", instr, Rd_Rs_Rt)
                 default:
-                    throw "Unsupported Special";
+                    Unknown(instr);
+                    return;
             }
             break;
 
@@ -267,8 +261,8 @@ void disas(u32 instr)
                 IType(BLTZAL, "bltzal", instr, Rs_Off)
                 IType(BLTZALL, "bltzall", instr, Rs_Off)
                 default:
-                    throw "Unupported Regimm";
-                    break;
+                    Unknown(instr);
+                    return;
             }
             break;
 
@@ -306,11 +300,13 @@ void disas(u32 instr)
                         IType(BCFL, "bc" #z "fl", instr, Off) \
                         IType(BCTL, "bc" #z "tl", instr, Off) \
                         default: \
-                            throw "Reserved instruction"; \
+                            Unknown(instr); \
+                            return; \
                     } \
                     break; \
                 default: \
-                    throw "Reserved instruction"; \
+                    Unknown(instr); \
+                    return; \
             } \
             break;
 
@@ -362,8 +358,8 @@ void disas(u32 instr)
         IType(SWR, "swr", instr, Rt_Off_Rs)
         IType(XORI, "xori", instr, Rt_Rs_XImm)
         default:
-            throw "Unsupported Opcode";
-            break;
+            Unknown(instr);
+            return;
     }
 }
 

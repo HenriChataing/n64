@@ -2,6 +2,7 @@
 #include <iomanip>
 #include <iostream>
 
+#include <circular_buffer.h>
 #include <mips/asm.h>
 #include <r4300/cpu.h>
 #include <r4300/hw.h>
@@ -114,6 +115,16 @@ namespace Eval {
     })
 
 /**
+ * @brief Type of an entry in the interpreter log.
+ */
+typedef std::pair<u64, u32> LogEntry;
+
+/**
+ * @brief Circular buffer for storing the last instructions executed.
+ */
+circular_buffer<LogEntry> _log(32);
+
+/**
  * @brief Fetch and interpret a single instruction from memory.
  */
 void step()
@@ -133,9 +144,7 @@ void eval(u64 vAddr)
     u32 instr = R4300::physmem.load(4, pAddr);
     u32 opcode;
 
-    std::cout << std::hex << std::setw(8) << vAddr << "    ";
-    Mips::disas(instr);
-    std::cout << std::endl;
+    _log.put(LogEntry(vAddr, instr));
 
     using namespace Mips::Opcode;
     using namespace Mips::Special;
@@ -505,6 +514,17 @@ void run()
     // while (1)
     for (int i = 0; i < 1000; i++)
         step();
+}
+
+void hist()
+{
+    while (!_log.empty()) {
+        LogEntry entry = _log.get();
+        std::cout << std::hex << std::setfill(' ') << std::right;
+        std::cout << std::setw(16) << entry.first << "    ";
+        Mips::disas(entry.second);
+        std::cout << std::endl;
+    }
 }
 
 }; /* namespace Eval */

@@ -23,6 +23,12 @@ void step();
  */
 void eval(u64 vAddr);
 
+/**
+ * @brief Print out the last instructions to execute.
+ * @todo export instructions instead
+ */
+void hist(void);
+
 };
 };
 

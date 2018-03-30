@@ -7,7 +7,7 @@ BINDIR    := bin
 EXE       := n64
 
 CXXFLAGS  := -Wall -Wno-unused-function -std=c++11
-CXXFLAGS  += -I$(SRCDIR) -I$(SRCDIR) -DTARGET_BIGENDIAN
+CXXFLAGS  += -I$(SRCDIR) -I$(SRCDIR)/lib -DTARGET_BIGENDIAN
 LDFLAGS   :=
 LIBS      := -lpthread -lcurses
 

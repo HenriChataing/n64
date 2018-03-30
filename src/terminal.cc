@@ -241,6 +241,7 @@ bool doContinue(Shell &sh, std::vector<char *> &args)
             R4300::Eval::step();
             for (size_t i = 0; i < sh.breakpoints.size(); i++) {
                 if (sh.breakpoints[i] == R4300::state.reg.pc) {
+                    R4300::Eval::hist();
                     std::cerr << "halting at breakpoint #" << i << ": ";
                     std::cerr << std::hex << R4300::state.reg.pc << std::endl;
                     return false;
@@ -248,6 +249,7 @@ bool doContinue(Shell &sh, std::vector<char *> &args)
             }
         }
     } catch (const char *exn) {
+        R4300::Eval::hist();
         std::cout << "caught exception '" << exn << "'" << std::endl;
         sh.abort = true;
     }
