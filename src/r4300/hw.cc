@@ -131,17 +131,180 @@ void write(uint bytes, u64 addr, u64 value)
 
 namespace SP {
 
+enum Register {
+    // Master, SP memory address
+    // (RW): [11:0] DMEM/IMEM address
+    //       [12] 0=DMEM,1=IMEM
+    SP_MEM_ADDR_REG = 0x0,
+    // Slave, SP DRAM DMA address
+    // (RW): [23:0] RDRAM address
+    SP_DRAM_ADDR_REG = 0x4,
+    // SP read DMA length
+    // direction: I/DMEM <- RDRAM
+    // (RW): [11:0] length
+    //       [19:12] count
+    //       [31:20] skip
+    SP_RD_LEN_REG = 0x8,
+    // SP write DMA length
+    // direction: I/DMEM -> RDRAM
+    // (RW): [11:0] length
+    //       [19:12] count
+    //       [31:20] skip
+    SP_WR_LEN_REG = 0xc,
+    // SP status
+    // (W): [0]  clear halt          (R): [0]  halt
+    //      [1]  set halt                 [1]  broke
+    //      [2]  clear broke              [2]  dma busy
+    //      [3]  clear intr               [3]  dma full
+    //      [4]  set intr                 [4]  io full
+    //      [5]  clear sstep              [5]  single step
+    //      [6]  set sstep                [6]  interrupt on break
+    //      [7]  clear intr on break      [7]  signal 0 set
+    //      [8]  set intr on break        [8]  signal 1 set
+    //      [9]  clear signal 0           [9]  signal 2 set
+    //      [10] set signal 0             [10] signal 3 set
+    //      [11] clear signal 1           [11] signal 4 set
+    //      [12] set signal 1             [12] signal 5 set
+    //      [13] clear signal 2           [13] signal 6 set
+    //      [14] set signal 2             [14] signal 7 set
+    //      [15] clear signal 3
+    //      [16] set signal 3
+    //      [17] clear signal 4
+    //      [18] set signal 4
+    //      [19] clear signal 5
+    //      [20] set signal 5
+    //      [21] clear signal 6
+    //      [22] set signal 6
+    //      [23] clear signal 7
+    //      [24] set signal 7
+    SP_STATUS_REG = 0x10,
+    // SP DMA full
+    // (R): [0] valid bit, dma full
+    SP_DMA_FULL_REG = 0x14,
+    // SP DMA busy
+    // (R): [0] valid bit, dma busy
+    SP_DMA_BUSY_REG = 0x18,
+    // SP semaphore
+    // (R): [0] semaphore flag (set on read)
+    // (W): [] clear semaphore flag
+    SP_SEMAPHORE_REG = 0x1c,
+    // SP PC
+    // (RW): [11:0] program counter
+    SP_PC_REG = 0x40000,
+    // SP IMEM BIST REG
+    // (W): [0] BIST check           (R): [0] BIST check
+    //      [1] BIST go                   [1] BIST go
+    //      [2] BIST clear                [2] BIST done
+    //                                    [6:3] BIST fail
+    SP_IBIST_REG = 0x40004,
+};
+
+static u32 MemAddr;
+static u32 DramAddr;
+static u32 ReadLen;
+static u32 WriteLen;
+static u32 Status;
+static u32 Semaphore;
+static u32 ProgramCounter;
+static u32 Ibist;
+
 u64 read(uint bytes, u64 addr)
 {
     std::cerr << "SP::read(" << std::hex << addr << ")" << std::endl;
-    throw "Unsupported";
+
+    if (bytes != 4)
+        throw "RI::ReadInvalidWidth";
+
+    switch (addr) {
+        case SP_MEM_ADDR_REG:
+            std::cerr << "SP_MEM_ADDR_REG" << std::endl;
+            return MemAddr;
+        case SP_DRAM_ADDR_REG:
+            std::cerr << "SP_DRAM_ADDR_REG" << std::endl;
+            return DramAddr;
+        case SP_RD_LEN_REG:
+            std::cerr << "SP_RD_LEN_REG" << std::endl;
+            return ReadLen;
+        case SP_WR_LEN_REG:
+            std::cerr << "SP_WR_LEN_REG" << std::endl;
+            return WriteLen;
+        case SP_STATUS_REG:
+            std::cerr << "SP_STATUS_REG" << std::endl;
+            return Status;
+        case SP_DMA_FULL_REG:
+            std::cerr << "SP_DMA_FULL_REG" << std::endl;
+            return 0;
+        case SP_DMA_BUSY_REG:
+            std::cerr << "SP_DMA_BUSY_REG" << std::endl;
+            return 0;
+        case SP_SEMAPHORE_REG: {
+            std::cerr << "SP_SEMAPHORE_REG" << std::endl;
+            u32 old = Semaphore;
+            Semaphore = 1;
+            return old;
+        }
+        case SP_PC_REG:
+            std::cerr << "SP_PC_REG" << std::endl;
+            return ProgramCounter;
+        case SP_IBIST_REG:
+            std::cerr << "SP_IBIST_REG" << std::endl;
+            return Ibist;
+        default:
+            throw "SP read unsupported";
+            break;
+    }
     return 0;
 }
 
 void write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "SP::write(" << std::hex << addr << ")" << std::endl;
-    throw "Unsupported";
+
+    if (bytes != 4)
+        throw "RI::ReadInvalidWidth";
+
+    switch (addr) {
+        case SP_MEM_ADDR_REG:
+            std::cerr << "SP_MEM_ADDR_REG" << std::endl;
+            MemAddr = value;
+            break;
+        case SP_DRAM_ADDR_REG:
+            std::cerr << "SP_DRAM_ADDR_REG" << std::endl;
+            DramAddr = value;
+            break;
+        case SP_RD_LEN_REG:
+            std::cerr << "SP_RD_LEN_REG" << std::endl;
+            ReadLen = value;
+            break;
+        case SP_WR_LEN_REG:
+            std::cerr << "SP_WR_LEN_REG" << std::endl;
+            WriteLen = value;;
+            break;
+        case SP_STATUS_REG:
+            std::cerr << "SP_STATUS_REG" << std::endl;
+            break;
+        case SP_DMA_FULL_REG:
+            std::cerr << "SP_DMA_FULL_REG" << std::endl;
+            break;
+        case SP_DMA_BUSY_REG:
+            std::cerr << "SP_DMA_BUSY_REG" << std::endl;
+            break;
+        case SP_SEMAPHORE_REG:
+            std::cerr << "SP_SEMAPHORE_REG" << std::endl;
+            Semaphore = 0;
+            break;
+        case SP_PC_REG:
+            std::cerr << "SP_PC_REG" << std::endl;
+            ProgramCounter = value;
+            break;
+        case SP_IBIST_REG:
+            std::cerr << "SP_IBIST_REG" << std::endl;
+            Ibist = value;
+            break;
+        default:
+            throw "SP read unsupported";
+            break;
+    }
 }
 
 }; /* namespace SP */
@@ -633,7 +796,7 @@ void init(std::string romFile)
     physmem.root->insertIOmem(0x03f00000llu, 0x100000, RdRam::read, RdRam::write); /* RDRAM Registers */
     physmem.root->insertRam(  0x04000000llu, 0x1000);     /* SP DMEM */
     physmem.root->insertRam(  0x04001000llu, 0x1000);     /* SP IMEM */
-    physmem.root->insertIOmem(0x04002000llu, 0x80000, SP::read, SP::write); /* SP Registers */
+    physmem.root->insertIOmem(0x04040000llu, 0x80000, SP::read, SP::write); /* SP Registers */
     physmem.root->insertIOmem(0x04100000llu, 0x100000, DPCommand::read, DPCommand::write); /* DP Command Registers */
     physmem.root->insertIOmem(0x04200000llu, 0x100000, DPSpan::read, DPSpan::write); /* DP Span Registers */
     physmem.root->insertIOmem(0x04300000llu, 0x100000, MI::read, MI::write); /* Mips Interface */
