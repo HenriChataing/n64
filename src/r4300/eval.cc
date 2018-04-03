@@ -103,13 +103,13 @@ namespace Eval {
     IType(opcode, instr, SignExtend, { \
         if (__VA_ARGS__) { \
             eval(state.reg.pc + 4); \
-            state.reg.pc += 4 + ((u64)imm << 2); \
+            state.reg.pc += 4 + (i64)(imm << 2); \
         } \
     }) \
     IType(opcode##L, instr, SignExtend, { \
         if (__VA_ARGS__) { \
             eval(state.reg.pc + 4); \
-            state.reg.pc += 4 + ((u64)imm << 2); \
+            state.reg.pc += 4 + (i64)(imm << 2); \
         } else \
             state.reg.pc += 4; \
     })
@@ -157,51 +157,36 @@ void eval(u64 vAddr)
         case SPECIAL:
             switch (Mips::getFunct(instr)) {
                 RType(ADD, instr, {
-                    u64 r = state.reg.gpr[rs] + state.reg.gpr[rt];
-                    if (r < state.reg.gpr[rs])
-                        throw "Integer overflow";
-                    state.reg.gpr[rd] = r;
+                    u64 r0 =
+                        (state.reg.gpr[rs] & 0xffffffff) +
+                        (state.reg.gpr[rt] & 0xffffffff);
+                    u64 r1 =
+                        (state.reg.gpr[rs] & 0x7fffffff) +
+                        (state.reg.gpr[rt] & 0x7fffffff);
+                    if (((r0 >> 1) ^ r1) & 0x80000000)
+                        throw "IntegerOverflow";
+                    state.reg.gpr[rd] = SignExtend(r0, 32);
                 })
                 RType(ADDU, instr, {
-                    state.reg.gpr[rd] = state.reg.gpr[rs] + state.reg.gpr[rt];
+                    u64 r = state.reg.gpr[rs] + state.reg.gpr[rt];
+                    state.reg.gpr[rd] = SignExtend(r, 32);
                 })
                 RType(AND, instr, {
                     state.reg.gpr[rd] = state.reg.gpr[rs] & state.reg.gpr[rt];
                 })
                 case BREAK:
                     throw "BREAK trap";
-                RType(DADD, instr, {
-                    // @todo raise Reserved instruction exception in 32 bit mode
-                    u64 r = state.reg.gpr[rs] + state.reg.gpr[rt];
-                    if (r < state.reg.gpr[rs])
-                        throw "Integer overflow";
-                    state.reg.gpr[rd] = r;
-                })
-                RType(DADDU, instr, {
-                    // @todo raise Reserved instruction exception in 32 bit mode
-                    state.reg.gpr[rd] = state.reg.gpr[rs] + state.reg.gpr[rt];
-                })
-                RType(DDIV, instr, {
-                    // @todo raise Reserved instruction exception in 32 bit mode
-                    state.reg.multLo = state.reg.gpr[rs] / state.reg.gpr[rt];
-                    state.reg.multHi = state.reg.gpr[rs] % state.reg.gpr[rt];
-                    state.reg.gpr[rd] = state.reg.multLo;
-                })
-                RType(DDIVU, instr, {
-                    // @todo raise Reserved instruction exception in 32 bit mode
-                    state.reg.multLo = state.reg.gpr[rs] / state.reg.gpr[rt];
-                    state.reg.multHi = state.reg.gpr[rs] % state.reg.gpr[rt];
-                    state.reg.gpr[rd] = state.reg.multLo;
-                })
+                RType(DADD, instr, { throw "Unsupported"; })
+                RType(DADDU, instr, { throw "Unsupported"; })
+                RType(DDIV, instr, { throw "Unsupported"; })
+                RType(DDIVU, instr, { throw "Unsupported"; })
                 RType(DIV, instr, {
                     state.reg.multLo = state.reg.gpr[rs] / state.reg.gpr[rt];
                     state.reg.multHi = state.reg.gpr[rs] % state.reg.gpr[rt];
-                    state.reg.gpr[rd] = state.reg.multLo;
                 })
                 RType(DIVU, instr, {
                     state.reg.multLo = state.reg.gpr[rs] / state.reg.gpr[rt];
                     state.reg.multHi = state.reg.gpr[rs] % state.reg.gpr[rt];
-                    state.reg.gpr[rd] = state.reg.multLo;
                 })
                 RType(DMULT, instr, { throw "Unsupported"; })
                 RType(DMULTU, instr, { throw "Unsupported"; })
@@ -218,8 +203,9 @@ void eval(u64 vAddr)
                 RType(DSUBU, instr, { throw "Unsupported"; })
                 RType(JALR, instr, { throw "Unsupported"; })
                 RType(JR, instr, {
-                    // @todo instruction takes 2 cycles
-                    state.reg.pc = state.reg.gpr[rs];
+                    u64 tg = state.reg.gpr[rs];
+                    eval(state.reg.pc + 4);
+                    state.reg.pc = tg;
                 })
                 RType(MFHI, instr, {
                     // @todo undefined if an instruction that follows modify
@@ -340,9 +326,11 @@ void eval(u64 vAddr)
             break;
 
         IType(ADDI, instr, SignExtend, {
-            u64 r = SignExtend(state.reg.gpr[rs] + imm, 32);
-            // @todo detect integer overflows
-            state.reg.gpr[rt] = r;
+            u64 r0 = (state.reg.gpr[rs] & 0xffffffff) + (imm & 0xffffffff);
+            u64 r1 = (state.reg.gpr[rs] & 0x7fffffff) + (imm & 0x7fffffff);
+            if (((r0 >> 1) ^ r1) & 0x80000000)
+                throw "IntegerOverflow";
+            state.reg.gpr[rt] = SignExtend(r0, 32);
         })
         IType(ADDIU, instr, SignExtend, {
             state.reg.gpr[rt] = SignExtend(state.reg.gpr[rs] + imm, 32);
@@ -369,59 +357,35 @@ void eval(u64 vAddr)
                 RType(MF, instr, {
                     state.reg.gpr[rt] = cop[opcode & 0x3]->read(4, rd);
                 })
-                RType(DMF, instr, {
-                    state.reg.gpr[rt] = cop[opcode & 0x3]->read(8, rd);
-                })
-                RType(CF, instr, {
-                    throw "Unsupported";
-                })
+                RType(DMF, instr, { throw "Unsupported"; })
+                RType(CF, instr, { throw "Unsupported"; })
                 RType(MT, instr, {
                     cop[opcode & 0x3]->write(4, rd, state.reg.gpr[rt]);
                 })
-                RType(DMT, instr, {
-                    cop[opcode & 0x3]->write(8, rd, state.reg.gpr[rt]);
-                })
-                RType(CT, instr, {
-                    throw "Unsupported";
-                })
+                RType(DMT, instr, { throw "Unsupported"; })
+                RType(CT, instr, {throw "Unsupported"; })
                 case BC:
                     switch (Mips::getRt(instr)) {
-                        IType(BCF, instr, SignExtend, {
-                            throw "Unsupported";
-                        })
-                        IType(BCT, instr, SignExtend, {
-                            throw "Unsupported";
-                        })
-                        IType(BCFL, instr, SignExtend, {
-                            throw "Unsupported";
-                        })
-                        IType(BCTL, instr, SignExtend, {
-                            throw "Unsupported";
-                        })
+                        IType(BCF, instr, SignExtend, { throw "Unsupported"; })
+                        IType(BCT, instr, SignExtend, { throw "Unsupported"; })
+                        IType(BCFL, instr, SignExtend, { throw "Unsupported"; })
+                        IType(BCTL, instr, SignExtend, { throw "Unsupported"; })
                         default:
-                            throw "Reserved instruction";
+                            throw "ReservedInstruction";
                     }
                     break;
                 default:
-                    throw "Reserved instruction";
+                    throw "ReservedInstruction";
             }
             break;
 
-        IType(DADDI, instr, SignExtend, {
-            // @todo raise Reserved instruction exception in 32 bit mode
-            u64 r = state.reg.gpr[rs] + imm;
-            if (r < state.reg.gpr[rs])
-                throw "Integer overflow";
-            state.reg.gpr[rt] = r;
-        })
-        IType(DADDIU, instr, SignExtend, {
-            // @todo raise Reserved instruction exception in 32 bit mode
-            state.reg.gpr[rt] = state.reg.gpr[rs] + imm;
-        })
+        IType(DADDI, instr, SignExtend, { throw "Unsupported"; })
+        IType(DADDIU, instr, SignExtend, { throw "Unsupported"; })
         JType(J, instr, { throw "Unsupported"; })
         JType(JAL, instr, {
             tg = (state.reg.pc & 0xfffffffff0000000) | (tg << 2);
             state.reg.gpr[31] = state.reg.pc + 8;
+            eval(state.reg.pc + 4);
             state.reg.pc = tg;
         })
         IType(LB, instr, SignExtend, { throw "Unsupported"; })
