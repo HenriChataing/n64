@@ -522,6 +522,9 @@ void hist()
         LogEntry entry = _log.get();
         std::cout << std::hex << std::setfill(' ') << std::right;
         std::cout << std::setw(16) << entry.first << "    ";
+        std::cout << std::hex << std::setfill('0');
+        std::cout << std::setw(8) << entry.second << "    ";
+        std::cout << std::setfill(' ');
         Mips::disas(entry.second);
         std::cout << std::endl;
     }

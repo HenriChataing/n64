@@ -56,39 +56,35 @@ char const *getRegisterName(uint reg)
         u32 rs = Mips::getRs(instr); \
         u16 imm = Mips::getImmediate(instr); \
         (void)rs; (void)rt; (void)imm; \
-        std::cout << std::setw(8) << std::left << name << " "; \
+        std::cout << std::setw(8) << std::setfill(' ') << std::left << name; \
+        std::cout << " " << std::setfill('0'); \
         IType_##fmt(rt, rs, imm); \
         break; \
     }
 
-#define IType_Rt_Rs_SImm(rt, rs, imm) \
+#define IType_Rt_Rs_Imm(rt, rs, imm) \
     std::cout << getRegisterName(rt); \
     std::cout << ", " << getRegisterName(rs); \
     std::cout << ", " << std::dec << (i16)imm;
 
-#define IType_Rt_Rs_UImm(rt, rs, imm) \
-    std::cout << getRegisterName(rt); \
-    std::cout << ", " << getRegisterName(rs); \
-    std::cout << ", " << std::dec << imm;
-
 #define IType_Rt_Rs_XImm(rt, rs, imm) \
     std::cout << getRegisterName(rt); \
     std::cout << ", " << getRegisterName(rs); \
-    std::cout << ", $" << std::hex << std::setfill('0') << std::setw(4) << imm;
+    std::cout << ", 0x" << std::hex << std::setfill('0') << std::setw(4) << imm;
 
 #define IType_Rt_XImm(rt, rs, imm) \
     std::cout << getRegisterName(rt); \
-    std::cout << ", $" << std::hex << std::setfill('0') << std::setw(4) << imm;
+    std::cout << ", 0x" << std::hex << std::setfill('0') << std::setw(4) << imm;
 
 #define IType_Rt_Off_Rs(rt, rs, off) \
     std::cout << getRegisterName(rt); \
     std::cout << ", " << std::dec << (i16)off; \
-    std::cout << "(" << getRegisterName(rt) << ")";
+    std::cout << "(" << getRegisterName(rs) << ")";
 
 #define IType_CRt_Off_Rs(rt, rs, off) \
     std::cout << "cr" << std::dec << rt; \
     std::cout << ", " << std::dec << (i16)off; \
-    std::cout << "(" << getRegisterName(rt) << ")";
+    std::cout << "(" << getRegisterName(rs) << ")";
 
 #define IType_Off(rt, rs, off) \
     std::cout << std::dec << (i16)off;
@@ -98,8 +94,8 @@ char const *getRegisterName(uint reg)
     std::cout << ", " << std::dec << (i16)off;
 
 #define IType_Rs_Rt_Off(rt, rs, off) \
-    std::cout << getRegisterName(rt); \
-    std::cout << ", " << getRegisterName(rs); \
+    std::cout << getRegisterName(rs); \
+    std::cout << ", " << getRegisterName(rt); \
     std::cout << ", " << std::dec << (i16)off;
 
 /**
@@ -266,8 +262,8 @@ void disas(u32 instr)
             }
             break;
 
-        IType(ADDI, "addi", instr, Rt_Rs_SImm)
-        IType(ADDIU, "addiu", instr, Rt_Rs_UImm)
+        IType(ADDI, "addi", instr, Rt_Rs_Imm)
+        IType(ADDIU, "addiu", instr, Rt_Rs_XImm)
         IType(ANDI, "andi", instr, Rt_Rs_XImm)
         IType(BEQ, "beq", instr, Rs_Rt_Off)
         IType(BEQL, "beql", instr, Rs_Rt_Off)
@@ -315,8 +311,8 @@ void disas(u32 instr)
         COPz(2)
         COPz(3)
 
-        IType(DADDI, "daddi", instr, Rt_Rs_SImm)
-        IType(DADDIU, "addiu", instr, Rt_Rs_UImm)
+        IType(DADDI, "daddi", instr, Rt_Rs_Imm)
+        IType(DADDIU, "daddiu", instr, Rt_Rs_XImm)
         JType(J, "j", instr)
         JType(JAL, "jal", instr)
         IType(LB, "lb", instr, Rt_Off_Rs)
@@ -348,8 +344,8 @@ void disas(u32 instr)
         IType(SDL, "sdl", instr, Rt_Off_Rs)
         IType(SDR, "sdr", instr, Rt_Off_Rs)
         IType(SH, "sh", instr, Rt_Off_Rs)
-        IType(SLTI, "slti", instr, Rt_Rs_SImm)
-        IType(SLTIU, "sltiu", instr, Rt_Rs_UImm)
+        IType(SLTI, "slti", instr, Rt_Rs_Imm)
+        IType(SLTIU, "sltiu", instr, Rt_Rs_Imm)
         IType(SW, "sw", instr, Rt_Off_Rs)
         IType(SWC1, "swc1", instr, CRt_Off_Rs)
         IType(SWC2, "swc2", instr, CRt_Off_Rs)

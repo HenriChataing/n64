@@ -212,7 +212,7 @@ bool printRegisters(Shell &sh, std::vector<char *> &args)
 
         reg = R4300::state.reg.gpr[i];
         cout << setw(6) << setfill(' ') << left << Mips::getRegisterName(i);
-        cout << setw(8) << setfill('0') << left << hex << reg << "    ";
+        cout << setw(8) << setfill('0') << right << hex << reg << "    ";
     }
     cout << endl;
     return false;
