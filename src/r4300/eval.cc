@@ -355,15 +355,19 @@ void eval(u64 vAddr)
             }
             switch (Mips::getRs(instr)) {
                 RType(MF, instr, {
-                    state.reg.gpr[rt] = cop[opcode & 0x3]->read(4, rd);
+                    state.reg.gpr[rt] = cop[opcode & 0x3]->read(4, rd, false);
                 })
                 RType(DMF, instr, { throw "Unsupported"; })
-                RType(CF, instr, { throw "Unsupported"; })
+                RType(CF, instr, {
+                    state.reg.gpr[rt] = cop[opcode & 0x3]->read(4, rd, true);
+                })
                 RType(MT, instr, {
-                    cop[opcode & 0x3]->write(4, rd, state.reg.gpr[rt]);
+                    cop[opcode & 0x3]->write(4, rd, state.reg.gpr[rt], false);
                 })
                 RType(DMT, instr, { throw "Unsupported"; })
-                RType(CT, instr, {throw "Unsupported"; })
+                RType(CT, instr, {
+                    cop[opcode & 0x3]->write(4, rd, state.reg.gpr[rt], true);
+                })
                 case BC:
                     switch (Mips::getRt(instr)) {
                         IType(BCF, instr, SignExtend, { throw "Unsupported"; })
@@ -410,17 +414,17 @@ void eval(u64 vAddr)
         IType(LWC1, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr = Memory::translateAddress(vAddr, 0);
-            cop[1]->write(4, rt, SignExtend(R4300::physmem.load(4, pAddr), 32));
+            cop[1]->write(4, rt, SignExtend(R4300::physmem.load(4, pAddr), 32), false);
         })
         IType(LWC2, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr = Memory::translateAddress(vAddr, 0);
-            cop[2]->write(4, rt, SignExtend(R4300::physmem.load(4, pAddr), 32));
+            cop[2]->write(4, rt, SignExtend(R4300::physmem.load(4, pAddr), 32), false);
         })
         IType(LWC3, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr = Memory::translateAddress(vAddr, 0);
-            cop[3]->write(4, rt, SignExtend(R4300::physmem.load(4, pAddr), 32));
+            cop[3]->write(4, rt, SignExtend(R4300::physmem.load(4, pAddr), 32), false);
         })
         IType(LWL, instr, SignExtend, { throw "Unsupported"; })
         IType(LWR, instr, SignExtend, { throw "Unsupported"; })
@@ -449,17 +453,17 @@ void eval(u64 vAddr)
         IType(SWC1, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr = Memory::translateAddress(vAddr, 0);
-            R4300::physmem.store(4, pAddr, cop[1]->read(4, rt));
+            R4300::physmem.store(4, pAddr, cop[1]->read(4, rt, false));
         })
         IType(SWC2, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr = Memory::translateAddress(vAddr, 0);
-            R4300::physmem.store(4, pAddr, cop[1]->read(4, rt));
+            R4300::physmem.store(4, pAddr, cop[1]->read(4, rt, false));
         })
         IType(SWC3, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr = Memory::translateAddress(vAddr, 0);
-            R4300::physmem.store(4, pAddr, cop[1]->read(4, rt));
+            R4300::physmem.store(4, pAddr, cop[1]->read(4, rt, false));
         })
         IType(SWL, instr, SignExtend, { throw "Unsupported"; })
         IType(SWR, instr, SignExtend, { throw "Unsupported"; })

@@ -15,22 +15,70 @@ class Cop0 : public Coprocessor
 {
 public:
     enum Register {
+        /**
+         * The Index register has 6 bits to specifiy an entry into the
+         * on-chip TLB. The higher order bit indicates the success of a
+         * previous TLBP instruction.
+         *
+         *  + [31] P
+         *      Result of last probe operation. Set to 1 if the last TLBP
+         *      instruction was unsuccessful
+         *  + [30:6] 0
+         *  + [5:0] index
+         *      Index to entry in TLB
+         */
         Index = 0,
         Random = 1,
+        /**
+         * The EntryLo0 and EntryLo1 are a pair of registers used to access an
+         * on-chip TLB. EntryLo0 is used for even virtual pages while EntryLo1
+         * is used for odd pages. They contain the Page Frame Number along
+         * with some configuration bits.
+         *
+         *  + [31:30] 0
+         *  + [29:6] PFN
+         *      Physical Frame Number
+         *  + [5:3] C
+         *      Cache algorithm (011 = cached, 010 = uncached)
+         *  + [2] D
+         *      Dirty bit
+         *  + [1] V
+         *      Valid bit
+         *  + [0] G
+         *      Global bit. If set in both EntryLo0 and EntryLo1, then ignore
+         *      ASID
+         */
         EntryLo0 = 2,
         EntryLo1 = 3,
         Context = 4,
+        /**
+         * The PageMask register is used as source or destination when reading
+         * or writing an on-chip TLB.
+         *
+         *  + [24:13] MASK
+         *      Mask for virtual page number. For R4300i this is 0000_0000_0000
+         *      for 4K pages, up to 1111_1111_1111 for 16M pages.
+         */
         PageMask = 5,
         Wired = 6,
         CPR7 = 7,
         BadVAddr = 8,
-        /*
+        /**
          * The Count register acts like a timer incrementing at a constant
          * rate (half the maximum instruction issue rate).
          */
         Count = 9,
+        /**
+         * Register used to access the TLB.
+         *
+         *  + [31:13] VPN2
+         *      Virtual Page Number divided by 2
+         *  + [12:8] 0
+         *  + [7:0] ASID
+         *      Address Space Identifier
+         */
         EntryHi = 10,
-        /*
+        /**
          * Compare register acts as a timer (see also the Count register).
          *
          * It maintains a stable value that does not change on its own.
@@ -89,37 +137,38 @@ public:
     Cop0() {}
     ~Cop0() {}
 
-    virtual void cofun(u32 instr) {
+    virtual void cofun(u32 instr)
+    {
         std::cerr << "COP0 COFUN " << instr << std::endl;
         throw "COPO COFUN";
     }
 
-    virtual u64 read(uint bytes, u32 rd) {
+    virtual u64 read(uint bytes, u32 rd, bool ctrl)
+    {
+        if (ctrl)
+            throw "Nonexisting COP0 control register";
+
         switch (rd) {
             case Index:
                 std::cerr << "read Index" << std::endl;
-                throw "ReadIndex";
-                break;
+                return state.cp0reg.index;
             case Random:
                 std::cerr << "read Random" << std::endl;
                 throw "ReadRandom";
                 break;
             case EntryLo0:
                 std::cerr << "read EntryLo0" << std::endl;
-                throw "ReadEntryLo0";
-                break;
+                return state.cp0reg.entryLo0;
             case EntryLo1:
                 std::cerr << "read EntryLo1" << std::endl;
-                throw "ReadEntryLo1";
-                break;
+                return state.cp0reg.entryLo1;
             case Context:
                 std::cerr << "read Context" << std::endl;
                 throw "ReadContext";
                 break;
             case PageMask:
                 std::cerr << "read PageMask" << std::endl;
-                throw "ReadPageMask";
-                break;
+                return state.cp0reg.pageMask;
             case Wired:
                 std::cerr << "read Wired" << std::endl;
                 throw "ReadWired";
@@ -136,14 +185,11 @@ public:
                 return state.cp0reg.count;
             case EntryHi:
                 std::cerr << "read EntryHi" << std::endl;
-                throw "ReadEntryHi";
-                break;
+                return state.cp0reg.entryHi;
             case Compare:
                 return state.cp0reg.compare;
             case SR:
-                std::cerr << "read SR" << std::endl;
-                throw "ReadSR";
-                break;
+                return state.cp0reg.sr;
             case Cause:
                 std::cerr << "read Cause" << std::endl;
                 return 0;
@@ -219,11 +265,15 @@ public:
         return 0;
     }
 
-    virtual void write(uint bytes, u32 rd, u64 imm) {
+    virtual void write(uint bytes, u32 rd, u64 imm, bool ctrl)
+    {
+        if (ctrl)
+            throw "Nonexisting COP0 control register";
+
         switch (rd) {
             case Index:
                 std::cerr << "write Index" << std::endl;
-                throw "WriteIndex";
+                state.cp0reg.index |= imm & 0x3flu;
                 break;
             case Random:
                 std::cerr << "write Random" << std::endl;
@@ -231,11 +281,11 @@ public:
                 break;
             case EntryLo0:
                 std::cerr << "write EntryLo0" << std::endl;
-                throw "WriteEntryLo0";
+                state.cp0reg.entryLo0 = imm;
                 break;
             case EntryLo1:
                 std::cerr << "write EntryLo1" << std::endl;
-                throw "WriteEntryLo1";
+                state.cp0reg.entryLo1 = imm;
                 break;
             case Context:
                 std::cerr << "write Context" << std::endl;
@@ -243,7 +293,7 @@ public:
                 break;
             case PageMask:
                 std::cerr << "write PageMask" << std::endl;
-                throw "WritePageMask";
+                state.cp0reg.pageMask = imm & 0xfff000lu;
                 break;
             case Wired:
                 std::cerr << "write Wired" << std::endl;
@@ -262,14 +312,15 @@ public:
                 break;
             case EntryHi:
                 std::cerr << "write EntryHi" << std::endl;
-                throw "WriteEntryHi";
+                state.cp0reg.entryHi = imm;
                 break;
             case Compare:
                 state.cp0reg.compare = imm;
                 break;
             case SR:
                 std::cerr << "write SR" << std::endl;
-                throw "WriteSR";
+                // @todo check written value and consequences
+                state.cp0reg.sr = imm;
                 break;
             case Cause:
                 std::cerr << "write Cause" << std::endl;

@@ -13,9 +13,7 @@ const static uint tlbEntryCount = 47;
 struct reg {
     u64 pc;             /**< Program counter */
     u64 gpr[32];        /**< General purpose registers */
-    u64 fgr[32];        /**< FP general purpose registers */
     u64 multHi, multLo; /**< Multiply / Divide registers */
-    u32 fcr0, fcr31;    /**< Implementation and control registers */
     bool llbit;
 };
 
@@ -54,6 +52,11 @@ struct cp0reg {
     u32 cpr31;          /**< Unused */
 };
 
+struct cp1reg {
+    u64 fgr[32];        /**< FP general purpose registers */
+    u32 fcr0, fcr31;    /**< Implementation and control registers */
+};
+
 struct tlbEntry {
     u64 pageMask;       /**< TLB page mask */
     u64 entryHi;        /**< High half of TLB entry */
@@ -75,6 +78,7 @@ public:
 
     struct reg reg;             /**< CPU registers */
     struct cp0reg cp0reg;       /**< Co-processor 0 registers */
+    struct cp1reg cp1reg;       /**< Co-processor 0 registers */
     struct tlbEntry tlb[tlbEntryCount];    /**< Translation look-aside buffer */
     ulong cycles;
 };
@@ -86,8 +90,8 @@ public:
     ~Coprocessor() {}
 
     virtual void cofun(u32 instr) {}
-    virtual u64 read(uint bytes, u32 rd) { return 0; }
-    virtual void write(uint bytes, u32 rd, u64 imm) {}
+    virtual u64 read(uint bytes, u32 rd, bool ctrl) { return 0; }
+    virtual void write(uint bytes, u32 rd, u64 imm, bool ctrl) {}
 
     virtual void BCF(u32 rd, u64 imm) {}
     virtual void BCT(u32 rd, u64 imm) {}

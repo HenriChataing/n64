@@ -22,34 +22,52 @@ public:
         throw "COP1 COFUN";
     }
 
-    virtual u64 read(uint bytes, u32 fs) {
+    virtual u64 read(uint bytes, u32 fs, bool ctrl) {
+        if (ctrl) {
+            if (fs == 0)
+                return state.cp1reg.fcr0;
+            if (fs == 31)
+                return state.cp1reg.fcr31;
+            throw "Nonexisting COP1 control register";
+        }
+
         if (bytes == 8) {
             if (FR())
-                return state.reg.fgr[fs];
+                return state.cp1reg.fgr[fs];
             else if ((fs % 2) == 0)
-                return state.reg.fgr[fs / 2];
+                return state.cp1reg.fgr[fs / 2];
         }
         return 0; // undefined
     }
 
-    virtual void write(uint bytes, u32 fs, u64 imm)
+    virtual void write(uint bytes, u32 fs, u64 imm, bool ctrl)
     {
+        if (ctrl) {
+            if (fs == 0)
+                state.cp1reg.fcr0 = imm;
+            else if (fs == 31)
+                state.cp1reg.fcr31 = imm;
+            else
+                throw "Nonexisting COP1 control register";
+            return;
+        }
+
         if (bytes == 8) {
             if (FR())
-                state.reg.fgr[fs] = imm;
+                state.cp1reg.fgr[fs] = imm;
             else if ((fs % 2) == 0)
-                state.reg.fgr[fs / 2] = imm;
+                state.cp1reg.fgr[fs / 2] = imm;
             // undefined otherwise
         } else {
             if (FR())
-                state.reg.fgr[fs] = imm; // semi undefined
+                state.cp1reg.fgr[fs] = imm; // semi undefined
             else if (fs % 2)
-                state.reg.fgr[fs / 2] =
-                    (state.reg.fgr[fs / 2] & 0xffffffff) |
+                state.cp1reg.fgr[fs / 2] =
+                    (state.cp1reg.fgr[fs / 2] & 0xffffffff) |
                     (imm << 32);
             else
-                state.reg.fgr[fs / 2] =
-                    (state.reg.fgr[fs / 2] & ~0xffffffff) |
+                state.cp1reg.fgr[fs / 2] =
+                    (state.cp1reg.fgr[fs / 2] & ~0xffffffff) |
                     (imm & 0xffffffff);
         }
     }
