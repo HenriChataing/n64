@@ -1163,6 +1163,21 @@ void write(uint bytes, u64 addr, u64 value)
 
 }; /* namespace SI */
 
+namespace PIF {
+
+u64 read(uint bytes, u64 addr)
+{
+    std::cerr << "PIF::read(" << std::hex << addr << ")" << std::endl;
+    return 0;
+}
+
+void write(uint bytes, u64 addr, u64 value)
+{
+    std::cerr << "PIF::write(" << std::hex << addr << ", " << value << ")" << std::endl;
+}
+
+}; /* namespace PIF */
+
 /**
  * Physical address space.
  */
@@ -1189,8 +1204,9 @@ void init(std::string romFile)
     physmem.root->insertIOmem(0x04600000llu, 0x100000, PI::read, PI::write); /* Peripheral Interface */
     physmem.root->insertIOmem(0x04700000llu, 0x100000, RI::read, RI::write); /* RDRAM Interface */
     physmem.root->insertIOmem(0x04800000llu, 0x100000, SI::read, SI::write); /* Serial Interface */
-    physmem.root->insertRam(0x04001000llu, 0x1000);     /* imem */
-    physmem.root->insertRom(0x10000000llu, 0xfc00000, romFile);
+    physmem.root->insertRam(  0x04001000llu, 0x1000);     /* imem */
+    physmem.root->insertRom(  0x10000000llu, 0xfc00000, romFile);
+    physmem.root->insertIOmem(0x1fc00000llu, 0x100000, PIF::read, PIF::write);
 }
 
 };
