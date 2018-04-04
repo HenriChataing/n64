@@ -189,7 +189,22 @@ void eval(u64 vAddr)
                     state.reg.multHi = state.reg.gpr[rs] % state.reg.gpr[rt];
                 })
                 RType(DMULT, instr, { throw "Unsupported"; })
-                RType(DMULTU, instr, { throw "Unsupported"; })
+                RType(DMULTU, instr, {
+                    u64 x = state.reg.gpr[rs];
+                    u64 y = state.reg.gpr[rt];
+                    u64 a = x >> 32, b = x & 0xffffffff;
+                    u64 c = y >> 32, d = y & 0xffffffff;
+
+                    u64 ac = a * c;
+                    u64 bc = b * c;
+                    u64 ad = a * d;
+                    u64 bd = b * d;
+
+                    u64 mid34 = (bd >> 32) + (bc & 0xffffffff) + (ad & 0xffffffff);
+
+                    state.reg.multHi = ac + (bc >> 32) + (ad >> 32) + (mid34 >> 32);
+                    state.reg.multLo = (mid34 << 32) | (bd & 0xffffffff);
+                })
                 RType(DSLL, instr, { throw "Unsupported"; })
                 RType(DSLL32, instr, { throw "Unsupported"; })
                 RType(DSLLV, instr, { throw "Unsupported"; })
@@ -394,7 +409,11 @@ void eval(u64 vAddr)
         })
         IType(LB, instr, SignExtend, { throw "Unsupported"; })
         IType(LBU, instr, SignExtend, { throw "Unsupported"; })
-        IType(LD, instr, SignExtend, { throw "Unsupported"; })
+        IType(LD, instr, SignExtend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            state.reg.gpr[rt] = R4300::physmem.load(8, pAddr);
+        })
         IType(LDC1, instr, SignExtend, { throw "Unsupported"; })
         IType(LDC2, instr, SignExtend, { throw "Unsupported"; })
         IType(LDL, instr, SignExtend, { throw "Unsupported"; })
