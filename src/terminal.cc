@@ -201,8 +201,9 @@ bool printHelp(Shell &sh, std::vector<char *> &args)
 bool printRegisters(Shell &sh, std::vector<char *> &args)
 {
     using namespace std;
-    cout << setw(6) << left << "pc";
-    cout << hex << setw(8) << left << (uint32_t)R4300::state.reg.pc << endl;
+    cout << setw(6) << setfill(' ') << left << "pc";
+    cout << setw(8) << setfill('0') <<  left << hex;
+    cout << (uint32_t)R4300::state.reg.pc << endl;
 
     for (int i = 0; i < 32; i ++) {
         uint32_t reg;
