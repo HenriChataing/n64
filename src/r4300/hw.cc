@@ -917,7 +917,7 @@ void write(uint bytes, u64 addr, u64 value)
             break;
         case PI_STATUS_REG:
             std::cerr << "PI_STATUS_REG" << std::endl;
-            Status = value;
+            Status = 0;
             break;
         case PI_BSD_DOM1_LAT_REG:
             std::cerr << "PI_BSD_DOM1_LAT_REG" << std::endl;
