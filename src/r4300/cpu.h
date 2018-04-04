@@ -65,8 +65,6 @@ struct tlbEntry {
 
     u8 asid;            /**< Extracted ASID */
     bool global;        /**< Extracted global bit */
-    bool valid;         /**< Extracted valid bit */
-    bool dirty;         /**< Extracted dirty bit */
 };
 
 class State

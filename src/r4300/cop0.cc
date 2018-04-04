@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include <memory.h>
+#include <mips/asm.h>
 #include <r4300/hw.h>
 
 #include "cpu.h"
@@ -140,7 +141,50 @@ public:
     virtual void cofun(u32 instr)
     {
         std::cerr << "COP0 COFUN " << instr << std::endl;
-        throw "COPO COFUN";
+        uint i;
+        u32 op = Mips::getFunct(instr);
+        switch (op) {
+            case Mips::Cop0::TLBR:
+                i = state.cp0reg.index & 0x3flu;
+                if (i > tlbEntryCount)
+                    break;
+                state.cp0reg.pageMask = state.tlb[i].pageMask;
+                state.cp0reg.entryHi = state.tlb[i].entryHi;
+                state.cp0reg.entryLo0 = state.tlb[i].entryLo0;
+                state.cp0reg.entryLo1 = state.tlb[i].entryLo1;
+                break;
+
+            case Mips::Cop0::TLBWI:
+            case Mips::Cop0::TLBWR:
+                if (op == Mips::Cop0::TLBWI) {
+                    i = state.cp0reg.index & 0x3flu;
+                    if (i > tlbEntryCount)
+                        break;
+                } else {
+                    i = state.cp0reg.random;
+                    state.cp0reg.random = (i + tlbEntryCount - 1) % tlbEntryCount;
+                }
+
+                state.tlb[i].pageMask = state.cp0reg.pageMask;
+                state.tlb[i].entryHi = state.cp0reg.entryHi;
+                state.tlb[i].entryLo0 = state.cp0reg.entryLo0;
+                state.tlb[i].entryLo1 = state.cp0reg.entryLo1;
+                state.tlb[i].asid = state.cp0reg.entryHi & 0xfflu;
+                state.tlb[i].global =
+                    (state.cp0reg.entryLo0 & 1lu) &&
+                    (state.cp0reg.entryLo1 & 1lu);
+                break;
+
+            case Mips::Cop0::TLBP:
+                throw "Unsupported";
+                break;
+            case Mips::Cop0::ERET:
+                throw "Unsupported";
+                break;
+            default:
+                throw "UndefinedCopO";
+                break;
+        }
     }
 
     virtual u64 read(uint bytes, u32 rd, bool ctrl)

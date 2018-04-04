@@ -62,23 +62,31 @@ u64 translateAddress(u64 vAddr, bool writeAccess)
 
     R4300::tlbEntry &entry = R4300::state.tlb[i];
 
-    // Check valid bit
-    if (!entry.valid)
-        throw "TLB invalid";
-
-    // Check if trying to write dirty address.
-    if (writeAccess && entry.dirty)
-        throw "TLD mod";
-
     // Compute physical address + cache attributes.
     u64 maskShift = entry.pageMask >> 2;
     u64 offsetMask = maskShift ^ (maskShift - 1llu);
     u64 parityMask = offsetMask + 1llu;
     u64 pAddr = vAddr & offsetMask;
-    if (vAddr & parityMask)
+
+    if (vAddr & parityMask) {
+        // Check valid bit
+        if ((entry.entryLo1 & 2) == 0)
+            throw "TLB invalid";
+        // Check if trying to write dirty address.
+        if (writeAccess && (entry.entryLo1 & 4) == 0)
+            throw "TLD mod";
+
         pAddr |= (entry.entryLo1 << 6) & 0xffffff000llu;
-    else
+    } else {
+        // Check valid bit
+        if ((entry.entryLo0 & 2) == 0)
+            throw "TLB invalid";
+        // Check if trying to write dirty address.
+        if (writeAccess && (entry.entryLo0 & 4) == 0)
+            throw "TLD mod";
+
         pAddr |= (entry.entryLo0 << 6) & 0xffffff000llu;
+    }
     return pAddr;
 }
 
