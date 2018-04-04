@@ -70,11 +70,11 @@ char const *getRegisterName(uint reg)
 #define IType_Rt_Rs_XImm(rt, rs, imm) \
     std::cout << getRegisterName(rt); \
     std::cout << ", " << getRegisterName(rs); \
-    std::cout << ", 0x" << std::hex << std::setfill('0') << std::setw(4) << imm;
+    std::cout << ", 0x" << std::hex << std::left << imm;
 
 #define IType_Rt_XImm(rt, rs, imm) \
     std::cout << getRegisterName(rt); \
-    std::cout << ", 0x" << std::hex << std::setfill('0') << std::setw(4) << imm;
+    std::cout << ", 0x" << std::hex << std::left << imm;
 
 #define IType_Rt_Off_Rs(rt, rs, off) \
     std::cout << getRegisterName(rt); \

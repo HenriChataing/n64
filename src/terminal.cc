@@ -230,6 +230,7 @@ bool doStep(Shell &sh, std::vector<char *> &args)
         return false;
     try {
         R4300::Eval::step();
+        R4300::Eval::hist();
     } catch (const char *exn) {
         std::cout << "caught exception '" << exn << "'" << std::endl;
         sh.abort = true;
