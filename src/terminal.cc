@@ -202,8 +202,7 @@ bool printRegisters(Shell &sh, std::vector<char *> &args)
 {
     using namespace std;
     cout << setw(6) << setfill(' ') << left << "pc";
-    cout << setw(8) << setfill('0') <<  left << hex;
-    cout << (uint32_t)R4300::state.reg.pc << endl;
+    cout << setw(8) << left << hex << (uint32_t)R4300::state.reg.pc << endl;
 
     for (int i = 0; i < 32; i ++) {
         uint32_t reg;
@@ -216,6 +215,38 @@ bool printRegisters(Shell &sh, std::vector<char *> &args)
         cout << setw(8) << setfill('0') << right << hex << reg << "    ";
     }
     cout << endl;
+    return false;
+}
+
+bool printCop0Registers(Shell &sh, std::vector<char *> &args)
+{
+    using namespace std;
+
+#define PrintReg(name) \
+    cout << setw(10) << setfill(' ') << left << #name; \
+    cout << setw(16) << left << hex << R4300::state.cp0reg.name
+
+#define Print2Regs(name0, name1) \
+    PrintReg(name0); cout << " "; PrintReg(name1); cout << endl
+
+    Print2Regs(index, random);
+    Print2Regs(entryLo0, entryLo1);
+    Print2Regs(context, pageMask);
+    Print2Regs(wired, badVAddr);
+    Print2Regs(count, entryHi);
+    Print2Regs(compare, sr);
+    Print2Regs(cause, epc);
+    Print2Regs(prId, config);
+    Print2Regs(llAddr, watchLo);
+    Print2Regs(watchHi, xContext);
+    Print2Regs(pErr, cacheErr);
+    Print2Regs(tagLo, tagHi);
+    PrintReg(errorEpc);
+    cout << endl;
+
+#undef PrintReg
+#undef Print2Regs
+
     return false;
 }
 
@@ -316,6 +347,10 @@ void terminal()
     sh.config("quit", doQuit);
     sh.config("regs", printRegisters);
     sh.config("registers", printRegisters);
+    sh.config("cp0", printCop0Registers);
+    sh.config("cop0", printCop0Registers);
+    sh.config("cp0regs", printCop0Registers);
+    sh.config("cop0regs", printCop0Registers);
     sh.config("s", doStep);
     sh.config("step", doStep);
     sh.config("c", doContinue);

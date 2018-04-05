@@ -48,7 +48,7 @@ struct cp0reg {
     u32 cacheErr;       /**< Not Used */
     u32 tagLo;          /**< Cache tag register */
     u32 tagHi;          /**< Cache tag register (reserved) */
-    u32 errPc;          /**< Error exception program counter */
+    u32 errorEpc;       /**< Error exception program counter */
     u32 cpr31;          /**< Unused */
 };
 

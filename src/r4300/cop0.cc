@@ -109,6 +109,10 @@ public:
          *  + [1:0] 0
          */
         Cause = 13,
+        /**
+         * The EPC register contains the address at which instruction
+         * processing may resume after servicing an exception.
+         */
         EPC = 14,
         PrId = 15,
         Config = 16,
@@ -131,7 +135,7 @@ public:
          */
         TagLo = 28,
         TagHi = 29,
-        ErrPC = 30,
+        ErrorEPC = 30,
         CPR31 = 31,
     };
 
@@ -176,11 +180,19 @@ public:
                 break;
 
             case Mips::Cop0::TLBP:
-                throw "Unsupported";
+                throw "TLBP Unsupported";
                 break;
+
             case Mips::Cop0::ERET:
-                throw "Unsupported";
+                if (ERL()) {
+                    state.reg.pc = state.cp0reg.errorEpc;
+                    state.cp0reg.sr &= ~(1lu << 2);
+                } else {
+                    state.reg.pc = state.cp0reg.epc;
+                    state.cp0reg.sr &= ~(1lu << 1);
+                }
                 break;
+
             default:
                 throw "UndefinedCopO";
                 break;
@@ -297,8 +309,8 @@ public:
                 return state.cp0reg.tagLo;
             case TagHi:
                 return state.cp0reg.tagHi;
-            case ErrPC:
-                std::cerr << "read ErrPC" << std::endl;
+            case ErrorEPC:
+                std::cerr << "read ErrorEPC" << std::endl;
                 throw "ReadErrPC";
                 break;
             case CPR31:
@@ -362,7 +374,7 @@ public:
                 state.cp0reg.compare = imm;
                 break;
             case SR:
-                std::cerr << "write SR" << std::endl;
+                std::cerr << "write SR (" << std::hex << imm << ")" << std::endl;
                 // @todo check written value and consequences
                 state.cp0reg.sr = imm;
                 break;
@@ -370,8 +382,8 @@ public:
                 std::cerr << "write Cause" << std::endl;
                 break;
             case EPC:
-                std::cerr << "write EPC" << std::endl;
-                throw "WriteEPC";
+                std::cerr << "write EPC (" << std::hex << imm << ")" << std::endl;
+                state.cp0reg.epc = imm;
                 break;
             case PrId:
                 std::cerr << "write PrId" << std::endl;
@@ -433,8 +445,8 @@ public:
                 std::cerr << "write TagHi" << std::endl;
                 state.cp0reg.tagHi = imm;
                 break;
-            case ErrPC:
-                std::cerr << "write ErrPC" << std::endl;
+            case ErrorEPC:
+                std::cerr << "write ErrorEPC" << std::endl;
                 throw "WriteErrPC";
                 break;
             case CPR31:
