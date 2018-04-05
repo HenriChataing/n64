@@ -417,15 +417,27 @@ void eval(u64 vAddr)
 
         IType(DADDI, instr, SignExtend, { throw "Unsupported"; })
         IType(DADDIU, instr, SignExtend, { throw "Unsupported"; })
-        JType(J, instr, { throw "Unsupported"; })
+        JType(J, instr, {
+            tg = (state.reg.pc & 0xfffffffff0000000) | (tg << 2);
+            eval(state.reg.pc + 4);
+            state.reg.pc = tg;
+        })
         JType(JAL, instr, {
             tg = (state.reg.pc & 0xfffffffff0000000) | (tg << 2);
             state.reg.gpr[31] = state.reg.pc + 8;
             eval(state.reg.pc + 4);
             state.reg.pc = tg;
         })
-        IType(LB, instr, SignExtend, { throw "Unsupported"; })
-        IType(LBU, instr, SignExtend, { throw "Unsupported"; })
+        IType(LB, instr, SignExtend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            state.reg.gpr[rt] = SignExtend(R4300::physmem.load(1, pAddr), 8);
+        })
+        IType(LBU, instr, SignExtend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            state.reg.gpr[rt] = ZeroExtend(R4300::physmem.load(1, pAddr), 8);
+        })
         IType(LD, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr = Memory::translateAddress(vAddr, 0);
@@ -472,10 +484,18 @@ void eval(u64 vAddr)
         IType(ORI, instr, ZeroExtend, {
             state.reg.gpr[rt] = state.reg.gpr[rs] | imm;
         })
-        IType(SB, instr, SignExtend, { throw "Unsupported"; })
+        IType(SB, instr, SignExtend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            R4300::physmem.store(1, pAddr, state.reg.gpr[rt]);
+        })
         IType(SC, instr, SignExtend, { throw "Unsupported"; })
         IType(SCD, instr, SignExtend, { throw "Unsupported"; })
-        IType(SD, instr, SignExtend, { throw "Unsupported"; })
+        IType(SD, instr, SignExtend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            R4300::physmem.store(8, pAddr, state.reg.gpr[rt]);
+        })
         IType(SDC1, instr, SignExtend, { throw "Unsupported"; })
         IType(SDC2, instr, SignExtend, { throw "Unsupported"; })
         IType(SDL, instr, SignExtend, { throw "Unsupported"; })
