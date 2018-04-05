@@ -179,12 +179,17 @@ void eval(u64 vAddr)
                 RType(DADD, instr, { throw "Unsupported"; })
                 RType(DADDU, instr, { throw "Unsupported"; })
                 RType(DDIV, instr, { throw "Unsupported"; })
-                RType(DDIVU, instr, { throw "Unsupported"; })
+                RType(DDIVU, instr, {
+                    state.reg.multLo = state.reg.gpr[rs] / state.reg.gpr[rt];
+                    state.reg.multHi = state.reg.gpr[rs] % state.reg.gpr[rt];
+                })
                 RType(DIV, instr, {
+                    // @todo both operands must be valid 32 bit signed values
                     state.reg.multLo = state.reg.gpr[rs] / state.reg.gpr[rt];
                     state.reg.multHi = state.reg.gpr[rs] % state.reg.gpr[rt];
                 })
                 RType(DIVU, instr, {
+                    // @todo both operands must be valid 32 bit signed values
                     state.reg.multLo = state.reg.gpr[rs] / state.reg.gpr[rt];
                     state.reg.multHi = state.reg.gpr[rs] % state.reg.gpr[rt];
                 })
@@ -206,10 +211,14 @@ void eval(u64 vAddr)
                     state.reg.multLo = (mid34 << 32) | (bd & 0xffffffff);
                 })
                 RType(DSLL, instr, { throw "Unsupported"; })
-                RType(DSLL32, instr, { throw "Unsupported"; })
+                RType(DSLL32, instr, {
+                    state.reg.gpr[rd] = state.reg.gpr[rt] << (shamnt + 32);
+                })
                 RType(DSLLV, instr, { throw "Unsupported"; })
                 RType(DSRA, instr, { throw "Unsupported"; })
-                RType(DSRA32, instr, { throw "Unsupported"; })
+                RType(DSRA32, instr, {
+                    state.reg.gpr[rd] = state.reg.gpr[rt] >> (shamnt + 32);
+                })
                 RType(DSRAV, instr, { throw "Unsupported"; })
                 RType(DSRL, instr, { throw "Unsupported"; })
                 RType(DSRL32, instr, { throw "Unsupported"; })
@@ -234,8 +243,12 @@ void eval(u64 vAddr)
                 })
                 RType(MOVN, instr, { throw "Unsupported"; })
                 RType(MOVZ, instr, { throw "Unsupported"; })
-                RType(MTHI, instr, { throw "Unsupported"; })
-                RType(MTLO, instr, { throw "Unsupported"; })
+                RType(MTHI, instr, {
+                    state.reg.multHi = state.reg.gpr[rs];
+                })
+                RType(MTLO, instr, {
+                    state.reg.multLo = state.reg.gpr[rs];
+                })
                 RType(MULT, instr, { throw "Unsupported"; })
                 RType(MULTU, instr, {
                     // @todo undefined if rs or rt is not a sign extended
@@ -250,10 +263,10 @@ void eval(u64 vAddr)
                     state.reg.gpr[rd] = state.reg.gpr[rs] | state.reg.gpr[rt];
                 })
                 RType(SLL, instr, {
-                    state.reg.gpr[rd] = state.reg.gpr[rt] << shamnt;
+                    state.reg.gpr[rd] = SignExtend(state.reg.gpr[rt] << shamnt, 32);
                 })
                 RType(SLLV, instr, {
-                    state.reg.gpr[rd] = state.reg.gpr[rt] << state.reg.gpr[rs];
+                    state.reg.gpr[rd] = SignExtend(state.reg.gpr[rt] << state.reg.gpr[rs], 32);
                 })
                 RType(SLT, instr, {
                     state.reg.gpr[rd] = (i64)state.reg.gpr[rs] < (i64)state.reg.gpr[rt];
@@ -261,8 +274,12 @@ void eval(u64 vAddr)
                 RType(SLTU, instr, {
                     state.reg.gpr[rd] = state.reg.gpr[rs] < state.reg.gpr[rt];
                 })
-                RType(SRA, instr, { throw "Unsupported"; })
-                RType(SRAV, instr, { throw "Unsupported"; })
+                RType(SRA, instr, {
+                    state.reg.gpr[rd] = SignExtend(state.reg.gpr[rt] >> shamnt, 32);
+                })
+                RType(SRAV, instr, {
+                    state.reg.gpr[rd] = SignExtend(state.reg.gpr[rt] >> state.reg.gpr[rs], 32);
+                })
                 RType(SRL, instr, {
                     // @todo undefined if rt is not a signed extended 32bit val
                     state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
@@ -419,7 +436,11 @@ void eval(u64 vAddr)
         IType(LDL, instr, SignExtend, { throw "Unsupported"; })
         IType(LDR, instr, SignExtend, { throw "Unsupported"; })
         IType(LH, instr, SignExtend, { throw "Unsupported"; })
-        IType(LHU, instr, SignExtend, { throw "Unsupported"; })
+        IType(LHU, instr, SignExtend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            state.reg.gpr[rt] = ZeroExtend(R4300::physmem.load(2, pAddr), 16);
+        })
         IType(LL, instr, SignExtend, { throw "Unsupported"; })
         IType(LLD, instr, SignExtend, { throw "Unsupported"; })
         IType(LUI, instr, SignExtend, {
@@ -459,11 +480,17 @@ void eval(u64 vAddr)
         IType(SDC2, instr, SignExtend, { throw "Unsupported"; })
         IType(SDL, instr, SignExtend, { throw "Unsupported"; })
         IType(SDR, instr, SignExtend, { throw "Unsupported"; })
-        IType(SH, instr, SignExtend, { throw "Unsupported"; })
+        IType(SH, instr, SignExtend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            R4300::physmem.store(2, pAddr, state.reg.gpr[rt]);
+        })
         IType(SLTI, instr, SignExtend, {
             state.reg.gpr[rt] = state.reg.gpr[rs] < imm;
         })
-        IType(SLTIU, instr, SignExtend, { throw "Unsupported"; })
+        IType(SLTIU, instr, SignExtend, {
+            state.reg.gpr[rt] = state.reg.gpr[rs] < imm;
+        })
         IType(SW, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr = Memory::translateAddress(vAddr, 0);
