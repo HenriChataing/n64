@@ -202,17 +202,16 @@ bool printRegisters(Shell &sh, std::vector<char *> &args)
 {
     using namespace std;
     cout << setw(6) << setfill(' ') << left << "pc";
-    cout << setw(8) << left << hex << (uint32_t)R4300::state.reg.pc << endl;
+    cout << setw(16) << setfill('0') << right << hex;
+    cout << R4300::state.reg.pc << endl;
 
     for (int i = 0; i < 32; i ++) {
-        uint32_t reg;
-
         if (i && !(i % 4))
             cout << endl;
 
-        reg = R4300::state.reg.gpr[i];
+        u64 reg = R4300::state.reg.gpr[i];
         cout << setw(6) << setfill(' ') << left << Mips::getRegisterName(i);
-        cout << setw(8) << setfill('0') << right << hex << reg << "    ";
+        cout << setw(16) << setfill('0') << right << hex << reg << "    ";
     }
     cout << endl;
     return false;
@@ -247,6 +246,46 @@ bool printCop0Registers(Shell &sh, std::vector<char *> &args)
 #undef PrintReg
 #undef Print2Regs
 
+    return false;
+}
+
+bool printTLB(Shell &sh, std::vector<char *> &args)
+{
+    using namespace std;
+
+    for (uint i = 0; i < R4300::tlbEntryCount; i++) {
+        R4300::tlbEntry &entry = R4300::state.tlb[i];
+
+#if 1
+        // Print region
+        uint region = entry.entryHi >> 62;
+        switch (region) {
+            case 0: cout << "U "; break;
+            case 1: cout << "S "; break;
+            case 3: cout << "K "; break;
+            default: cout << "- "; break;
+        }
+
+        // Print asid
+        cout << setfill('0');
+        cout << hex << setw(2) << right << entry.asid;
+        // Print flags
+        cout << (entry.global ? " G " : " - ");
+        // Print VPN
+        u64 pageMask = ~entry.pageMask & 0xfffffe000llu;
+        cout << hex << setw(16) << right << (entry.entryHi & pageMask) << " -> ";
+        // Print even PFN
+        cout << ((entry.entryLo0 & 4llu) ? "D" : "-");
+        cout << ((entry.entryLo0 & 2llu) ? "V " : "- ");
+        cout << hex << setw(9) << right << ((entry.entryLo0 << 6) & 0xffffff000llu);
+        cout << endl;
+        cout << "      " << setw(16) << right << pageMask << "    ";
+        cout << ((entry.entryLo1 & 4llu) ? "D" : "-");
+        cout << ((entry.entryLo1 & 2llu) ? "V " : "- ");
+        cout << hex << setw(9) << right << ((entry.entryLo1 << 6) & 0xffffff000llu);
+        cout << endl;
+#endif
+    }
     return false;
 }
 
@@ -351,6 +390,7 @@ void terminal()
     sh.config("cop0", printCop0Registers);
     sh.config("cp0regs", printCop0Registers);
     sh.config("cop0regs", printCop0Registers);
+    sh.config("tlb", printTLB);
     sh.config("s", doStep);
     sh.config("step", doStep);
     sh.config("c", doContinue);
