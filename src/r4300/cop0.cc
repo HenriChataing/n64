@@ -169,7 +169,7 @@ public:
                     state.cp0reg.random = (i + tlbEntryCount - 1) % tlbEntryCount;
                 }
 
-                state.tlb[i].pageMask = state.cp0reg.pageMask;
+                state.tlb[i].pageMask = state.cp0reg.pageMask & 0x1ffe000llu;
                 state.tlb[i].entryHi = state.cp0reg.entryHi;
                 state.tlb[i].entryLo0 = state.cp0reg.entryLo0;
                 state.tlb[i].entryLo1 = state.cp0reg.entryLo1;
@@ -336,11 +336,11 @@ public:
                 throw "WriteRandom";
                 break;
             case EntryLo0:
-                std::cerr << "write EntryLo0" << std::endl;
+                std::cerr << "write EntryLo0(" << std::hex << imm << ")" << std::endl;
                 state.cp0reg.entryLo0 = imm;
                 break;
             case EntryLo1:
-                std::cerr << "write EntryLo1" << std::endl;
+                std::cerr << "write EntryLo1(" << std::hex << imm << ")" << std::endl;
                 state.cp0reg.entryLo1 = imm;
                 break;
             case Context:
@@ -348,8 +348,8 @@ public:
                 throw "WriteContext";
                 break;
             case PageMask:
-                std::cerr << "write PageMask" << std::endl;
-                state.cp0reg.pageMask = imm & 0xfff000lu;
+                std::cerr << "write PageMask(" << std::hex << imm << ")" << std::endl;
+                state.cp0reg.pageMask = imm & 0x1ffe000lu;
                 break;
             case Wired:
                 std::cerr << "write Wired" << std::endl;
@@ -367,7 +367,7 @@ public:
                 state.cp0reg.count = imm;
                 break;
             case EntryHi:
-                std::cerr << "write EntryHi" << std::endl;
+                std::cerr << "write EntryHi(" << std::hex << imm << ")" << std::endl;
                 state.cp0reg.entryHi = imm;
                 break;
             case Compare:
