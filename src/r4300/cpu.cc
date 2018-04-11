@@ -40,6 +40,8 @@ void State::boot()
     cp0reg.sr     = 0x70400004;
     cp0reg.prId   = 0x00000b00;
     cp0reg.config = 0x0006e463;
+    memset(&cp1reg, 0, sizeof(cp1reg));
+    memset(tlb, 0, sizeof(tlb));
 
     R4300::physmem.store(4, 0x04300004, 0x01010101);
     R4300::physmem.copy(0x04000000, 0x10000000, 0x1000);
