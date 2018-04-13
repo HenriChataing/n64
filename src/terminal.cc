@@ -370,7 +370,10 @@ bool doDump(Shell &sh, std::vector<char *> &args)
         }
     }
 
-    u64 pAddr = Memory::translateAddress(R4300::state.reg.pc, 0);
+    u64 pAddr;
+
+    R4300::translateAddress(R4300::state.reg.pc, &pAddr, 0);
+
     std::cerr << std::hex;
     for (size_t i = 0; i < count; i++, pAddr += 4) {
         u64 val;

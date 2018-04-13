@@ -63,16 +63,6 @@ protected:
     Region *lookup(u64 addr);
 };
 
-/**
- * @brief Translate a virtual memory address into a physical memory address
- *  relying on the current TLB entries.
- *
- * @param vAddr         Virtual memory address
- * @param writeAccess   Indicate if the address is written or read
- * @return the physical memory address \p vAddr is mapped to
- */
-u64 translateAddress(u64 vAddr, bool writeAccess);
-
 };
 
 #endif /* _MEMORY_H_INCLUDED_ */

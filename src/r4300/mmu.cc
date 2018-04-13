@@ -11,24 +11,29 @@
 #define XKSSEG  UINT64_C(0x4000000000000000)
 #define XKUSEG  UINT64_C(0x0000000000000000)
 
-namespace Memory {
+namespace R4300 {
 
-u64 translateAddress(u64 vAddr, bool writeAccess)
+R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
 {
-    // Select 32 vs 64 bit address.
-    bool is32Bit = true;
+    bool extendedAddressing = false;
     u8 ksu = R4300::KSU();
 
     // Step 1: check virtual address range.
     if (ksu == 0x0 || R4300::ERL() || R4300::EXL()) {
         // Kernel mode
         // also entered when ERL=1 || EXL=1
-        if (R4300::KX())
-            throw "KX not supported";
-        if (vAddr >= CKSEG0 && vAddr < CKSEG1)
-            return vAddr - CKSEG0; // Unmapped access, cached.
-        if (vAddr >= CKSEG1 && vAddr < CKSSEG)
-            return vAddr - CKSEG1; // Unmapped access, non cached.
+        if (R4300::KX()) {
+            extendedAddressing = true;
+            throw "ExtendedAddressingUnsupported";
+        }
+        if (vAddr >= CKSEG0 && vAddr < CKSEG1) {
+            *pAddr = vAddr - CKSEG0; // Unmapped access, cached.
+            return R4300::None;
+        }
+        if (vAddr >= CKSEG1 && vAddr < CKSSEG) {
+            *pAddr = vAddr - CKSEG1; // Unmapped access, non cached.
+            return R4300::None;
+        }
     }
     else if (ksu == 0x1) {
         // Supervisor mode
@@ -39,9 +44,8 @@ u64 translateAddress(u64 vAddr, bool writeAccess)
         // Check valid address. The user address space is 2GiB when UX=0,
         // 1To when UX=1.
         u64 limit = R4300::UX() ? U64_2GB : U64_1TB;
-        if (vAddr >= limit) {
-            throw "Address error";
-        }
+        if (vAddr >= limit)
+            return R4300::AddressError;
     }
     else {
         throw "Undetermined execution mode";
@@ -63,7 +67,7 @@ u64 translateAddress(u64 vAddr, bool writeAccess)
 
     // No matching TLB entry, send for TLB refill.
     if (i >= R4300::tlbEntryCount)
-        throw is32Bit ? "TLB refill" : "XTLB refill";
+        return extendedAddressing ? R4300::XTLBRefill : R4300::TLBRefill;
 
     R4300::tlbEntry &entry = R4300::state.tlb[i];
 
@@ -71,28 +75,29 @@ u64 translateAddress(u64 vAddr, bool writeAccess)
     u64 maskShift = entry.pageMask >> 2;
     u64 offsetMask = maskShift ^ (maskShift - 1llu);
     u64 parityMask = offsetMask + 1llu;
-    u64 pAddr = vAddr & offsetMask;
+    u64 offset = vAddr & offsetMask;
 
     if (vAddr & parityMask) {
         // Check valid bit
         if ((entry.entryLo1 & 2) == 0)
-            throw "TLB invalid";
+            return R4300::TLBInvalid;
         // Check if trying to write dirty address.
         if (writeAccess && (entry.entryLo1 & 4) == 0)
-            throw "TLD mod";
+            return R4300::TLBModified;
 
-        pAddr |= (entry.entryLo1 << 6) & 0xffffff000llu;
+        *pAddr = offset | ((entry.entryLo1 << 6) & 0xffffff000llu);
     } else {
         // Check valid bit
         if ((entry.entryLo0 & 2) == 0)
-            throw "TLB invalid";
+            return R4300::TLBInvalid;
         // Check if trying to write dirty address.
         if (writeAccess && (entry.entryLo0 & 4) == 0)
-            throw "TLD mod";
+            return R4300::TLBModified;
 
-        pAddr |= (entry.entryLo0 << 6) & 0xffffff000llu;
+        *pAddr = offset | ((entry.entryLo0 << 6) & 0xffffff000llu);
     }
-    return pAddr;
+
+    return R4300::None;
 }
 
 };

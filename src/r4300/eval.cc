@@ -137,6 +137,7 @@ circular_buffer<LogEntry> _log(32);
  */
 void takeException(Exception exn)
 {
+    std::cerr << "Taking exception " << std::dec << exn << std::endl;
     throw "Exception raised";
 }
 
@@ -156,10 +157,15 @@ void step()
  */
 void eval(u64 vAddr)
 {
-    u64 pAddr = Memory::translateAddress(vAddr, 0);
+    u64 pAddr;
     u64 instr;
     u32 opcode;
+    R4300::Exception exn;
 
+    exn = translateAddress(vAddr, &pAddr, false);
+
+    if (exn != R4300::None)
+        takeException(exn);
     if (!R4300::physmem.load(4, pAddr, &instr))
         takeException(BusError);
 
@@ -449,25 +455,34 @@ void eval(u64 vAddr)
         })
         IType(LB, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr = Memory::translateAddress(vAddr, 0);
-            u64 val;
+            u64 pAddr, val;
+
+            exn = translateAddress(vAddr, &pAddr, false);
+            if (exn != None)
+                takeException(exn);
             if (!R4300::physmem.load(1, pAddr, &val))
                 takeException(BusError);
             state.reg.gpr[rt] = SignExtend(val, 8);
         })
         IType(LBU, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr = Memory::translateAddress(vAddr, 0);
-            u64 val;
+            u64 pAddr, val;
+
+            exn = translateAddress(vAddr, &pAddr, false);
+            if (exn != None)
+                takeException(exn);
             if (!R4300::physmem.load(1, pAddr, &val))
                 takeException(BusError);
             state.reg.gpr[rt] = ZeroExtend(val, 8);
         })
         IType(LD, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr, val;
+
             checkAddressAlignment(vAddr, 8);
-            u64 pAddr = Memory::translateAddress(vAddr, 0);
-            u64 val;
+            exn = translateAddress(vAddr, &pAddr, false);
+            if (exn != None)
+                takeException(exn);
             if (!R4300::physmem.load(8, pAddr, &val))
                 takeException(BusError);
             state.reg.gpr[rt] = val;
@@ -479,9 +494,12 @@ void eval(u64 vAddr)
         IType(LH, instr, SignExtend, { throw "Unsupported"; })
         IType(LHU, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr, val;
+
             checkAddressAlignment(vAddr, 2);
-            u64 pAddr = Memory::translateAddress(vAddr, 0);
-            u64 val;
+            exn = translateAddress(vAddr, &pAddr, false);
+            if (exn != None)
+                takeException(exn);
             if (!R4300::physmem.load(2, pAddr, &val))
                 takeException(BusError);
             state.reg.gpr[rt] = ZeroExtend(val, 16);
@@ -493,36 +511,46 @@ void eval(u64 vAddr)
         })
         IType(LW, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr, val;
+
             checkAddressAlignment(vAddr, 4);
-            u64 pAddr = Memory::translateAddress(vAddr, 0);
-            u64 val;
+            exn = translateAddress(vAddr, &pAddr, false);
+            if (exn != None)
+                takeException(exn);
             if (!R4300::physmem.load(4, pAddr, &val))
                 takeException(BusError);
             state.reg.gpr[rt] = SignExtend(val, 32);
         })
         IType(LWC1, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr, val;
+
             checkAddressAlignment(vAddr, 4);
-            u64 pAddr = Memory::translateAddress(vAddr, 0);
-            u64 val;
+            exn = translateAddress(vAddr, &pAddr, false);
+            if (exn != None)
+                takeException(exn);
             if (!R4300::physmem.load(4, pAddr, &val))
                 takeException(BusError);
             cop[1]->write(4, rt, SignExtend(val, 32), false);
         })
         IType(LWC2, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr, val;
+
             checkAddressAlignment(vAddr, 4);
-            u64 pAddr = Memory::translateAddress(vAddr, 0);
-            u64 val;
+            exn = translateAddress(vAddr, &pAddr, false);
             if (!R4300::physmem.load(4, pAddr, &val))
                 takeException(BusError);
             cop[2]->write(4, rt, SignExtend(val, 32), false);
         })
         IType(LWC3, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr, val;
+
             checkAddressAlignment(vAddr, 4);
-            u64 pAddr = Memory::translateAddress(vAddr, 0);
-            u64 val;
+            exn = translateAddress(vAddr, &pAddr, false);
+            if (exn != None)
+                takeException(exn);
             if (!R4300::physmem.load(4, pAddr, &val))
                 takeException(BusError);
             cop[3]->write(4, rt, SignExtend(val, 32), false);
@@ -535,7 +563,11 @@ void eval(u64 vAddr)
         })
         IType(SB, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            u64 pAddr;
+
+            exn = translateAddress(vAddr, &pAddr, true);
+            if (exn != None)
+                takeException(exn);
             if (!R4300::physmem.store(1, pAddr, state.reg.gpr[rt]))
                 takeException(BusError);
         })
@@ -543,8 +575,10 @@ void eval(u64 vAddr)
         IType(SCD, instr, SignExtend, { throw "Unsupported"; })
         IType(SD, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr;
+
             checkAddressAlignment(vAddr, 8);
-            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            exn = translateAddress(vAddr, &pAddr, true);
             if (!R4300::physmem.store(8, pAddr, state.reg.gpr[rt]))
                 takeException(BusError);
         })
@@ -554,8 +588,10 @@ void eval(u64 vAddr)
         IType(SDR, instr, SignExtend, { throw "Unsupported"; })
         IType(SH, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr;
+
             checkAddressAlignment(vAddr, 2);
-            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            exn = translateAddress(vAddr, &pAddr, true);
             if (!R4300::physmem.store(2, pAddr, state.reg.gpr[rt]))
                 takeException(BusError);
         })
@@ -567,29 +603,37 @@ void eval(u64 vAddr)
         })
         IType(SW, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr;
+
             checkAddressAlignment(vAddr, 4);
-            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            exn = translateAddress(vAddr, &pAddr, true);
             if (!R4300::physmem.store(4, pAddr, state.reg.gpr[rt]))
                 takeException(BusError);
         })
         IType(SWC1, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr;
+
             checkAddressAlignment(vAddr, 4);
-            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            exn = translateAddress(vAddr, &pAddr, true);
             if (!R4300::physmem.store(4, pAddr, cop[1]->read(4, rt, false)))
                 takeException(BusError);
         })
         IType(SWC2, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr;
+
             checkAddressAlignment(vAddr, 4);
-            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            exn = translateAddress(vAddr, &pAddr, true);
             if (!R4300::physmem.store(4, pAddr, cop[1]->read(4, rt, false)))
                 takeException(BusError);
         })
         IType(SWC3, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr;
+
             checkAddressAlignment(vAddr, 4);
-            u64 pAddr = Memory::translateAddress(vAddr, 0);
+            exn = translateAddress(vAddr, &pAddr, true);
             if (!R4300::physmem.store(4, pAddr, cop[1]->read(4, rt, false)))
                 takeException(BusError);
         })

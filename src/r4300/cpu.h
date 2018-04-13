@@ -149,6 +149,18 @@ static inline bool ERL() { return (state.cp0reg.sr & (1lu << 2)) != 0; }
 static inline bool EXL() { return (state.cp0reg.sr & (1lu << 1)) != 0; }
 static inline bool IE()  { return (state.cp0reg.sr & (1lu << 0)) != 0; }
 
+/**
+ * @brief Translate a virtual memory address into a physical memory address
+ *  relying on the current TLB entries.
+ *
+ * @param vAddr         Virtual memory address
+ * @param pAddr         Pointer to the physical memory address \p vAddr
+ *                      is mapped to
+ * @param writeAccess   Indicate if the address is written or read
+ * @return translation status (0 on success)
+ */
+Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess);
+
 };
 
 std::ostream &operator<<(std::ostream &os, const R4300::State &state);
