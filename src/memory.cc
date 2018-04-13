@@ -37,45 +37,46 @@ void Region::print()
         sub->print();
 }
 
-u64 Region::load(uint bytes, u64 addr)
+bool Region::load(uint bytes, u64 addr, u64 *value)
 {
     if (addr + bytes > size)
-        throw "InvalidAddress1";
+        return false;
+
     for (Region *sub : subregions) {
         if (addr < sub->address)
             break;
         if (addr + bytes > sub->address + sub->size)
             continue;
-        return sub->load(bytes, addr - sub->address);
+        return sub->load(bytes, addr - sub->address, value);
     }
+
     std::cerr << "InvalidAddress(" << std::hex << addr << ")" << std::endl;
-    throw "InvalidAddress2";
-    return 0;
+    return false;
 }
 
-void Region::store(uint bytes, u64 addr, u64 value)
+bool Region::store(uint bytes, u64 addr, u64 value)
 {
     if (addr + bytes > size)
-        throw "InvalidAddress3";
+        return false;
+
     for (Region *sub : subregions) {
         if (addr < sub->address)
             break;
         if (addr + bytes > sub->address + sub->size)
             continue;
-        sub->store(bytes, addr - sub->address, value);
-        return;
+        return sub->store(bytes, addr - sub->address, value);
     }
+
     std::cerr << "InvalidAddress(" << std::hex << addr << ")" << std::endl;
-    throw "InvalidAddress4";
+    return false;
 }
 
 void Region::adjustEndianness(uint bytes, u64 *value)
 {
     if (!bigendian)
         return;
+
     switch (bytes) {
-        case 1:
-            break;
         case 2:
             *(u16 *)value = __builtin_bswap16(*value);
             break;
@@ -84,6 +85,8 @@ void Region::adjustEndianness(uint bytes, u64 *value)
             break;
         case 8:
             *value = __builtin_bswap64(*value);
+            break;
+        default:
             break;
     }
 }
@@ -121,8 +124,8 @@ public:
               Region *container = NULL);
     virtual ~RamRegion();
 
-    virtual u64 load(uint bytes, u64 addr);
-    virtual void store(uint bytes, u64 addr, u64 value);
+    virtual bool load(uint bytes, u64 addr, u64 *value);
+    virtual bool store(uint bytes, u64 addr, u64 value);
 };
 
 RamRegion::RamRegion(u64 address, u64 size, Region *container)
@@ -165,7 +168,7 @@ RamRegion::~RamRegion()
     delete block;
 }
 
-u64 RamRegion::load(uint bytes, u64 addr)
+bool RamRegion::load(uint bytes, u64 addr, u64 *value)
 {
     u64 ret = 0;
     switch (bytes) {
@@ -183,13 +186,15 @@ u64 RamRegion::load(uint bytes, u64 addr)
             break;
     }
     adjustEndianness(bytes, &ret);
-    return ret;
+    *value = ret;
+    return true;
 }
 
-void RamRegion::store(uint bytes, u64 addr, u64 value)
+bool RamRegion::store(uint bytes, u64 addr, u64 value)
 {
     if (readonly)
-        throw "ReadOnlyMemory";
+        return false;
+
     adjustEndianness(bytes, &value);
     switch (bytes) {
         case 1:
@@ -205,24 +210,25 @@ void RamRegion::store(uint bytes, u64 addr, u64 value)
             *(u64 *)(&block[addr]) = value;
             break;
     }
+    return true;
 }
 
 class IOmemRegion : public Region
 {
 public:
-    typedef u64 (*Reader)(uint bytes, u64 addr);
-    typedef void (*Writer)(uint bytes, u64 addr, u64 value);
+    typedef bool (*Reader)(uint bytes, u64 addr, u64 *value);
+    typedef bool (*Writer)(uint bytes, u64 addr, u64 value);
 
     IOmemRegion(u64 address, u64 size,
                 Reader read, Writer write,
                 Region *container = NULL);
     virtual ~IOmemRegion() {}
 
-    virtual u64 load(uint bytes, u64 addr) {
-        return read(bytes, addr);
+    virtual bool load(uint bytes, u64 addr, u64 *value) {
+        return read(bytes, addr, value);
     }
-    virtual void store(uint bytes, u64 addr, u64 value) {
-        write(bytes, addr, value);
+    virtual bool store(uint bytes, u64 addr, u64 value) {
+        return write(bytes, addr, value);
     }
 
 private:
@@ -267,26 +273,33 @@ AddressSpace::~AddressSpace()
     delete root;
 }
 
-u64 AddressSpace::load(uint bytes, u64 addr)
+bool AddressSpace::load(uint bytes, u64 addr, u64 *value)
 {
     if (!root)
         throw "EmptyAddressSpace";
-    return root->load(bytes, addr);
+    return root->load(bytes, addr, value);
 }
 
-void AddressSpace::store(uint bytes, u64 addr, u64 value)
+bool AddressSpace::store(uint bytes, u64 addr, u64 value)
 {
     if (!root)
         throw "EmptyAddressSpace";
-    root->store(bytes, addr, value);
+    return root->store(bytes, addr, value);
 }
 
-void AddressSpace::copy(u64 dst, u64 src, uint bytes)
+bool AddressSpace::copy(u64 dst, u64 src, uint bytes)
 {
     if (!root)
         throw "EmptyAddressSpace";
-    for (uint i = 0; i < bytes; i++)
-        root->store(1, dst + i, root->load(1, src + i));
+
+    for (uint i = 0; i < bytes; i++) {
+        u64 val;
+        if (!root->load(1, src + i, &val))
+            return false;
+        if (!root->store(1, dst + i, val))
+            return false;
+    }
+    return true;
 }
 
 };

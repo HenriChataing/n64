@@ -373,7 +373,9 @@ bool doDump(Shell &sh, std::vector<char *> &args)
     u64 pAddr = Memory::translateAddress(R4300::state.reg.pc, 0);
     std::cerr << std::hex;
     for (size_t i = 0; i < count; i++, pAddr += 4) {
-        std::cerr << std::setw(8) << R4300::physmem.load(4, pAddr) << std::endl;
+        u64 val;
+        R4300::physmem.load(4, pAddr, &val);
+        std::cerr << std::setw(8) << val << std::endl;
     }
     return false;
 }

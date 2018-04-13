@@ -67,6 +67,27 @@ struct tlbEntry {
     bool global;        /**< Extracted global bit */
 };
 
+enum Exception {
+    None = 0,
+    AddressError = 1,
+    TLBRefill = 2,
+    XTLBRefill = 3,
+    TLBInvalid = 4,
+    TLBModified = 5,
+    CacheError = 6,
+    VirtualCoherency = 7,
+    BusError = 8,
+    IntegerOverflow = 9,
+    Trap = 10,
+    SystemCall = 11,
+    Breakpoint = 12,
+    ReservedInstruction = 13,
+    CoprocessorUnusable = 14,
+    FloatingPoint = 15,
+    Watch = 16,
+    Interrupt = 17,
+};
+
 class State
 {
 public:

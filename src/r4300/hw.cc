@@ -32,103 +32,114 @@ static u32 MinInterval;
 static u32 AddrSelect;
 static u32 DeviceManuf;
 
-u64 read(uint bytes, u64 addr)
+bool read(uint bytes, u64 addr, u64 *value)
 {
     std::cerr << "RdRam::read(" << std::hex << addr << ")" << std::endl;
 
     if (bytes != 4)
-        throw "RI::ReadInvalidWidth";
+        return false;
 
     switch (addr) {
         case RDRAM_DEVICE_TYPE_REG:
             std::cerr << "RDRAM_DEVICE_TYPE_REG" << std::endl;
-            return DeviceType;
+            *value = DeviceType;
+            return true;
         case RDRAM_DEVICE_ID_REG:
             std::cerr << "RDRAM_DEVICE_ID_REG" << std::endl;
-            return DeviceId;
+            *value = DeviceId;
+            return true;
         case RDRAM_DELAY_REG:
             std::cerr << "RDRAM_DELAY_REG" << std::endl;
-            return Delay;
+            *value = Delay;
+            return true;
         case RDRAM_MODE_REG:
             std::cerr << "RDRAM_MODE_REG" << std::endl;
-            return Mode;
+            *value = Mode;
+            return true;
         case RDRAM_REF_INTERVAL_REG:
             std::cerr << "RDRAM_REF_INTERVAL_REG" << std::endl;
-            return RefInterval;
+            *value = RefInterval;
+            return true;
         case RDRAM_REF_ROW_REG:
             std::cerr << "RDRAM_REF_ROW_REG" << std::endl;
-            return RefRow;
+            *value = RefRow;
+            return true;
         case RDRAM_RAS_INTERVAL_REG:
             std::cerr << "RDRAM_RAS_INTERVAL_REG" << std::endl;
-            return RasInterval;
+            *value = RasInterval;
+            return true;
         case RDRAM_MIN_INTERVAL_REG:
             std::cerr << "RDRAM_MIN_INTERVAL_REG" << std::endl;
-            return MinInterval;
+            *value = MinInterval;
+            return true;
         case RDRAM_ADDR_SELECT_REG:
             std::cerr << "RDRAM_ADDR_SELECT_REG" << std::endl;
-            return AddrSelect;
+            *value = AddrSelect;
+            return true;
         case RDRAM_DEVICE_MANUF_REG:
             std::cerr << "RDRAM_DEVICE_MANUF_REG" << std::endl;
-            return DeviceManuf;
+            *value = DeviceManuf;
+            return true;
         default:
             throw "RDRAM read unsupported";
             break;
     }
-    return 0;
+    return true;
 }
 
-void write(uint bytes, u64 addr, u64 value)
+bool write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "RdRam::write(" << std::hex << addr << "," << value << ")" << std::endl;
 
     if (bytes != 4)
-        throw "RI::WriteInvalidWidth";
+        return false;
 
     switch (addr) {
         case RDRAM_DEVICE_TYPE_REG:
             std::cerr << "RDRAM_DEVICE_TYPE_REG" << std::endl;
             DeviceType = value;
-            break;
+            return true;
         case RDRAM_DEVICE_ID_REG:
             std::cerr << "RDRAM_DEVICE_ID_REG" << std::endl;
             DeviceId = value;
-            break;
+            return true;
         case RDRAM_DELAY_REG:
             std::cerr << "RDRAM_DELAY_REG" << std::endl;
             Delay = value;
-            break;
+            return true;
         case RDRAM_MODE_REG:
             std::cerr << "RDRAM_MODE_REG" << std::endl;
             Mode = value;
-            break;
+            return true;
         case RDRAM_REF_INTERVAL_REG:
             std::cerr << "RDRAM_REF_INTERVAL_REG" << std::endl;
             RefInterval = value;
-            break;
+            return true;
         case RDRAM_REF_ROW_REG:
             std::cerr << "RDRAM_REF_ROW_REG" << std::endl;
             RefRow = value;
-            break;
+            return true;
         case RDRAM_RAS_INTERVAL_REG:
             std::cerr << "RDRAM_RAS_INTERVAL_REG" << std::endl;
             RasInterval = value;
-            break;
+            return true;
         case RDRAM_MIN_INTERVAL_REG:
             std::cerr << "RDRAM_MIN_INTERVAL_REG" << std::endl;
             MinInterval = value;
-            break;
+            return true;
         case RDRAM_ADDR_SELECT_REG:
             std::cerr << "RDRAM_ADDR_SELECT_REG" << std::endl;
             AddrSelect = value;
-            break;
+            return true;
         case RDRAM_DEVICE_MANUF_REG:
             std::cerr << "RDRAM_DEVICE_MANUF_REG" << std::endl;
             DeviceManuf = value;
-            break;
+            return true;
         default:
             // throw "RDRAM write unsupported";
             break;
     }
+    return true;
 }
 
 }; /* namespace RdRam */
@@ -212,77 +223,88 @@ static u32 Semaphore;
 static u32 ProgramCounter;
 static u32 Ibist;
 
-u64 read(uint bytes, u64 addr)
+bool read(uint bytes, u64 addr, u64 *value)
 {
     std::cerr << "SP::read(" << std::hex << addr << ")" << std::endl;
 
     if (bytes != 4)
-        throw "RI::ReadInvalidWidth";
+        return false;
 
     switch (addr) {
         case SP_MEM_ADDR_REG:
             std::cerr << "SP_MEM_ADDR_REG" << std::endl;
-            return MemAddr;
+            *value = MemAddr;
+            return true;
         case SP_DRAM_ADDR_REG:
             std::cerr << "SP_DRAM_ADDR_REG" << std::endl;
-            return DramAddr;
+            *value = DramAddr;
+            return true;
         case SP_RD_LEN_REG:
             std::cerr << "SP_RD_LEN_REG" << std::endl;
-            return ReadLen;
+            *value = ReadLen;
+            return true;
         case SP_WR_LEN_REG:
             std::cerr << "SP_WR_LEN_REG" << std::endl;
-            return WriteLen;
+            *value = WriteLen;
+            return true;
         case SP_STATUS_REG:
             std::cerr << "SP_STATUS_REG" << std::endl;
-            return Status;
+            *value = Status;
+            return true;
         case SP_DMA_FULL_REG:
             std::cerr << "SP_DMA_FULL_REG" << std::endl;
-            return 0;
+            *value = 0;
+            return true;
         case SP_DMA_BUSY_REG:
             std::cerr << "SP_DMA_BUSY_REG" << std::endl;
-            return 0;
+            *value = 0;
+            return true;
         case SP_SEMAPHORE_REG: {
             std::cerr << "SP_SEMAPHORE_REG" << std::endl;
             u32 old = Semaphore;
             Semaphore = 1;
-            return old;
+            *value = old;
+            return true;
         }
         case SP_PC_REG:
             std::cerr << "SP_PC_REG" << std::endl;
-            return ProgramCounter;
+            *value = ProgramCounter;
+            return true;
         case SP_IBIST_REG:
             std::cerr << "SP_IBIST_REG" << std::endl;
-            return Ibist;
+            *value = Ibist;
+            return true;
         default:
             throw "SP read unsupported";
             break;
     }
-    return 0;
+    *value = 0;
+    return true;
 }
 
-void write(uint bytes, u64 addr, u64 value)
+bool write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "SP::write(" << std::hex << addr << ")" << std::endl;
 
     if (bytes != 4)
-        throw "RI::ReadInvalidWidth";
+        return false;
 
     switch (addr) {
         case SP_MEM_ADDR_REG:
             std::cerr << "SP_MEM_ADDR_REG" << std::endl;
             MemAddr = value;
-            break;
+            return true;
         case SP_DRAM_ADDR_REG:
             std::cerr << "SP_DRAM_ADDR_REG" << std::endl;
             DramAddr = value;
-            break;
+            return true;
         case SP_RD_LEN_REG:
             std::cerr << "SP_RD_LEN_REG" << std::endl;
             ReadLen = value;
-            break;
+            return true;
         case SP_WR_LEN_REG:
             std::cerr << "SP_WR_LEN_REG" << std::endl;
-            WriteLen = value;;
+            WriteLen = value;
             break;
         case SP_STATUS_REG:
             std::cerr << "SP_STATUS_REG" << std::endl;
@@ -300,49 +322,54 @@ void write(uint bytes, u64 addr, u64 value)
         case SP_PC_REG:
             std::cerr << "SP_PC_REG" << std::endl;
             ProgramCounter = value;
-            break;
+            return true;
         case SP_IBIST_REG:
             std::cerr << "SP_IBIST_REG" << std::endl;
             Ibist = value;
-            break;
+            return true;
         default:
             throw "SP read unsupported";
             break;
     }
+    return true;
 }
 
 }; /* namespace SP */
 
 namespace DPCommand {
 
-u64 read(uint bytes, u64 addr)
+bool read(uint bytes, u64 addr, u64 *value)
 {
     std::cerr << "DPCommand::read(" << std::hex << addr << ")" << std::endl;
     throw "Unsupported";
-    return 0;
+    *value = 0;
+    return true;
 }
 
-void write(uint bytes, u64 addr, u64 value)
+bool write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "DPCommand::write(" << std::hex << addr << ")" << std::endl;
     throw "Unsupported";
+    return true;
 }
 
 }; /* namespace DPCommand */
 
 namespace DPSpan {
 
-u64 read(uint bytes, u64 addr)
+bool read(uint bytes, u64 addr, u64 *value)
 {
     std::cerr << "DPSpan::read(" << std::hex << addr << ")" << std::endl;
     throw "Unsupported";
-    return 0;
+    *value = 0;
+    return true;
 }
 
-void write(uint bytes, u64 addr, u64 value)
+bool write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "DPSpan::write(" << std::hex << addr << ")" << std::endl;
     throw "Unsupported";
+    return true;
 }
 
 }; /* namespace DPSpan */
@@ -388,55 +415,61 @@ static u32 Version;
 static u32 Intr;
 static u32 IntrMask;
 
-u64 read(uint bytes, u64 addr)
+bool read(uint bytes, u64 addr, u64 *value)
 {
     std::cerr << "MI::read(" << std::hex << addr << ")" << std::endl;
 
     if (bytes != 4)
-        throw "MI::ReadInvalidWidth";
+        return false;
 
     switch (addr) {
         case MI_MODE_REG:
             std::cerr << "MI_MODE_REG" << std::endl;
-            return Mode;
+            *value = Mode;
+            return true;
         case MI_VERSION_REG:
             std::cerr << "MI_VERSION_REG" << std::endl;
-            return Version;
+            *value = Version;
+            return true;
         case MI_INTR_REG:
             std::cerr << "MI_INTR_REG" << std::endl;
-            return Intr;
+            *value = Intr;
+            return true;
         case MI_INTR_MASK_REG:
             std::cerr << "MI_INTR_MASK_REG" << std::endl;
-            return IntrMask;
+            *value = IntrMask;
+            return true;
         default:
             break;
     }
     throw "Unsupported";
-    return 0;
+    *value = 0;
+    return true;
 }
 
-void write(uint bytes, u64 addr, u64 value)
+bool write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "MI::write(" << std::hex << addr << ")" << std::endl;
 
     if (bytes != 4)
-        throw "MI::WriteInvalidWidth";
+        return false;
 
     switch (addr) {
         case MI_MODE_REG:
             std::cerr << "MI_MODE_REG" << std::endl;
             Mode = value;
-            break;
+            return true;
         case MI_VERSION_REG:
             break;
         case MI_INTR_MASK_REG:
             std::cerr << "MI_INTR_MASK_REG" << std::endl;
             IntrMask = value;
-            break;
+            return true;
         default:
             throw "Unsupported";
             break;
     }
+    return true;
 }
 
 }; /* namespace MI */
@@ -535,131 +568,147 @@ static u32 VBurst;
 static u32 XScale;
 static u32 YScale;
 
-u64 read(uint bytes, u64 addr)
+bool read(uint bytes, u64 addr, u64 *value)
 {
     std::cerr << "VI::read(" << std::hex << addr << ")" << std::endl;
 
     if (bytes != 4)
-        throw "VI::ReadInvalidWidth";
+        return false;
 
     switch (addr) {
         case VI_CONTROL_REG:
             std::cerr << "VI_CONTROL_REG" << std::endl;
-            return Control;
+            *value = Control;
+            return true;
         case VI_DRAM_ADDR_REG:
             std::cerr << "VI_DRAM_ADDR_REG" << std::endl;
-            return DramAddr;
+            *value = DramAddr;
+            return true;
         case VI_WIDTH_REG:
             std::cerr << "VI_WIDTH_REG" << std::endl;
-            return Width;
+            *value = Width;
+            return true;
         case VI_INTR_REG:
             std::cerr << "VI_INTR_REG" << std::endl;
-            return Intr;
+            *value = Intr;
+            return true;
         case VI_CURRENT_REG:
             std::cerr << "VI_CURRENT_REG" << std::endl;
-            return Current;
+            *value = Current;
+            return true;
         case VI_BURST_REG:
             std::cerr << "VI_BURST_REG" << std::endl;
-            return Burst;
+            *value = Burst;
+            return true;
         case VI_V_SYNC_REG:
             std::cerr << "VI_V_SYNC_REG" << std::endl;
-            return VSync;
+            *value = VSync;
+            return true;
         case VI_H_SYNC_REG:
             std::cerr << "VI_H_SYNC_REG" << std::endl;
-            return HSync;
+            *value = HSync;
+            return true;
         case VI_LEAP_REG:
             std::cerr << "VI_LEAP_REG" << std::endl;
-            return Leap;
+            *value = Leap;
+            return true;
         case VI_H_START_REG:
             std::cerr << "VI_H_START_REG" << std::endl;
-            return HStart;
+            *value = HStart;
+            return true;
         case VI_V_START_REG:
             std::cerr << "VI_V_START_REG" << std::endl;
-            return VStart;
+            *value = VStart;
+            return true;
         case VI_V_BURST_REG:
             std::cerr << "VI_V_BURST_REG" << std::endl;
-            return VBurst;
+            *value = VBurst;
+            return true;
         case VI_X_SCALE_REG:
             std::cerr << "VI_X_SCALE_REG" << std::endl;
-            return XScale;
+            *value = XScale;
+            return true;
         case VI_Y_SCALE_REG:
             std::cerr << "VI_Y_SCALE_REG" << std::endl;
-            return YScale;
+            *value = YScale;
+            return true;
         default:
             throw "VI Unsupported";
             break;
     }
-    return 0;
+    *value = 0;
+    return true;
 }
 
-void write(uint bytes, u64 addr, u64 value)
+bool write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "VI::write(" << std::hex << addr << ")" << std::endl;
 
     if (bytes != 4)
-        throw "VI::WriteInvalidWidth";
+        return false;
 
     switch (addr) {
         case VI_CONTROL_REG:
             std::cerr << "VI_CONTROL_REG" << std::endl;
             Control = value;
-            break;
+            return true;
         case VI_DRAM_ADDR_REG:
             std::cerr << "VI_DRAM_ADDR_REG" << std::endl;
             DramAddr = value;
-            break;
+            return true;
         case VI_WIDTH_REG:
             std::cerr << "VI_WIDTH_REG" << std::endl;
             Width = value;
-            break;
+            return true;
         case VI_INTR_REG:
             std::cerr << "VI_INTR_REG" << std::endl;
             Intr = value;
-            break;
+            return true;
         case VI_CURRENT_REG:
             std::cerr << "VI_CURRENT_REG" << std::endl;
             Current = value;
-            break;
+            return true;
         case VI_BURST_REG:
             std::cerr << "VI_BURST_REG" << std::endl;
             Burst = value;
-            break;
+            return true;
         case VI_V_SYNC_REG:
             std::cerr << "VI_V_SYNC_REG" << std::endl;
             VSync = value;
-            break;
+            return true;
         case VI_H_SYNC_REG:
             std::cerr << "VI_H_SYNC_REG" << std::endl;
             HSync = value;
-            break;
+            return true;
         case VI_LEAP_REG:
             std::cerr << "VI_LEAP_REG" << std::endl;
             Leap = value;
-            break;
+            return true;
         case VI_H_START_REG:
             std::cerr << "VI_H_START_REG" << std::endl;
             HStart = value;
-            break;
+            return true;
         case VI_V_START_REG:
             std::cerr << "VI_V_START_REG" << std::endl;
             VStart = value;
-            break;
+            return true;
         case VI_V_BURST_REG:
             std::cerr << "VI_V_BURST_REG" << std::endl;
             VBurst = value;
-            break;
+            return true;
         case VI_X_SCALE_REG:
             std::cerr << "VI_X_SCALE_REG" << std::endl;
             XScale = value;
-            break;
+            return true;
         case VI_Y_SCALE_REG:
             std::cerr << "VI_Y_SCALE_REG" << std::endl;
             YScale = value;
-            break;
+            return true;
         default:
             throw "VI Unsupported";
             break;
     }
+    return true;
 }
 
 }; /* namespace VI */
@@ -702,75 +751,83 @@ static u32 Status;
 static u32 DACRate;
 static u32 BitRate;
 
-u64 read(uint bytes, u64 addr)
+bool read(uint bytes, u64 addr, u64 *value)
 {
     std::cerr << "AI::read(" << std::hex << addr << ")" << std::endl;
 
     if (bytes != 4)
-        throw "AI::ReadInvalidWidth";
+        return false;
 
     switch (addr) {
         case AI_DRAM_ADDR_REG:
             std::cerr << "AI_DRAM_ADDR_REG" << std::endl;
-            return DramAddr;
+            *value = DramAddr;
+            return true;
         case AI_LEN_REG:
             std::cerr << "AI_LEN_REG" << std::endl;
-            return Len;
+            *value = Len;
+            return true;
         case AI_CONTROL_REG:
             std::cerr << "AI_CONTROL_REG" << std::endl;
-            return Control;
+            *value = Control;
+            return true;
         case AI_STATUS_REG:
             std::cerr << "AI_STATUS_REG" << std::endl;
-            return Status;
+            *value = Status;
+            return true;
         case AI_DACRATE_REG:
             std::cerr << "AI_DACRATE_REG" << std::endl;
-            return DACRate;
+            *value = DACRate;
+            return true;
         case AI_BITRATE_REG:
             std::cerr << "AI_BITRATE_REG" << std::endl;
-            return BitRate;
+            *value = BitRate;
+            return true;
         default:
             throw "AI::unsupported";
             break;
     }
-    return 0;
+    *value = 0;
+    return true;
 }
 
-void write(uint bytes, u64 addr, u64 value)
+bool write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "AI::write(" << std::hex << addr << ")" << std::endl;
 
     if (bytes != 4)
-        throw "AI::WriteInvalidWidth";
+        return false;
 
     switch (addr) {
         case AI_DRAM_ADDR_REG:
             std::cerr << "AI_DRAM_ADDR_REG" << std::endl;
             DramAddr = value;
-            break;
+            return true;
         case AI_LEN_REG:
             std::cerr << "AI_LEN_REG" << std::endl;
             Len = value;
-            break;
+            return true;
         case AI_CONTROL_REG:
             std::cerr << "AI_CONTROL_REG" << std::endl;
             Control = value;
-            break;
+            return true;
         case AI_STATUS_REG:
             std::cerr << "AI_STATUS_REG" << std::endl;
             Status = value;
-            break;
+            return true;
         case AI_DACRATE_REG:
             std::cerr << "AI_DACRATE_REG" << std::endl;
             DACRate = value;
-            break;
+            return true;
         case AI_BITRATE_REG:
             std::cerr << "AI_BITRATE_REG" << std::endl;
             BitRate = value;
-            break;
+            return true;
         default:
             throw "AI::unsupported";
             break;
     }
+    return true;
 }
 
 }; /* namespace AI */
@@ -835,76 +892,90 @@ static u32 BsdDom2Pwd;
 static u32 BsdDom2Pgs;
 static u32 BsdDom2Rls;
 
-u64 read(uint bytes, u64 addr)
+bool read(uint bytes, u64 addr, u64 *value)
 {
     std::cerr << "PI::read(" << std::hex << addr << ")" << std::endl;
 
     if (bytes != 4)
-        throw "PI::ReadInvalidWidth";
+        return false;
 
     switch (addr) {
         case PI_DRAM_ADDR_REG:
             std::cerr << "PI_DRAM_ADDR_REG" << std::endl;
-            return DramAddr;
+            *value = DramAddr;
+            return true;
         case PI_CART_ADDR_REG:
             std::cerr << "PI_CART_ADDR_REG" << std::endl;
-            return CartAddr;
+            *value = CartAddr;
+            return true;
         case PI_RD_LEN_REG:
             std::cerr << "PI_RD_LEN_REG" << std::endl;
-            return ReadLen;
+            *value = ReadLen;
+            return true;
         case PI_WR_LEN_REG:
             std::cerr << "PI_WR_LEN_REG" << std::endl;
-            return WriteLen;
+            *value = WriteLen;
+            return true;
         case PI_STATUS_REG:
             std::cerr << "PI_STATUS_REG" << std::endl;
-            return Status;
+            *value = Status;
+            return true;
         case PI_BSD_DOM1_LAT_REG:
             std::cerr << "PI_BSD_DOM1_LAT_REG" << std::endl;
-            return BsdDom1Lat;
+            *value = BsdDom1Lat;
+            return true;
         case PI_BSD_DOM1_PWD_REG:
             std::cerr << "PI_BSD_DOM1_PWD_REG" << std::endl;
-            return BsdDom1Pwd;
+            *value = BsdDom1Pwd;
+            return true;
         case PI_BSD_DOM1_PGS_REG:
             std::cerr << "PI_BSD_DOM1_PGS_REG" << std::endl;
-            return BsdDom1Pgs;
+            *value = BsdDom1Pgs;
+            return true;
         case PI_BSD_DOM1_RLS_REG:
             std::cerr << "PI_BSD_DOM1_RLS_REG" << std::endl;
-            return BsdDom1Rls;
+            *value = BsdDom1Rls;
+            return true;
         case PI_BSD_DOM2_LAT_REG:
             std::cerr << "PI_BSD_DOM2_LAT_REG" << std::endl;
-            return BsdDom2Lat;
+            *value = BsdDom2Lat;
+            return true;
         case PI_BSD_DOM2_PWD_REG:
             std::cerr << "PI_BSD_DOM2_PWD_REG" << std::endl;
-            return BsdDom2Pwd;
+            *value = BsdDom2Pwd;
+            return true;
         case PI_BSD_DOM2_PGS_REG:
             std::cerr << "PI_BSD_DOM2_PGS_REG" << std::endl;
-            return BsdDom2Pgs;
+            *value = BsdDom2Pgs;
+            return true;
         case PI_BSD_DOM2_RLS_REG:
             std::cerr << "PI_BSD_DOM2_RLS_REG" << std::endl;
-            return BsdDom2Rls;
+            *value = BsdDom2Rls;
+            return true;
         default:
             throw "Unsupported";
             break;
     }
-    return 0;
+    *value = 0;
+    return true;
 }
 
-void write(uint bytes, u64 addr, u64 value)
+bool write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "PI::write(" << std::hex << addr << "," << value << ")" << std::endl;
 
     if (bytes != 4)
-        throw "PI::WriteInvalidWidth";
+        return false;
 
     switch (addr) {
         case PI_DRAM_ADDR_REG:
             std::cerr << "PI_DRAM_ADDR_REG" << std::endl;
             DramAddr = value;
-            break;
+            return true;
         case PI_CART_ADDR_REG:
             std::cerr << "PI_CART_ADDR_REG" << std::endl;
             CartAddr = value;
-            break;
+            return true;
         case PI_RD_LEN_REG:
             std::cerr << "PI_RD_LEN_REG" << std::endl;
             ReadLen = value;
@@ -922,39 +993,40 @@ void write(uint bytes, u64 addr, u64 value)
         case PI_BSD_DOM1_LAT_REG:
             std::cerr << "PI_BSD_DOM1_LAT_REG" << std::endl;
             BsdDom1Lat = value;
-            break;
+            return true;
         case PI_BSD_DOM1_PWD_REG:
             std::cerr << "PI_BSD_DOM1_PWD_REG" << std::endl;
             BsdDom1Pwd = value;
-            break;
+            return true;
         case PI_BSD_DOM1_PGS_REG:
             std::cerr << "PI_BSD_DOM1_PGS_REG" << std::endl;
             BsdDom1Pgs = value;
-            break;
+            return true;
         case PI_BSD_DOM1_RLS_REG:
             std::cerr << "PI_BSD_DOM1_RLS_REG" << std::endl;
             BsdDom1Rls = value;
-            break;
+            return true;
         case PI_BSD_DOM2_LAT_REG:
             std::cerr << "PI_BSD_DOM2_LAT_REG" << std::endl;
             BsdDom2Lat = value;
-            break;
+            return true;
         case PI_BSD_DOM2_PWD_REG:
             std::cerr << "PI_BSD_DOM2_PWD_REG" << std::endl;
             BsdDom2Pwd = value;
-            break;
+            return true;
         case PI_BSD_DOM2_PGS_REG:
             std::cerr << "PI_BSD_DOM2_PGS_REG" << std::endl;
             BsdDom2Pgs = value;
-            break;
+            return true;
         case PI_BSD_DOM2_RLS_REG:
             std::cerr << "PI_BSD_DOM2_RLS_REG" << std::endl;
             BsdDom2Rls = value;
-            break;
+            return true;
         default:
             throw "Unsupported";
             break;
     }
+    return true;
 }
 
 }; /* namespace PI */
@@ -998,89 +1070,99 @@ static u32 Latency;
 static u32 RError;
 static u32 WError;
 
-u64 read(uint bytes, u64 addr)
+bool read(uint bytes, u64 addr, u64 *value)
 {
     std::cerr << "RI::read(" << std::hex << addr << ")" << std::endl;
 
     if (bytes != 4)
-        throw "RI::ReadInvalidWidth";
+        return false;
 
     switch (addr) {
         case RI_MODE_REG:
             std::cerr << "RI_MODE_REG" << std::endl;
-            return Mode;
+            *value = Mode;
+            return true;
         case RI_CONFIG_REG:
             std::cerr << "RI_CONFIG_REG" << std::endl;
-            return Config;
+            *value = Config;
+            return true;
         case RI_CURRENT_LOAD_REG:
             std::cerr << "RI_CURRENT_LOAD_REG" << std::endl;
-            return CurrentLoad;
+            *value = CurrentLoad;
+            return true;
         case RI_SELECT_REG:
             std::cerr << "RI_SELECT_REG" << std::endl;
-            return Select;
+            *value = Select;
+            return true;
         case RI_REFRESH_REG:
             std::cerr << "RI_REFRESH_REG" << std::endl;
-            return Refresh;
+            *value = Refresh;
+            return true;
         case RI_LATENCY_REG:
             std::cerr << "RI_LATENCY_REG" << std::endl;
-            return Latency;
+            *value = Latency;
+            return true;
         case RI_RERROR_REG:
             std::cerr << "RI_RERROR_REG" << std::endl;
-            return RError;
+            *value = RError;
+            return true;
         case RI_WERROR_REG:
             std::cerr << "RI_WERROR_REG" << std::endl;
-            return WError;
+            *value = WError;
+            return true;
         default:
             break;
     }
     throw "Unsupported";
-    return 0;
+    *value = 0;
+    return true;
 }
 
-void write(uint bytes, u64 addr, u64 value)
+bool write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "RI::write(" << std::hex << addr << "," << value << ")" << std::endl;
 
     if (bytes != 4)
-        throw "RI::WriteInvalidWidth";
+        return false;
 
     switch (addr) {
         case RI_MODE_REG:
             std::cerr << "RI_MODE_REG" << std::endl;
             Mode = value;
-            break;
+            return true;
         case RI_CONFIG_REG:
             std::cerr << "RI_CONFIG_REG" << std::endl;
             Config = value;
-            break;
+            return true;
         case RI_CURRENT_LOAD_REG:
             std::cerr << "RI_CURRENT_LOAD_REG" << std::endl;
             CurrentLoad = value;
-            break;
+            return true;
         case RI_SELECT_REG:
             std::cerr << "RI_SELECT_REG" << std::endl;
             Select = value;
-            break;
+            return true;
         case RI_REFRESH_REG:
             std::cerr << "RI_REFRESH_REG" << std::endl;
             Refresh = value;
-            break;
+            return true;
         case RI_LATENCY_REG:
             std::cerr << "RI_LATENCY_REG" << std::endl;
             Latency = value;
-            break;
+            return true;
         case RI_RERROR_REG:
             std::cerr << "RI_RERROR_REG" << std::endl;
             RError = value;
-            break;
+            return true;
         case RI_WERROR_REG:
             std::cerr << "RI_WERROR_REG" << std::endl;
             WError = value;
-            break;
+            return true;
         default:
             throw "Unsupported";
             break;
     }
+    return true;
 }
 
 }; /* namespace RI */
@@ -1110,39 +1192,42 @@ enum Register {
 static u32 DramAddr;
 static u32 Status;
 
-u64 read(uint bytes, u64 addr)
+bool read(uint bytes, u64 addr, u64 *value)
 {
     std::cerr << "SI::read(" << std::hex << addr << ")" << std::endl;
 
     if (bytes != 4)
-        throw "SI::ReadInvalidWidth";
+        return false;
 
     switch (addr) {
         case SI_DRAM_ADDR_REG:
             std::cerr << "SI_DRAM_ADDR_REG" << std::endl;
-            return DramAddr;
+            *value = DramAddr;
+            return true;
         case SI_STATUS_REG:
             std::cerr << "SI_STATUS_REG" << std::endl;
-            return Status;
+            *value = Status;
+            return true;
         default:
             throw "SI Unsupported";
             break;
     }
-    return 0;
+    *value = 0;
+    return true;
 }
 
-void write(uint bytes, u64 addr, u64 value)
+bool write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "SI::write(" << std::hex << addr << ")" << std::endl;
 
     if (bytes != 4)
-        throw "SI::ReadInvalidWidth";
+        return false;
 
     switch (addr) {
         case SI_DRAM_ADDR_REG:
             std::cerr << "SI_DRAM_ADDR_REG" << std::endl;
             DramAddr = value;
-            break;
+            return true;
         case SI_PIF_ADDR_RD64B_REG:
             std::cerr << "SI_PIF_ADDR_RD64B_REG" << std::endl;
             throw "SI unsupported";
@@ -1159,21 +1244,24 @@ void write(uint bytes, u64 addr, u64 value)
             throw "SI Unsupported";
             break;
     }
+    return true;
 }
 
 }; /* namespace SI */
 
 namespace PIF {
 
-u64 read(uint bytes, u64 addr)
+bool read(uint bytes, u64 addr, u64 *value)
 {
     std::cerr << "PIF::read(" << std::hex << addr << ")" << std::endl;
-    return 0;
+    *value = 0;
+    return true;
 }
 
-void write(uint bytes, u64 addr, u64 value)
+bool write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "PIF::write(" << std::hex << addr << ", " << value << ")" << std::endl;
+    return true;
 }
 
 }; /* namespace PIF */

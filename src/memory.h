@@ -30,8 +30,8 @@ public:
     std::vector<Region *>subregions;
     Region *container;
 
-    virtual u64 load(uint bytes, u64 addr);
-    virtual void store(uint bytes, u64 addr, u64 value);
+    virtual bool load(uint bytes, u64 addr, u64 *value);
+    virtual bool store(uint bytes, u64 addr, u64 value);
     // virtual bool accept(uint bytes, u64 addr);
 
     void print();
@@ -39,8 +39,8 @@ public:
     void insertRam(u64 addr, u64 size);
     void insertRom(u64 addr, u64 size, const std::string file);
     void insertIOmem(u64 addr, u64 size,
-                     u64 (*read)(uint bytes, u64 addr),
-                     void (*write)(uint bytes, u64 addr, u64 value));
+                     bool (*read)(uint bytes, u64 addr, u64 *value),
+                     bool (*write)(uint bytes, u64 addr, u64 value));
 
 protected:
     void adjustEndianness(uint bytes, u64 *value);
@@ -55,9 +55,9 @@ public:
 
     Region *root;
 
-    u64 load(uint bytes, u64 addr);
-    void store(uint bytes, u64 addr, u64 value);
-    void copy(u64 dst, u64 src, uint bytes);
+    bool load(uint bytes, u64 addr, u64 *value);
+    bool store(uint bytes, u64 addr, u64 value);
+    bool copy(u64 dst, u64 src, uint bytes);
 
 protected:
     Region *lookup(u64 addr);
