@@ -256,7 +256,10 @@ bool printTLB(Shell &sh, std::vector<char *> &args)
     for (uint i = 0; i < R4300::tlbEntryCount; i++) {
         R4300::tlbEntry &entry = R4300::state.tlb[i];
 
-#if 1
+        // Ignore this entry if no mapping is valid.
+        if ((entry.entryLo0 & 2llu) == 0 && (entry.entryLo1 & 2llu) == 0)
+            continue;
+
         // Print region
         uint region = entry.entryHi >> 62;
         switch (region) {
@@ -284,7 +287,6 @@ bool printTLB(Shell &sh, std::vector<char *> &args)
         cout << ((entry.entryLo1 & 2llu) ? "V " : "- ");
         cout << hex << setw(9) << right << ((entry.entryLo1 << 6) & 0xffffff000llu);
         cout << endl;
-#endif
     }
     return false;
 }
@@ -370,16 +372,21 @@ bool doDump(Shell &sh, std::vector<char *> &args)
         }
     }
 
-    u64 pAddr;
+    u64 vAddr = R4300::state.reg.pc, pAddr, instr;
 
-    R4300::translateAddress(R4300::state.reg.pc, &pAddr, 0);
+    R4300::translateAddress(vAddr, &pAddr, 0);
 
-    std::cerr << std::hex;
-    for (size_t i = 0; i < count; i++, pAddr += 4) {
-        u64 val;
-        R4300::physmem.load(4, pAddr, &val);
-        std::cerr << std::setw(8) << val << std::endl;
+    for (size_t i = 0; i < count; i++, pAddr += 4, vAddr += 4) {
+        R4300::physmem.load(4, pAddr, &instr);
+        std::cout << std::hex << std::setfill(' ') << std::right;
+        std::cout << std::setw(16) << vAddr << "    ";
+        std::cout << std::hex << std::setfill('0');
+        std::cout << std::setw(8) << instr << "    ";
+        std::cout << std::setfill(' ');
+        Mips::disas(instr);
+        std::cout << std::endl;
     }
+
     return false;
 }
 

@@ -113,7 +113,7 @@ char const *getRegisterName(uint reg)
     case opcode: { \
         u64 tg = Mips::getTarget(instr); \
         std::cout << std::setw(8) << std::left << name << " $" << std::hex; \
-        std::cout << std::setfill('0') << std::setw(8) << tg; \
+        std::cout << std::setfill('0') << std::setw(8) << std::right << tg; \
         break; \
     }
 

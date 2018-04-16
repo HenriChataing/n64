@@ -251,8 +251,7 @@ public:
                 return 0;
             case EPC:
                 std::cerr << "read EPC" << std::endl;
-                throw "ReadEPC";
-                break;
+                return state.cp0reg.epc;
             case PrId:
                 std::cerr << "read PrId" << std::endl;
                 throw "ReadPrId";

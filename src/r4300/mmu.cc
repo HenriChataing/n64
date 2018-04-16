@@ -66,8 +66,10 @@ R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
     }
 
     // No matching TLB entry, send for TLB refill.
-    if (i >= R4300::tlbEntryCount)
+    if (i >= R4300::tlbEntryCount)  {
+        R4300::state.cp0reg.entryHi = vAddr & ~0x1fffllu; // @todo ASID
         return extendedAddressing ? R4300::XTLBRefill : R4300::TLBRefill;
+    }
 
     R4300::tlbEntry &entry = R4300::state.tlb[i];
 
@@ -79,20 +81,28 @@ R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
 
     if (vAddr & parityMask) {
         // Check valid bit
-        if ((entry.entryLo1 & 2) == 0)
+        if ((entry.entryLo1 & 2) == 0) {
+            R4300::state.cp0reg.entryHi = vAddr & ~0x1fffllu; // @todo ASID
             return R4300::TLBInvalid;
+        }
         // Check if trying to write dirty address.
-        if (writeAccess && (entry.entryLo1 & 4) == 0)
+        if (writeAccess && (entry.entryLo1 & 4) == 0) {
+            R4300::state.cp0reg.entryHi = vAddr & ~0x1fffllu; // @todo ASID
             return R4300::TLBModified;
+        }
 
         *pAddr = offset | ((entry.entryLo1 << 6) & 0xffffff000llu);
     } else {
         // Check valid bit
-        if ((entry.entryLo0 & 2) == 0)
+        if ((entry.entryLo0 & 2) == 0) {
+            R4300::state.cp0reg.entryHi = vAddr & ~0x1fffllu; // @todo ASID
             return R4300::TLBInvalid;
+        }
         // Check if trying to write dirty address.
-        if (writeAccess && (entry.entryLo0 & 4) == 0)
+        if (writeAccess && (entry.entryLo0 & 4) == 0) {
+            R4300::state.cp0reg.entryHi = vAddr & ~0x1fffllu; // @todo ASID
             return R4300::TLBModified;
+        }
 
         *pAddr = offset | ((entry.entryLo0 << 6) & 0xffffff000llu);
     }
