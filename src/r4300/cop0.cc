@@ -1,4 +1,5 @@
 
+#include <iomanip>
 #include <iostream>
 #include <cstring>
 
@@ -142,6 +143,22 @@ public:
     Cop0() {}
     ~Cop0() {}
 
+    static inline void logWrite(const char *tag, u64 value)
+    {
+        std::cerr << "\x1b[34;1m"; // blue
+        std::cerr << std::left << std::setfill(' ') << std::setw(32);
+        std::cerr << tag << " <- " << std::hex << value;
+        std::cerr << "\x1b[0m" << std::endl;
+    }
+
+    static inline void logRead(const char *tag, u64 value)
+    {
+        std::cerr << "\x1b[34;1m"; // blue
+        std::cerr << std::left << std::setfill(' ') << std::setw(32);
+        std::cerr << tag << " -> " << std::hex << value;
+        std::cerr << "\x1b[0m" << std::endl;
+    }
+
     virtual void cofun(u32 instr)
     {
         std::cerr << "COP0 COFUN " << instr << std::endl;
@@ -206,114 +223,117 @@ public:
 
         switch (rd) {
             case Index:
-                std::cerr << "read Index" << std::endl;
+                logRead("COP0_Index", state.cp0reg.index);
                 return state.cp0reg.index;
             case Random:
-                std::cerr << "read Random" << std::endl;
-                throw "ReadRandom";
-                break;
+                logRead("COP0_Random", state.cp0reg.random);
+                return state.cp0reg.random;
             case EntryLo0:
-                std::cerr << "read EntryLo0" << std::endl;
+                logRead("COP0_EntryLo0", state.cp0reg.entryLo0);
                 return state.cp0reg.entryLo0;
             case EntryLo1:
-                std::cerr << "read EntryLo1" << std::endl;
+                logRead("COP0_EntryLo1", state.cp0reg.entryLo1);
                 return state.cp0reg.entryLo1;
             case Context:
-                std::cerr << "read Context" << std::endl;
+                logRead("COP0_Context", state.cp0reg.context);
                 throw "ReadContext";
                 break;
             case PageMask:
-                std::cerr << "read PageMask" << std::endl;
+                logRead("COP0_PageMask", state.cp0reg.pageMask);
                 return state.cp0reg.pageMask;
             case Wired:
-                std::cerr << "read Wired" << std::endl;
+                logRead("COP0_Wired", state.cp0reg.wired);
                 throw "ReadWired";
                 break;
             case CPR7:
-                std::cerr << "read CPR7" << std::endl;
+                logRead("COP0_CPR7", 0);
                 throw "ReadCPR7";
                 break;
             case BadVAddr:
-                std::cerr << "read BadVAddr" << std::endl;
-                throw "ReadBadVAddr";
-                break;
+                logRead("COP0_BadVAddr", state.cp0reg.badVAddr);
+                return state.cp0reg.badVAddr;
             case Count:
+                logRead("COP0_Count", state.cp0reg.count);
                 return state.cp0reg.count;
             case EntryHi:
-                std::cerr << "read EntryHi" << std::endl;
+                logRead("COP0_EntryHi", state.cp0reg.entryHi);
                 return state.cp0reg.entryHi;
             case Compare:
+                logRead("COP0_Compare", state.cp0reg.compare);
                 return state.cp0reg.compare;
             case SR:
+                logRead("COP0_SR", state.cp0reg.sr);
                 return state.cp0reg.sr;
             case Cause:
-                std::cerr << "read Cause" << std::endl;
-                return 0;
+                logRead("COP0_Cause", state.cp0reg.cause);
+                return state.cp0reg.cause;
             case EPC:
-                std::cerr << "read EPC" << std::endl;
+                logRead("COP0_EPC", state.cp0reg.epc);
                 return state.cp0reg.epc;
             case PrId:
-                std::cerr << "read PrId" << std::endl;
+                logRead("COP0_PrId", state.cp0reg.prId);
                 throw "ReadPrId";
                 break;
             case Config:
-                std::cerr << "read Config" << std::endl;
+                logRead("COP0_Config", state.cp0reg.config);
                 throw "ReadConfig";
                 break;
             case LLAddr:
-                std::cerr << "read LLAddr" << std::endl;
+                logRead("COP0_LLAddr", state.cp0reg.llAddr);
                 throw "ReadLLAddr";
                 break;
             case WatchLo:
-                std::cerr << "read WatchLo" << std::endl;
+                logRead("COP0_WatchLo", state.cp0reg.watchLo);
                 throw "ReadWatchLo";
                 break;
             case WatchHi:
-                std::cerr << "read WatchHi" << std::endl;
+                logRead("COP0_WatchHi", state.cp0reg.watchHi);
                 throw "ReadWatchHi";
                 break;
             case XContext:
-                std::cerr << "read XContext" << std::endl;
+                logRead("COP0_XContext", state.cp0reg.xContext);
                 throw "ReadXContext";
                 break;
             case CPR21:
-                std::cerr << "read CPR21" << std::endl;
+                logRead("COP0_CPR21", 0);
                 throw "ReadCPR21";
                 break;
             case CPR22:
-                std::cerr << "read CPR22" << std::endl;
+                logRead("COP0_CPR22", 0);
                 throw "ReadCPR22";
                 break;
             case CPR23:
-                std::cerr << "read CPR23" << std::endl;
+                logRead("COP0_CPR23", 0);
                 throw "ReadCPR23";
                 break;
             case CPR24:
-                std::cerr << "read CPR24" << std::endl;
+                logRead("COP0_CPR24", 0);
                 throw "ReadCPR24";
                 break;
             case CPR25:
-                std::cerr << "read CPR25" << std::endl;
+                logRead("COP0_CPR25", 0);
                 throw "ReadCPR25";
                 break;
             case PErr:
-                std::cerr << "read PErr" << std::endl;
+                logRead("COP0_PErr", state.cp0reg.pErr);
                 throw "ReadPErr";
                 break;
             case CacheErr:
-                std::cerr << "read CacheErr" << std::endl;
+                logRead("COP0_CacheErr", state.cp0reg.cacheErr);
                 throw "ReadCacheErr";
                 break;
             case TagLo:
+                logRead("COP0_TagLo", state.cp0reg.tagLo);
                 return state.cp0reg.tagLo;
             case TagHi:
+                logRead("COP0_TagHi", state.cp0reg.tagHi);
                 return state.cp0reg.tagHi;
             case ErrorEPC:
-                std::cerr << "read ErrorEPC" << std::endl;
+                logRead("COP0_ErrorEPC", state.cp0reg.errorEpc);
                 throw "ReadErrPC";
                 break;
             case CPR31:
-                std::cerr << "read CPR31" << std::endl;
+                logRead("COP0_CPR31", 0);
                 throw "ReadCPR31";
                 break;
         }
@@ -324,132 +344,133 @@ public:
     {
         if (ctrl)
             throw "Nonexisting COP0 control register";
-
         switch (rd) {
             case Index:
-                std::cerr << "write Index" << std::endl;
+                logWrite("COP0_Index", imm);
                 state.cp0reg.index |= imm & 0x3flu;
                 break;
             case Random:
-                std::cerr << "write Random" << std::endl;
+                logWrite("COP0_Random", imm);
                 throw "WriteRandom";
                 break;
             case EntryLo0:
-                std::cerr << "write EntryLo0(" << std::hex << imm << ")" << std::endl;
+                logWrite("COP0_EntryLo0", imm);
                 state.cp0reg.entryLo0 = imm;
                 break;
             case EntryLo1:
-                std::cerr << "write EntryLo1(" << std::hex << imm << ")" << std::endl;
+                logWrite("COP0_EntryLo1", imm);
                 state.cp0reg.entryLo1 = imm;
                 break;
             case Context:
-                std::cerr << "write Context" << std::endl;
+                logWrite("COP0_Context", imm);
                 throw "WriteContext";
                 break;
             case PageMask:
-                std::cerr << "write PageMask(" << std::hex << imm << ")" << std::endl;
+                logWrite("COP0_PageMask", imm);
                 state.cp0reg.pageMask = imm & 0x1ffe000lu;
                 break;
             case Wired:
-                std::cerr << "write Wired" << std::endl;
+                logWrite("COP0_Wired", imm);
                 throw "WriteWired";
                 break;
             case CPR7:
-                std::cerr << "write CPR7" << std::endl;
+                logWrite("COP0_CPR7", imm);
                 throw "WriteCPR7";
                 break;
             case BadVAddr:
-                std::cerr << "write BadVAddr" << std::endl;
+                logWrite("COP0_BadVAddr", imm);
                 throw "WriteBadVAddr";
                 break;
             case Count:
+                logWrite("COP0_Count", imm);
                 state.cp0reg.count = imm;
                 break;
             case EntryHi:
-                std::cerr << "write EntryHi(" << std::hex << imm << ")" << std::endl;
+                logWrite("COP0_EntryHi", imm);
                 state.cp0reg.entryHi = imm;
                 break;
             case Compare:
+                logWrite("COP0_Compare", imm);
                 state.cp0reg.compare = imm;
                 break;
             case SR:
-                std::cerr << "write SR (" << std::hex << imm << ")" << std::endl;
-                // @todo check written value and consequences
+                logWrite("COP0_SR", imm);
                 state.cp0reg.sr = imm;
+                // @todo check written value and consequences
                 break;
             case Cause:
-                std::cerr << "write Cause" << std::endl;
+                logWrite("COP0_Cause", imm);
                 break;
             case EPC:
-                std::cerr << "write EPC (" << std::hex << imm << ")" << std::endl;
+                logWrite("COP0_EPC", imm);
                 state.cp0reg.epc = imm;
                 break;
             case PrId:
-                std::cerr << "write PrId" << std::endl;
+                logWrite("COP0_PrId", imm);
                 throw "WritePrId";
                 break;
             case Config:
-                std::cerr << "write Config" << std::endl;
+                logWrite("COP0_Config", imm);
                 throw "WriteConfig";
                 break;
             case LLAddr:
-                std::cerr << "write LLAddr" << std::endl;
+                logWrite("COP0_LLAddr", imm);
                 throw "WriteLLAddr";
                 break;
             case WatchLo:
-                std::cerr << "write WatchLo" << std::endl;
+                logWrite("COP0_WatchLo", imm);
                 throw "WriteWatchLo";
                 break;
             case WatchHi:
-                std::cerr << "write WatchHi" << std::endl;
+                logWrite("COP0_WatchHi", imm);
                 throw "WriteWatchHi";
                 break;
             case XContext:
-                std::cerr << "write XContext" << std::endl;
+                logWrite("COP0_XContext", imm);
                 throw "WriteXContext";
                 break;
             case CPR21:
-                std::cerr << "write CPR21" << std::endl;
+                logWrite("COP0_CPR21", imm);
                 throw "WriteCPR21";
                 break;
             case CPR22:
-                std::cerr << "write CPR22" << std::endl;
+                logWrite("COP0_CPR22", imm);
                 throw "WriteCPR22";
                 break;
             case CPR23:
-                std::cerr << "write CPR23" << std::endl;
+                logWrite("COP0_CPR23", imm);
                 throw "WriteCPR23";
                 break;
             case CPR24:
-                std::cerr << "write CPR24" << std::endl;
+                logWrite("COP0_CPR24", imm);
                 throw "WriteCPR24";
                 break;
             case CPR25:
-                std::cerr << "write CPR25" << std::endl;
+                logWrite("COP0_CPR25", imm);
                 throw "WriteCPR25";
                 break;
             case PErr:
-                std::cerr << "write PErr" << std::endl;
+                logWrite("COP0_PErr", imm);
                 throw "WritePErr";
                 break;
             case CacheErr:
-                std::cerr << "write CacheErr" << std::endl;
+                logWrite("COP0_CacheErr", imm);
                 throw "WriteCacheErr";
                 break;
             case TagLo:
-                std::cerr << "write TagLo" << std::endl;
+                logWrite("COP0_TagLo", imm);
                 state.cp0reg.tagLo = imm;
                 break;
             case TagHi:
-                std::cerr << "write TagHi" << std::endl;
+                logWrite("COP0_TagHi", imm);
                 state.cp0reg.tagHi = imm;
                 break;
             case ErrorEPC:
-                std::cerr << "write ErrorEPC" << std::endl;
+                logWrite("COP0_ErrorEPC", imm);
                 throw "WriteErrPC";
                 break;
             case CPR31:
-                std::cerr << "write CPR31" << std::endl;
+                logWrite("COP0_CPR31", imm);
                 throw "WriteCPR31";
                 break;
         }

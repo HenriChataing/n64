@@ -6,6 +6,18 @@
 
 namespace R4300 {
 
+static inline void logWrite(const char *tag, u64 value)
+{
+    std::cerr << std::left << std::setfill(' ') << std::setw(32);
+    std::cerr << tag << " <- " << std::hex << value << std::endl;
+}
+
+static inline void logRead(const char *tag, u64 value)
+{
+    std::cerr << std::left << std::setfill(' ') << std::setw(32);
+    std::cerr << tag << " -> " << std::hex << value << std::endl;
+}
+
 namespace RdRam {
 
 enum Register {
@@ -34,50 +46,48 @@ static u32 DeviceManuf;
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
-    std::cerr << "RdRam::read(" << std::hex << addr << ")" << std::endl;
-
     if (bytes != 4)
         return false;
 
     switch (addr) {
         case RDRAM_DEVICE_TYPE_REG:
-            std::cerr << "RDRAM_DEVICE_TYPE_REG" << std::endl;
+            logRead("RDRAM_DEVICE_TYPE_REG", DeviceType);
             *value = DeviceType;
             return true;
         case RDRAM_DEVICE_ID_REG:
-            std::cerr << "RDRAM_DEVICE_ID_REG" << std::endl;
+            logRead("RDRAM_DEVICE_ID_REG", DeviceId);
             *value = DeviceId;
             return true;
         case RDRAM_DELAY_REG:
-            std::cerr << "RDRAM_DELAY_REG" << std::endl;
+            logRead("RDRAM_DELAY_REG", Delay);
             *value = Delay;
             return true;
         case RDRAM_MODE_REG:
-            std::cerr << "RDRAM_MODE_REG" << std::endl;
+            logRead("RDRAM_MODE_REG", Mode);
             *value = Mode;
             return true;
         case RDRAM_REF_INTERVAL_REG:
-            std::cerr << "RDRAM_REF_INTERVAL_REG" << std::endl;
+            logRead("RDRAM_REF_INTERVAL_REG", RefInterval);
             *value = RefInterval;
             return true;
         case RDRAM_REF_ROW_REG:
-            std::cerr << "RDRAM_REF_ROW_REG" << std::endl;
+            logRead("RDRAM_REF_ROW_REG", RefRow);
             *value = RefRow;
             return true;
         case RDRAM_RAS_INTERVAL_REG:
-            std::cerr << "RDRAM_RAS_INTERVAL_REG" << std::endl;
+            logRead("RDRAM_RAS_INTERVAL_REG", RasInterval);
             *value = RasInterval;
             return true;
         case RDRAM_MIN_INTERVAL_REG:
-            std::cerr << "RDRAM_MIN_INTERVAL_REG" << std::endl;
+            logRead("RDRAM_MIN_INTERVAL_REG", MinInterval);
             *value = MinInterval;
             return true;
         case RDRAM_ADDR_SELECT_REG:
-            std::cerr << "RDRAM_ADDR_SELECT_REG" << std::endl;
+            logRead("RDRAM_ADDR_SELECT_REG", AddrSelect);
             *value = AddrSelect;
             return true;
         case RDRAM_DEVICE_MANUF_REG:
-            std::cerr << "RDRAM_DEVICE_MANUF_REG" << std::endl;
+            logRead("RDRAM_DEVICE_MANUF_REG", DeviceManuf);
             *value = DeviceManuf;
             return true;
         default:
@@ -89,50 +99,48 @@ bool read(uint bytes, u64 addr, u64 *value)
 
 bool write(uint bytes, u64 addr, u64 value)
 {
-    std::cerr << "RdRam::write(" << std::hex << addr << "," << value << ")" << std::endl;
-
     if (bytes != 4)
         return false;
 
     switch (addr) {
         case RDRAM_DEVICE_TYPE_REG:
-            std::cerr << "RDRAM_DEVICE_TYPE_REG" << std::endl;
+            logWrite("RDRAM_DEVICE_TYPE_REG", value);
             DeviceType = value;
             return true;
         case RDRAM_DEVICE_ID_REG:
-            std::cerr << "RDRAM_DEVICE_ID_REG" << std::endl;
+            logWrite("RDRAM_DEVICE_ID_REG", value);
             DeviceId = value;
             return true;
         case RDRAM_DELAY_REG:
-            std::cerr << "RDRAM_DELAY_REG" << std::endl;
+            logWrite("RDRAM_DELAY_REG", value);
             Delay = value;
             return true;
         case RDRAM_MODE_REG:
-            std::cerr << "RDRAM_MODE_REG" << std::endl;
+            logWrite("RDRAM_MODE_REG", value);
             Mode = value;
             return true;
         case RDRAM_REF_INTERVAL_REG:
-            std::cerr << "RDRAM_REF_INTERVAL_REG" << std::endl;
+            logWrite("RDRAM_REF_INTERVAL_REG", value);
             RefInterval = value;
             return true;
         case RDRAM_REF_ROW_REG:
-            std::cerr << "RDRAM_REF_ROW_REG" << std::endl;
+            logWrite("RDRAM_REF_ROW_REG", value);
             RefRow = value;
             return true;
         case RDRAM_RAS_INTERVAL_REG:
-            std::cerr << "RDRAM_RAS_INTERVAL_REG" << std::endl;
+            logWrite("RDRAM_RAS_INTERVAL_REG", value);
             RasInterval = value;
             return true;
         case RDRAM_MIN_INTERVAL_REG:
-            std::cerr << "RDRAM_MIN_INTERVAL_REG" << std::endl;
+            logWrite("RDRAM_MIN_INTERVAL_REG", value);
             MinInterval = value;
             return true;
         case RDRAM_ADDR_SELECT_REG:
-            std::cerr << "RDRAM_ADDR_SELECT_REG" << std::endl;
+            logWrite("RDRAM_ADDR_SELECT_REG", value);
             AddrSelect = value;
             return true;
         case RDRAM_DEVICE_MANUF_REG:
-            std::cerr << "RDRAM_DEVICE_MANUF_REG" << std::endl;
+            logWrite("RDRAM_DEVICE_MANUF_REG", value);
             DeviceManuf = value;
             return true;
         default:
@@ -225,53 +233,51 @@ static u32 Ibist;
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
-    std::cerr << "SP::read(" << std::hex << addr << ")" << std::endl;
-
     if (bytes != 4)
         return false;
 
     switch (addr) {
         case SP_MEM_ADDR_REG:
-            std::cerr << "SP_MEM_ADDR_REG" << std::endl;
+            logRead("SP_MEM_ADDR_REG", MemAddr);
             *value = MemAddr;
             return true;
         case SP_DRAM_ADDR_REG:
-            std::cerr << "SP_DRAM_ADDR_REG" << std::endl;
+            logRead("SP_DRAM_ADDR_REG", DramAddr);
             *value = DramAddr;
             return true;
         case SP_RD_LEN_REG:
-            std::cerr << "SP_RD_LEN_REG" << std::endl;
+            logRead("SP_RD_LEN_REG", ReadLen);
             *value = ReadLen;
             return true;
         case SP_WR_LEN_REG:
-            std::cerr << "SP_WR_LEN_REG" << std::endl;
+            logRead("SP_WR_LEN_REG", WriteLen);
             *value = WriteLen;
             return true;
         case SP_STATUS_REG:
-            std::cerr << "SP_STATUS_REG" << std::endl;
+            logRead("SP_STATUS_REG", Status);
             *value = Status;
             return true;
         case SP_DMA_FULL_REG:
-            std::cerr << "SP_DMA_FULL_REG" << std::endl;
+            logRead("SP_DMA_FULL_REG", 0);
             *value = 0;
             return true;
         case SP_DMA_BUSY_REG:
-            std::cerr << "SP_DMA_BUSY_REG" << std::endl;
+            logRead("SP_DMA_BUSY_REG", 0);
             *value = 0;
             return true;
         case SP_SEMAPHORE_REG: {
-            std::cerr << "SP_SEMAPHORE_REG" << std::endl;
             u32 old = Semaphore;
             Semaphore = 1;
             *value = old;
+            logRead("SP_SEMAPHORE_REG", old);
             return true;
         }
         case SP_PC_REG:
-            std::cerr << "SP_PC_REG" << std::endl;
+            logRead("SP_PC_REG", ProgramCounter);
             *value = ProgramCounter;
             return true;
         case SP_IBIST_REG:
-            std::cerr << "SP_IBIST_REG" << std::endl;
+            logRead("SP_IBIST_REG", Ibist);
             *value = Ibist;
             return true;
         default:
@@ -284,47 +290,47 @@ bool read(uint bytes, u64 addr, u64 *value)
 
 bool write(uint bytes, u64 addr, u64 value)
 {
-    std::cerr << "SP::write(" << std::hex << addr << ")" << std::endl;
-
     if (bytes != 4)
         return false;
 
     switch (addr) {
         case SP_MEM_ADDR_REG:
-            std::cerr << "SP_MEM_ADDR_REG" << std::endl;
+            logWrite("SP_MEM_ADDR_REG", value);
             MemAddr = value;
             return true;
         case SP_DRAM_ADDR_REG:
-            std::cerr << "SP_DRAM_ADDR_REG" << std::endl;
+            logWrite("SP_DRAM_ADDR_REG", value);
             DramAddr = value;
             return true;
         case SP_RD_LEN_REG:
-            std::cerr << "SP_RD_LEN_REG" << std::endl;
+            logWrite("SP_RD_LEN_REG", value);
             ReadLen = value;
+            throw "unsupported";
             return true;
         case SP_WR_LEN_REG:
-            std::cerr << "SP_WR_LEN_REG" << std::endl;
+            logWrite("SP_WR_LEN_REG", value);
             WriteLen = value;
-            break;
+            throw "unsupported";
+            return true;
         case SP_STATUS_REG:
-            std::cerr << "SP_STATUS_REG" << std::endl;
+            logWrite("SP_STATUS_REG", value);
             break;
         case SP_DMA_FULL_REG:
-            std::cerr << "SP_DMA_FULL_REG" << std::endl;
+            logWrite("SP_DMA_FULL_REG", value);
             break;
         case SP_DMA_BUSY_REG:
-            std::cerr << "SP_DMA_BUSY_REG" << std::endl;
+            logWrite("SP_DMA_BUSY_REG", value);
             break;
         case SP_SEMAPHORE_REG:
-            std::cerr << "SP_SEMAPHORE_REG" << std::endl;
+            logWrite("SP_SEMAPHORE_REG", value);
             Semaphore = 0;
             break;
         case SP_PC_REG:
-            std::cerr << "SP_PC_REG" << std::endl;
+            logWrite("SP_PC_REG", value);
             ProgramCounter = value;
             return true;
         case SP_IBIST_REG:
-            std::cerr << "SP_IBIST_REG" << std::endl;
+            logWrite("SP_IBIST_REG", value);
             Ibist = value;
             return true;
         default:
@@ -417,26 +423,24 @@ static u32 IntrMask;
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
-    std::cerr << "MI::read(" << std::hex << addr << ")" << std::endl;
-
     if (bytes != 4)
         return false;
 
     switch (addr) {
         case MI_MODE_REG:
-            std::cerr << "MI_MODE_REG" << std::endl;
+            logRead("MI_MODE_REG", Mode);
             *value = Mode;
             return true;
         case MI_VERSION_REG:
-            std::cerr << "MI_VERSION_REG" << std::endl;
+            logRead("MI_VERSION_REG", Version);
             *value = Version;
             return true;
         case MI_INTR_REG:
-            std::cerr << "MI_INTR_REG" << std::endl;
+            logRead("MI_INTR_REG", Intr);
             *value = Intr;
             return true;
         case MI_INTR_MASK_REG:
-            std::cerr << "MI_INTR_MASK_REG" << std::endl;
+            logRead("MI_INTR_MASK_REG", IntrMask);
             *value = IntrMask;
             return true;
         default:
@@ -449,20 +453,19 @@ bool read(uint bytes, u64 addr, u64 *value)
 
 bool write(uint bytes, u64 addr, u64 value)
 {
-    std::cerr << "MI::write(" << std::hex << addr << ")" << std::endl;
-
     if (bytes != 4)
         return false;
 
     switch (addr) {
         case MI_MODE_REG:
-            std::cerr << "MI_MODE_REG" << std::endl;
+            logWrite("MI_MODE_REG", value);
             Mode = value;
             return true;
         case MI_VERSION_REG:
+            logWrite("MI_VERSION_REG", value);
             break;
         case MI_INTR_MASK_REG:
-            std::cerr << "MI_INTR_MASK_REG" << std::endl;
+            logWrite("MI_INTR_MASK_REG", value);
             IntrMask = value;
             return true;
         default:
@@ -570,66 +573,64 @@ static u32 YScale;
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
-    std::cerr << "VI::read(" << std::hex << addr << ")" << std::endl;
-
     if (bytes != 4)
         return false;
 
     switch (addr) {
         case VI_CONTROL_REG:
-            std::cerr << "VI_CONTROL_REG" << std::endl;
+            logRead("VI_CONTROL_REG", Control);
             *value = Control;
             return true;
         case VI_DRAM_ADDR_REG:
-            std::cerr << "VI_DRAM_ADDR_REG" << std::endl;
+            logRead("VI_DRAM_ADDR_REG", DramAddr);
             *value = DramAddr;
             return true;
         case VI_WIDTH_REG:
-            std::cerr << "VI_WIDTH_REG" << std::endl;
+            logRead("VI_WIDTH_REG", Width);
             *value = Width;
             return true;
         case VI_INTR_REG:
-            std::cerr << "VI_INTR_REG" << std::endl;
+            logRead("VI_INTR_REG", Intr);
             *value = Intr;
             return true;
         case VI_CURRENT_REG:
-            std::cerr << "VI_CURRENT_REG" << std::endl;
+            logRead("VI_CURRENT_REG", Current);
             *value = Current;
             return true;
         case VI_BURST_REG:
-            std::cerr << "VI_BURST_REG" << std::endl;
+            logRead("VI_BURST_REG", Burst);
             *value = Burst;
             return true;
         case VI_V_SYNC_REG:
-            std::cerr << "VI_V_SYNC_REG" << std::endl;
+            logRead("VI_V_SYNC_REG", VSync);
             *value = VSync;
             return true;
         case VI_H_SYNC_REG:
-            std::cerr << "VI_H_SYNC_REG" << std::endl;
+            logRead("VI_H_SYNC_REG", HSync);
             *value = HSync;
             return true;
         case VI_LEAP_REG:
-            std::cerr << "VI_LEAP_REG" << std::endl;
+            logRead("VI_LEAP_REG", Leap);
             *value = Leap;
             return true;
         case VI_H_START_REG:
-            std::cerr << "VI_H_START_REG" << std::endl;
+            logRead("VI_H_START_REG", HStart);
             *value = HStart;
             return true;
         case VI_V_START_REG:
-            std::cerr << "VI_V_START_REG" << std::endl;
+            logRead("VI_V_START_REG", VStart);
             *value = VStart;
             return true;
         case VI_V_BURST_REG:
-            std::cerr << "VI_V_BURST_REG" << std::endl;
+            logRead("VI_V_BURST_REG", VBurst);
             *value = VBurst;
             return true;
         case VI_X_SCALE_REG:
-            std::cerr << "VI_X_SCALE_REG" << std::endl;
+            logRead("VI_X_SCALE_REG", XScale);
             *value = XScale;
             return true;
         case VI_Y_SCALE_REG:
-            std::cerr << "VI_Y_SCALE_REG" << std::endl;
+            logRead("VI_Y_SCALE_REG", YScale);
             *value = YScale;
             return true;
         default:
@@ -642,66 +643,64 @@ bool read(uint bytes, u64 addr, u64 *value)
 
 bool write(uint bytes, u64 addr, u64 value)
 {
-    std::cerr << "VI::write(" << std::hex << addr << ")" << std::endl;
-
     if (bytes != 4)
         return false;
 
     switch (addr) {
         case VI_CONTROL_REG:
-            std::cerr << "VI_CONTROL_REG" << std::endl;
+            logWrite("VI_CONTROL_REG", value);
             Control = value;
             return true;
         case VI_DRAM_ADDR_REG:
-            std::cerr << "VI_DRAM_ADDR_REG" << std::endl;
+            logWrite("VI_DRAM_ADDR_REG", value);
             DramAddr = value;
             return true;
         case VI_WIDTH_REG:
-            std::cerr << "VI_WIDTH_REG" << std::endl;
+            logWrite("VI_WIDTH_REG", value);
             Width = value;
             return true;
         case VI_INTR_REG:
-            std::cerr << "VI_INTR_REG" << std::endl;
+            logWrite("VI_INTR_REG", value);
             Intr = value;
             return true;
         case VI_CURRENT_REG:
-            std::cerr << "VI_CURRENT_REG" << std::endl;
+            logWrite("VI_CURRENT_REG", value);
             Current = value;
             return true;
         case VI_BURST_REG:
-            std::cerr << "VI_BURST_REG" << std::endl;
+            logWrite("VI_BURST_REG", value);
             Burst = value;
             return true;
         case VI_V_SYNC_REG:
-            std::cerr << "VI_V_SYNC_REG" << std::endl;
+            logWrite("VI_V_SYNC_REG", value);
             VSync = value;
             return true;
         case VI_H_SYNC_REG:
-            std::cerr << "VI_H_SYNC_REG" << std::endl;
+            logWrite("VI_H_SYNC_REG", value);
             HSync = value;
             return true;
         case VI_LEAP_REG:
-            std::cerr << "VI_LEAP_REG" << std::endl;
+            logWrite("VI_LEAP_REG", value);
             Leap = value;
             return true;
         case VI_H_START_REG:
-            std::cerr << "VI_H_START_REG" << std::endl;
+            logWrite("VI_H_START_REG", value);
             HStart = value;
             return true;
         case VI_V_START_REG:
-            std::cerr << "VI_V_START_REG" << std::endl;
+            logWrite("VI_V_START_REG", value);
             VStart = value;
             return true;
         case VI_V_BURST_REG:
-            std::cerr << "VI_V_BURST_REG" << std::endl;
+            logWrite("VI_V_BURST_REG", value);
             VBurst = value;
             return true;
         case VI_X_SCALE_REG:
-            std::cerr << "VI_X_SCALE_REG" << std::endl;
+            logWrite("VI_X_SCALE_REG", value);
             XScale = value;
             return true;
         case VI_Y_SCALE_REG:
-            std::cerr << "VI_Y_SCALE_REG" << std::endl;
+            logWrite("VI_Y_SCALE_REG", value);
             YScale = value;
             return true;
         default:
@@ -753,34 +752,32 @@ static u32 BitRate;
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
-    std::cerr << "AI::read(" << std::hex << addr << ")" << std::endl;
-
     if (bytes != 4)
         return false;
 
     switch (addr) {
         case AI_DRAM_ADDR_REG:
-            std::cerr << "AI_DRAM_ADDR_REG" << std::endl;
+            logRead("AI_DRAM_ADDR_REG", DramAddr);
             *value = DramAddr;
             return true;
         case AI_LEN_REG:
-            std::cerr << "AI_LEN_REG" << std::endl;
+            logRead("AI_LEN_REG", Len);
             *value = Len;
             return true;
         case AI_CONTROL_REG:
-            std::cerr << "AI_CONTROL_REG" << std::endl;
+            logRead("AI_CONTROL_REG", Control);
             *value = Control;
             return true;
         case AI_STATUS_REG:
-            std::cerr << "AI_STATUS_REG" << std::endl;
+            logRead("AI_STATUS_REG", Status);
             *value = Status;
             return true;
         case AI_DACRATE_REG:
-            std::cerr << "AI_DACRATE_REG" << std::endl;
+            logRead("AI_DACRATE_REG", DACRate);
             *value = DACRate;
             return true;
         case AI_BITRATE_REG:
-            std::cerr << "AI_BITRATE_REG" << std::endl;
+            logRead("AI_BITRATE_REG", BitRate);
             *value = BitRate;
             return true;
         default:
@@ -793,34 +790,32 @@ bool read(uint bytes, u64 addr, u64 *value)
 
 bool write(uint bytes, u64 addr, u64 value)
 {
-    std::cerr << "AI::write(" << std::hex << addr << ")" << std::endl;
-
     if (bytes != 4)
         return false;
 
     switch (addr) {
         case AI_DRAM_ADDR_REG:
-            std::cerr << "AI_DRAM_ADDR_REG" << std::endl;
+            logWrite("AI_DRAM_ADDR_REG", value);
             DramAddr = value;
             return true;
         case AI_LEN_REG:
-            std::cerr << "AI_LEN_REG" << std::endl;
+            logWrite("AI_LEN_REG", value);
             Len = value;
             return true;
         case AI_CONTROL_REG:
-            std::cerr << "AI_CONTROL_REG" << std::endl;
+            logWrite("AI_CONTROL_REG", value);
             Control = value;
             return true;
         case AI_STATUS_REG:
-            std::cerr << "AI_STATUS_REG" << std::endl;
+            logWrite("AI_STATUS_REG", value);
             Status = value;
             return true;
         case AI_DACRATE_REG:
-            std::cerr << "AI_DACRATE_REG" << std::endl;
+            logWrite("AI_DACRATE_REG", value);
             DACRate = value;
             return true;
         case AI_BITRATE_REG:
-            std::cerr << "AI_BITRATE_REG" << std::endl;
+            logWrite("AI_BITRATE_REG", value);
             BitRate = value;
             return true;
         default:
@@ -894,62 +889,60 @@ static u32 BsdDom2Rls;
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
-    std::cerr << "PI::read(" << std::hex << addr << ")" << std::endl;
-
     if (bytes != 4)
         return false;
 
     switch (addr) {
         case PI_DRAM_ADDR_REG:
-            std::cerr << "PI_DRAM_ADDR_REG" << std::endl;
+            logRead("PI_DRAM_ADDR_REG", DramAddr);
             *value = DramAddr;
             return true;
         case PI_CART_ADDR_REG:
-            std::cerr << "PI_CART_ADDR_REG" << std::endl;
+            logRead("PI_CART_ADDR_REG", CartAddr);
             *value = CartAddr;
             return true;
         case PI_RD_LEN_REG:
-            std::cerr << "PI_RD_LEN_REG" << std::endl;
+            logRead("PI_RD_LEN_REG", ReadLen);
             *value = ReadLen;
             return true;
         case PI_WR_LEN_REG:
-            std::cerr << "PI_WR_LEN_REG" << std::endl;
+            logRead("PI_WR_LEN_REG", WriteLen);
             *value = WriteLen;
             return true;
         case PI_STATUS_REG:
-            std::cerr << "PI_STATUS_REG" << std::endl;
+            logRead("PI_STATUS_REG", Status);
             *value = Status;
             return true;
         case PI_BSD_DOM1_LAT_REG:
-            std::cerr << "PI_BSD_DOM1_LAT_REG" << std::endl;
+            logRead("PI_BSD_DOM1_LAT_REG", BsdDom1Lat);
             *value = BsdDom1Lat;
             return true;
         case PI_BSD_DOM1_PWD_REG:
-            std::cerr << "PI_BSD_DOM1_PWD_REG" << std::endl;
+            logRead("PI_BSD_DOM1_PWD_REG", BsdDom1Pwd);
             *value = BsdDom1Pwd;
             return true;
         case PI_BSD_DOM1_PGS_REG:
-            std::cerr << "PI_BSD_DOM1_PGS_REG" << std::endl;
+            logRead("PI_BSD_DOM1_PGS_REG", BsdDom1Pgs);
             *value = BsdDom1Pgs;
             return true;
         case PI_BSD_DOM1_RLS_REG:
-            std::cerr << "PI_BSD_DOM1_RLS_REG" << std::endl;
+            logRead("PI_BSD_DOM1_RLS_REG", BsdDom1Rls);
             *value = BsdDom1Rls;
             return true;
         case PI_BSD_DOM2_LAT_REG:
-            std::cerr << "PI_BSD_DOM2_LAT_REG" << std::endl;
+            logRead("PI_BSD_DOM2_LAT_REG", BsdDom2Lat);
             *value = BsdDom2Lat;
             return true;
         case PI_BSD_DOM2_PWD_REG:
-            std::cerr << "PI_BSD_DOM2_PWD_REG" << std::endl;
+            logRead("PI_BSD_DOM2_PWD_REG", BsdDom2Pwd);
             *value = BsdDom2Pwd;
             return true;
         case PI_BSD_DOM2_PGS_REG:
-            std::cerr << "PI_BSD_DOM2_PGS_REG" << std::endl;
+            logRead("PI_BSD_DOM2_PGS_REG", BsdDom2Pgs);
             *value = BsdDom2Pgs;
             return true;
         case PI_BSD_DOM2_RLS_REG:
-            std::cerr << "PI_BSD_DOM2_RLS_REG" << std::endl;
+            logRead("PI_BSD_DOM2_RLS_REG", BsdDom2Rls);
             *value = BsdDom2Rls;
             return true;
         default:
@@ -962,64 +955,62 @@ bool read(uint bytes, u64 addr, u64 *value)
 
 bool write(uint bytes, u64 addr, u64 value)
 {
-    std::cerr << "PI::write(" << std::hex << addr << "," << value << ")" << std::endl;
-
     if (bytes != 4)
         return false;
 
     switch (addr) {
         case PI_DRAM_ADDR_REG:
-            std::cerr << "PI_DRAM_ADDR_REG" << std::endl;
+            logWrite("PI_DRAM_ADDR_REG", value);
             DramAddr = value;
             return true;
         case PI_CART_ADDR_REG:
-            std::cerr << "PI_CART_ADDR_REG" << std::endl;
+            logWrite("PI_CART_ADDR_REG", value);
             CartAddr = value;
             return true;
         case PI_RD_LEN_REG:
-            std::cerr << "PI_RD_LEN_REG" << std::endl;
+            logWrite("PI_RD_LEN_REG", value);
             ReadLen = value;
-            physmem.copy(CartAddr, DramAddr, ReadLen);
+            physmem.copy(CartAddr, DramAddr, ReadLen + 1);
             break;
         case PI_WR_LEN_REG:
-            std::cerr << "PI_WR_LEN_REG" << std::endl;
+            logWrite("PI_WR_LEN_REG", value);
             WriteLen = value;
-            physmem.copy(DramAddr, CartAddr, WriteLen);
+            physmem.copy(DramAddr, CartAddr, WriteLen + 1);
             break;
         case PI_STATUS_REG:
-            std::cerr << "PI_STATUS_REG" << std::endl;
+            logWrite("PI_STATUS_REG", value);
             Status = 0;
             break;
         case PI_BSD_DOM1_LAT_REG:
-            std::cerr << "PI_BSD_DOM1_LAT_REG" << std::endl;
+            logWrite("PI_BSD_DOM1_LAT_REG", value);
             BsdDom1Lat = value;
             return true;
         case PI_BSD_DOM1_PWD_REG:
-            std::cerr << "PI_BSD_DOM1_PWD_REG" << std::endl;
+            logWrite("PI_BSD_DOM1_PWD_REG", value);
             BsdDom1Pwd = value;
             return true;
         case PI_BSD_DOM1_PGS_REG:
-            std::cerr << "PI_BSD_DOM1_PGS_REG" << std::endl;
+            logWrite("PI_BSD_DOM1_PGS_REG", value);
             BsdDom1Pgs = value;
             return true;
         case PI_BSD_DOM1_RLS_REG:
-            std::cerr << "PI_BSD_DOM1_RLS_REG" << std::endl;
+            logWrite("PI_BSD_DOM1_RLS_REG", value);
             BsdDom1Rls = value;
             return true;
         case PI_BSD_DOM2_LAT_REG:
-            std::cerr << "PI_BSD_DOM2_LAT_REG" << std::endl;
+            logWrite("PI_BSD_DOM2_LAT_REG", value);
             BsdDom2Lat = value;
             return true;
         case PI_BSD_DOM2_PWD_REG:
-            std::cerr << "PI_BSD_DOM2_PWD_REG" << std::endl;
+            logWrite("PI_BSD_DOM2_PWD_REG", value);
             BsdDom2Pwd = value;
             return true;
         case PI_BSD_DOM2_PGS_REG:
-            std::cerr << "PI_BSD_DOM2_PGS_REG" << std::endl;
+            logWrite("PI_BSD_DOM2_PGS_REG", value);
             BsdDom2Pgs = value;
             return true;
         case PI_BSD_DOM2_RLS_REG:
-            std::cerr << "PI_BSD_DOM2_RLS_REG" << std::endl;
+            logWrite("PI_BSD_DOM2_RLS_REG", value);
             BsdDom2Rls = value;
             return true;
         default:
@@ -1072,42 +1063,40 @@ static u32 WError;
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
-    std::cerr << "RI::read(" << std::hex << addr << ")" << std::endl;
-
     if (bytes != 4)
         return false;
 
     switch (addr) {
         case RI_MODE_REG:
-            std::cerr << "RI_MODE_REG" << std::endl;
+            logRead("RI_MODE_REG", Mode);
             *value = Mode;
             return true;
         case RI_CONFIG_REG:
-            std::cerr << "RI_CONFIG_REG" << std::endl;
+            logRead("RI_CONFIG_REG", Config);
             *value = Config;
             return true;
         case RI_CURRENT_LOAD_REG:
-            std::cerr << "RI_CURRENT_LOAD_REG" << std::endl;
+            logRead("RI_CURRENT_LOAD_REG", CurrentLoad);
             *value = CurrentLoad;
             return true;
         case RI_SELECT_REG:
-            std::cerr << "RI_SELECT_REG" << std::endl;
+            logRead("RI_SELECT_REG", Select);
             *value = Select;
             return true;
         case RI_REFRESH_REG:
-            std::cerr << "RI_REFRESH_REG" << std::endl;
+            logRead("RI_REFRESH_REG", Refresh);
             *value = Refresh;
             return true;
         case RI_LATENCY_REG:
-            std::cerr << "RI_LATENCY_REG" << std::endl;
+            logRead("RI_LATENCY_REG", Latency);
             *value = Latency;
             return true;
         case RI_RERROR_REG:
-            std::cerr << "RI_RERROR_REG" << std::endl;
+            logRead("RI_RERROR_REG", RError);
             *value = RError;
             return true;
         case RI_WERROR_REG:
-            std::cerr << "RI_WERROR_REG" << std::endl;
+            logRead("RI_WERROR_REG", WError);
             *value = WError;
             return true;
         default:
@@ -1120,42 +1109,40 @@ bool read(uint bytes, u64 addr, u64 *value)
 
 bool write(uint bytes, u64 addr, u64 value)
 {
-    std::cerr << "RI::write(" << std::hex << addr << "," << value << ")" << std::endl;
-
     if (bytes != 4)
         return false;
 
     switch (addr) {
         case RI_MODE_REG:
-            std::cerr << "RI_MODE_REG" << std::endl;
+         logWrite("RI_MODE_REG", value);
             Mode = value;
             return true;
         case RI_CONFIG_REG:
-            std::cerr << "RI_CONFIG_REG" << std::endl;
+            logWrite("RI_CONFIG_REG", value);
             Config = value;
             return true;
         case RI_CURRENT_LOAD_REG:
-            std::cerr << "RI_CURRENT_LOAD_REG" << std::endl;
+            logWrite("RI_CURRENT_LOAD_REG", value);
             CurrentLoad = value;
             return true;
         case RI_SELECT_REG:
-            std::cerr << "RI_SELECT_REG" << std::endl;
+            logWrite("RI_SELECT_REG", value);
             Select = value;
             return true;
         case RI_REFRESH_REG:
-            std::cerr << "RI_REFRESH_REG" << std::endl;
+            logWrite("RI_REFRESH_REG", value);
             Refresh = value;
             return true;
         case RI_LATENCY_REG:
-            std::cerr << "RI_LATENCY_REG" << std::endl;
+            logWrite("RI_LATENCY_REG", value);
             Latency = value;
             return true;
         case RI_RERROR_REG:
-            std::cerr << "RI_RERROR_REG" << std::endl;
+            logWrite("RI_RERROR_REG", value);
             RError = value;
             return true;
         case RI_WERROR_REG:
-            std::cerr << "RI_WERROR_REG" << std::endl;
+            logWrite("RI_WERROR_REG", value);
             WError = value;
             return true;
         default:
@@ -1194,18 +1181,16 @@ static u32 Status;
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
-    std::cerr << "SI::read(" << std::hex << addr << ")" << std::endl;
-
     if (bytes != 4)
         return false;
 
     switch (addr) {
         case SI_DRAM_ADDR_REG:
-            std::cerr << "SI_DRAM_ADDR_REG" << std::endl;
+            logRead("SI_DRAM_ADDR_REG", DramAddr);
             *value = DramAddr;
             return true;
         case SI_STATUS_REG:
-            std::cerr << "SI_STATUS_REG" << std::endl;
+            logRead("SI_STATUS_REG", Status);
             *value = Status;
             return true;
         default:
@@ -1218,26 +1203,24 @@ bool read(uint bytes, u64 addr, u64 *value)
 
 bool write(uint bytes, u64 addr, u64 value)
 {
-    std::cerr << "SI::write(" << std::hex << addr << ")" << std::endl;
-
     if (bytes != 4)
         return false;
 
     switch (addr) {
         case SI_DRAM_ADDR_REG:
-            std::cerr << "SI_DRAM_ADDR_REG" << std::endl;
+            logWrite("SI_DRAM_ADDR_REG", value);
             DramAddr = value;
             return true;
         case SI_PIF_ADDR_RD64B_REG:
-            std::cerr << "SI_PIF_ADDR_RD64B_REG" << std::endl;
+            logWrite("SI_PIF_ADDR_RD64B_REG", value);
             throw "SI unsupported";
             break;
         case SI_PIF_ADDR_WR64B_REG:
-            std::cerr << "SI_PIF_ADDR_WR64B_REG" << std::endl;
+            logWrite("SI_PIF_ADDR_WR64B_REG", value);
             throw "SI unsupported";
             break;
         case SI_STATUS_REG:
-            std::cerr << "SI_STATUS_REG" << std::endl;
+            logWrite("SI_STATUS_REG", value);
             Status = 0;
             break;
         default:
