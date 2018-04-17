@@ -7,6 +7,9 @@
 
 namespace Mips {
 
+const char *colorGreen = "\x1b[32;1m";
+const char *colorReset = "\x1b[0m";
+
 const char *RegisterNames[32] = {
     "zero", "at",   "v0",   "v1",
     "a0",   "a1",   "a2",   "a3",
@@ -111,8 +114,8 @@ char const *getRegisterName(uint reg)
  */
 #define JType(opcode, name, instr) \
     case opcode: { \
-        u64 tg = Mips::getTarget(instr); \
-        std::cout << std::setw(8) << std::left << name << " $" << std::hex; \
+        u64 tg = 4 * Mips::getTarget(instr); \
+        std::cout << std::setw(8) << std::left << name << " 0x" << std::hex; \
         std::cout << std::setfill('0') << std::setw(8) << std::right << tg; \
         break; \
     }
