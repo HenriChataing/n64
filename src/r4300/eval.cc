@@ -132,7 +132,7 @@ typedef std::pair<u64, u32> LogEntry;
 /**
  * @brief Circular buffer for storing the last instructions executed.
  */
-circular_buffer<LogEntry> _log(32);
+circular_buffer<LogEntry> _log(64);
 
 /**
  * @brief Raise an exception and update the state of the processor.
@@ -415,7 +415,7 @@ void eval(u64 vAddr, bool delaySlot)
                 })
                 RType(SUB, instr, { throw "Unsupported"; })
                 RType(SUBU, instr, {
-                    state.reg.gpr[rd] = state.reg.gpr[rs] - state.reg.gpr[rt];
+                    state.reg.gpr[rd] = SignExtend(state.reg.gpr[rs] - state.reg.gpr[rt], 32);
                 })
                 RType(SYNC, instr, { throw "Unsupported"; })
                 RType(SYSCALL, instr, { throw "Unsupported"; })
@@ -452,7 +452,7 @@ void eval(u64 vAddr, bool delaySlot)
                         eval(state.reg.pc + 4, true);
                         state.reg.pc += 4 + (i64)(imm << 2);
                     } else
-                        state.reg.pc += 4;
+                        state.reg.pc += 8;
                 })
                 IType(BLTZAL, instr, SignExtend, {
                     i64 r = state.reg.gpr[rs];
@@ -469,7 +469,7 @@ void eval(u64 vAddr, bool delaySlot)
                         eval(state.reg.pc + 4, true);
                         state.reg.pc += 4 + (i64)(imm << 2);
                     } else
-                        state.reg.pc += 4;
+                        state.reg.pc += 8;
                 })
                 IType(TEQI, instr, SignExtend, {})
                 IType(TGEI, instr, SignExtend, {})
