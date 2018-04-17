@@ -100,6 +100,7 @@ public:
     void execute();
 
     std::vector<u64> breakpoints;
+    std::vector<std::pair<u64, u64>> addresses;
     bool abort;
 
 private:
@@ -316,12 +317,31 @@ bool doContinue(Shell &sh, std::vector<char *> &args)
         return false;
     try {
         for (;;) {
+            // Advance one step.
             R4300::Eval::step();
+
+            // Check breakpoints.
             for (size_t i = 0; i < sh.breakpoints.size(); i++) {
                 if (sh.breakpoints[i] == R4300::state.reg.pc) {
                     R4300::Eval::hist();
                     std::cerr << "halting at breakpoint #" << i << ": ";
                     std::cerr << std::hex << R4300::state.reg.pc << std::endl;
+                    return false;
+                }
+            }
+
+            // Check watched addresses.
+            for (size_t i = 0; i < sh.addresses.size(); i++) {
+                u64 val = 0;
+                R4300::physmem.load(4, sh.addresses[i].first, &val);
+                if (val != sh.addresses[i].second) {
+                    R4300::Eval::hist();
+                    std::cerr << "watched address 0x";
+                    std::cerr << std::hex << sh.addresses[i].first;
+                    std::cerr << " modified : 0x";
+                    std::cerr << sh.addresses[i].second << " -> 0x" << val;
+                    std::cerr << std::endl;
+                    sh.addresses[i].second = val;
                     return false;
                 }
             }
@@ -358,6 +378,27 @@ bool addBreakpoint(Shell &sh, std::vector<char *> &args)
     sh.breakpoints.push_back(br);
     std::cout << "breakpoint #" << (sh.breakpoints.size() - 1) << ": ";
     std::cerr << std::hex << br << std::endl;
+    return false;
+}
+
+bool watchAddress(Shell &sh, std::vector<char *> &args)
+{
+    if (args.size() < 1) {
+        std::cerr << "missing breakpoint argument" << std::endl;
+        return false;
+    }
+    u64 phys = strtoull(args[0], NULL, 0);
+    if (errno != 0) {
+        std::cerr << "invalid breakpoint argument" << std::endl;
+        return false;
+    }
+    if (phys & 0x80000000)
+        phys |= 0xffffffff00000000;
+
+    u64 init = 0;
+    R4300::physmem.load(4, phys, &init);
+    sh.addresses.push_back(std::pair<u64, u64>(phys, init));
+
     return false;
 }
 
@@ -411,6 +452,7 @@ void terminal()
     sh.config("break", addBreakpoint);
     sh.config("d", doDump);
     sh.config("disas", doDump);
+    sh.config("watch", watchAddress);
 
     R4300::state.boot();
 
