@@ -78,10 +78,10 @@ void Region::adjustEndianness(uint bytes, u64 *value)
 
     switch (bytes) {
         case 2:
-            *(u16 *)value = __builtin_bswap16(*value);
+            *value = __builtin_bswap16(*value);
             break;
         case 4:
-            *(u32 *)value = __builtin_bswap32(*value);
+            *value = __builtin_bswap32(*value);
             break;
         case 8:
             *value = __builtin_bswap64(*value);
