@@ -318,7 +318,11 @@ bool doContinue(Shell &sh, std::vector<char *> &args)
     try {
         for (;;) {
             // Advance one step.
-            R4300::Eval::step();
+            if (R4300::Eval::step()) {
+                R4300::Eval::hist();
+                std::cerr << "halting at exception" << std::endl;
+                return false;
+            }
 
             // Check breakpoints.
             for (size_t i = 0; i < sh.breakpoints.size(); i++) {
@@ -402,13 +406,13 @@ bool watchAddress(Shell &sh, std::vector<char *> &args)
     return false;
 }
 
-bool doDump(Shell &sh, std::vector<char *> &args)
+bool doDisas(Shell &sh, std::vector<char *> &args)
 {
     size_t count = 16;
     if (args.size() > 0) {
         count = strtoull(args[0], NULL, 0);
         if (errno != 0) {
-            std::cerr << "invalid dump argument" << std::endl;
+            std::cerr << "invalid disas argument" << std::endl;
             return false;
         }
     }
@@ -427,6 +431,46 @@ bool doDump(Shell &sh, std::vector<char *> &args)
         Mips::disas(instr);
         std::cout << std::endl;
     }
+
+    return false;
+}
+
+bool doPrint(Shell &sh, std::vector<char *> &args)
+{
+    if (args.size() < 1) {
+        std::cerr << "missing print argument" << std::endl;
+        return false;
+    }
+    u64 phys = strtoull(args[0], NULL, 0);
+    if (errno != 0) {
+        std::cerr << "invalid print argument" << std::endl;
+        return false;
+    }
+    size_t count = 16;
+    if (args.size() > 1) {
+        count = strtoull(args[1], NULL, 0);
+        if (errno != 0) {
+            std::cerr << "invalid print argument" << std::endl;
+            return false;
+        }
+    }
+    if (count == 0)
+        return false;
+
+    for (size_t i = 0; i < count; i++, phys += 4) {
+        u64 value;
+        R4300::physmem.load(4, phys, &value);
+        if (!(i % 4)) {
+            if (i)
+                std::cout << std::endl;
+            std::cout << std::hex << std::setfill(' ') << std::right;
+            std::cout << std::setw(16) << phys << "   ";
+        }
+        std::cout << std::hex << std::setfill('0');
+        std::cout << std::setw(8) << value << "    ";
+        std::cout << std::setfill(' ');
+    }
+    std::cout << std::endl;
 
     return false;
 }
@@ -450,8 +494,11 @@ void terminal()
     sh.config("continue", doContinue);
     sh.config("br", addBreakpoint);
     sh.config("break", addBreakpoint);
-    sh.config("d", doDump);
-    sh.config("disas", doDump);
+    sh.config("d", doDisas);
+    sh.config("disas", doDisas);
+    sh.config("p", doPrint);
+    sh.config("print", doPrint);
+    sh.config("w", watchAddress);
     sh.config("watch", watchAddress);
 
     R4300::state.boot();

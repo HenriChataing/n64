@@ -30,7 +30,7 @@ namespace Eval {
 #define checkAddressAlignment(vAddr, bytes, delay, instr, load) \
     if (((vAddr) & ((bytes) - 1)) != 0) { \
         takeException(AddressError, (vAddr), (delay), (instr), (load)); \
-        return; \
+        return true; \
     }
 
 /**
@@ -149,6 +149,8 @@ void takeException(Exception exn, u64 vAddr,
                    bool delaySlot, bool instr, bool load)
 {
     std::cerr << "Taking exception " << std::dec << exn << std::endl;
+    std::cerr << "delay:" << delaySlot << " instr:" << instr;
+    std::cerr << " load:" << load << std::endl;
     u64 code = 0, vector;
 
     // Compute the exception code to add to the cause register.
@@ -228,25 +230,25 @@ void takeException(Exception exn, u64 vAddr,
         state.reg.pc = 0xffffffffbfc00200llu + vector;
     else
         state.reg.pc = 0xffffffff80000000llu + vector;
-
-   throw "Exception raised";
 }
 
 #define returnException(...) \
     { \
         takeException(__VA_ARGS__); \
-        return; \
+        return true; \
     }
 
 /**
  * @brief Fetch and interpret a single instruction from memory.
+ * @return true if the instruction caused an exception
  */
-void step()
+bool step()
 {
     u64 pc = R4300::state.reg.pc;
-    eval(pc, false);
+    bool exn = eval(pc, false);
     if (R4300::state.reg.pc == pc)
         R4300::state.reg.pc += 4;
+    return exn;
 }
 
 /**
@@ -255,8 +257,9 @@ void step()
  * @param vAddr         Virtual address of the instruction to execute.
  * @param delaySlot     Whether the instruction executed is in a
  *                      branch delay slot.
+ * @return true if the instruction caused an exception
  */
-void eval(u64 vAddr, bool delaySlot)
+bool eval(u64 vAddr, bool delaySlot)
 {
     u64 pAddr;
     u64 instr;
@@ -762,6 +765,7 @@ void eval(u64 vAddr, bool delaySlot)
             throw "Unsupported Opcode";
             break;
     }
+    return false;
 }
 
 void run()

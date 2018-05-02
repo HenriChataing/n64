@@ -14,14 +14,16 @@ void run();
 
 /**
  * @brief Execute exactly one instruction.
+ * @return true if the instruction caused an exception
  */
-void step();
+bool step();
 
 /**
  * @brief Fetch and interpret a single instruction from the provided address.
  * @param vAddr         Virtual address from which to load the instruction
+ * @return true if the instruction caused an exception
  */
-void eval(u64 vAddr, bool delaySlot);
+bool eval(u64 vAddr, bool delaySlot);
 
 /**
  * @brief Print out the last instructions to execute.
