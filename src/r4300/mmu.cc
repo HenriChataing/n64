@@ -10,6 +10,8 @@
 #define XKPHYS  UINT64_C(0x8000000000000000)
 #define XKSSEG  UINT64_C(0x4000000000000000)
 #define XKUSEG  UINT64_C(0x0000000000000000)
+#define USEG    UINT64_C(0x0000000080000000)
+#define XUSEG   UINT64_C(0x0000010000000000)
 
 namespace R4300 {
 
@@ -17,6 +19,7 @@ R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
 {
     bool extendedAddressing = false;
     u8 ksu = R4300::KSU();
+    // u64 region;
 
     // Step 1: check virtual address range.
     if (ksu == 0x0 || R4300::ERL() || R4300::EXL()) {
@@ -41,10 +44,13 @@ R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
     }
     else if (ksu == 0x2) {
         // User mode
+        if (R4300::UX()) {
+            extendedAddressing = true;
+            throw "ExtendedAddressingUnsupported";
+        }
         // Check valid address. The user address space is 2GiB when UX=0,
         // 1To when UX=1.
-        u64 limit = R4300::UX() ? U64_2GB : U64_1TB;
-        if (vAddr >= limit)
+        if ((vAddr & UINT64_C(0xffffffff)) >= USEG)
             return R4300::AddressError;
     }
     else {
@@ -108,6 +114,28 @@ R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
     }
 
     return R4300::None;
+}
+
+
+bool probeTLB(u64 vAddr, uint *index)
+{
+    // Lookup matching TLB entry
+    for (uint i = 0; i < R4300::tlbEntryCount; i++) {
+        R4300::tlbEntry &entry = R4300::state.tlb[i];
+        // Check VPN against vAddr
+        u64 pageMask = ~entry.pageMask & 0xfffffe000llu;
+        if ((vAddr & pageMask) == (entry.entryHi & pageMask)) {
+            // Check global bit and ASID
+            if (entry.global ||
+                (entry.asid == (R4300::state.cp0reg.entryHi & 0xffllu))) {
+                *index = i;
+                return true;
+            }
+        }
+    }
+
+    // No matching TLB entry.
+    return false;
 }
 
 };

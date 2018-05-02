@@ -162,6 +162,17 @@ static inline bool IE()  { return (state.cp0reg.sr & (1lu << 0)) != 0; }
  */
 Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess);
 
+
+/**
+ * @brief Lookup a matching TLB entry.
+ *
+ * @param vAddr         Virtual memory address
+ * @param index         Pointer to a buffer where to write the index of the
+ *                      found entry.
+ * @return true iff a matching entry was found
+ */
+bool probeTLB(u64 vAddr, uint *index);
+
 };
 
 std::ostream &operator<<(std::ostream &os, const R4300::State &state);

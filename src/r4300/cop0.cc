@@ -197,7 +197,9 @@ public:
                 break;
 
             case Mips::Cop0::TLBP:
-                throw "TLBP Unsupported";
+                state.cp0reg.index = 0x80000000lu;
+                if (probeTLB(state.cp0reg.entryHi, &i))
+                    state.cp0reg.index = i;
                 break;
 
             case Mips::Cop0::ERET:
