@@ -78,7 +78,7 @@ namespace Eval {
  * @brief Preprocessor template for R-type instructions.
  *
  * The registers are automatically extracted from the instruction and added
- * as rd, rs, rt, shamt in a new scope.
+ * as rd, rs, rt, shamnt in a new scope.
  *
  * @param opcode            Instruction opcode
  * @param instr             Original instruction

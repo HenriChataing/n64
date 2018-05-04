@@ -199,7 +199,7 @@ static inline u32 getRd(u32 instr) {
  * @brief Extract the instruction shift amount.
  */
 static inline u32 getShamnt(u32 instr) {
-    return (instr >> 16) & 0x1flu;
+    return (instr >> 6) & 0x1flu;
 }
 
 /**

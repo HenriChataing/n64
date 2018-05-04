@@ -16,71 +16,6 @@
 #include <r4300/hw.h>
 #include <memory.h>
 
-#if 0
-
-void printRegisters()
-{
-    mvprintw(3, 2, "%08" PRIx32 " %08" PRIx32 " %08" PRIx32 " %08" PRIx32,
-        (uint32_t)R4300::state.reg.pc,
-        0, 0, 0);
-    for (int i = 0; i < 8; i++)
-        mvprintw(5 + i, 2,
-            "%08" PRIx32 " %08" PRIx32 " %08" PRIx32 " %08" PRIx32,
-            (uint32_t)R4300::state.reg.gpr[4 * i],
-            (uint32_t)R4300::state.reg.gpr[4 * i + 1],
-            (uint32_t)R4300::state.reg.gpr[4 * i + 2],
-            (uint32_t)R4300::state.reg.gpr[4 * i + 3]);
-}
-
-void terminal()
-{
-    initscr();          /* Init curses. */
-    noecho();           /* No echoing input. */
-    raw();              /* No line buffering. */
-    curs_set(0);        /* Hide the cursor. */
-    start_color();      /* Activate coloring. */
-    init_pair(1, COLOR_BLACK, COLOR_YELLOW);
-
-    /* Initialise the terminal. */
-    mvaddstr(2, 2, "PC       LR       SP       FP");
-    mvaddstr(4, 2, "GPR");
-    printRegisters();
-
-    try {
-        R4300::state.boot();
-        for (;;) {
-            int c = getch();
-            if (c == 'q')
-                goto quit;
-
-            R4300::Eval::step();
-            printRegisters();
-        }
-    } catch (const char *exn) {
-        std::cerr << "Caught exception '" << exn << "'" << std::endl;
-        std::cerr << R4300::state << std::endl;
-    }
-
-quit:
-    endwin();
-}
-
-#endif
-
-/*
-PC       LR       SP       FP
-00000000 00000000 00000000 00000000
-GPR
-00000000 00000000 00000000 00000000
-00000000 00000000 00000000 00000000
-00000000 00000000 00000000 00000000
-00000000 00000000 00000000 00000000
-00000000 00000000 00000000 00000000
-00000000 00000000 00000000 00000000
-00000000 00000000 00000000 00000000
-00000000 00000000 00000000 00000000
-*/
-
 class Shell;
 
 typedef bool (*Command)(Shell &sh, std::vector<char *> &args);
@@ -124,37 +59,6 @@ void Shell::config(const std::string &name, Command callback)
 
 void Shell::start()
 {
-#if 0
-    initscr();          /* Init curses. */
-    noecho();           /* No echoing input. */
-    raw();              /* No line buffering. */
-    curs_set(0);        /* Hide the cursor. */
-    start_color();      /* Activate coloring. */
-    init_pair(1, COLOR_BLACK, COLOR_YELLOW);
-
-    /* Initialise the terminal. */
-    mvaddstr(2, 2, "PC       LR       SP       FP");
-    mvaddstr(4, 2, "GPR");
-    printRegisters();
-
-    try {
-        R4300::state.boot();
-        for (;;) {
-            int c = getch();
-            if (c == 'q')
-                goto quit;
-
-            R4300::Eval::step();
-            printRegisters();
-        }
-    } catch (const char *exn) {
-        std::cerr << "Caught exception '" << exn << "'" << std::endl;
-        std::cerr << R4300::state << std::endl;
-    }
-
-quit:
-    endwin();
-#endif
     std::cout << std::endl;
     for (;;) {
         char cmd[256];

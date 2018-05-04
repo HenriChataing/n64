@@ -34,7 +34,7 @@ void State::boot()
     memset(reg.gpr, 0, sizeof(reg.gpr));
     reg.gpr[20]   = 0x1;
     reg.gpr[22]   = 0x3f;
-    reg.gpr[29]   = 0xffffffffa4001ff0;
+    reg.gpr[29]   = 0xffffffffa4001ff0llu;
     memset(&cp0reg, 0, sizeof(cp0reg));
     cp0reg.random = 0x0000001f;
     cp0reg.sr     = 0x70400004;
@@ -43,9 +43,9 @@ void State::boot()
     memset(&cp1reg, 0, sizeof(cp1reg));
     memset(tlb, 0, sizeof(tlb));
 
-    R4300::physmem.store(4, 0x04300004, 0x01010101);
-    R4300::physmem.copy(0x04000000, 0x10000000, 0x1000);
-    reg.pc = 0xffffffffa4000040;
+    R4300::physmem.store(4, 0x04300004llu, 0x01010101);
+    R4300::physmem.copy(0x04000000llu, 0x10000000llu, 0x1000);
+    reg.pc = 0xffffffffa4000040llu;
 }
 
 std::ostream &operator<<(std::ostream &os, const State &state)
