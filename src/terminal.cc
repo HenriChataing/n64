@@ -196,6 +196,12 @@ bool printTLB(Shell &sh, std::vector<char *> &args)
     return false;
 }
 
+bool printBacktrace(Shell &sh, std::vector<char *> &args)
+{
+    R4300::Eval::backtrace();
+    return false;
+}
+
 bool doQuit(Shell &sh, std::vector<char *> &args)
 {
     return true;
@@ -398,6 +404,8 @@ void terminal()
     sh.config("continue", doContinue);
     sh.config("br", addBreakpoint);
     sh.config("break", addBreakpoint);
+    sh.config("bt", printBacktrace);
+    sh.config("backtrace", printBacktrace);
     sh.config("d", doDisas);
     sh.config("disas", doDisas);
     sh.config("p", doPrint);
@@ -409,3 +417,8 @@ void terminal()
 
     sh.start();
 }
+
+// 0xffffffff80316efc
+
+// Condition based on uninitialised value
+// 0xffffffffa400027c

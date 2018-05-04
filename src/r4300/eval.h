@@ -31,6 +31,12 @@ bool eval(u64 vAddr, bool delaySlot);
  */
 void hist(void);
 
+/**
+ * @brief Print out a backtrace of the program execution.
+ * The backtrace is inferred from the control flow, and can be erroneous.
+ */
+void backtrace(void);
+
 };
 };
 

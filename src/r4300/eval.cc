@@ -1,6 +1,7 @@
 
 #include <iomanip>
 #include <iostream>
+#include <vector>
 
 #include <circular_buffer.h>
 #include <mips/asm.h>
@@ -130,9 +131,61 @@ namespace Eval {
 typedef std::pair<u64, u32> LogEntry;
 
 /**
+ * @brief Type of a stack frame entry.
+ */
+struct StackFrame {
+    u64 functionAddr;   /**< Address of the function. */
+    u64 callerAddr;     /**< Address of the call point. */
+    u64 stackPointer;   /**< Value of the stack pointer on function entry. */
+};
+
+/**
  * @brief Circular buffer for storing the last instructions executed.
  */
 circular_buffer<LogEntry> _log(64);
+
+/**
+ * @brief Circular buffer for storing the last instructions executed.
+ */
+std::vector<StackFrame> _backtrace;
+
+/**
+ * @brief Push a new stack frame to the backtrace.
+ */
+static void newStackFrame(u64 functionAddr, u64 callerAddr, u64 stackPointer)
+{
+    StackFrame sf = { functionAddr, callerAddr, stackPointer };
+    _backtrace.push_back(sf);
+}
+
+/**
+ * @brief Delete the top stack frame(s).
+ *
+ * Check that the return address and stack pointer match the values recorded
+ * in the stack frame.
+ */
+static void deleteStackFrame(u64 returnAddr, u64 stackPointer)
+{
+    uint i;
+
+    if (_backtrace.size() == 0)
+        return;
+
+    for (i = _backtrace.size(); i > 0; i--) {
+        StackFrame &sf = _backtrace[i - 1];
+        if ((returnAddr == sf.callerAddr + 8) &&
+            (stackPointer == sf.stackPointer))
+            break;
+    }
+
+    if (i == 0)
+        throw "UnknownStackFrame";
+
+    if (i != _backtrace.size())
+        throw "DiscardedStackFrames";
+
+    _backtrace.resize(i - 1);
+}
 
 /**
  * @brief Raise an exception and update the state of the processor.
@@ -354,10 +407,17 @@ bool eval(u64 vAddr, bool delaySlot)
                 RType(DSRLV, instr, { throw "Unsupported"; })
                 RType(DSUB, instr, { throw "Unsupported"; })
                 RType(DSUBU, instr, { throw "Unsupported"; })
-                RType(JALR, instr, { throw "Unsupported"; })
+                RType(JALR, instr, {
+                    u64 tg = state.reg.gpr[rs];
+                    state.reg.gpr[rd] = state.reg.pc + 8;
+                    eval(state.reg.pc + 4, true);
+                    newStackFrame(tg, state.reg.pc, state.reg.gpr[29]);
+                    state.reg.pc = tg;
+                })
                 RType(JR, instr, {
                     u64 tg = state.reg.gpr[rs];
                     eval(state.reg.pc + 4, true);
+                    deleteStackFrame(tg, state.reg.gpr[29]);
                     state.reg.pc = tg;
                 })
                 RType(MFHI, instr, {
@@ -549,12 +609,14 @@ bool eval(u64 vAddr, bool delaySlot)
         JType(J, instr, {
             tg = (state.reg.pc & 0xfffffffff0000000) | (tg << 2);
             eval(state.reg.pc + 4, true);
+            newStackFrame(tg, state.reg.pc, state.reg.gpr[29]);
             state.reg.pc = tg;
         })
         JType(JAL, instr, {
             tg = (state.reg.pc & 0xfffffffff0000000) | (tg << 2);
             state.reg.gpr[31] = state.reg.pc + 8;
             eval(state.reg.pc + 4, true);
+            newStackFrame(tg, state.reg.pc, state.reg.gpr[29]);
             state.reg.pc = tg;
         })
         IType(LB, instr, SignExtend, {
@@ -786,6 +848,25 @@ void hist()
         std::cout << std::setfill(' ');
         Mips::disas(entry.second);
         std::cout << std::endl;
+    }
+}
+
+void backtrace()
+{
+    std::cout << std::hex << std::setfill(' ') << std::right;
+
+    for (uint i = _backtrace.size(); i > 0; i--) {
+        StackFrame &cur = _backtrace[i - 1];
+        if (i > 1) {
+            StackFrame &prev = _backtrace[i - 2];
+            std::cout << std::setw(16) << cur.callerAddr << " (";
+            std::cout << prev.functionAddr << " + ";
+            std::cout << (cur.callerAddr - prev.functionAddr) << " ; ";
+            std::cout << cur.stackPointer << ")" << std::endl;
+        } else {
+            std::cout << std::setw(16) << cur.callerAddr << " ( ; ";
+            std::cout << cur.stackPointer << ")" << std::endl;
+        }
     }
 }
 
