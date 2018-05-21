@@ -371,8 +371,8 @@ bool eval(u64 vAddr, bool delaySlot)
                 })
                 RType(DIV, instr, {
                     // @todo both operands must be valid 32 bit signed values
-                    state.reg.multLo = state.reg.gpr[rs] / state.reg.gpr[rt];
-                    state.reg.multHi = state.reg.gpr[rs] % state.reg.gpr[rt];
+                    state.reg.multLo = SignExtend(state.reg.gpr[rs] / state.reg.gpr[rt], 32);
+                    state.reg.multHi = SignExtend(state.reg.gpr[rs] % state.reg.gpr[rt], 32);
                 })
                 RType(DIVU, instr, {
                     // @todo both operands must be valid 32 bit signed values
@@ -383,18 +383,18 @@ bool eval(u64 vAddr, bool delaySlot)
                 RType(DMULTU, instr, {
                     u64 x = state.reg.gpr[rs];
                     u64 y = state.reg.gpr[rt];
-                    u64 a = x >> 32, b = x & 0xffffffff;
-                    u64 c = y >> 32, d = y & 0xffffffff;
+                    u64 a = x >> 32, b = x & 0xffffffffllu;
+                    u64 c = y >> 32, d = y & 0xffffffffllu;
 
                     u64 ac = a * c;
                     u64 bc = b * c;
                     u64 ad = a * d;
                     u64 bd = b * d;
 
-                    u64 mid34 = (bd >> 32) + (bc & 0xffffffff) + (ad & 0xffffffff);
+                    u64 mid34 = (bd >> 32) + (bc & 0xffffffffllu) + (ad & 0xffffffffllu);
 
                     state.reg.multHi = ac + (bc >> 32) + (ad >> 32) + (mid34 >> 32);
-                    state.reg.multLo = (mid34 << 32) | (bd & 0xffffffff);
+                    state.reg.multLo = (mid34 << 32) | (bd & 0xffffffffllu);
                 })
                 RType(DSLL, instr, { throw "Unsupported"; })
                 RType(DSLL32, instr, {
@@ -446,12 +446,10 @@ bool eval(u64 vAddr, bool delaySlot)
                 })
                 RType(MULT, instr, { throw "Unsupported"; })
                 RType(MULTU, instr, {
-                    // @todo undefined if rs or rt is not a sign extended
-                    // 32bit val
-                    // @todo instruction tkaes 3 cycles
+                    // @todo instruction takes 3 cycles
                     u64 m = state.reg.gpr[rs] * state.reg.gpr[rt];
-                    state.reg.multLo = m & 0xffffffff;
-                    state.reg.multHi = (m >> 32) & 0xffffffff;
+                    state.reg.multLo = SignExtend(m & 0xffffffffllu, 32);
+                    state.reg.multHi = SignExtend((m >> 32) & 0xffffffffllu, 32);
                 })
                 RType(NOR, instr, { throw "Unsupported"; })
                 RType(OR, instr, {
@@ -470,17 +468,20 @@ bool eval(u64 vAddr, bool delaySlot)
                     state.reg.gpr[rd] = state.reg.gpr[rs] < state.reg.gpr[rt];
                 })
                 RType(SRA, instr, {
+                    // @todo undefined if rt is not a valid sign extended value
                     state.reg.gpr[rd] = SignExtend(state.reg.gpr[rt] >> shamnt, 32);
                 })
                 RType(SRAV, instr, {
+                    // @todo undefined if rt is not a valid sign extended value
                     state.reg.gpr[rd] = SignExtend(state.reg.gpr[rt] >> state.reg.gpr[rs], 32);
                 })
                 RType(SRL, instr, {
-                    // @todo undefined if rt is not a signed extended 32bit val
-                    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
+                    u64 r = (state.reg.gpr[rt] & 0xffffffffllu) >> shamnt;
+                    state.reg.gpr[rd] = SignExtend(r, 32);
                 })
                 RType(SRLV, instr, {
-                    state.reg.gpr[rd] = state.reg.gpr[rt] >> state.reg.gpr[rs];
+                    u64 r = (state.reg.gpr[rt] & 0xffffffffllu) >> state.reg.gpr[rs];
+                    state.reg.gpr[rd] = SignExtend(r, 32);
                 })
                 RType(SUB, instr, { throw "Unsupported"; })
                 RType(SUBU, instr, {
@@ -557,9 +558,9 @@ bool eval(u64 vAddr, bool delaySlot)
             break;
 
         IType(ADDI, instr, SignExtend, {
-            u64 r0 = (state.reg.gpr[rs] & 0xffffffff) + (imm & 0xffffffff);
-            u64 r1 = (state.reg.gpr[rs] & 0x7fffffff) + (imm & 0x7fffffff);
-            if (((r0 >> 1) ^ r1) & 0x80000000)
+            u64 r0 = (state.reg.gpr[rs] & 0xffffffffllu) + (imm & 0xffffffffllu);
+            u64 r1 = (state.reg.gpr[rs] & 0x7fffffffllu) + (imm & 0x7fffffffllu);
+            if (((r0 >> 1) ^ r1) & 0x80000000llu)
                 throw "IntegerOverflow";
             state.reg.gpr[rt] = SignExtend(r0, 32);
         })
@@ -617,14 +618,14 @@ bool eval(u64 vAddr, bool delaySlot)
         IType(DADDI, instr, SignExtend, { throw "Unsupported"; })
         IType(DADDIU, instr, SignExtend, { throw "Unsupported"; })
         JType(J, instr, {
-            tg = (state.reg.pc & 0xfffffffff0000000) | (tg << 2);
+            tg = (state.reg.pc & 0xfffffffff0000000llu) | (tg << 2);
             eval(state.reg.pc + 4, true);
             // newStackFrame(tg, state.reg.pc, state.reg.gpr[29]);
             state.reg.pc = tg;
             state.branch = true;
         })
         JType(JAL, instr, {
-            tg = (state.reg.pc & 0xfffffffff0000000) | (tg << 2);
+            tg = (state.reg.pc & 0xfffffffff0000000llu) | (tg << 2);
             state.reg.gpr[31] = state.reg.pc + 8;
             eval(state.reg.pc + 4, true);
             newStackFrame(tg, state.reg.pc, state.reg.gpr[29]);
