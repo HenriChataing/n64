@@ -466,7 +466,13 @@ bool write(uint bytes, u64 addr, u64 value)
             break;
         case MI_INTR_MASK_REG:
             logWrite("MI_INTR_MASK_REG", value);
-            IntrMask = value;
+            for (unsigned int i = 0; i < 6; i++) {
+                if (value & 1llu)
+                    IntrMask &= ~(1lu << i);
+                if (value & 2llu)
+                    IntrMask |= (1lu << i);
+                value >>= 2;
+            }
             return true;
         default:
             throw "Unsupported";
