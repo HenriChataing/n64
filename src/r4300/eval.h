@@ -21,6 +21,8 @@ bool step();
 /**
  * @brief Fetch and interpret a single instruction from the provided address.
  * @param vAddr         Virtual address from which to load the instruction
+ * @param delaySlot     Whether the instruction executed is in a
+ *                      branch delay slot.
  * @return true if the instruction caused an exception
  */
 bool eval(u64 vAddr, bool delaySlot);

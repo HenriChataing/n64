@@ -206,9 +206,11 @@ public:
                 if (ERL()) {
                     state.reg.pc = state.cp0reg.errorEpc;
                     state.cp0reg.sr &= ~(1lu << 2);
+                    state.branch = true;
                 } else {
                     state.reg.pc = state.cp0reg.epc;
                     state.cp0reg.sr &= ~(1lu << 1);
+                    state.branch = true;
                 }
                 break;
 

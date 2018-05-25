@@ -115,14 +115,16 @@ namespace Eval {
         if (__VA_ARGS__) { \
             eval(state.reg.pc + 4, true); \
             state.reg.pc += 4 + (i64)(imm << 2); \
+            state.branch = true; \
         } \
     }) \
     IType(opcode##L, instr, SignExtend, { \
         if (__VA_ARGS__) { \
             eval(state.reg.pc + 4, true); \
             state.reg.pc += 4 + (i64)(imm << 2); \
+            state.branch = true; \
         } else \
-            state.reg.pc += 8; \
+            state.reg.pc += 4; \
     })
 
 /**
@@ -298,8 +300,10 @@ void takeException(Exception exn, u64 vAddr,
 bool step()
 {
     u64 pc = R4300::state.reg.pc;
+    R4300::state.branch = false;
     bool exn = eval(pc, false);
-    if (R4300::state.reg.pc == pc)
+
+    if (!R4300::state.branch)
         R4300::state.reg.pc += 4;
     return exn;
 }
@@ -413,12 +417,14 @@ bool eval(u64 vAddr, bool delaySlot)
                     eval(state.reg.pc + 4, true);
                     newStackFrame(tg, state.reg.pc, state.reg.gpr[29]);
                     state.reg.pc = tg;
+                    state.branch = true;
                 })
                 RType(JR, instr, {
                     u64 tg = state.reg.gpr[rs];
                     eval(state.reg.pc + 4, true);
                     deleteStackFrame(tg, state.reg.gpr[29]);
                     state.reg.pc = tg;
+                    state.branch = true;
                 })
                 RType(MFHI, instr, {
                     // @todo undefined if an instruction that follows modify
@@ -506,6 +512,7 @@ bool eval(u64 vAddr, bool delaySlot)
                     if (r >= 0) {
                         eval(state.reg.pc + 4, true);
                         state.reg.pc += 4 + (i64)(imm << 2);
+                        state.branch = true;
                     }
                 })
                 IType(BGEZALL, instr, SignExtend, {
@@ -514,8 +521,9 @@ bool eval(u64 vAddr, bool delaySlot)
                     if (r >= 0) {
                         eval(state.reg.pc + 4, true);
                         state.reg.pc += 4 + (i64)(imm << 2);
+                        state.branch = true;
                     } else
-                        state.reg.pc += 8;
+                        state.reg.pc += 4;
                 })
                 IType(BLTZAL, instr, SignExtend, {
                     i64 r = state.reg.gpr[rs];
@@ -523,6 +531,7 @@ bool eval(u64 vAddr, bool delaySlot)
                     if (r < 0) {
                         eval(state.reg.pc + 4, true);
                         state.reg.pc += 4 + (i64)(imm << 2);
+                        state.branch = true;
                     }
                 })
                 IType(BLTZALL, instr, SignExtend, {
@@ -531,8 +540,9 @@ bool eval(u64 vAddr, bool delaySlot)
                     if (r < 0) {
                         eval(state.reg.pc + 4, true);
                         state.reg.pc += 4 + (i64)(imm << 2);
+                        state.branch = true;
                     } else
-                        state.reg.pc += 8;
+                        state.reg.pc += 4;
                 })
                 IType(TEQI, instr, SignExtend, {})
                 IType(TGEI, instr, SignExtend, {})
@@ -609,8 +619,9 @@ bool eval(u64 vAddr, bool delaySlot)
         JType(J, instr, {
             tg = (state.reg.pc & 0xfffffffff0000000) | (tg << 2);
             eval(state.reg.pc + 4, true);
-            newStackFrame(tg, state.reg.pc, state.reg.gpr[29]);
+            // newStackFrame(tg, state.reg.pc, state.reg.gpr[29]);
             state.reg.pc = tg;
+            state.branch = true;
         })
         JType(JAL, instr, {
             tg = (state.reg.pc & 0xfffffffff0000000) | (tg << 2);
@@ -618,6 +629,7 @@ bool eval(u64 vAddr, bool delaySlot)
             eval(state.reg.pc + 4, true);
             newStackFrame(tg, state.reg.pc, state.reg.gpr[29]);
             state.reg.pc = tg;
+            state.branch = true;
         })
         IType(LB, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;

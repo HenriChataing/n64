@@ -99,7 +99,9 @@ public:
     struct cp0reg cp0reg;       /**< Co-processor 0 registers */
     struct cp1reg cp1reg;       /**< Co-processor 0 registers */
     struct tlbEntry tlb[tlbEntryCount];    /**< Translation look-aside buffer */
+
     ulong cycles;
+    bool branch;
 };
 
 class Coprocessor
