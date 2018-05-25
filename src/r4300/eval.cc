@@ -846,7 +846,7 @@ void hist()
         std::cout << std::hex << std::setfill('0');
         std::cout << std::setw(8) << entry.second << "    ";
         std::cout << std::setfill(' ');
-        Mips::disas(entry.second);
+        Mips::disas(entry.first, entry.second);
         std::cout << std::endl;
     }
 }
@@ -854,6 +854,11 @@ void hist()
 void backtrace()
 {
     std::cout << std::hex << std::setfill(' ') << std::right;
+
+    StackFrame &top = _backtrace.back();
+    std::cout << std::setw(16) << state.reg.pc << " (";
+    std::cout << top.functionAddr << " + ";
+    std::cout << (state.reg.pc - top.functionAddr) << " ; )" << std::endl;
 
     for (uint i = _backtrace.size(); i > 0; i--) {
         StackFrame &cur = _backtrace[i - 1];

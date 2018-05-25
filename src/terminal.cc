@@ -3,8 +3,9 @@
 #include <cstddef>
 #include <cstring>
 #include <iomanip>
+#include <fstream>
 #include <iostream>
-#include <ncurses.h>
+#include <sstream>
 #include <vector>
 #include <map>
 #include <list>
@@ -18,7 +19,7 @@
 
 class Shell;
 
-typedef bool (*Command)(Shell &sh, std::vector<char *> &args);
+typedef bool (*Command)(Shell &sh, std::vector<std::string> &args);
 
 class Shell
 {
@@ -32,7 +33,7 @@ public:
     }
     void start();
     void autocomplete();
-    void execute();
+    bool execute(std::string cmd);
 
     std::vector<u64> breakpoints;
     std::vector<std::pair<u64, u64>> addresses;
@@ -48,7 +49,7 @@ void Shell::config(const std::string &name, Command callback)
     auto it = commands.begin();
     for (; it != commands.end(); it++) {
         if (it->first == name) {
-            std::cerr << "duplicate command '" << name << "'" << std::endl;
+            std::cout << "duplicate command '" << name << "'" << std::endl;
             return;
         }
         if (it->first < name)
@@ -61,49 +62,57 @@ void Shell::start()
 {
     std::cout << std::endl;
     for (;;) {
-        char cmd[256];
+        std::string cmd;
         std::cout << "> ";
-        std::cin.getline(cmd, 256);
+        std::getline(std::cin, cmd);
 
-        char *tmp = strtok(cmd, " ");
-        if (tmp == NULL)
-            continue;
-
-        std::string cstr(tmp);
-        auto it = commands.begin();
-        Command c;
-
-        for (; it != commands.end(); it++) {
-            if (it->first == cstr) {
-                c = it->second;
-                break;
-            }
-        }
-        if (it == commands.end()) {
-            std::cout << "unknown command name '" << cstr << "'" << std::endl;
-            continue;
-        }
-
-        std::vector<char *> args;
-        tmp = strtok(NULL, " ");
-        while (tmp != NULL) {
-            args.push_back(tmp);
-            tmp = strtok(NULL, " ");
-        }
-
-        if (c(*this, args))
+        if (execute(cmd))
             break;
     }
 }
 
+bool Shell::execute(std::string cmd)
+{
+    std::istringstream scmd(cmd);
+    std::string token;
 
-bool printHelp(Shell &sh, std::vector<char *> &args)
+    if (!std::getline(scmd, token, ' '))
+        return false;
+
+    // comment line
+    if (token[0] == '#')
+        return false;
+
+    auto it = commands.begin();
+    Command c;
+
+    for (; it != commands.end(); it++) {
+        if (it->first == token) {
+            c = it->second;
+            break;
+        }
+    }
+    if (it == commands.end()) {
+        std::cout << "unknown command name '" << token << "'" << std::endl;
+        return false;
+    }
+
+    std::vector<std::string> args;
+    while (std::getline(scmd, token, ' ')) {
+        args.push_back(token);
+    }
+
+    return c(*this, args);
+}
+
+
+bool printHelp(Shell &sh, std::vector<std::string> &args)
 {
     std::cout << "help" << std::endl;
     return false;
 }
 
-bool printRegisters(Shell &sh, std::vector<char *> &args)
+bool printRegisters(Shell &sh, std::vector<std::string> &args)
 {
     using namespace std;
     cout << setw(6) << setfill(' ') << left << "pc";
@@ -122,7 +131,7 @@ bool printRegisters(Shell &sh, std::vector<char *> &args)
     return false;
 }
 
-bool printCop0Registers(Shell &sh, std::vector<char *> &args)
+bool printCop0Registers(Shell &sh, std::vector<std::string> &args)
 {
     using namespace std;
 
@@ -154,7 +163,7 @@ bool printCop0Registers(Shell &sh, std::vector<char *> &args)
     return false;
 }
 
-bool printTLB(Shell &sh, std::vector<char *> &args)
+bool printTLB(Shell &sh, std::vector<std::string> &args)
 {
     using namespace std;
 
@@ -196,18 +205,44 @@ bool printTLB(Shell &sh, std::vector<char *> &args)
     return false;
 }
 
-bool printBacktrace(Shell &sh, std::vector<char *> &args)
+bool printBacktrace(Shell &sh, std::vector<std::string> &args)
 {
     R4300::Eval::backtrace();
     return false;
 }
 
-bool doQuit(Shell &sh, std::vector<char *> &args)
+bool doQuit(Shell &sh, std::vector<std::string> &args)
 {
     return true;
 }
 
-bool doStep(Shell &sh, std::vector<char *> &args)
+bool doLoad(Shell &sh, std::vector<std::string> &args)
+{
+    if (args.size() < 1) {
+        std::cout << "missing load argument" << std::endl;
+        return false;
+    }
+
+    std::ifstream file(args[0]);
+
+    if (!file) {
+        std::cout << "failed to open file " << args[0] << std::endl;
+        return false;
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.size() == 0)
+            continue;
+        std::cout << "> " << line << std::endl;
+        sh.execute(line);
+    }
+
+    file.close();
+    return false;
+}
+
+bool doStep(Shell &sh, std::vector<std::string> &args)
 {
     if (sh.abort)
         return false;
@@ -221,7 +256,7 @@ bool doStep(Shell &sh, std::vector<char *> &args)
     return false;
 }
 
-bool doContinue(Shell &sh, std::vector<char *> &args)
+bool doContinue(Shell &sh, std::vector<std::string> &args)
 {
     if (sh.abort)
         return false;
@@ -230,7 +265,7 @@ bool doContinue(Shell &sh, std::vector<char *> &args)
             // Advance one step.
             if (R4300::Eval::step()) {
                 R4300::Eval::hist();
-                std::cerr << "halting at exception" << std::endl;
+                std::cout << "halting at exception" << std::endl;
                 return false;
             }
 
@@ -238,27 +273,31 @@ bool doContinue(Shell &sh, std::vector<char *> &args)
             for (size_t i = 0; i < sh.breakpoints.size(); i++) {
                 if (sh.breakpoints[i] == R4300::state.reg.pc) {
                     R4300::Eval::hist();
-                    std::cerr << "halting at breakpoint #" << i << ": ";
-                    std::cerr << std::hex << R4300::state.reg.pc << std::endl;
+                    std::cout << "halting at breakpoint #" << i << ": ";
+                    std::cout << std::hex << R4300::state.reg.pc << std::endl;
                     return false;
                 }
             }
 
             // Check watched addresses.
+            bool modified = false;
             for (size_t i = 0; i < sh.addresses.size(); i++) {
                 u64 val = 0;
                 R4300::physmem.load(4, sh.addresses[i].first, &val);
                 if (val != sh.addresses[i].second) {
                     R4300::Eval::hist();
-                    std::cerr << "watched address 0x";
-                    std::cerr << std::hex << sh.addresses[i].first;
-                    std::cerr << " modified : 0x";
-                    std::cerr << sh.addresses[i].second << " -> 0x" << val;
-                    std::cerr << std::endl;
+                    std::cout << "watched address 0x";
+                    std::cout << std::hex << sh.addresses[i].first;
+                    std::cout << " modified : 0x";
+                    std::cout << sh.addresses[i].second << " -> 0x" << val;
+                    std::cout << std::endl;
                     sh.addresses[i].second = val;
-                    return false;
+                    modified = true;
                 }
             }
+
+            if (modified)
+                return false;
         }
     } catch (const char *exn) {
         R4300::Eval::hist();
@@ -268,42 +307,50 @@ bool doContinue(Shell &sh, std::vector<char *> &args)
     return false;
 }
 
-bool addBreakpoint(Shell &sh, std::vector<char *> &args)
+bool addBreakpoint(Shell &sh, std::vector<std::string> &args)
 {
     if (args.size() < 1) {
-        std::cerr << "missing breakpoint argument" << std::endl;
+        std::cout << "missing breakpoint argument" << std::endl;
         return false;
     }
-    u64 br = strtoull(args[0], NULL, 0);
+    u64 br = strtoull(args[0].c_str(), NULL, 0);
     if (errno != 0) {
-        std::cerr << "invalid breakpoint argument" << std::endl;
+        std::cout << "invalid breakpoint argument" << std::endl;
         return false;
     }
     if (br & 0x80000000)
         br |= 0xffffffff00000000;
     for (size_t i = 0; i < sh.breakpoints.size(); i++) {
         if (sh.breakpoints[i] == br) {
-            std::cerr << "the breakpoint ";
-            std::cerr << std::hex << br;
-            std::cerr << " is already set" << std::endl;
+            std::cout << "the breakpoint ";
+            std::cout << std::hex << br;
+            std::cout << " is already set" << std::endl;
             return false;
         }
     }
     sh.breakpoints.push_back(br);
     std::cout << "breakpoint #" << (sh.breakpoints.size() - 1) << ": ";
-    std::cerr << std::hex << br << std::endl;
+    std::cout << std::hex << br << std::endl;
     return false;
 }
 
-bool watchAddress(Shell &sh, std::vector<char *> &args)
+bool watchAddress(Shell &sh, std::vector<std::string> &args)
 {
     if (args.size() < 1) {
-        std::cerr << "missing breakpoint argument" << std::endl;
+        if (sh.addresses.size() == 0) {
+            std::cout << "no currently watched addresses" << std::endl;
+        } else {
+            std::cout << "watched addresses:" << std::endl;
+            for (size_t i = 0; i < sh.addresses.size(); i++) {
+                std::cout << "#" << std::dec << i << "  ";
+                std::cout << std::hex << sh.addresses[i].first << std::endl;
+            }
+        }
         return false;
     }
-    u64 phys = strtoull(args[0], NULL, 0);
+    u64 phys = strtoull(args[0].c_str(), NULL, 0);
     if (errno != 0) {
-        std::cerr << "invalid breakpoint argument" << std::endl;
+        std::cout << "invalid breakpoint argument" << std::endl;
         return false;
     }
     if (phys & 0x80000000)
@@ -316,18 +363,27 @@ bool watchAddress(Shell &sh, std::vector<char *> &args)
     return false;
 }
 
-bool doDisas(Shell &sh, std::vector<char *> &args)
+bool doDisas(Shell &sh, std::vector<std::string> &args)
 {
+    u64 vAddr = R4300::state.reg.pc, pAddr, instr;
     size_t count = 16;
+
     if (args.size() > 0) {
-        count = strtoull(args[0], NULL, 0);
+        count = strtoull(args[0].c_str(), NULL, 0);
         if (errno != 0) {
-            std::cerr << "invalid disas argument" << std::endl;
+            std::cout << "invalid disas argument" << std::endl;
             return false;
         }
     }
-
-    u64 vAddr = R4300::state.reg.pc, pAddr, instr;
+    if (args.size() > 1) {
+        vAddr = strtoull(args[1].c_str(), NULL, 0);
+        if (errno != 0) {
+            std::cout << "invalid disas argument" << std::endl;
+            return false;
+        }
+        if (vAddr & 0x80000000llu)
+            vAddr |= 0xffffffff00000000llu;
+    }
 
     R4300::translateAddress(vAddr, &pAddr, 0);
 
@@ -338,29 +394,29 @@ bool doDisas(Shell &sh, std::vector<char *> &args)
         std::cout << std::hex << std::setfill('0');
         std::cout << std::setw(8) << instr << "    ";
         std::cout << std::setfill(' ');
-        Mips::disas(instr);
+        Mips::disas(vAddr, instr);
         std::cout << std::endl;
     }
 
     return false;
 }
 
-bool doPrint(Shell &sh, std::vector<char *> &args)
+bool doPrint(Shell &sh, std::vector<std::string> &args)
 {
     if (args.size() < 1) {
-        std::cerr << "missing print argument" << std::endl;
+        std::cout << "missing print argument" << std::endl;
         return false;
     }
-    u64 phys = strtoull(args[0], NULL, 0);
+    u64 phys = strtoull(args[0].c_str(), NULL, 0);
     if (errno != 0) {
-        std::cerr << "invalid print argument" << std::endl;
+        std::cout << "invalid print argument" << std::endl;
         return false;
     }
     size_t count = 16;
     if (args.size() > 1) {
-        count = strtoull(args[1], NULL, 0);
+        count = strtoull(args[1].c_str(), NULL, 0);
         if (errno != 0) {
-            std::cerr << "invalid print argument" << std::endl;
+            std::cout << "invalid print argument" << std::endl;
             return false;
         }
     }
@@ -391,6 +447,8 @@ void terminal()
     sh.config("help", printHelp);
     sh.config("q", doQuit);
     sh.config("quit", doQuit);
+    sh.config("l", doLoad);
+    sh.config("load", doLoad);
     sh.config("regs", printRegisters);
     sh.config("registers", printRegisters);
     sh.config("cp0", printCop0Registers);
@@ -417,8 +475,3 @@ void terminal()
 
     sh.start();
 }
-
-// 0xffffffff80316efc
-
-// Condition based on uninitialised value
-// 0xffffffffa400027c

@@ -80,26 +80,37 @@ char const *getRegisterName(uint reg)
     std::cout << ", 0x" << std::hex << std::left << imm;
 
 #define IType_Rt_Off_Rs(rt, rs, off) \
-    std::cout << getRegisterName(rt); \
-    std::cout << ", " << std::dec << (i16)off; \
+    i16 soff = (i16)off; \
+    std::cout << getRegisterName(rt) << std::hex; \
+    if (soff < 0) \
+        std::cout << ", -0x" << (u16)(-soff); \
+    else \
+        std::cout << ", 0x" << (u16)off; \
     std::cout << "(" << getRegisterName(rs) << ")";
 
 #define IType_CRt_Off_Rs(rt, rs, off) \
-    std::cout << "cr" << std::dec << rt; \
-    std::cout << ", " << std::dec << (i16)off; \
+    i16 soff = (i16)off; \
+    std::cout << "cr" << std::dec << rt << std::hex; \
+    if (soff < 0) \
+        std::cout << ", -0x" << (u16)(-soff); \
+    else \
+        std::cout << ", 0x" << (u16)off; \
     std::cout << "(" << getRegisterName(rs) << ")";
 
-#define IType_Off(rt, rs, off) \
-    std::cout << std::dec << (i16)off;
+#define IType_Tg(rt, rs, off) \
+    i64 off64 = (i16)(4 * off); \
+    std::cout << std::hex << "0x" << (pc + 4 + off64);
 
-#define IType_Rs_Off(rt, rs, off) \
+#define IType_Rs_Tg(rt, rs, off) \
+    i64 off64 = (i16)(4 * off); \
     std::cout << getRegisterName(rs); \
-    std::cout << ", " << std::dec << (i16)off;
+    std::cout << ", 0x" << std::hex << (pc + 4 + off64);
 
-#define IType_Rs_Rt_Off(rt, rs, off) \
+#define IType_Rs_Rt_Tg(rt, rs, off) \
+    i64 off64 = (i16)(4 * off); \
     std::cout << getRegisterName(rs); \
     std::cout << ", " << getRegisterName(rt); \
-    std::cout << ", " << std::dec << (i16)off;
+    std::cout << ", 0x" << std::hex << (pc + 4 + off64);
 
 /**
  * @brief Preprocessor template for J-type instructions.
@@ -112,9 +123,9 @@ char const *getRegisterName(uint reg)
  * @param name              Display name of the instruction
  * @param instr             Original instruction
  */
-#define JType(opcode, name, instr) \
+#define JType(opcode, name, instr, pc) \
     case opcode: { \
-        u64 tg = 4 * Mips::getTarget(instr); \
+        u64 tg = (pc & 0xfffffffff0000000llu) | (4 * Mips::getTarget(instr)); \
         std::cout << std::setw(8) << std::left << name << " 0x" << std::hex; \
         std::cout << std::setfill('0') << std::setw(8) << std::right << tg; \
         break; \
@@ -179,7 +190,7 @@ char const *getRegisterName(uint reg)
 /**
  * @brief Print out an instruction.
  */
-void disas(u32 instr)
+void disas(u64 pc, u32 instr)
 {
     u32 opcode;
 
@@ -251,14 +262,14 @@ void disas(u32 instr)
 
         case REGIMM:
             switch (Mips::getRt(instr)) {
-                IType(BGEZ, "bgez", instr, Rs_Off)
-                IType(BGEZL, "bgezl", instr, Rs_Off)
-                IType(BGEZAL, "bgezal", instr, Rs_Off)
-                IType(BGEZALL, "bgezall", instr, Rs_Off)
-                IType(BLTZ, "bltz", instr, Rs_Off)
-                IType(BLTZL, "bltzl", instr, Rs_Off)
-                IType(BLTZAL, "bltzal", instr, Rs_Off)
-                IType(BLTZALL, "bltzall", instr, Rs_Off)
+                IType(BGEZ, "bgez", instr, Rs_Tg)
+                IType(BGEZL, "bgezl", instr, Rs_Tg)
+                IType(BGEZAL, "bgezal", instr, Rs_Tg)
+                IType(BGEZALL, "bgezall", instr, Rs_Tg)
+                IType(BLTZ, "bltz", instr, Rs_Tg)
+                IType(BLTZL, "bltzl", instr, Rs_Tg)
+                IType(BLTZAL, "bltzal", instr, Rs_Tg)
+                IType(BLTZALL, "bltzall", instr, Rs_Tg)
                 default:
                     Unknown(instr);
                     return;
@@ -268,14 +279,14 @@ void disas(u32 instr)
         IType(ADDI, "addi", instr, Rt_Rs_Imm)
         IType(ADDIU, "addiu", instr, Rt_Rs_XImm)
         IType(ANDI, "andi", instr, Rt_Rs_XImm)
-        IType(BEQ, "beq", instr, Rs_Rt_Off)
-        IType(BEQL, "beql", instr, Rs_Rt_Off)
-        IType(BGTZ, "bgtz", instr, Rs_Rt_Off)
-        IType(BGTZL, "bgtzl", instr, Rs_Rt_Off)
-        IType(BLEZ, "blez", instr, Rs_Rt_Off)
-        IType(BLEZL, "blezl", instr, Rs_Rt_Off)
-        IType(BNE, "bne", instr, Rs_Rt_Off)
-        IType(BNEL, "bnel", instr, Rs_Rt_Off)
+        IType(BEQ, "beq", instr, Rs_Rt_Tg)
+        IType(BEQL, "beql", instr, Rs_Rt_Tg)
+        IType(BGTZ, "bgtz", instr, Rs_Rt_Tg)
+        IType(BGTZL, "bgtzl", instr, Rs_Rt_Tg)
+        IType(BLEZ, "blez", instr, Rs_Rt_Tg)
+        IType(BLEZL, "blezl", instr, Rs_Rt_Tg)
+        IType(BNE, "bne", instr, Rs_Rt_Tg)
+        IType(BNEL, "bnel", instr, Rs_Rt_Tg)
         SType(CACHE, "cache")
 
 #define COPz(z) \
@@ -294,10 +305,10 @@ void disas(u32 instr)
                 RType(CT, "ctc" #z, instr, Rt_CRd) \
                 case BC: \
                     switch (Mips::getRt(instr)) { \
-                        IType(BCF, "bc" #z "f", instr, Off) \
-                        IType(BCT, "bc" #z "t", instr, Off) \
-                        IType(BCFL, "bc" #z "fl", instr, Off) \
-                        IType(BCTL, "bc" #z "tl", instr, Off) \
+                        IType(BCF, "bc" #z "f", instr, Tg) \
+                        IType(BCT, "bc" #z "t", instr, Tg) \
+                        IType(BCFL, "bc" #z "fl", instr, Tg) \
+                        IType(BCTL, "bc" #z "tl", instr, Tg) \
                         default: \
                             Unknown(instr); \
                             return; \
@@ -316,8 +327,8 @@ void disas(u32 instr)
 
         IType(DADDI, "daddi", instr, Rt_Rs_Imm)
         IType(DADDIU, "daddiu", instr, Rt_Rs_XImm)
-        JType(J, "j", instr)
-        JType(JAL, "jal", instr)
+        JType(J, "j", instr, pc)
+        JType(JAL, "jal", instr, pc)
         IType(LB, "lb", instr, Rt_Off_Rs)
         IType(LBU, "lbu", instr, Rt_Off_Rs)
         IType(LD, "ld", instr, Rt_Off_Rs)
