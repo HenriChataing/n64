@@ -4,6 +4,7 @@
 
 #include <memory.h>
 #include <r4300/hw.h>
+#include <r4300/state.h>
 
 #include "cpu.h"
 

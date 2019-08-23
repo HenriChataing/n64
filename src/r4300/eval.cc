@@ -7,6 +7,7 @@
 #include <mips/asm.h>
 #include <r4300/cpu.h>
 #include <r4300/hw.h>
+#include <r4300/state.h>
 #include <debugger.h>
 
 #include "eval.h"

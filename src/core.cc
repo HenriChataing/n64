@@ -4,8 +4,9 @@
 #include <chrono>
 #include <thread>
 
+#include <r4300/state.h>
+
 #include "core.h"
-#include "r4300/cpu.h"
 #include "r4300/eval.h"
 
 using namespace std;

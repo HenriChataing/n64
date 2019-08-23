@@ -4,7 +4,8 @@
 #include <cstring>
 #include <iostream>
 
-#include "r4300/cpu.h"
+#include <r4300/state.h>
+
 #include "buffer.h"
 #include "commands.h"
 

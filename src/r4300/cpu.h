@@ -10,7 +10,7 @@ namespace R4300 {
 
 const static uint tlbEntryCount = 47;
 
-struct reg {
+struct cpureg {
     u64 pc;             /**< Program counter */
     u64 gpr[32];        /**< General purpose registers */
     u64 multHi, multLo; /**< Multiply / Divide registers */
@@ -88,22 +88,6 @@ enum Exception {
     Interrupt = 17,
 };
 
-class State
-{
-public:
-    State();
-    ~State();
-    void boot();
-
-    struct reg reg;             /**< CPU registers */
-    struct cp0reg cp0reg;       /**< Co-processor 0 registers */
-    struct cp1reg cp1reg;       /**< Co-processor 0 registers */
-    struct tlbEntry tlb[tlbEntryCount];    /**< Translation look-aside buffer */
-
-    ulong cycles;
-    bool branch;
-};
-
 class Coprocessor
 {
 public:
@@ -132,26 +116,7 @@ public:
     }
 };
 
-extern State state;
 extern Coprocessor *cop[4];
-
-static inline bool CU3() { return (state.cp0reg.sr & (1lu << 31)) != 0; }
-static inline bool CU2() { return (state.cp0reg.sr & (1lu << 30)) != 0; }
-static inline bool CU1() { return (state.cp0reg.sr & (1lu << 29)) != 0; }
-static inline bool CU0() { return (state.cp0reg.sr & (1lu << 28)) != 0; }
-static inline bool RP()  { return (state.cp0reg.sr & (1lu << 27)) != 0; }
-static inline bool FR()  { return (state.cp0reg.sr & (1lu << 26)) != 0; }
-static inline bool RE()  { return (state.cp0reg.sr & (1lu << 25)) != 0; }
-static inline bool BEV() { return (state.cp0reg.sr & (1lu << 22)) != 0; }
-static inline u32 DS()   { return (state.cp0reg.sr >> 16) & 0x1flu; }
-static inline u32 IM()   { return (state.cp0reg.sr >> 8) & 0xfflu; }
-static inline bool KX()  { return (state.cp0reg.sr & (1lu << 7)) != 0; }
-static inline bool SX()  { return (state.cp0reg.sr & (1lu << 6)) != 0; }
-static inline bool UX()  { return (state.cp0reg.sr & (1lu << 5)) != 0; }
-static inline u32 KSU()  { return (state.cp0reg.sr >> 3) & 0x3lu; }
-static inline bool ERL() { return (state.cp0reg.sr & (1lu << 2)) != 0; }
-static inline bool EXL() { return (state.cp0reg.sr & (1lu << 1)) != 0; }
-static inline bool IE()  { return (state.cp0reg.sr & (1lu << 0)) != 0; }
 
 /**
  * @brief Translate a virtual memory address into a physical memory address
@@ -165,7 +130,6 @@ static inline bool IE()  { return (state.cp0reg.sr & (1lu << 0)) != 0; }
  */
 Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess);
 
-
 /**
  * @brief Lookup a matching TLB entry.
  *
@@ -177,7 +141,5 @@ Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess);
 bool probeTLB(u64 vAddr, uint *index);
 
 };
-
-std::ostream &operator<<(std::ostream &os, const R4300::State &state);
 
 #endif /* _CPU_H_INCLUDED_ */

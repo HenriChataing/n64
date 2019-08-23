@@ -16,6 +16,7 @@
 #include <r4300/cpu.h>
 #include <r4300/eval.h>
 #include <r4300/hw.h>
+#include <r4300/state.h>
 #include <memory.h>
 #include <debugger.h>
 
