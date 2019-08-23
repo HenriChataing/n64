@@ -1,5 +1,6 @@
 
 #include <cinttypes>
+#include <csignal>
 #include <cstddef>
 #include <cstring>
 #include <iomanip>
@@ -16,10 +17,20 @@
 #include <r4300/eval.h>
 #include <r4300/hw.h>
 #include <memory.h>
+#include <debugger.h>
 
 class Shell;
 
 typedef bool (*Command)(Shell &sh, std::vector<std::string> &args);
+typedef bool (*Callback)();
+
+static bool interrupted;
+
+void signalHandler(int signum)
+{
+    std::cout << "Received signal " << std::dec << signum << std::endl;
+    interrupted = true;
+}
 
 class Shell
 {
@@ -33,9 +44,11 @@ public:
     }
     void start();
     void autocomplete();
+    void trace(u64 vAddr, Callback callback);
     bool execute(std::string cmd);
 
     std::vector<u64> breakpoints;
+    std::vector<std::pair<u64, Callback>> traces;
     std::vector<std::pair<u64, u64>> addresses;
     bool abort;
 
@@ -64,11 +77,27 @@ void Shell::start()
     for (;;) {
         std::string cmd;
         std::cout << "> ";
-        std::getline(std::cin, cmd);
 
-        if (execute(cmd))
+        while (cmd.length() == 0) {
+            std::getline(std::cin, cmd);
+        }
+
+        try {
+            if (execute(cmd))
+                break;
+        } catch (const char *exn) {
+            std::cerr << "command '" << cmd << "' failed with exception '";
+            std::cerr << exn << "'" << std::endl;
             break;
+        }
     }
+}
+
+void Shell::trace(u64 vAddr, Callback callback)
+{
+    if (vAddr & 0x80000000)
+        vAddr |= 0xffffffff00000000;
+    traces.push_back(std::pair<u64, Callback>(vAddr, callback));
 }
 
 bool Shell::execute(std::string cmd)
@@ -207,7 +236,7 @@ bool printTLB(Shell &sh, std::vector<std::string> &args)
 
 bool printBacktrace(Shell &sh, std::vector<std::string> &args)
 {
-    R4300::Eval::backtrace();
+    debugger.backtrace(R4300::state.reg.pc);
     return false;
 }
 
@@ -260,6 +289,7 @@ bool doContinue(Shell &sh, std::vector<std::string> &args)
 {
     if (sh.abort)
         return false;
+    interrupted = false;
     try {
         for (;;) {
             // Advance one step.
@@ -267,6 +297,14 @@ bool doContinue(Shell &sh, std::vector<std::string> &args)
                 R4300::Eval::hist();
                 std::cout << "halting at exception" << std::endl;
                 return false;
+            }
+
+            // Check traces.
+            for (size_t i = 0; i < sh.traces.size(); i++) {
+                if (sh.traces[i].first == R4300::state.reg.pc) {
+                    if (sh.traces[i].second())
+                        return false;
+                }
             }
 
             // Check breakpoints.
@@ -297,6 +335,10 @@ bool doContinue(Shell &sh, std::vector<std::string> &args)
             }
 
             if (modified)
+                return false;
+
+            // Check interrupt signal.
+            if (interrupted)
                 return false;
         }
     } catch (const char *exn) {
@@ -387,7 +429,10 @@ bool doDisas(Shell &sh, std::vector<std::string> &args)
 
     R4300::translateAddress(vAddr, &pAddr, 0);
 
+    interrupted = false;
     for (size_t i = 0; i < count; i++, pAddr += 4, vAddr += 4) {
+        if (interrupted)
+            return false;
         R4300::physmem.load(4, pAddr, &instr);
         std::cout << std::hex << std::setfill(' ') << std::right;
         std::cout << std::setw(16) << vAddr << "    ";
@@ -441,6 +486,100 @@ bool doPrint(Shell &sh, std::vector<std::string> &args)
     return false;
 }
 
+bool log_osCreateThread()
+{
+    std::cerr << "\x1b[31;1m" << std::hex; // red
+
+    u32 ptr = R4300::state.reg.gpr[4] & 0xffffff;
+    u32 entry = R4300::state.reg.gpr[6];
+
+    u64 priorityPaddr;
+    u64 priority = 0;
+
+    R4300::translateAddress(R4300::state.reg.gpr[29] + 0x14, &priorityPaddr, 0);
+    R4300::physmem.load(4, priorityPaddr, &priority);
+
+    std::cerr << "osCreateThread(&_thread_" << ptr << ", " << entry;
+    std::cerr << ", " << priority << ")" << "\x1b[0m" << std::endl;
+
+    return false;
+}
+
+bool log_osStartThread()
+{
+    std::cerr << "\x1b[31;1m" << std::hex; // red
+
+    u32 ptr = R4300::state.reg.gpr[4] & 0xffffff;
+
+    std::cerr << "osStartThread(&_thread_" << ptr << ")" << "\x1b[0m" << std::endl;
+
+    return false;
+}
+
+bool log_osSetThreadPri()
+{
+    std::cerr << "\x1b[31;1m" << std::hex; // red
+
+    u32 ptr = R4300::state.reg.gpr[4] & 0xffffff;
+
+    std::cerr << "osSetThreadPri(&_thread_" << ptr;
+    std::cerr << ", " << R4300::state.reg.gpr[5] << ")" << "\x1b[0m" << std::endl;
+
+    return false;
+}
+
+bool log_osYieldThread()
+{
+    std::cerr << "\x1b[31;1m" << std::hex; // red
+
+    u32 ptr = R4300::state.reg.gpr[4] & 0xffffff;
+
+    std::cerr << "osYieldThread(&_queue_" << ptr << ")" << "\x1b[0m" << std::endl;
+
+    return false;
+}
+
+bool log_osRunThread()
+{
+    std::cerr << "\x1b[31;1m" << std::hex; // red
+
+    u32 ptr = R4300::state.reg.gpr[2] & 0xffffff;
+    debugger.runThread(ptr);
+
+    std::cerr << "osRunThread(&_thread_" << ptr << ")" << "\x1b[0m" << std::endl;
+
+    return false;
+}
+
+bool log_osDestroyThread()
+{
+    return false;
+}
+
+bool log_osSendMessage()
+{
+    std::cerr << "\x1b[32;1m" << std::hex; // red
+
+    u32 ptr = R4300::state.reg.gpr[4] & 0xffffff;
+
+    std::cerr << "osSendMessage(&_mqueue_" << ptr << ")" << "\x1b[0m" << std::endl;
+
+    return false;
+}
+
+bool log_osWaitMessage()
+{
+    std::cerr << "\x1b[32;1m" << std::hex; // red
+
+    u32 ptr = R4300::state.reg.gpr[4] & 0xffffff;
+
+    std::cerr << "osWaitMessage(&_mqueue_" << ptr << ")";
+    std::cerr << " @ " << std::hex << (R4300::state.reg.gpr[31] & 0xfffffflu);
+    std::cerr << "\x1b[0m" << std::endl;
+
+    return false;
+}
+
 void terminal()
 {
     Shell sh;
@@ -471,7 +610,28 @@ void terminal()
     sh.config("w", watchAddress);
     sh.config("watch", watchAddress);
 
+    debugger.addSymbol(0xffffffff80304fc0, "intrDisable");
+    debugger.addSymbol(0xffffffff80304fe0, "intrEnable");
+    debugger.addSymbol(0xffffffff803016d0, "osCreateThread");
+    debugger.addSymbol(0xffffffff8030655c, "osPushThread");
+    debugger.addSymbol(0xffffffff803065a4, "osPopThread");
+    debugger.addSymbol(0xffffffff80301820, "osStartThread");
+    debugger.addSymbol(0xffffffff8030645c, "osYieldThread");
+    debugger.addSymbol(0xffffffff803065b4, "osRunThread");
+    debugger.addSymbol(0xffffffff80301e80, "osSendMessage");
+    debugger.addSymbol(0xffffffff80301500, "osWaitMessage");
+
+    sh.trace(0x803016d0, log_osCreateThread);
+    sh.trace(0x80301820, log_osStartThread);
+    sh.trace(0x80302770, log_osSetThreadPri);
+    sh.trace(0x8030645c, log_osYieldThread);
+    sh.trace(0x803065cc, log_osRunThread);
+    // sh.trace(, log_osDestroyThread);
+    sh.trace(0x80301e80, log_osSendMessage);
+    sh.trace(0x80301500, log_osWaitMessage);
+
     R4300::state.boot();
 
+    signal(SIGINT, signalHandler);
     sh.start();
 }

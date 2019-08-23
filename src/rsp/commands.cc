@@ -4,32 +4,27 @@
 #include <cstring>
 #include <iostream>
 
+#include "r4300/cpu.h"
+#include "buffer.h"
 #include "commands.h"
 
 namespace RSP {
-
-typedef int (*commandFunc)(char *, size_t, char *, size_t);
-
 namespace Command {
 
-int unsupported(char *in, size_t inLen, char *out, size_t outLen)
+void unsupported(char *in, RSP::buffer &out)
 {
-    return 0;
 }
 
-int reportHalted(char *in, size_t inLen, char *out, size_t outLen)
+void reportHalted(char *in, RSP::buffer &out)
 {
-    return 0;
 }
 
-int continue_(char *in, size_t inLen, char *out, size_t outLen)
+void continue_(char *in, RSP::buffer &out)
 {
-    return 0;
 }
 
-int step(char *in, size_t inLen, char *out, size_t outLen)
+void step(char *in, RSP::buffer &out)
 {
-    return 0;
 }
 
 static bool startsWith(char const *prefix, char const *str, size_t strLen)
@@ -46,12 +41,12 @@ static bool startsWith(char const *prefix, char const *str, size_t strLen)
     return true;
 }
 
-int generalQuery(char *in, size_t inLen, char *out, size_t outLen)
+void generalQuery(char *in, RSP::buffer &out)
 {
     // Find the substring representing the query object : until the first
     // colon ':' or the fullstring.
     size_t commandLen = 0;
-    for (; commandLen < inLen; commandLen++) {
+    for (; in[commandLen] != '\0'; commandLen++) {
         if (in[commandLen] == ':')
             break;
     }
@@ -59,58 +54,66 @@ int generalQuery(char *in, size_t inLen, char *out, size_t outLen)
     if (startsWith("qC", in, commandLen)) {
         // Return the current thread ID.
         // Always first thread since multiprocessing is disabled.
-        return snprintf(out, outLen, "QC1");
+        out.append("QC1");
     } else if (startsWith("qSupported", in, commandLen)) {
         // Give our working packet size, disable multiprocessing.
-        return snprintf(out, outLen, "packetSize=%zu;multiprocess-", outLen);
+        out.append("packetSize=4096;multiprocess-");
     } else if (startsWith("qTStatus", in, commandLen)) {
-        return 0;
     } else if (startsWith("qfThreadInfo", in, commandLen)) {
         // Query the active threads. Since no multiprocess, only one to return.
-        return snprintf(out, outLen, "m1");
+        out.append("m1");
     } else if (startsWith("qsThreadInfo", in, commandLen)) {
         // Only one thread, reply with end of list.
-        return snprintf(out, outLen, "l");
+        out.append("l");
     } else if (startsWith("qAttached", in, commandLen)) {
         // The remote server (us) is always attached to the parent simulator
         // thread.
-        return snprintf(out, outLen, "1");
+        out.append("1");
+    } else {
+        // Not supported. Default is to return an empty response.
+        std::cerr << "Unrecognized general query: " << in << std::endl;
     }
-
-    std::cerr << "Unrecognized general query: " << in << std::endl;
-    return 0;
 }
 
-int generalSet(char *in, size_t inLen, char *out, size_t outLen)
+void generalSet(char *in, RSP::buffer &out)
 {
-    return 0;
 }
 
-int readGeneralRegisters(char *in, size_t inLen, char *out, size_t outLen)
+void readGeneralRegisters(char *in, RSP::buffer &out)
 {
-    return 0;
+    for (size_t r = 0; r < 32; r++)
+        out.appendU64(R4300::state.reg.gpr[r]);
+    out.appendU64(R4300::state.cp0reg.sr);
+    out.appendU64(R4300::state.reg.multLo);
+    out.appendU64(R4300::state.reg.multHi);
+    out.appendU64(R4300::state.cp0reg.badVAddr);
+    out.appendU64(R4300::state.cp0reg.cause);
+    out.appendU64(R4300::state.reg.pc);
+
+    for (size_t nr = 0; nr < 100; nr++)
+        out.appendU64(0);
 }
 
-int writeGeneralRegisters(char *in, size_t inLen, char *out, size_t outLen)
+void writeGeneralRegisters(char *in, RSP::buffer &out)
 {
-    return 0;
+    out.append("E00");
 }
 
-int setThread(char *in, size_t inLen, char *out, size_t outLen)
+void setThread(char *in, RSP::buffer &out)
 {
-    if (strncmp("Hg0", in, inLen) == 0 ||
-        strncmp("Hg1", in, inLen) == 0) {
+    if (strcmp("Hg0", in) == 0 ||
+        strcmp("Hg1", in) == 0) {
         // Indicate that register commands apply to a the selected thread only.
         // Multiprocess not supported; any thread is fine.
-        return snprintf(out, outLen, "OK");
-    } else if (strncmp("Hc-1", in, inLen) == 0) {
+        out.append("OK");
+    } else if (strcmp("Hc-1", in) == 0) {
         // Indicate that subsequent 'continue' and 'step' operations apply
         // to all threads simultanously _ which is already the case.
-        return snprintf(out, outLen, "OK");
+        out.append("OK");
+    } else {
+        // Not supported. Default is to return an empty response.
+        std::cerr << "Unrecognized thread command: " << in << std::endl;
     }
-
-    std::cerr << "Unrecognized thread command: " << in << std::endl;
-    return 0;
 }
 
 };
@@ -122,19 +125,23 @@ int handlePacket(char *in, size_t inLen, char *out, size_t outLen)
         return 0;
     }
 
+    RSP::buffer buf((unsigned char *)out, outLen);
+
     switch (in[0]) {
-        case '?': return Command::reportHalted(in, inLen, out, outLen);
-        case 'c': return Command::continue_(in, inLen, out, outLen);
-        case 'C': return Command::continue_(in, inLen, out, outLen);
-        case 'g': return Command::readGeneralRegisters(in, inLen, out, outLen);
-        case 'G': return Command::writeGeneralRegisters(in, inLen, out, outLen);
-        case 'H': return Command::setThread(in, inLen, out, outLen);
-        case 'q': return Command::generalQuery(in, inLen, out, outLen);
-        case 'Q': return Command::generalSet(in, inLen, out, outLen);
-        case 's': return Command::step(in, inLen, out, outLen);
-        case 'S': return Command::step(in, inLen, out, outLen);
-        default:  return Command::unsupported(in, inLen, out, outLen);
+        case '?': Command::reportHalted(in, buf); break;
+        case 'c': Command::continue_(in, buf); break;
+        case 'C': Command::continue_(in, buf); break;
+        case 'g': Command::readGeneralRegisters(in, buf); break;
+        case 'G': Command::writeGeneralRegisters(in, buf); break;
+        case 'H': Command::setThread(in, buf); break;
+        case 'q': Command::generalQuery(in, buf); break;
+        case 'Q': Command::generalSet(in, buf); break;
+        case 's': Command::step(in, buf); break;
+        case 'S': Command::step(in, buf); break;
+        default:  Command::unsupported(in, buf); break;
     }
+
+    return buf.len;
 }
 
 };

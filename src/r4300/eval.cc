@@ -7,6 +7,7 @@
 #include <mips/asm.h>
 #include <r4300/cpu.h>
 #include <r4300/hw.h>
+#include <debugger.h>
 
 #include "eval.h"
 
@@ -133,61 +134,9 @@ namespace Eval {
 typedef std::pair<u64, u32> LogEntry;
 
 /**
- * @brief Type of a stack frame entry.
- */
-struct StackFrame {
-    u64 functionAddr;   /**< Address of the function. */
-    u64 callerAddr;     /**< Address of the call point. */
-    u64 stackPointer;   /**< Value of the stack pointer on function entry. */
-};
-
-/**
  * @brief Circular buffer for storing the last instructions executed.
  */
 circular_buffer<LogEntry> _log(64);
-
-/**
- * @brief Circular buffer for storing the last instructions executed.
- */
-std::vector<StackFrame> _backtrace;
-
-/**
- * @brief Push a new stack frame to the backtrace.
- */
-static void newStackFrame(u64 functionAddr, u64 callerAddr, u64 stackPointer)
-{
-    StackFrame sf = { functionAddr, callerAddr, stackPointer };
-    _backtrace.push_back(sf);
-}
-
-/**
- * @brief Delete the top stack frame(s).
- *
- * Check that the return address and stack pointer match the values recorded
- * in the stack frame.
- */
-static void deleteStackFrame(u64 returnAddr, u64 stackPointer)
-{
-    uint i;
-
-    if (_backtrace.size() == 0)
-        return;
-
-    for (i = _backtrace.size(); i > 0; i--) {
-        StackFrame &sf = _backtrace[i - 1];
-        if ((returnAddr == sf.callerAddr + 8) &&
-            (stackPointer == sf.stackPointer))
-            break;
-    }
-
-    if (i == 0)
-        throw "UnknownStackFrame";
-
-    if (i != _backtrace.size())
-        throw "DiscardedStackFrames";
-
-    _backtrace.resize(i - 1);
-}
 
 /**
  * @brief Raise an exception and update the state of the processor.
@@ -247,7 +196,7 @@ void takeException(Exception exn, u64 vAddr,
             code = 11; // CpU
             break;
         case FloatingPoint:
-            code = 15; // FPE
+            code = 15; // FPEEXL
             break;
         case Watch:
             code = 23; // WATCH
@@ -294,6 +243,71 @@ void takeException(Exception exn, u64 vAddr,
     }
 
 /**
+ * @brief Raise an exception and update the state of the processor.
+ *
+ * @param irq           Interrupt number.
+ *                      INT0 = CAUSE_SW1
+ *                      INT1 = CAUSE_SW2
+ *                      INT2 = CAUSE_IP3 = RCP
+ *                      INT3 = CAUSE_IP4 = cartridge = peripherals
+ *                      INT4 = CAUSE_IP5 = pre-nmi = reset button
+ *                      INT5 = CAUSE_IP6 = RDB read
+ *                      INT6 = CAUSE_IP7 = RDB write
+ *                      INT7 = CAUSE_IP8 = counter
+ * @param vAddr         Virtual address being accessed.
+ * @param delaySlot     Whether the exception occured in a branch delay
+ *                      instruction.
+ * @return              True iff the interrupt is taken (i.e. not masked and
+ *                      interrupts are enabled)
+ */
+bool takeInterrupt(uint irq, u64 vAddr, bool delaySlot)
+{
+    std::cerr << "Taking interrupt " << std::dec << irq << std::endl;
+    std::cerr << "delay:" << delaySlot << std::endl;
+
+    u32 ip = 1lu << irq;
+    state.cp0reg.cause = (state.cp0reg.cause & ~0xff00lu) | (ip << 8);
+
+    /*
+     * For the interrupt to be taken, the interrupts must globally enabled
+     * (IE = 1) and the particular interrupt must be unmasked (IM[irq] = 1).
+     */
+    if (!IE() || !(ip & IM()))
+        return false;
+
+    takeException(Interrupt, vAddr, delaySlot, false, false);
+    return true;
+}
+
+/**
+ * @brief Contains the interrupt status bits if an interrupt is to be taken.
+ */
+static int _irq = -1;
+
+/**
+ * @brief Called to indicate an interrupt should be taken at the next
+ * instruction.
+ */
+void scheduleInterrupt(uint irq)
+{
+    _irq = irq;
+}
+
+/**
+ * @brief Check if an interrupt is pending and trigger the interrupt exception
+ * if it is.
+ */
+bool takeScheduledInterrupt(u64 vAddr, bool delaySlot)
+{
+    if (_irq < 0)
+        return false;
+
+    uint irq = _irq;
+    _irq = -1;
+    return takeInterrupt(irq, vAddr, delaySlot);
+}
+
+/**
  * @brief Fetch and interpret a single instruction from memory.
  * @return true if the instruction caused an exception
  */
@@ -303,7 +317,7 @@ bool step()
     R4300::state.branch = false;
     bool exn = eval(pc, false);
 
-    if (!R4300::state.branch)
+    if (!R4300::state.branch && !exn)
         R4300::state.reg.pc += 4;
     return exn;
 }
@@ -322,6 +336,10 @@ bool eval(u64 vAddr, bool delaySlot)
     u64 instr;
     u32 opcode;
     R4300::Exception exn;
+
+    if (takeScheduledInterrupt(vAddr, delaySlot)) {
+        return true;
+    }
 
     exn = translateAddress(vAddr, &pAddr, false);
 
@@ -415,14 +433,14 @@ bool eval(u64 vAddr, bool delaySlot)
                     u64 tg = state.reg.gpr[rs];
                     state.reg.gpr[rd] = state.reg.pc + 8;
                     eval(state.reg.pc + 4, true);
-                    newStackFrame(tg, state.reg.pc, state.reg.gpr[29]);
+                    debugger.newStackFrame(tg, state.reg.pc, state.reg.gpr[29]);
                     state.reg.pc = tg;
                     state.branch = true;
                 })
                 RType(JR, instr, {
                     u64 tg = state.reg.gpr[rs];
                     eval(state.reg.pc + 4, true);
-                    deleteStackFrame(tg, state.reg.gpr[29]);
+                    debugger.deleteStackFrame(tg, state.reg.pc, state.reg.gpr[29]);
                     state.reg.pc = tg;
                     state.branch = true;
                 })
@@ -620,7 +638,7 @@ bool eval(u64 vAddr, bool delaySlot)
         JType(J, instr, {
             tg = (state.reg.pc & 0xfffffffff0000000llu) | (tg << 2);
             eval(state.reg.pc + 4, true);
-            // newStackFrame(tg, state.reg.pc, state.reg.gpr[29]);
+            debugger.editStackFrame(tg, state.reg.gpr[29]);
             state.reg.pc = tg;
             state.branch = true;
         })
@@ -628,7 +646,7 @@ bool eval(u64 vAddr, bool delaySlot)
             tg = (state.reg.pc & 0xfffffffff0000000llu) | (tg << 2);
             state.reg.gpr[31] = state.reg.pc + 8;
             eval(state.reg.pc + 4, true);
-            newStackFrame(tg, state.reg.pc, state.reg.gpr[29]);
+            debugger.newStackFrame(tg, state.reg.pc, state.reg.gpr[29]);
             state.reg.pc = tg;
             state.branch = true;
         })
@@ -861,30 +879,6 @@ void hist()
         std::cout << std::setfill(' ');
         Mips::disas(entry.first, entry.second);
         std::cout << std::endl;
-    }
-}
-
-void backtrace()
-{
-    std::cout << std::hex << std::setfill(' ') << std::right;
-
-    StackFrame &top = _backtrace.back();
-    std::cout << std::setw(16) << state.reg.pc << " (";
-    std::cout << top.functionAddr << " + ";
-    std::cout << (state.reg.pc - top.functionAddr) << " ; )" << std::endl;
-
-    for (uint i = _backtrace.size(); i > 0; i--) {
-        StackFrame &cur = _backtrace[i - 1];
-        if (i > 1) {
-            StackFrame &prev = _backtrace[i - 2];
-            std::cout << std::setw(16) << cur.callerAddr << " (";
-            std::cout << prev.functionAddr << " + ";
-            std::cout << (cur.callerAddr - prev.functionAddr) << " ; ";
-            std::cout << cur.stackPointer << ")" << std::endl;
-        } else {
-            std::cout << std::setw(16) << cur.callerAddr << " ( ; ";
-            std::cout << cur.stackPointer << ")" << std::endl;
-        }
     }
 }
 

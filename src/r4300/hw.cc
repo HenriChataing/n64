@@ -8,15 +8,28 @@ namespace R4300 {
 
 static inline void logWrite(const char *tag, u64 value)
 {
+#if 1
     std::cerr << std::left << std::setfill(' ') << std::setw(32);
     std::cerr << tag << " <- " << std::hex << value << std::endl;
+#endif
 }
 
 static inline void logRead(const char *tag, u64 value)
 {
+#if 1
     std::cerr << std::left << std::setfill(' ') << std::setw(32);
     std::cerr << tag << " -> " << std::hex << value << std::endl;
+#endif
 }
+
+namespace Eval {
+
+/*
+ * Defined in eval.cc
+ */
+void scheduleInterrupt(uint irq);
+
+};
 
 namespace RdRam {
 
@@ -416,6 +429,13 @@ enum Register {
     MI_INTR_MASK_REG = 0xc,
 };
 
+#define MI_INTR_SP (1 << 0)
+#define MI_INTR_SI (1 << 1)
+#define MI_INTR_AI (1 << 2)
+#define MI_INTR_VI (1 << 3)
+#define MI_INTR_PI (1 << 4)
+#define MI_INTR_DP (1 << 5)
+
 static u32 Mode;
 static u32 Version;
 static u32 Intr;
@@ -446,6 +466,7 @@ bool read(uint bytes, u64 addr, u64 *value)
         default:
             break;
     }
+    logRead("MI_??", addr);
     throw "Unsupported";
     *value = 0;
     return true;
@@ -475,6 +496,7 @@ bool write(uint bytes, u64 addr, u64 value)
             }
             return true;
         default:
+            logWrite("MI_??", addr);
             throw "Unsupported";
             break;
     }
@@ -952,6 +974,7 @@ bool read(uint bytes, u64 addr, u64 *value)
             *value = BsdDom2Rls;
             return true;
         default:
+            logRead("PI_??", addr);
             throw "Unsupported";
             break;
     }
@@ -977,11 +1000,16 @@ bool write(uint bytes, u64 addr, u64 value)
             logWrite("PI_RD_LEN_REG", value);
             ReadLen = value;
             physmem.copy(CartAddr, DramAddr, ReadLen + 1);
+            MI::Intr |= MI_INTR_PI;
+            Eval::scheduleInterrupt(3);
+            Status = 0;
             break;
         case PI_WR_LEN_REG:
             logWrite("PI_WR_LEN_REG", value);
             WriteLen = value;
             physmem.copy(DramAddr, CartAddr, WriteLen + 1);
+            Eval::scheduleInterrupt(3);
+            Status = 0;
             break;
         case PI_STATUS_REG:
             logWrite("PI_STATUS_REG", value);
@@ -1020,6 +1048,7 @@ bool write(uint bytes, u64 addr, u64 value)
             BsdDom2Rls = value;
             return true;
         default:
+            logWrite("PI_??", addr);
             throw "Unsupported";
             break;
     }
@@ -1108,6 +1137,7 @@ bool read(uint bytes, u64 addr, u64 *value)
         default:
             break;
     }
+    logRead("RI_??", addr);
     throw "Unsupported";
     *value = 0;
     return true;
@@ -1152,6 +1182,7 @@ bool write(uint bytes, u64 addr, u64 value)
             WError = value;
             return true;
         default:
+            logWrite("RI_??", addr);
             throw "Unsupported";
             break;
     }
@@ -1243,6 +1274,8 @@ namespace PIF {
 bool read(uint bytes, u64 addr, u64 *value)
 {
     std::cerr << "PIF::read(" << std::hex << addr << ")" << std::endl;
+    if (addr > 0x800)
+        return false;
     *value = 0;
     return true;
 }
@@ -1250,6 +1283,25 @@ bool read(uint bytes, u64 addr, u64 *value)
 bool write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "PIF::write(" << std::hex << addr << ", " << value << ")" << std::endl;
+    if (addr > 0x800)
+        return false;
+    return true;
+}
+
+}; /* namespace PIF */
+
+namespace Cart_2_1 {
+
+bool read(uint bytes, u64 addr, u64 *value)
+{
+    std::cerr << "Cart_2_1::read(" << std::hex << addr << ")" << std::endl;
+    *value = 0;
+    return true;
+}
+
+bool write(uint bytes, u64 addr, u64 value)
+{
+    std::cerr << "Cart_2_1::write(" << std::hex << addr << ", " << value << ")" << std::endl;
     return true;
 }
 
@@ -1281,6 +1333,7 @@ void init(std::string romFile)
     physmem.root->insertIOmem(0x04600000llu, 0x100000, PI::read, PI::write); /* Peripheral Interface */
     physmem.root->insertIOmem(0x04700000llu, 0x100000, RI::read, RI::write); /* RDRAM Interface */
     physmem.root->insertIOmem(0x04800000llu, 0x100000, SI::read, SI::write); /* Serial Interface */
+    physmem.root->insertIOmem(0x05000000llu, 0x1000000, Cart_2_1::read, Cart_2_1::write);
     physmem.root->insertRom(  0x10000000llu, 0xfc00000, romFile);
     physmem.root->insertIOmem(0x1fc00000llu, 0x100000, PIF::read, PIF::write);
 }

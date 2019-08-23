@@ -145,23 +145,27 @@ public:
 
     static inline void logWrite(const char *tag, u64 value)
     {
+#if 1
         std::cerr << "\x1b[34;1m"; // blue
         std::cerr << std::left << std::setfill(' ') << std::setw(32);
         std::cerr << tag << " <- " << std::hex << value;
         std::cerr << "\x1b[0m" << std::endl;
+#endif
     }
 
     static inline void logRead(const char *tag, u64 value)
     {
+#if 0
         std::cerr << "\x1b[34;1m"; // blue
         std::cerr << std::left << std::setfill(' ') << std::setw(32);
         std::cerr << tag << " -> " << std::hex << value;
         std::cerr << "\x1b[0m" << std::endl;
+#endif
     }
 
     virtual void cofun(u32 instr)
     {
-        std::cerr << "COP0 COFUN " << instr << std::endl;
+        // std::cerr << "COP0 COFUN " << instr << std::endl;
         uint i;
         u32 op = Mips::getFunct(instr);
         switch (op) {

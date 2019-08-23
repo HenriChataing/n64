@@ -10,9 +10,13 @@ void terminal();
 
 int main(int argc, char *argv[])
 {
+    char const *path;
     if (argc < 2)
-        return -1;
-    R4300::init(argv[1]);
+        path = "SuperMario64_JA_A.z64";
+    else
+        path = argv[1];
+
+    R4300::init(path);
     R4300::physmem.root->print();
     RSP::startServer();
     // Core::emulate();

@@ -144,6 +144,7 @@ static inline bool FR()  { return (state.cp0reg.sr & (1lu << 26)) != 0; }
 static inline bool RE()  { return (state.cp0reg.sr & (1lu << 25)) != 0; }
 static inline bool BEV() { return (state.cp0reg.sr & (1lu << 22)) != 0; }
 static inline u32 DS()   { return (state.cp0reg.sr >> 16) & 0x1flu; }
+static inline u32 IM()   { return (state.cp0reg.sr >> 8) & 0xfflu; }
 static inline bool KX()  { return (state.cp0reg.sr & (1lu << 7)) != 0; }
 static inline bool SX()  { return (state.cp0reg.sr & (1lu << 6)) != 0; }
 static inline bool UX()  { return (state.cp0reg.sr & (1lu << 5)) != 0; }
