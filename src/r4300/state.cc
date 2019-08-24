@@ -15,8 +15,30 @@ State state;
 State::State() {}
 State::~State() {}
 
-void State::boot()
-{
+void State::init(std::string romFile) {
+    // Create the physical memory address space for this machine
+    // importing the rom bytes for the select file.
+    physmem.root = new Memory::Region(0, 0x100000000llu);
+    physmem.root->insertRam(  0x00000000llu, 0x200000);   /* RDRAM range 0 */
+    physmem.root->insertRam(  0x00200000llu, 0x200000);   /* RDRAM range 1 */
+    physmem.root->insertIOmem(0x03f00000llu, 0x100000, RdRam::read, RdRam::write); /* RDRAM Registers */
+    physmem.root->insertRam(  0x04000000llu, 0x1000);     /* SP DMEM */
+    physmem.root->insertRam(  0x04001000llu, 0x1000);     /* SP IMEM */
+    physmem.root->insertIOmem(0x04040000llu, 0x80000, SP::read, SP::write); /* SP Registers */
+    physmem.root->insertIOmem(0x04100000llu, 0x100000, DPCommand::read, DPCommand::write); /* DP Command Registers */
+    physmem.root->insertIOmem(0x04200000llu, 0x100000, DPSpan::read, DPSpan::write); /* DP Span Registers */
+    physmem.root->insertIOmem(0x04300000llu, 0x100000, MI::read, MI::write); /* Mips Interface */
+    physmem.root->insertIOmem(0x04400000llu, 0x100000, VI::read, VI::write); /* Video Interface */
+    physmem.root->insertIOmem(0x04500000llu, 0x100000, AI::read, AI::write); /* Audio Interface */
+    physmem.root->insertIOmem(0x04600000llu, 0x100000, PI::read, PI::write); /* Peripheral Interface */
+    physmem.root->insertIOmem(0x04700000llu, 0x100000, RI::read, RI::write); /* RDRAM Interface */
+    physmem.root->insertIOmem(0x04800000llu, 0x100000, SI::read, SI::write); /* Serial Interface */
+    physmem.root->insertIOmem(0x05000000llu, 0x1000000, Cart_2_1::read, Cart_2_1::write);
+    physmem.root->insertRom(  0x10000000llu, 0xfc00000, romFile);
+    physmem.root->insertIOmem(0x1fc00000llu, 0x100000, PIF::read, PIF::write);
+}
+
+void State::boot() {
     // Reproduce the pif ROM boot sequence.
     // Referenced from http://www.emulation64.com/ultra64/bootn64.html
     // @todo test with actual pif ROM and compare the operations
@@ -32,8 +54,8 @@ void State::boot()
     memset(&cp1reg, 0, sizeof(cp1reg));
     memset(tlb, 0, sizeof(tlb));
 
-    R4300::physmem.store(4, 0x04300004llu, 0x01010101);
-    R4300::physmem.copy(0x04000000llu, 0x10000000llu, 0x1000);
+    physmem.store(4, 0x04300004llu, 0x01010101);
+    physmem.copy(0x04000000llu, 0x10000000llu, 0x1000);
     reg.pc = 0xffffffffa4000040llu;
 }
 

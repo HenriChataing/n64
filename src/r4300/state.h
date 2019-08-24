@@ -14,6 +14,8 @@ class State
 public:
     State();
     ~State();
+
+    void init(std::string romFile);
     void boot();
 
     struct cpureg reg;          /**< CPU registers */
@@ -21,6 +23,7 @@ public:
     struct cp1reg cp1reg;       /**< Co-processor 0 registers */
     struct tlbEntry tlb[tlbEntryCount];    /**< Translation look-aside buffer */
 
+    Memory::AddressSpace physmem;
     struct hwreg hwreg;
 
     ulong cycles;

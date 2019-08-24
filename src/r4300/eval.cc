@@ -346,7 +346,7 @@ bool eval(u64 vAddr, bool delaySlot)
 
     if (exn != R4300::None)
         returnException(exn, vAddr, delaySlot, true, true);
-    if (!R4300::physmem.load(4, pAddr, &instr))
+    if (!state.physmem.load(4, pAddr, &instr))
         returnException(BusError, vAddr, delaySlot, true, true);
 
     _log.put(LogEntry(vAddr, instr));
@@ -658,7 +658,7 @@ bool eval(u64 vAddr, bool delaySlot)
             exn = translateAddress(vAddr, &pAddr, false);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, true);
-            if (!R4300::physmem.load(1, pAddr, &val))
+            if (!state.physmem.load(1, pAddr, &val))
                 returnException(BusError, vAddr, delaySlot, false, true);
             state.reg.gpr[rt] = SignExtend(val, 8);
         })
@@ -669,7 +669,7 @@ bool eval(u64 vAddr, bool delaySlot)
             exn = translateAddress(vAddr, &pAddr, false);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, true);
-            if (!R4300::physmem.load(1, pAddr, &val))
+            if (!state.physmem.load(1, pAddr, &val))
                 returnException(BusError, vAddr, delaySlot, false, true);
             state.reg.gpr[rt] = ZeroExtend(val, 8);
         })
@@ -681,7 +681,7 @@ bool eval(u64 vAddr, bool delaySlot)
             exn = translateAddress(vAddr, &pAddr, false);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, true);
-            if (!R4300::physmem.load(8, pAddr, &val))
+            if (!state.physmem.load(8, pAddr, &val))
                 returnException(BusError, vAddr, delaySlot, false, true);
             state.reg.gpr[rt] = val;
         })
@@ -698,7 +698,7 @@ bool eval(u64 vAddr, bool delaySlot)
             exn = translateAddress(vAddr, &pAddr, false);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, true);
-            if (!R4300::physmem.load(2, pAddr, &val))
+            if (!state.physmem.load(2, pAddr, &val))
                 returnException(BusError, vAddr, delaySlot, false, true);
             state.reg.gpr[rt] = ZeroExtend(val, 16);
         })
@@ -715,7 +715,7 @@ bool eval(u64 vAddr, bool delaySlot)
             exn = translateAddress(vAddr, &pAddr, false);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, true);
-            if (!R4300::physmem.load(4, pAddr, &val))
+            if (!state.physmem.load(4, pAddr, &val))
                 returnException(BusError, vAddr, delaySlot, false, true);
             state.reg.gpr[rt] = SignExtend(val, 32);
         })
@@ -727,7 +727,7 @@ bool eval(u64 vAddr, bool delaySlot)
             exn = translateAddress(vAddr, &pAddr, false);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, true);
-            if (!R4300::physmem.load(4, pAddr, &val))
+            if (!state.physmem.load(4, pAddr, &val))
                 returnException(BusError, vAddr, delaySlot, false, true);
             cop[1]->write(4, rt, SignExtend(val, 32), false);
         })
@@ -739,7 +739,7 @@ bool eval(u64 vAddr, bool delaySlot)
             exn = translateAddress(vAddr, &pAddr, false);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, true);
-            if (!R4300::physmem.load(4, pAddr, &val))
+            if (!state.physmem.load(4, pAddr, &val))
                 returnException(BusError, vAddr, delaySlot, false, true);
             cop[2]->write(4, rt, SignExtend(val, 32), false);
         })
@@ -751,7 +751,7 @@ bool eval(u64 vAddr, bool delaySlot)
             exn = translateAddress(vAddr, &pAddr, false);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, true);
-            if (!R4300::physmem.load(4, pAddr, &val))
+            if (!state.physmem.load(4, pAddr, &val))
                 returnException(BusError, vAddr, delaySlot, false, true);
             cop[3]->write(4, rt, SignExtend(val, 32), false);
         })
@@ -768,7 +768,7 @@ bool eval(u64 vAddr, bool delaySlot)
             exn = translateAddress(vAddr, &pAddr, true);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, false);
-            if (!R4300::physmem.store(1, pAddr, state.reg.gpr[rt]))
+            if (!state.physmem.store(1, pAddr, state.reg.gpr[rt]))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
         IType(SC, instr, SignExtend, { throw "Unsupported"; })
@@ -781,7 +781,7 @@ bool eval(u64 vAddr, bool delaySlot)
             exn = translateAddress(vAddr, &pAddr, true);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, false);
-            if (!R4300::physmem.store(8, pAddr, state.reg.gpr[rt]))
+            if (!state.physmem.store(8, pAddr, state.reg.gpr[rt]))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
         IType(SDC1, instr, SignExtend, { throw "Unsupported"; })
@@ -796,7 +796,7 @@ bool eval(u64 vAddr, bool delaySlot)
             exn = translateAddress(vAddr, &pAddr, true);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, false);
-            if (!R4300::physmem.store(2, pAddr, state.reg.gpr[rt]))
+            if (!state.physmem.store(2, pAddr, state.reg.gpr[rt]))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
         IType(SLTI, instr, SignExtend, {
@@ -813,7 +813,7 @@ bool eval(u64 vAddr, bool delaySlot)
             exn = translateAddress(vAddr, &pAddr, true);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, false);
-            if (!R4300::physmem.store(4, pAddr, state.reg.gpr[rt]))
+            if (!state.physmem.store(4, pAddr, state.reg.gpr[rt]))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
         IType(SWC1, instr, SignExtend, {
@@ -824,7 +824,7 @@ bool eval(u64 vAddr, bool delaySlot)
             exn = translateAddress(vAddr, &pAddr, true);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, false);
-            if (!R4300::physmem.store(4, pAddr, cop[1]->read(4, rt, false)))
+            if (!state.physmem.store(4, pAddr, cop[1]->read(4, rt, false)))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
         IType(SWC2, instr, SignExtend, {
@@ -835,7 +835,7 @@ bool eval(u64 vAddr, bool delaySlot)
             exn = translateAddress(vAddr, &pAddr, true);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, false);
-            if (!R4300::physmem.store(4, pAddr, cop[1]->read(4, rt, false)))
+            if (!state.physmem.store(4, pAddr, cop[1]->read(4, rt, false)))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
         IType(SWC3, instr, SignExtend, {
@@ -846,7 +846,7 @@ bool eval(u64 vAddr, bool delaySlot)
             exn = translateAddress(vAddr, &pAddr, true);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, false);
-            if (!R4300::physmem.store(4, pAddr, cop[1]->read(4, rt, false)))
+            if (!state.physmem.store(4, pAddr, cop[1]->read(4, rt, false)))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
         IType(SWL, instr, SignExtend, { throw "Unsupported"; })

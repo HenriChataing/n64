@@ -322,7 +322,7 @@ bool doContinue(Shell &sh, std::vector<std::string> &args)
             bool modified = false;
             for (size_t i = 0; i < sh.addresses.size(); i++) {
                 u64 val = 0;
-                R4300::physmem.load(4, sh.addresses[i].first, &val);
+                R4300::state.physmem.load(4, sh.addresses[i].first, &val);
                 if (val != sh.addresses[i].second) {
                     R4300::Eval::hist();
                     std::cout << "watched address 0x";
@@ -400,7 +400,7 @@ bool watchAddress(Shell &sh, std::vector<std::string> &args)
         phys |= 0xffffffff00000000;
 
     u64 init = 0;
-    R4300::physmem.load(4, phys, &init);
+    R4300::state.physmem.load(4, phys, &init);
     sh.addresses.push_back(std::pair<u64, u64>(phys, init));
 
     return false;
@@ -434,7 +434,7 @@ bool doDisas(Shell &sh, std::vector<std::string> &args)
     for (size_t i = 0; i < count; i++, pAddr += 4, vAddr += 4) {
         if (interrupted)
             return false;
-        R4300::physmem.load(4, pAddr, &instr);
+        R4300::state.physmem.load(4, pAddr, &instr);
         std::cout << std::hex << std::setfill(' ') << std::right;
         std::cout << std::setw(16) << vAddr << "    ";
         std::cout << std::hex << std::setfill('0');
@@ -471,7 +471,7 @@ bool doPrint(Shell &sh, std::vector<std::string> &args)
 
     for (size_t i = 0; i < count; i++, phys += 4) {
         u64 value;
-        R4300::physmem.load(4, phys, &value);
+        R4300::state.physmem.load(4, phys, &value);
         if (!(i % 4)) {
             if (i)
                 std::cout << std::endl;
@@ -498,7 +498,7 @@ bool log_osCreateThread()
     u64 priority = 0;
 
     R4300::translateAddress(R4300::state.reg.gpr[29] + 0x14, &priorityPaddr, 0);
-    R4300::physmem.load(4, priorityPaddr, &priority);
+    R4300::state.physmem.load(4, priorityPaddr, &priority);
 
     std::cerr << "osCreateThread(&_thread_" << ptr << ", " << entry;
     std::cerr << ", " << priority << ")" << "\x1b[0m" << std::endl;

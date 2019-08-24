@@ -6,8 +6,6 @@
 
 namespace R4300 {
 
-extern Memory::AddressSpace physmem;
-
 struct hwreg {
     u32 RDRAM_DEVICE_TYPE_REG;
     u32 RDRAM_DEVICE_ID_REG;
@@ -81,7 +79,7 @@ struct hwreg {
     u32 RI_SELECT_REG;
     u32 RI_REFRESH_REG;
     u32 RI_LATENCY_REG;
-    u32 RI_RERROR_REG ;
+    u32 RI_RERROR_REG;
     u32 RI_WERROR_REG;
 
     u32 SI_DRAM_ADDR_REG;
@@ -97,10 +95,65 @@ struct hwreg {
 #define MI_INTR_PI (1U << 4)
 #define MI_INTR_DP (1U << 5)
 
-/**
- * @param Create physical address space.
- */
-void init(std::string romFile);
+namespace RdRam {
+bool read(uint bytes, u64 addr, u64 *value);
+bool write(uint bytes, u64 addr, u64 value);
+};
+
+namespace SP {
+bool read(uint bytes, u64 addr, u64 *value);
+bool write(uint bytes, u64 addr, u64 value);
+};
+
+namespace DPCommand {
+bool read(uint bytes, u64 addr, u64 *value);
+bool write(uint bytes, u64 addr, u64 value);
+};
+
+namespace DPSpan {
+bool read(uint bytes, u64 addr, u64 *value);
+bool write(uint bytes, u64 addr, u64 value);
+};
+
+namespace MI {
+bool read(uint bytes, u64 addr, u64 *value);
+bool write(uint bytes, u64 addr, u64 value);
+};
+
+namespace VI {
+bool read(uint bytes, u64 addr, u64 *value);
+bool write(uint bytes, u64 addr, u64 value);
+};
+
+namespace AI {
+bool read(uint bytes, u64 addr, u64 *value);
+bool write(uint bytes, u64 addr, u64 value);
+};
+
+namespace PI {
+bool read(uint bytes, u64 addr, u64 *value);
+bool write(uint bytes, u64 addr, u64 value);
+};
+
+namespace RI {
+bool read(uint bytes, u64 addr, u64 *value);
+bool write(uint bytes, u64 addr, u64 value);
+};
+
+namespace SI {
+bool read(uint bytes, u64 addr, u64 *value);
+bool write(uint bytes, u64 addr, u64 value);
+};
+
+namespace Cart_2_1 {
+bool read(uint bytes, u64 addr, u64 *value);
+bool write(uint bytes, u64 addr, u64 value);
+};
+
+namespace PIF {
+bool read(uint bytes, u64 addr, u64 *value);
+bool write(uint bytes, u64 addr, u64 value);
+};
 
 };
 

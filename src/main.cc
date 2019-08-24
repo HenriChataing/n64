@@ -1,7 +1,7 @@
 
 #include <iostream>
 
-#include <r4300/hw.h>
+#include <r4300/state.h>
 #include <memory.h>
 #include <core.h>
 #include <rsp/server.h>
@@ -16,8 +16,8 @@ int main(int argc, char *argv[])
     else
         path = argv[1];
 
-    R4300::init(path);
-    R4300::physmem.root->print();
+    R4300::state.init(path);
+    R4300::state.physmem.root->print();
     RSP::startServer();
     // Core::emulate();
     terminal();

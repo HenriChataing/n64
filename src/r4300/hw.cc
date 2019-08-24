@@ -935,7 +935,7 @@ bool write(uint bytes, u64 addr, u64 value)
         case PI_RD_LEN_REG:
             logWrite("PI_RD_LEN_REG", value);
             state.hwreg.PI_RD_LEN_REG = value;
-            physmem.copy(
+            state.physmem.copy(
                 state.hwreg.PI_CART_ADDR_REG,
                 state.hwreg.PI_DRAM_ADDR_REG,
                 state.hwreg.PI_RD_LEN_REG + 1U);
@@ -947,7 +947,7 @@ bool write(uint bytes, u64 addr, u64 value)
         case PI_WR_LEN_REG:
             logWrite("PI_WR_LEN_REG", value);
             state.hwreg.PI_WR_LEN_REG = value;
-            physmem.copy(
+            state.physmem.copy(
                 state.hwreg.PI_DRAM_ADDR_REG,
                 state.hwreg.PI_CART_ADDR_REG,
                 state.hwreg.PI_WR_LEN_REG + 1U);
@@ -1249,36 +1249,5 @@ bool write(uint bytes, u64 addr, u64 value)
 }
 
 }; /* namespace PIF */
-
-/**
- * Physical address space.
- */
-Memory::AddressSpace physmem;
-
-/*
- * Description in header.
- */
-void init(std::string romFile)
-{
-    /* 32-bit addressing */
-    physmem.root = new Memory::Region(0, 0x100000000llu);
-    physmem.root->insertRam(  0x00000000llu, 0x200000);   /* RDRAM range 0 */
-    physmem.root->insertRam(  0x00200000llu, 0x200000);   /* RDRAM range 1 */
-    physmem.root->insertIOmem(0x03f00000llu, 0x100000, RdRam::read, RdRam::write); /* RDRAM Registers */
-    physmem.root->insertRam(  0x04000000llu, 0x1000);     /* SP DMEM */
-    physmem.root->insertRam(  0x04001000llu, 0x1000);     /* SP IMEM */
-    physmem.root->insertIOmem(0x04040000llu, 0x80000, SP::read, SP::write); /* SP Registers */
-    physmem.root->insertIOmem(0x04100000llu, 0x100000, DPCommand::read, DPCommand::write); /* DP Command Registers */
-    physmem.root->insertIOmem(0x04200000llu, 0x100000, DPSpan::read, DPSpan::write); /* DP Span Registers */
-    physmem.root->insertIOmem(0x04300000llu, 0x100000, MI::read, MI::write); /* Mips Interface */
-    physmem.root->insertIOmem(0x04400000llu, 0x100000, VI::read, VI::write); /* Video Interface */
-    physmem.root->insertIOmem(0x04500000llu, 0x100000, AI::read, AI::write); /* Audio Interface */
-    physmem.root->insertIOmem(0x04600000llu, 0x100000, PI::read, PI::write); /* Peripheral Interface */
-    physmem.root->insertIOmem(0x04700000llu, 0x100000, RI::read, RI::write); /* RDRAM Interface */
-    physmem.root->insertIOmem(0x04800000llu, 0x100000, SI::read, SI::write); /* Serial Interface */
-    physmem.root->insertIOmem(0x05000000llu, 0x1000000, Cart_2_1::read, Cart_2_1::write);
-    physmem.root->insertRom(  0x10000000llu, 0xfc00000, romFile);
-    physmem.root->insertIOmem(0x1fc00000llu, 0x100000, PIF::read, PIF::write);
-}
 
 };
