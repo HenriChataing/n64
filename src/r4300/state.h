@@ -21,6 +21,8 @@ public:
     struct cp1reg cp1reg;       /**< Co-processor 0 registers */
     struct tlbEntry tlb[tlbEntryCount];    /**< Translation look-aside buffer */
 
+    struct hwreg hwreg;
+
     ulong cycles;
     bool branch;
 };

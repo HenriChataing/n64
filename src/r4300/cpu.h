@@ -104,18 +104,6 @@ public:
     virtual void BCTL(u32 rd, u64 imm) {}
 };
 
-class Register
-{
-public:
-    virtual u64 read(uint bytes) const {
-        throw "UndefinedRegister";
-        return 0;
-    }
-    virtual void write(uint bytes, u64 val) const {
-        throw "UndefinedRegister";
-    }
-};
-
 extern Coprocessor *cop[4];
 
 /**
