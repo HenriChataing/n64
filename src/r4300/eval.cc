@@ -330,68 +330,44 @@ void takeException(Exception exn, u64 vAddr,
     }
 
 /**
- * @brief Raise an exception and update the state of the processor.
+ * @brief Check whether an interrupt exception is raised from the current state.
+ *  Take the interrupt exception if this is the case.
+ *
+ * @param vAddr         Current value of the program counter
+ * @param delaySlot     True iff \p vAddr points to a delay slot instruction
+ * @return              True iff an Interrupt Exception is taken
+ */
+bool checkInterrupt(u64 vAddr, bool delaySlot)
+{
+    // For the interrupt to be taken, the interrupts must globally enabled
+    // (IE = 1) and the particular interrupt must be unmasked (IM[irq] = 1).
+    // Interrupt exceptions are also disabled during exception
+    // handling (EXL = 1).
+    if (EXL() || !IE() || (IM() & IP()) == 0) {
+        return false;
+    } else {
+        takeException(Interrupt, vAddr, delaySlot, false, false);
+        return true;
+    }
+}
+
+/**
+ * @brief Set the selected interrupt pending bit in the Cause register.
+ *  The Interrupt exception will be taken just before executing the next
+ *  instruction if the conditions are met (see \ref checkInterrupt).
  *
  * @param irq           Interrupt number.
- *                      INT0 = CAUSE_SW1
- *                      INT1 = CAUSE_SW2
- *                      INT2 = CAUSE_IP3 = RCP
- *                      INT3 = CAUSE_IP4 = cartridge = peripherals
- *                      INT4 = CAUSE_IP5 = pre-nmi = reset button
- *                      INT5 = CAUSE_IP6 = RDB read
- *                      INT6 = CAUSE_IP7 = RDB write
- *                      INT7 = CAUSE_IP8 = counter
- * @param vAddr         Virtual address being accessed.
- * @param delaySlot     Whether the exception occured in a branch delay
- *                      instruction.
- * @return              True iff the interrupt is taken (i.e. not masked and
- *                      interrupts are enabled)
  */
-bool takeInterrupt(uint irq, u64 vAddr, bool delaySlot)
+void setInterruptPending(uint irq)
 {
-    std::cerr << "Taking interrupt " << std::dec << irq << std::endl;
-    std::cerr << "delay:" << delaySlot << std::endl;
-
-    u32 ip = 1lu << irq;
-    state.cp0reg.cause = (state.cp0reg.cause & ~0xff00lu) | (ip << 8);
-
-    /*
-     * For the interrupt to be taken, the interrupts must globally enabled
-     * (IE = 1) and the particular interrupt must be unmasked (IM[irq] = 1).
-     */
-    if (!IE() || !(ip & IM()))
-        return false;
-
-    takeException(Interrupt, vAddr, delaySlot, false, false);
-    return true;
+    // Update the pending bits in the Cause register.
+    state.cp0reg.cause |= CAUSE_IP(1lu << irq);
 }
 
-/**
- * @brief Contains the interrupt status bits if an interrupt is to be taken.
- */
-static int _irq = -1;
-
-/**
- * @brief Called to indicate an interrupt should be taken at the next
- * instruction.
- */
-void scheduleInterrupt(uint irq)
+void clearInterruptPending(uint irq)
 {
-    _irq = irq;
-}
-
-/**
- * @brief Check if an interrupt is pending and trigger the interrupt exception
- * if it is.
- */
-bool takeScheduledInterrupt(u64 vAddr, bool delaySlot)
-{
-    if (_irq < 0)
-        return false;
-
-    uint irq = _irq;
-    _irq = -1;
-    return takeInterrupt(irq, vAddr, delaySlot);
+    // Update the pending bits in the Cause register.
+    state.cp0reg.cause &= ~CAUSE_IP(1lu << irq);
 }
 
 /**
@@ -424,7 +400,7 @@ bool eval(u64 vAddr, bool delaySlot)
     u32 opcode;
     R4300::Exception exn;
 
-    if (takeScheduledInterrupt(vAddr, delaySlot)) {
+    if (checkInterrupt(vAddr, delaySlot)) {
         return true;
     }
 
@@ -775,7 +751,18 @@ bool eval(u64 vAddr, bool delaySlot)
         IType(LDC2, instr, SignExtend, { throw "Unsupported"; })
         IType(LDL, instr, SignExtend, { throw "Unsupported"; })
         IType(LDR, instr, SignExtend, { throw "Unsupported"; })
-        IType(LH, instr, SignExtend, { throw "Unsupported"; })
+        IType(LH, instr, SignExtend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr, val;
+
+            checkAddressAlignment(vAddr, 2, delaySlot, false, true);
+            exn = translateAddress(vAddr, &pAddr, false);
+            if (exn != None)
+                returnException(exn, vAddr, delaySlot, false, true);
+            if (!state.physmem.load(2, pAddr, &val))
+                returnException(BusError, vAddr, delaySlot, false, true);
+            state.reg.gpr[rt] = SignExtend(val, 16);
+        })
         IType(LHU, instr, SignExtend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr, val;

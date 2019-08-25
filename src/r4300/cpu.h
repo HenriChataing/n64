@@ -52,10 +52,10 @@ struct cp0reg {
     u32 cpr31;          /**< Unused */
 };
 
-#define STATUS_BEV      (UINT32_C(1) << 22)
-#define STATUS_ERL      (UINT32_C(1) << 2)
-#define STATUS_EXL      (UINT32_C(1) << 1)
-#define STATUS_IE       (UINT32_C(1) << 0)
+#define STATUS_BEV              (UINT32_C(1) << 22)
+#define STATUS_ERL              (UINT32_C(1) << 2)
+#define STATUS_EXL              (UINT32_C(1) << 1)
+#define STATUS_IE               (UINT32_C(1) << 0)
 
 #define CAUSE_BD                (UINT32_C(1) << 31)
 #define CAUSE_CE_MASK           (UINT32_C(0x3) << 28)

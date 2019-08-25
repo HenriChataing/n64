@@ -28,9 +28,36 @@ namespace Eval {
 /*
  * Defined in eval.cc
  */
-void scheduleInterrupt(uint irq);
+void setInterruptPending(uint irq);
+void clearInterruptPending(uint irq);
 
 };
+
+/**
+ * Set bits in the MI_INTR_REG register.
+ * Reevaluate the value of the Interrupt 2 pending bit afterwards.
+ */
+static void set_MI_INTR_REG(u32 bits) {
+    state.hwreg.MI_INTR_REG |= bits;
+    if (state.hwreg.MI_INTR_REG & state.hwreg.MI_INTR_MASK_REG) {
+        Eval::setInterruptPending(2);
+    } else {
+        Eval::clearInterruptPending(2);
+    }
+}
+
+/**
+ * Clear bits in the MI_INTR_REG register.
+ * Reevaluate the value of the Interrupt 2 pending bit afterwards.
+ */
+static void clear_MI_INTR_REG(u32 bits) {
+    state.hwreg.MI_INTR_REG &= ~bits;
+    if (state.hwreg.MI_INTR_REG & ~state.hwreg.MI_INTR_MASK_REG) {
+        Eval::setInterruptPending(2);
+    } else {
+        Eval::clearInterruptPending(2);
+    }
+}
 
 namespace RdRam {
 
@@ -447,7 +474,29 @@ bool write(uint bytes, u64 addr, u64 value)
     switch (addr) {
         case MI_MODE_REG:
             logWrite("MI_MODE_REG", value);
-            state.hwreg.MI_MODE_REG = value;
+            state.hwreg.MI_MODE_REG &= MI_MODE_INIT_LEN_MASK;
+            state.hwreg.MI_MODE_REG |= (value & MI_MODE_INIT_LEN_MASK);
+            if (value & MI_MODE_CLR_INIT) {
+                state.hwreg.MI_MODE_REG &= ~MI_MODE_INIT;
+            }
+            if (value & MI_MODE_SET_INIT) {
+                state.hwreg.MI_MODE_REG |= MI_MODE_INIT;
+            }
+            if (value & MI_MODE_CLR_EBUS_TEST) {
+                state.hwreg.MI_MODE_REG &= ~MI_MODE_EBUS_TEST;
+            }
+            if (value & MI_MODE_SET_EBUS_TEST) {
+                state.hwreg.MI_MODE_REG |= MI_MODE_EBUS_TEST;
+            }
+            if (value & MI_MODE_CLR_DP_INTR) {
+                clear_MI_INTR_REG(MI_INTR_DP);
+            }
+            if (value & MI_MODE_CLR_RDRAM_REG) {
+                state.hwreg.MI_MODE_REG &= ~MI_MODE_RDRAM_REG;
+            }
+            if (value & MI_MODE_SET_RDRAM_REG) {
+                state.hwreg.MI_MODE_REG |= MI_MODE_RDRAM_REG;
+            }
             return true;
         case MI_VERSION_REG:
             logWrite("MI_VERSION_REG", value);
@@ -457,12 +506,41 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
         case MI_INTR_MASK_REG:
             logWrite("MI_INTR_MASK_REG", value);
-            for (unsigned int i = 0; i < 6; i++) {
-                if (value & 1llu)
-                    state.hwreg.MI_INTR_MASK_REG &= ~(1lu << i);
-                if (value & 2llu)
-                    state.hwreg.MI_INTR_MASK_REG |= (1lu << i);
-                value >>= 2;
+            if (value & MI_INTR_MASK_CLR_SP) {
+                state.hwreg.MI_INTR_MASK_REG &= ~MI_INTR_MASK_SP;
+            }
+            if (value & MI_INTR_MASK_SET_SP) {
+                state.hwreg.MI_INTR_MASK_REG |= MI_INTR_MASK_SP;
+            }
+            if (value & MI_INTR_MASK_CLR_SI) {
+                state.hwreg.MI_INTR_MASK_REG &= ~MI_INTR_MASK_SI;
+            }
+            if (value & MI_INTR_MASK_SET_SI) {
+                state.hwreg.MI_INTR_MASK_REG |= MI_INTR_MASK_SI;
+            }
+            if (value & MI_INTR_MASK_CLR_AI) {
+                state.hwreg.MI_INTR_MASK_REG &= ~MI_INTR_MASK_AI;
+            }
+            if (value & MI_INTR_MASK_SET_AI) {
+                state.hwreg.MI_INTR_MASK_REG |= MI_INTR_MASK_AI;
+            }
+            if (value & MI_INTR_MASK_CLR_VI) {
+                state.hwreg.MI_INTR_MASK_REG &= ~MI_INTR_MASK_VI;
+            }
+            if (value & MI_INTR_MASK_SET_VI) {
+                state.hwreg.MI_INTR_MASK_REG |= MI_INTR_MASK_VI;
+            }
+            if (value & MI_INTR_MASK_CLR_PI) {
+                state.hwreg.MI_INTR_MASK_REG &= ~MI_INTR_MASK_PI;
+            }
+            if (value & MI_INTR_MASK_SET_PI) {
+                state.hwreg.MI_INTR_MASK_REG |= MI_INTR_MASK_PI;
+            }
+            if (value & MI_INTR_MASK_CLR_DP) {
+                state.hwreg.MI_INTR_MASK_REG &= ~MI_INTR_MASK_DP;
+            }
+            if (value & MI_INTR_MASK_SET_DP) {
+                state.hwreg.MI_INTR_MASK_REG |= MI_INTR_MASK_DP;
             }
             return true;
         default:
@@ -939,9 +1017,8 @@ bool write(uint bytes, u64 addr, u64 value)
                 state.hwreg.PI_CART_ADDR_REG,
                 state.hwreg.PI_DRAM_ADDR_REG,
                 state.hwreg.PI_RD_LEN_REG + 1U);
-            state.hwreg.MI_INTR_REG |= MI_INTR_PI; // TODO check
-            Eval::scheduleInterrupt(3);
             state.hwreg.PI_STATUS_REG = 0;
+            set_MI_INTR_REG(MI_INTR_PI);
             return true;
 
         case PI_WR_LEN_REG:
@@ -951,14 +1028,19 @@ bool write(uint bytes, u64 addr, u64 value)
                 state.hwreg.PI_DRAM_ADDR_REG,
                 state.hwreg.PI_CART_ADDR_REG,
                 state.hwreg.PI_WR_LEN_REG + 1U);
-            state.hwreg.MI_INTR_REG |= MI_INTR_PI; // TODO check
-            Eval::scheduleInterrupt(3);
             state.hwreg.PI_STATUS_REG = 0;
+            set_MI_INTR_REG(MI_INTR_PI);
             return true;
 
         case PI_STATUS_REG:
             logWrite("PI_STATUS_REG", value);
             state.hwreg.PI_STATUS_REG = 0;
+            if (value & PI_STATUS_RESET) {
+                throw "Unsupported_PI_STATUS_REG__RESET";
+            }
+            if (value & PI_STATUS_CLR_INTR) {
+                clear_MI_INTR_REG(MI_INTR_PI);
+            }
             return true;
         case PI_BSD_DOM1_LAT_REG:
             logWrite("PI_BSD_DOM1_LAT_REG", value);

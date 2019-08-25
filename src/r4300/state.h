@@ -51,6 +51,8 @@ static inline bool ERL() { return (state.cp0reg.sr & STATUS_ERL) != 0; }
 static inline bool EXL() { return (state.cp0reg.sr & STATUS_EXL) != 0; }
 static inline bool IE()  { return (state.cp0reg.sr & STATUS_IE) != 0; }
 
+static inline u32 IP()   { return (state.cp0reg.cause >> 8) & 0xfflu; }
+
 }; /* namespace R4300 */
 
 std::ostream &operator<<(std::ostream &os, const R4300::State &state);

@@ -499,6 +499,7 @@ bool log_osCreateThread()
 
     R4300::translateAddress(R4300::state.reg.gpr[29] + 0x14, &priorityPaddr, 0);
     R4300::state.physmem.load(4, priorityPaddr, &priority);
+    debugger.newThread(ptr);
 
     std::cerr << "osCreateThread(&_thread_" << ptr << ", " << entry;
     std::cerr << ", " << priority << ")" << "\x1b[0m" << std::endl;

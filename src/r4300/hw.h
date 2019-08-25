@@ -2,6 +2,7 @@
 #ifndef __R4300_HW_INCLUDED__
 #define __R4300_HW_INCLUDED__
 
+#include <cstdint>
 #include <memory.h>
 
 namespace R4300 {
@@ -88,12 +89,53 @@ struct hwreg {
     u32 SI_STATUS_REG;
 };
 
-#define MI_INTR_SP (1U << 0)
-#define MI_INTR_SI (1U << 1)
-#define MI_INTR_AI (1U << 2)
-#define MI_INTR_VI (1U << 3)
-#define MI_INTR_PI (1U << 4)
-#define MI_INTR_DP (1U << 5)
+#define MI_MODE_RDRAM_REG       (UINT32_C(1) << 9)
+#define MI_MODE_EBUS_TEST       (UINT32_C(1) << 8)
+#define MI_MODE_INIT            (UINT32_C(1) << 7)
+
+#define MI_MODE_SET_RDRAM_REG   (UINT32_C(1) << 13)
+#define MI_MODE_CLR_RDRAM_REG   (UINT32_C(1) << 12)
+#define MI_MODE_CLR_DP_INTR     (UINT32_C(1) << 11)
+#define MI_MODE_SET_EBUS_TEST   (UINT32_C(1) << 10)
+#define MI_MODE_CLR_EBUS_TEST   (UINT32_C(1) << 9)
+#define MI_MODE_SET_INIT        (UINT32_C(1) << 8)
+#define MI_MODE_CLR_INIT        (UINT32_C(1) << 7)
+#define MI_MODE_INIT_LEN_MASK   (UINT32_C(0x7f))
+
+#define MI_INTR_DP              (UINT32_C(1) << 5)
+#define MI_INTR_PI              (UINT32_C(1) << 4)
+#define MI_INTR_VI              (UINT32_C(1) << 3)
+#define MI_INTR_AI              (UINT32_C(1) << 2)
+#define MI_INTR_SI              (UINT32_C(1) << 1)
+#define MI_INTR_SP              (UINT32_C(1) << 0)
+
+#define MI_INTR_MASK_DP         (UINT32_C(1) << 5)
+#define MI_INTR_MASK_PI         (UINT32_C(1) << 4)
+#define MI_INTR_MASK_VI         (UINT32_C(1) << 3)
+#define MI_INTR_MASK_AI         (UINT32_C(1) << 2)
+#define MI_INTR_MASK_SI         (UINT32_C(1) << 1)
+#define MI_INTR_MASK_SP         (UINT32_C(1) << 0)
+
+#define MI_INTR_MASK_SET_DP     (UINT32_C(1) << 11)
+#define MI_INTR_MASK_CLR_DP     (UINT32_C(1) << 10)
+#define MI_INTR_MASK_SET_PI     (UINT32_C(1) << 9)
+#define MI_INTR_MASK_CLR_PI     (UINT32_C(1) << 8)
+#define MI_INTR_MASK_SET_VI     (UINT32_C(1) << 7)
+#define MI_INTR_MASK_CLR_VI     (UINT32_C(1) << 6)
+#define MI_INTR_MASK_SET_AI     (UINT32_C(1) << 5)
+#define MI_INTR_MASK_CLR_AI     (UINT32_C(1) << 4)
+#define MI_INTR_MASK_SET_SI     (UINT32_C(1) << 3)
+#define MI_INTR_MASK_CLR_SI     (UINT32_C(1) << 2)
+#define MI_INTR_MASK_SET_SP     (UINT32_C(1) << 1)
+#define MI_INTR_MASK_CLR_SP     (UINT32_C(1) << 0)
+
+#define PI_STATUS_ERROR         (UINT32_C(1) << 2)
+#define PI_STATUS_IO_BUSY       (UINT32_C(1) << 1)
+#define PI_STATUS_DMA_BUSY      (UINT32_C(1) << 0)
+
+#define PI_STATUS_CLR_INTR      (UINT32_C(1) << 1)
+#define PI_STATUS_RESET         (UINT32_C(1) << 0)
+
 
 namespace RdRam {
 bool read(uint bytes, u64 addr, u64 *value);
