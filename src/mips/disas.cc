@@ -188,6 +188,97 @@ char const *getRegisterName(uint reg)
     std::cout << ", cr" << std::dec << rd;
 
 /**
+ * @brief Return the string representation for a format.
+ */
+static inline char const *getFmtName(u32 fmt) {
+    switch (fmt) {
+        case 16: return "s";
+        case 17: return "d";
+        case 20: return "w";
+        case 21: return "l";
+        default: return "?";
+    }
+}
+
+/**
+ * @brief Preprocessor template for R-type floating point instructions.
+ *
+ * The registers are automatically extracted from the instruction and added
+ * as fd, fs, ft in a new scope.
+ *
+ * @param opcode            Instruction opcode
+ * @param name              Display name of the instruction
+ * @param instr             Original instruction
+ * @param fmt               Formatting to use to print the instruction
+ */
+#define FRType(opcode, name, instr, fmt) \
+    case opcode: { \
+        u32 fd = Mips::getFd(instr); \
+        u32 fs = Mips::getFs(instr); \
+        u32 ft = Mips::getFt(instr); \
+        (void)fd; (void)fs; (void)ft; \
+        std::string nameFmt = name; \
+        nameFmt += "."; \
+        nameFmt += getFmtName(Mips::getFmt(instr)); \
+        std::cout << std::setw(8) << std::left << nameFmt << " "; \
+        FRType_##fmt(fd, fs, ft); \
+        break; \
+    }
+
+#define FRType_Fd_Fs(fd, fs, ft) \
+    std::cout << "f" << std::dec << fd; \
+    std::cout << ", f" << fs;
+
+#define FRType_Fd_Fs_Ft(fd, fs, ft) \
+    std::cout << "f" << std::dec << fd; \
+    std::cout << ", f" << fs; \
+    std::cout << ", f" << ft;
+
+static void disasCop0(u32 instr)
+{
+    std::cout << "cop0 $" << std::hex;
+    std::cout << std::setfill('0') << std::setw(8) << instr;
+}
+
+static void disasCop1(u32 instr)
+{
+    switch (Mips::getFunct(instr)) {
+        FRType(Cop1::ADD, "add", instr, Fd_Fs_Ft)
+        FRType(Cop1::SUB, "sub", instr, Fd_Fs_Ft)
+        FRType(Cop1::MUL, "mul", instr, Fd_Fs_Ft)
+        FRType(Cop1::DIV, "div", instr, Fd_Fs_Ft)
+        FRType(Cop1::SQRT, "sqrt", instr, Fd_Fs_Ft)
+        FRType(Cop1::ABS, "abs", instr, Fd_Fs_Ft)
+        FRType(Cop1::MOV, "mov", instr, Fd_Fs_Ft)
+        FRType(Cop1::NEG, "neg", instr, Fd_Fs_Ft)
+        FRType(Cop1::ROUNDL, "round.l", instr, Fd_Fs_Ft)
+        FRType(Cop1::TRUNCL, "trunc.l", instr, Fd_Fs_Ft)
+        FRType(Cop1::CEILL, "ceil.l", instr, Fd_Fs_Ft)
+        FRType(Cop1::FLOORL, "floor.l", instr, Fd_Fs_Ft)
+        FRType(Cop1::ROUNDW, "round.w", instr, Fd_Fs_Ft)
+        FRType(Cop1::TRUNCW, "trunc.w", instr, Fd_Fs_Ft)
+        FRType(Cop1::CEILW, "ceil.w", instr, Fd_Fs_Ft)
+        FRType(Cop1::FLOORW, "floor.w", instr, Fd_Fs_Ft)
+        FRType(Cop1::CVTS, "cvt.s", instr, Fd_Fs)
+        FRType(Cop1::CVTD, "cvt.d", instr, Fd_Fs)
+        FRType(Cop1::CVTW, "cvt.w", instr, Fd_Fs)
+        FRType(Cop1::CVTL, "cvt.l", instr, Fd_Fs)
+    }
+}
+
+static void disasCop2(u32 instr)
+{
+    std::cout << "cop2 $" << std::hex;
+    std::cout << std::setfill('0') << std::setw(8) << instr;
+}
+
+static void disasCop3(u32 instr)
+{
+    std::cout << "cop3 $" << std::hex;
+    std::cout << std::setfill('0') << std::setw(8) << instr;
+}
+
+/**
  * @brief Print out an instruction.
  */
 void disas(u64 pc, u32 instr)
@@ -292,8 +383,7 @@ void disas(u64 pc, u32 instr)
 #define COPz(z) \
         case COP##z: \
             if (instr & Mips::COFUN) { \
-                std::cout << "cop" #z " $" << std::hex; \
-                std::cout << std::setfill('0') << std::setw(8) << instr; \
+                disasCop##z(instr); \
                 break; \
             } \
             switch (Mips::getRs(instr)) { \

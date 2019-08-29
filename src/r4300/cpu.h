@@ -52,6 +52,10 @@ struct cp0reg {
     u32 cpr31;          /**< Unused */
 };
 
+#define STATUS_CU3              (UINT32_C(1) << 31)
+#define STATUS_CU2              (UINT32_C(1) << 30)
+#define STATUS_CU1              (UINT32_C(1) << 29)
+#define STATUS_CU0              (UINT32_C(1) << 28)
 #define STATUS_BEV              (UINT32_C(1) << 22)
 #define STATUS_ERL              (UINT32_C(1) << 2)
 #define STATUS_EXL              (UINT32_C(1) << 1)
@@ -65,9 +69,31 @@ struct cp0reg {
 #define CAUSE_EXCCODE_MASK      (UINT32_C(0x1f) << 2)
 #define CAUSE_EXCCODE(exccode)  ((uint32_t)(exccode) << 2)
 
+typedef union {
+    float s;
+    u32 w;
+} fpr_s_t;
+
+typedef union {
+    double d;
+    u64 l;
+} fpr_d_t;
+
+static_assert(sizeof(fpr_s_t) == sizeof(u32));
+static_assert(sizeof(fpr_d_t) == sizeof(u64));
+
 struct cp1reg {
-    u64 fgr[32];        /**< FP general purpose registers */
-    u32 fcr0, fcr31;    /**< Implementation and control registers */
+    u64 fpr[32];        /**< FP general purpose registers */
+    fpr_s_t *fpr_s[32]; /**< Aliases for word access to FP general purpose registers. */
+    fpr_d_t *fpr_d[32]; /**< Aliases for double word access to FP general purpose registers. */
+    u32 fcr0;           /**< Implementation register */
+    u32 fcr31;          /**< Control register */
+
+    /**
+     * @brief Configure the memory aliases for single and double word access
+     *  to the floating point registers.
+     */
+    void setFprAliases(bool fr);
 };
 
 struct tlbEntry {

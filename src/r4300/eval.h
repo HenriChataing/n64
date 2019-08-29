@@ -5,6 +5,14 @@
 #include "types.h"
 
 namespace R4300 {
+
+namespace Cop1 {
+/**
+ * @brief Interpret an instruction with the COP1 special opcode.
+ */
+bool eval(u32 instr, bool delaySlot);
+}; /* namespace Cop1 */
+
 namespace Eval {
 
 /**
@@ -26,6 +34,20 @@ bool step();
  * @return true if the instruction caused an exception
  */
 bool eval(u64 vAddr, bool delaySlot);
+
+/**
+ * @brief Raise an exception and update the state of the processor.
+ *
+ * @param vAddr         Virtual address being accessed.
+ * @param delaySlot     Whether the exception occured in a branch delay
+ *                      instruction.
+ * @param instr         Whether the exception was triggered by an instruction
+ *                      fetch.
+ * @param load          Whether the exception was triggered by a load or store
+ *                      operation.
+ */
+void takeException(Exception exn, u64 vAddr,
+                   bool delaySlot, bool instr, bool load);
 
 /**
  * @brief Print out the last instructions to execute.

@@ -149,6 +149,35 @@ const static u32 TLBP       = 0x08;
 const static u32 ERET       = 0x18;
 };
 
+namespace Cop1 {
+/* Fmt */
+const static u32 S          = 0x10;
+const static u32 D          = 0x11;
+const static u32 W          = 0x14;
+const static u32 L          = 0x15;
+/* Funct */
+const static u32 ADD        = 0x00;
+const static u32 SUB        = 0x01;
+const static u32 MUL        = 0x02;
+const static u32 DIV        = 0x03;
+const static u32 SQRT       = 0x04;
+const static u32 ABS        = 0x05;
+const static u32 MOV        = 0x06;
+const static u32 NEG        = 0x07;
+const static u32 ROUNDL     = 0x08;
+const static u32 TRUNCL     = 0x09;
+const static u32 CEILL      = 0x0a;
+const static u32 FLOORL     = 0x0b;
+const static u32 ROUNDW     = 0x0c;
+const static u32 TRUNCW     = 0x0d;
+const static u32 CEILW      = 0x0e;
+const static u32 FLOORW     = 0x0f;
+const static u32 CVTS       = 0x20;
+const static u32 CVTD       = 0x21;
+const static u32 CVTW       = 0x24;
+const static u32 CVTL       = 0x25;
+}
+
 namespace Copz {
 /* Rs */
 const static u32 MF         = 0x00;
@@ -175,6 +204,13 @@ static inline u32 getOpcode(u32 instr) {
 }
 
 /**
+ * @brief Extract the instruction format.
+ */
+static inline u32 getFmt(u32 instr) {
+    return (instr >> 21) & 0x1flu;
+}
+
+/**
  * @brief Extract the instruction source register.
  */
 static inline u32 getRs(u32 instr) {
@@ -193,6 +229,27 @@ static inline u32 getRt(u32 instr) {
  */
 static inline u32 getRd(u32 instr) {
     return (instr >> 11) & 0x1flu;
+}
+
+/**
+ * @brief Extract the instruction source register.
+ */
+static inline u32 getFs(u32 instr) {
+    return (instr >> 11) & 0x1flu;
+}
+
+/**
+ * @brief Extract the instruction target register.
+ */
+static inline u32 getFt(u32 instr) {
+    return (instr >> 16) & 0x1flu;
+}
+
+/**
+ * @brief Extract the instruction destination register.
+ */
+static inline u32 getFd(u32 instr) {
+    return (instr >> 6) & 0x1flu;
 }
 
 /**

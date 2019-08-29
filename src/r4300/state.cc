@@ -57,6 +57,8 @@ void State::boot() {
     physmem.store(4, 0x04300004llu, 0x01010101);
     physmem.copy(0x04000000llu, 0x10000000llu, 0x1000);
     reg.pc = 0xffffffffa4000040llu;
+
+    cp1reg.setFprAliases(false);
 }
 
 std::ostream &operator<<(std::ostream &os, const State &state)

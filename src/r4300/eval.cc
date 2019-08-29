@@ -36,6 +36,13 @@ namespace Eval {
         return true; \
     }
 
+#define checkCop1Usable() \
+    if (!CU1()) { \
+        takeException(CoprocessorUnusable, 0, \
+                      delaySlot, instr, false); \
+        return true; \
+    }
+
 /**
  * @brief Preprocessor template for I-type instructions.
  *
@@ -564,7 +571,10 @@ bool eval(u64 vAddr, bool delaySlot)
                     u64 r = (state.reg.gpr[rt] & 0xffffffffllu) >> state.reg.gpr[rs];
                     state.reg.gpr[rd] = SignExtend(r, 32);
                 })
-                RType(SUB, instr, { throw "Unsupported"; })
+                RType(SUB, instr, {
+                    // @todo integer overflow
+                    state.reg.gpr[rd] = SignExtend(state.reg.gpr[rs] - state.reg.gpr[rt], 32);
+                })
                 RType(SUBU, instr, {
                     state.reg.gpr[rd] = SignExtend(state.reg.gpr[rs] - state.reg.gpr[rt], 32);
                 })
@@ -658,8 +668,12 @@ bool eval(u64 vAddr, bool delaySlot)
         IType(CACHE, instr, SignExtend, {
             // @todo
         })
-        case COP0:
         case COP1:
+            if (Cop1::eval(instr, delaySlot)) {
+                return true;
+            }
+            break;
+        case COP0:
         case COP2:
         case COP3:
             if (instr & Mips::COFUN) {
@@ -747,7 +761,19 @@ bool eval(u64 vAddr, bool delaySlot)
                 returnException(BusError, vAddr, delaySlot, false, true);
             state.reg.gpr[rt] = val;
         })
-        IType(LDC1, instr, SignExtend, { throw "Unsupported"; })
+        IType(LDC1, instr, SignExtend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr, val;
+
+            checkCop1Usable();
+            checkAddressAlignment(vAddr, 8, delaySlot, false, true);
+            exn = translateAddress(vAddr, &pAddr, false);
+            if (exn != None)
+                returnException(exn, vAddr, delaySlot, false, true);
+            if (!state.physmem.load(8, pAddr, &val))
+                returnException(BusError, vAddr, delaySlot, false, true);
+            state.reg.gpr[rt] = val;
+        })
         IType(LDC2, instr, SignExtend, { throw "Unsupported"; })
         IType(LDL, instr, SignExtend, { throw "Unsupported"; })
         IType(LDR, instr, SignExtend, { throw "Unsupported"; })
@@ -857,7 +883,18 @@ bool eval(u64 vAddr, bool delaySlot)
             if (!state.physmem.store(8, pAddr, state.reg.gpr[rt]))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
-        IType(SDC1, instr, SignExtend, { throw "Unsupported"; })
+        IType(SDC1, instr, SignExtend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr;
+
+            checkCop1Usable();
+            checkAddressAlignment(vAddr, 8, delaySlot, false, false);
+            exn = translateAddress(vAddr, &pAddr, true);
+            if (exn != None)
+                returnException(exn, vAddr, delaySlot, false, false);
+            if (!state.physmem.store(8, pAddr, state.cp1reg.fpr_d[rt]->l))
+                returnException(BusError, vAddr, delaySlot, false, false);
+        })
         IType(SDC2, instr, SignExtend, { throw "Unsupported"; })
         IType(SDL, instr, SignExtend, { throw "Unsupported"; })
         IType(SDR, instr, SignExtend, { throw "Unsupported"; })

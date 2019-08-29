@@ -295,9 +295,10 @@ bool doContinue(Shell &sh, std::vector<std::string> &args)
         for (;;) {
             // Advance one step.
             if (R4300::Eval::step()) {
-                R4300::Eval::hist();
-                std::cout << "halting at exception" << std::endl;
-                return false;
+                // R4300::Eval::hist();
+                // std::cout << "halting at exception" << std::endl;
+                // return false;
+                continue;
             }
 
             // Check traces.
