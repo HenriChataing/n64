@@ -12,13 +12,6 @@
 
 using namespace R4300;
 
-#define SignExtend(imm, size) ({ \
-    u##size valu##size = (imm); \
-    i##size vali##size = valu##size; \
-    i64 vali64 = vali##size; \
-    (u64)vali64; \
-})
-
 /**
  * @brief Preprocessor template for R-type instructions.
  *
@@ -99,7 +92,7 @@ bool eval(u32 instr, bool delaySlot)
     switch (Mips::getFmt(instr)) {
         RType(MF, instr, {
             checkCop1Usable();
-            state.reg.gpr[rt] = SignExtend(state.cp1reg.fpr_s[rs]->w, 32);
+            state.reg.gpr[rt] = sign_extend<u64, u32>(state.cp1reg.fpr_s[rs]->w);
         })
         RType(DMF, instr, {
             // NB: the instruction puts an undefined value in rs for

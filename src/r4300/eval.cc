@@ -15,17 +15,6 @@
 namespace R4300 {
 namespace Eval {
 
-#define SignExtend(imm, size) ({ \
-    u##size valu##size = (imm); \
-    i##size vali##size = valu##size; \
-    i64 vali64 = vali##size; \
-    (u64)vali64; \
-})
-
-#define ZeroExtend(imm, size) ({ \
-    (u64)(imm); \
-})
-
 /**
  * Check whether a virtual memory address is correctly aligned for a memory
  * access.
@@ -59,7 +48,7 @@ namespace Eval {
     case opcode: { \
         u32 rs = Mips::getRs(instr); \
         u32 rt = Mips::getRt(instr); \
-        u64 imm = extend(Mips::getImmediate(instr), 16); \
+        u64 imm = extend<u64, u16>(Mips::getImmediate(instr)); \
         (void)rs; (void)rt; (void)imm; \
         __VA_ARGS__; \
         break; \
@@ -120,14 +109,14 @@ namespace Eval {
  * @param ...               Test condition
  */
 #define BType(opcode, instr, ...) \
-    IType(opcode, instr, SignExtend, { \
+    IType(opcode, instr, sign_extend, { \
         if (__VA_ARGS__) { \
             eval(state.reg.pc + 4, true); \
             state.reg.pc += 4 + (i64)(imm << 2); \
             state.branch = true; \
         } \
     }) \
-    IType(opcode##L, instr, SignExtend, { \
+    IType(opcode##L, instr, sign_extend, { \
         if (__VA_ARGS__) { \
             eval(state.reg.pc + 4, true); \
             state.reg.pc += 4 + (i64)(imm << 2); \
@@ -439,11 +428,11 @@ bool eval(u64 vAddr, bool delaySlot)
                         (state.reg.gpr[rt] & 0x7fffffff);
                     if (((r0 >> 1) ^ r1) & 0x80000000)
                         throw "IntegerOverflow";
-                    state.reg.gpr[rd] = SignExtend(r0, 32);
+                    state.reg.gpr[rd] = sign_extend<u64, u32>(r0);
                 })
                 RType(ADDU, instr, {
                     u64 r = state.reg.gpr[rs] + state.reg.gpr[rt];
-                    state.reg.gpr[rd] = SignExtend(r, 32);
+                    state.reg.gpr[rd] = sign_extend<u64, u32>(r);
                 })
                 RType(AND, instr, {
                     state.reg.gpr[rd] = state.reg.gpr[rs] & state.reg.gpr[rt];
@@ -459,8 +448,8 @@ bool eval(u64 vAddr, bool delaySlot)
                 })
                 RType(DIV, instr, {
                     // @todo both operands must be valid 32 bit signed values
-                    state.reg.multLo = SignExtend(state.reg.gpr[rs] / state.reg.gpr[rt], 32);
-                    state.reg.multHi = SignExtend(state.reg.gpr[rs] % state.reg.gpr[rt], 32);
+                    state.reg.multLo = sign_extend<u64, u32>(state.reg.gpr[rs] / state.reg.gpr[rt]);
+                    state.reg.multHi = sign_extend<u64, u32>(state.reg.gpr[rs] % state.reg.gpr[rt]);
                 })
                 RType(DIVU, instr, {
                     // @todo both operands must be valid 32 bit signed values
@@ -536,8 +525,8 @@ bool eval(u64 vAddr, bool delaySlot)
                 RType(MULTU, instr, {
                     // @todo instruction takes 3 cycles
                     u64 m = state.reg.gpr[rs] * state.reg.gpr[rt];
-                    state.reg.multLo = SignExtend(m & 0xffffffffllu, 32);
-                    state.reg.multHi = SignExtend((m >> 32) & 0xffffffffllu, 32);
+                    state.reg.multLo = sign_extend<u64, u32>(m);
+                    state.reg.multHi = sign_extend<u64, u32>(m >> 32);
                 })
                 RType(NOR, instr, {
                     state.reg.gpr[rd] = ~(state.reg.gpr[rs] | state.reg.gpr[rt]);
@@ -546,10 +535,10 @@ bool eval(u64 vAddr, bool delaySlot)
                     state.reg.gpr[rd] = state.reg.gpr[rs] | state.reg.gpr[rt];
                 })
                 RType(SLL, instr, {
-                    state.reg.gpr[rd] = SignExtend(state.reg.gpr[rt] << shamnt, 32);
+                    state.reg.gpr[rd] = sign_extend<u64, u32>(state.reg.gpr[rt] << shamnt);
                 })
                 RType(SLLV, instr, {
-                    state.reg.gpr[rd] = SignExtend(state.reg.gpr[rt] << state.reg.gpr[rs], 32);
+                    state.reg.gpr[rd] = sign_extend<u64, u32>(state.reg.gpr[rt] << state.reg.gpr[rs]);
                 })
                 RType(SLT, instr, {
                     state.reg.gpr[rd] = (i64)state.reg.gpr[rs] < (i64)state.reg.gpr[rt];
@@ -559,26 +548,26 @@ bool eval(u64 vAddr, bool delaySlot)
                 })
                 RType(SRA, instr, {
                     // @todo undefined if rt is not a valid sign extended value
-                    state.reg.gpr[rd] = SignExtend(state.reg.gpr[rt] >> shamnt, 32);
+                    state.reg.gpr[rd] = sign_extend<u64, u32>(state.reg.gpr[rt] >> shamnt);
                 })
                 RType(SRAV, instr, {
                     // @todo undefined if rt is not a valid sign extended value
-                    state.reg.gpr[rd] = SignExtend(state.reg.gpr[rt] >> state.reg.gpr[rs], 32);
+                    state.reg.gpr[rd] = sign_extend<u64, u32>(state.reg.gpr[rt] >> state.reg.gpr[rs]);
                 })
                 RType(SRL, instr, {
                     u64 r = (state.reg.gpr[rt] & 0xffffffffllu) >> shamnt;
-                    state.reg.gpr[rd] = SignExtend(r, 32);
+                    state.reg.gpr[rd] = sign_extend<u64, u32>(r);
                 })
                 RType(SRLV, instr, {
                     u64 r = (state.reg.gpr[rt] & 0xffffffffllu) >> state.reg.gpr[rs];
-                    state.reg.gpr[rd] = SignExtend(r, 32);
+                    state.reg.gpr[rd] = sign_extend<u64, u32>(r);
                 })
                 RType(SUB, instr, {
                     // @todo integer overflow
-                    state.reg.gpr[rd] = SignExtend(state.reg.gpr[rs] - state.reg.gpr[rt], 32);
+                    state.reg.gpr[rd] = sign_extend<u64, u32>(state.reg.gpr[rs] - state.reg.gpr[rt]);
                 })
                 RType(SUBU, instr, {
-                    state.reg.gpr[rd] = SignExtend(state.reg.gpr[rs] - state.reg.gpr[rt], 32);
+                    state.reg.gpr[rd] = sign_extend<u64, u32>(state.reg.gpr[rs] - state.reg.gpr[rt]);
                 })
                 RType(SYNC, instr, { throw "Unsupported"; })
                 RType(SYSCALL, instr, { throw "Unsupported"; })
@@ -600,7 +589,7 @@ bool eval(u64 vAddr, bool delaySlot)
             switch (Mips::getRt(instr)) {
                 BType(BGEZ, instr, (i64)state.reg.gpr[rs] >= 0)
                 BType(BLTZ, instr, (i64)state.reg.gpr[rs] < 0)
-                IType(BGEZAL, instr, SignExtend, {
+                IType(BGEZAL, instr, sign_extend, {
                     i64 r = state.reg.gpr[rs];
                     state.reg.gpr[31] = state.reg.pc + 8;
                     if (r >= 0) {
@@ -609,7 +598,7 @@ bool eval(u64 vAddr, bool delaySlot)
                         state.branch = true;
                     }
                 })
-                IType(BGEZALL, instr, SignExtend, {
+                IType(BGEZALL, instr, sign_extend, {
                     i64 r = state.reg.gpr[rs];
                     state.reg.gpr[31] = state.reg.pc + 8;
                     if (r >= 0) {
@@ -619,7 +608,7 @@ bool eval(u64 vAddr, bool delaySlot)
                     } else
                         state.reg.pc += 4;
                 })
-                IType(BLTZAL, instr, SignExtend, {
+                IType(BLTZAL, instr, sign_extend, {
                     i64 r = state.reg.gpr[rs];
                     state.reg.gpr[31] = state.reg.pc + 8;
                     if (r < 0) {
@@ -628,7 +617,7 @@ bool eval(u64 vAddr, bool delaySlot)
                         state.branch = true;
                     }
                 })
-                IType(BLTZALL, instr, SignExtend, {
+                IType(BLTZALL, instr, sign_extend, {
                     i64 r = state.reg.gpr[rs];
                     state.reg.gpr[31] = state.reg.pc + 8;
                     if (r < 0) {
@@ -638,36 +627,36 @@ bool eval(u64 vAddr, bool delaySlot)
                     } else
                         state.reg.pc += 4;
                 })
-                IType(TEQI, instr, SignExtend, {})
-                IType(TGEI, instr, SignExtend, {})
-                IType(TGEIU, instr, SignExtend, {})
-                IType(TLTI, instr, SignExtend, {})
-                IType(TLTIU, instr, SignExtend, {})
-                IType(TNEI, instr, SignExtend, {})
+                IType(TEQI, instr, sign_extend, {})
+                IType(TGEI, instr, sign_extend, {})
+                IType(TGEIU, instr, sign_extend, {})
+                IType(TLTI, instr, sign_extend, {})
+                IType(TLTIU, instr, sign_extend, {})
+                IType(TNEI, instr, sign_extend, {})
                 default:
                     throw "Unupported Regimm";
                     break;
             }
             break;
 
-        IType(ADDI, instr, SignExtend, {
+        IType(ADDI, instr, sign_extend, {
             u64 r0 = (state.reg.gpr[rs] & 0xffffffffllu) + (imm & 0xffffffffllu);
             u64 r1 = (state.reg.gpr[rs] & 0x7fffffffllu) + (imm & 0x7fffffffllu);
             if (((r0 >> 1) ^ r1) & 0x80000000llu)
                 throw "IntegerOverflow";
-            state.reg.gpr[rt] = SignExtend(r0, 32);
+            state.reg.gpr[rt] = sign_extend<u64, u32>(r0);
         })
-        IType(ADDIU, instr, SignExtend, {
-            state.reg.gpr[rt] = SignExtend(state.reg.gpr[rs] + imm, 32);
+        IType(ADDIU, instr, sign_extend, {
+            state.reg.gpr[rt] = sign_extend<u64, u32>(state.reg.gpr[rs] + imm);
         })
-        IType(ANDI, instr, ZeroExtend, {
+        IType(ANDI, instr, zero_extend, {
             state.reg.gpr[rt] = state.reg.gpr[rs] & imm;
         })
         BType(BEQ, instr, state.reg.gpr[rt] == state.reg.gpr[rs])
         BType(BGTZ, instr, (i64)state.reg.gpr[rs] > 0)
         BType(BLEZ, instr, (i64)state.reg.gpr[rs] <= 0)
         BType(BNE, instr, state.reg.gpr[rt] != state.reg.gpr[rs])
-        IType(CACHE, instr, SignExtend, {
+        IType(CACHE, instr, sign_extend, {
             // @todo
         })
         case COP1:
@@ -699,10 +688,10 @@ bool eval(u64 vAddr, bool delaySlot)
                 })
                 case BC:
                     switch (Mips::getRt(instr)) {
-                        IType(BCF, instr, SignExtend, { throw "Unsupported"; })
-                        IType(BCT, instr, SignExtend, { throw "Unsupported"; })
-                        IType(BCFL, instr, SignExtend, { throw "Unsupported"; })
-                        IType(BCTL, instr, SignExtend, { throw "Unsupported"; })
+                        IType(BCF, instr, sign_extend, { throw "Unsupported"; })
+                        IType(BCT, instr, sign_extend, { throw "Unsupported"; })
+                        IType(BCFL, instr, sign_extend, { throw "Unsupported"; })
+                        IType(BCTL, instr, sign_extend, { throw "Unsupported"; })
                         default:
                             throw "ReservedInstruction";
                     }
@@ -712,8 +701,8 @@ bool eval(u64 vAddr, bool delaySlot)
             }
             break;
 
-        IType(DADDI, instr, SignExtend, { throw "Unsupported"; })
-        IType(DADDIU, instr, SignExtend, { throw "Unsupported"; })
+        IType(DADDI, instr, sign_extend, { throw "Unsupported"; })
+        IType(DADDIU, instr, sign_extend, { throw "Unsupported"; })
         JType(J, instr, {
             tg = (state.reg.pc & 0xfffffffff0000000llu) | (tg << 2);
             eval(state.reg.pc + 4, true);
@@ -729,7 +718,7 @@ bool eval(u64 vAddr, bool delaySlot)
             state.reg.pc = tg;
             state.branch = true;
         })
-        IType(LB, instr, SignExtend, {
+        IType(LB, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr, val;
 
@@ -738,9 +727,9 @@ bool eval(u64 vAddr, bool delaySlot)
                 returnException(exn, vAddr, delaySlot, false, true);
             if (!state.physmem.load(1, pAddr, &val))
                 returnException(BusError, vAddr, delaySlot, false, true);
-            state.reg.gpr[rt] = SignExtend(val, 8);
+            state.reg.gpr[rt] = sign_extend<u64, u8>(val);
         })
-        IType(LBU, instr, SignExtend, {
+        IType(LBU, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr, val;
 
@@ -749,9 +738,9 @@ bool eval(u64 vAddr, bool delaySlot)
                 returnException(exn, vAddr, delaySlot, false, true);
             if (!state.physmem.load(1, pAddr, &val))
                 returnException(BusError, vAddr, delaySlot, false, true);
-            state.reg.gpr[rt] = ZeroExtend(val, 8);
+            state.reg.gpr[rt] = zero_extend<u64, u8>(val);
         })
-        IType(LD, instr, SignExtend, {
+        IType(LD, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr, val;
 
@@ -763,7 +752,7 @@ bool eval(u64 vAddr, bool delaySlot)
                 returnException(BusError, vAddr, delaySlot, false, true);
             state.reg.gpr[rt] = val;
         })
-        IType(LDC1, instr, SignExtend, {
+        IType(LDC1, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr, val;
 
@@ -776,10 +765,10 @@ bool eval(u64 vAddr, bool delaySlot)
                 returnException(BusError, vAddr, delaySlot, false, true);
             state.cp1reg.fpr_d[rt]->l = val;
         })
-        IType(LDC2, instr, SignExtend, { throw "Unsupported"; })
-        IType(LDL, instr, SignExtend, { throw "Unsupported"; })
-        IType(LDR, instr, SignExtend, { throw "Unsupported"; })
-        IType(LH, instr, SignExtend, {
+        IType(LDC2, instr, sign_extend, { throw "Unsupported"; })
+        IType(LDL, instr, sign_extend, { throw "Unsupported"; })
+        IType(LDR, instr, sign_extend, { throw "Unsupported"; })
+        IType(LH, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr, val;
 
@@ -789,9 +778,9 @@ bool eval(u64 vAddr, bool delaySlot)
                 returnException(exn, vAddr, delaySlot, false, true);
             if (!state.physmem.load(2, pAddr, &val))
                 returnException(BusError, vAddr, delaySlot, false, true);
-            state.reg.gpr[rt] = SignExtend(val, 16);
+            state.reg.gpr[rt] = sign_extend<u64, u16>(val);
         })
-        IType(LHU, instr, SignExtend, {
+        IType(LHU, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr, val;
 
@@ -801,14 +790,14 @@ bool eval(u64 vAddr, bool delaySlot)
                 returnException(exn, vAddr, delaySlot, false, true);
             if (!state.physmem.load(2, pAddr, &val))
                 returnException(BusError, vAddr, delaySlot, false, true);
-            state.reg.gpr[rt] = ZeroExtend(val, 16);
+            state.reg.gpr[rt] = zero_extend<u64, u16>(val);
         })
-        IType(LL, instr, SignExtend, { throw "Unsupported"; })
-        IType(LLD, instr, SignExtend, { throw "Unsupported"; })
-        IType(LUI, instr, SignExtend, {
+        IType(LL, instr, sign_extend, { throw "Unsupported"; })
+        IType(LLD, instr, sign_extend, { throw "Unsupported"; })
+        IType(LUI, instr, sign_extend, {
             state.reg.gpr[rt] = imm << 16;
         })
-        IType(LW, instr, SignExtend, {
+        IType(LW, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr, val;
 
@@ -818,9 +807,9 @@ bool eval(u64 vAddr, bool delaySlot)
                 returnException(exn, vAddr, delaySlot, false, true);
             if (!state.physmem.load(4, pAddr, &val))
                 returnException(BusError, vAddr, delaySlot, false, true);
-            state.reg.gpr[rt] = SignExtend(val, 32);
+            state.reg.gpr[rt] = sign_extend<u64, u32>(val);
         })
-        IType(LWC1, instr, SignExtend, {
+        IType(LWC1, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr, val;
 
@@ -830,9 +819,9 @@ bool eval(u64 vAddr, bool delaySlot)
                 returnException(exn, vAddr, delaySlot, false, true);
             if (!state.physmem.load(4, pAddr, &val))
                 returnException(BusError, vAddr, delaySlot, false, true);
-            cop[1]->write(4, rt, SignExtend(val, 32), false);
+            cop[1]->write(4, rt, sign_extend<u64, u32>(val), false);
         })
-        IType(LWC2, instr, SignExtend, {
+        IType(LWC2, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr, val;
 
@@ -842,9 +831,9 @@ bool eval(u64 vAddr, bool delaySlot)
                 returnException(exn, vAddr, delaySlot, false, true);
             if (!state.physmem.load(4, pAddr, &val))
                 returnException(BusError, vAddr, delaySlot, false, true);
-            cop[2]->write(4, rt, SignExtend(val, 32), false);
+            cop[2]->write(4, rt, sign_extend<u64, u32>(val), false);
         })
-        IType(LWC3, instr, SignExtend, {
+        IType(LWC3, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr, val;
 
@@ -854,9 +843,9 @@ bool eval(u64 vAddr, bool delaySlot)
                 returnException(exn, vAddr, delaySlot, false, true);
             if (!state.physmem.load(4, pAddr, &val))
                 returnException(BusError, vAddr, delaySlot, false, true);
-            cop[3]->write(4, rt, SignExtend(val, 32), false);
+            cop[3]->write(4, rt, sign_extend<u64, u32>(val), false);
         })
-        IType(LWL, instr, SignExtend, {
+        IType(LWL, instr, sign_extend, {
             // @todo only BigEndianMem & !ReverseEndian for now
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;
@@ -880,9 +869,9 @@ bool eval(u64 vAddr, bool delaySlot)
             }
 
             val = __builtin_bswap32(val) | (state.reg.gpr[rt] & mask);
-            state.reg.gpr[rt] = SignExtend(val, 32);
+            state.reg.gpr[rt] = sign_extend<u64, u32>(val);
         })
-        IType(LWR, instr, SignExtend, {
+        IType(LWR, instr, sign_extend, {
             // @todo only BigEndianMem & !ReverseEndian for now
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;
@@ -906,13 +895,13 @@ bool eval(u64 vAddr, bool delaySlot)
             }
 
             val = val | (state.reg.gpr[rt] & mask);
-            state.reg.gpr[rt] = SignExtend(val, 32);
+            state.reg.gpr[rt] = sign_extend<u64, u32>(val);
         })
-        IType(LWU, instr, SignExtend, { throw "Unsupported"; })
-        IType(ORI, instr, ZeroExtend, {
+        IType(LWU, instr, sign_extend, { throw "Unsupported"; })
+        IType(ORI, instr, zero_extend, {
             state.reg.gpr[rt] = state.reg.gpr[rs] | imm;
         })
-        IType(SB, instr, SignExtend, {
+        IType(SB, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;
 
@@ -922,9 +911,9 @@ bool eval(u64 vAddr, bool delaySlot)
             if (!state.physmem.store(1, pAddr, state.reg.gpr[rt]))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
-        IType(SC, instr, SignExtend, { throw "Unsupported"; })
-        IType(SCD, instr, SignExtend, { throw "Unsupported"; })
-        IType(SD, instr, SignExtend, {
+        IType(SC, instr, sign_extend, { throw "Unsupported"; })
+        IType(SCD, instr, sign_extend, { throw "Unsupported"; })
+        IType(SD, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;
 
@@ -935,7 +924,7 @@ bool eval(u64 vAddr, bool delaySlot)
             if (!state.physmem.store(8, pAddr, state.reg.gpr[rt]))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
-        IType(SDC1, instr, SignExtend, {
+        IType(SDC1, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;
 
@@ -947,10 +936,10 @@ bool eval(u64 vAddr, bool delaySlot)
             if (!state.physmem.store(8, pAddr, state.cp1reg.fpr_d[rt]->l))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
-        IType(SDC2, instr, SignExtend, { throw "Unsupported"; })
-        IType(SDL, instr, SignExtend, { throw "Unsupported"; })
-        IType(SDR, instr, SignExtend, { throw "Unsupported"; })
-        IType(SH, instr, SignExtend, {
+        IType(SDC2, instr, sign_extend, { throw "Unsupported"; })
+        IType(SDL, instr, sign_extend, { throw "Unsupported"; })
+        IType(SDR, instr, sign_extend, { throw "Unsupported"; })
+        IType(SH, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;
 
@@ -961,13 +950,13 @@ bool eval(u64 vAddr, bool delaySlot)
             if (!state.physmem.store(2, pAddr, state.reg.gpr[rt]))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
-        IType(SLTI, instr, SignExtend, {
+        IType(SLTI, instr, sign_extend, {
             state.reg.gpr[rt] = state.reg.gpr[rs] < imm;
         })
-        IType(SLTIU, instr, SignExtend, {
+        IType(SLTIU, instr, sign_extend, {
             state.reg.gpr[rt] = state.reg.gpr[rs] < imm;
         })
-        IType(SW, instr, SignExtend, {
+        IType(SW, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;
 
@@ -978,7 +967,7 @@ bool eval(u64 vAddr, bool delaySlot)
             if (!state.physmem.store(4, pAddr, state.reg.gpr[rt]))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
-        IType(SWC1, instr, SignExtend, {
+        IType(SWC1, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;
 
@@ -989,7 +978,7 @@ bool eval(u64 vAddr, bool delaySlot)
             if (!state.physmem.store(4, pAddr, cop[1]->read(4, rt, false)))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
-        IType(SWC2, instr, SignExtend, {
+        IType(SWC2, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;
 
@@ -1000,7 +989,7 @@ bool eval(u64 vAddr, bool delaySlot)
             if (!state.physmem.store(4, pAddr, cop[2]->read(4, rt, false)))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
-        IType(SWC3, instr, SignExtend, {
+        IType(SWC3, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;
 
@@ -1011,7 +1000,7 @@ bool eval(u64 vAddr, bool delaySlot)
             if (!state.physmem.store(4, pAddr, cop[3]->read(4, rt, false)))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
-        IType(SWL, instr, SignExtend, {
+        IType(SWL, instr, sign_extend, {
             // @todo only BigEndianMem & !ReverseEndian for now
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;
@@ -1031,7 +1020,7 @@ bool eval(u64 vAddr, bool delaySlot)
                 val >>= 8;
             }
         })
-        IType(SWR, instr, SignExtend, {
+        IType(SWR, instr, sign_extend, {
             // @todo only BigEndianMem & !ReverseEndian for now
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;
@@ -1051,7 +1040,7 @@ bool eval(u64 vAddr, bool delaySlot)
                 val >>= 8;
             }
         })
-        IType(XORI, instr, ZeroExtend, {
+        IType(XORI, instr, zero_extend, {
             state.reg.gpr[rt] = state.reg.gpr[rs] ^ imm;
         })
 

@@ -83,8 +83,8 @@ typedef union {
     u64 l;
 } fpr_d_t;
 
-static_assert(sizeof(fpr_s_t) == sizeof(u32), "float is not single precision");
-static_assert(sizeof(fpr_d_t) == sizeof(u64), "double is not double precision");
+static_assert(sizeof(fpr_s_t) == sizeof(u32), "float is larger than u32");
+static_assert(sizeof(fpr_d_t) == sizeof(u64), "double is larger than u64");
 
 struct cp1reg {
     u64 fpr[32];        /**< FP general purpose registers */
