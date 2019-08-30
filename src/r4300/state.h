@@ -38,7 +38,7 @@ static inline bool CU2() { return (state.cp0reg.sr & STATUS_CU2) != 0; }
 static inline bool CU1() { return (state.cp0reg.sr & STATUS_CU1) != 0; }
 static inline bool CU0() { return (state.cp0reg.sr & STATUS_CU0) != 0; }
 static inline bool RP()  { return (state.cp0reg.sr & (1lu << 27)) != 0; }
-static inline bool FR()  { return (state.cp0reg.sr & (1lu << 26)) != 0; }
+static inline bool FR()  { return (state.cp0reg.sr & STATUS_FR) != 0; }
 static inline bool RE()  { return (state.cp0reg.sr & (1lu << 25)) != 0; }
 static inline bool BEV() { return (state.cp0reg.sr & STATUS_BEV) != 0; }
 static inline u32 DS()   { return (state.cp0reg.sr >> 16) & 0x1flu; }

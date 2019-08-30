@@ -404,6 +404,9 @@ public:
                 break;
             case SR:
                 logWrite("COP0_SR", imm);
+                if ((imm & STATUS_FR) != (state.cp0reg.sr & STATUS_FR)) {
+                    state.cp1reg.setFprAliases((imm & STATUS_FR) != 0);
+                }
                 state.cp0reg.sr = imm;
                 // @todo check written value and consequences
                 break;
