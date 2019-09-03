@@ -47,7 +47,7 @@ bool Region::load(uint bytes, u64 addr, u64 *value)
             break;
         if (addr + bytes > sub->address + sub->size)
             continue;
-        return sub->load(bytes, addr - sub->address, value);
+        return sub->load(bytes, addr, value);
     }
 
     std::cerr << "InvalidAddress(" << std::hex << addr << ")" << std::endl;
@@ -64,7 +64,7 @@ bool Region::store(uint bytes, u64 addr, u64 value)
             break;
         if (addr + bytes > sub->address + sub->size)
             continue;
-        return sub->store(bytes, addr - sub->address, value);
+        return sub->store(bytes, addr, value);
     }
 
     std::cerr << "InvalidAddress(" << std::hex << addr << ")" << std::endl;
@@ -100,7 +100,7 @@ Region *Region::lookup(u64 addr)
             continue;
         if (addr >= sub->address + sub->size)
             break;
-        return sub->lookup(addr - sub->address);
+        return sub->lookup(addr);
     }
     return this;
 }
@@ -171,18 +171,19 @@ RamRegion::~RamRegion()
 bool RamRegion::load(uint bytes, u64 addr, u64 *value)
 {
     u64 ret = 0;
+    u64 offset = addr - this->address;
     switch (bytes) {
         case 1:
-            ret = block[addr];
+            ret = block[offset];
             break;
         case 2:
-            ret = *(u16 *)(&block[addr]);
+            ret = *(u16 *)(&block[offset]);
             break;
         case 4:
-            ret = *(u32 *)(&block[addr]);
+            ret = *(u32 *)(&block[offset]);
             break;
         case 8:
-            ret = *(u64 *)(&block[addr]);
+            ret = *(u64 *)(&block[offset]);
             break;
     }
     adjustEndianness(bytes, &ret);
@@ -195,19 +196,20 @@ bool RamRegion::store(uint bytes, u64 addr, u64 value)
     if (readonly)
         return false;
 
+    u64 offset = addr - this->address;
     adjustEndianness(bytes, &value);
     switch (bytes) {
         case 1:
-            block[addr] = (u8)value;
+            block[offset] = (u8)value;
             break;
         case 2:
-            *(u16 *)(&block[addr]) = (u16)value;
+            *(u16 *)(&block[offset]) = (u16)value;
             break;
         case 4:
-            *(u32 *)(&block[addr]) = (u32)value;
+            *(u32 *)(&block[offset]) = (u32)value;
             break;
         case 8:
-            *(u64 *)(&block[addr]) = value;
+            *(u64 *)(&block[offset]) = value;
             break;
     }
     return true;

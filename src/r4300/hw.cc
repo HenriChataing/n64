@@ -61,18 +61,16 @@ static void clear_MI_INTR_REG(u32 bits) {
 
 namespace RdRam {
 
-enum Register {
-    RDRAM_DEVICE_TYPE_REG = 0x0,
-    RDRAM_DEVICE_ID_REG = 0x4,
-    RDRAM_DELAY_REG = 0x8,
-    RDRAM_MODE_REG = 0xc,
-    RDRAM_REF_INTERVAL_REG = 0x10,
-    RDRAM_REF_ROW_REG = 0x14,
-    RDRAM_RAS_INTERVAL_REG = 0x18,
-    RDRAM_MIN_INTERVAL_REG = 0x1c,
-    RDRAM_ADDR_SELECT_REG = 0x20,
-    RDRAM_DEVICE_MANUF_REG = 0x24,
-};
+const u32 RDRAM_DEVICE_TYPE_REG =   UINT32_C(0x03f00000);
+const u32 RDRAM_DEVICE_ID_REG =     UINT32_C(0x03f00004);
+const u32 RDRAM_DELAY_REG =         UINT32_C(0x03f00008);
+const u32 RDRAM_MODE_REG =          UINT32_C(0x03f0000c);
+const u32 RDRAM_REF_INTERVAL_REG =  UINT32_C(0x03f00010);
+const u32 RDRAM_REF_ROW_REG =       UINT32_C(0x03f00014);
+const u32 RDRAM_RAS_INTERVAL_REG =  UINT32_C(0x03f00018);
+const u32 RDRAM_MIN_INTERVAL_REG =  UINT32_C(0x03f0001c);
+const u32 RDRAM_ADDR_SELECT_REG =   UINT32_C(0x03f00020);
+const u32 RDRAM_DEVICE_MANUF_REG =  UINT32_C(0x03f00024);
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
@@ -184,73 +182,71 @@ bool write(uint bytes, u64 addr, u64 value)
 
 namespace SP {
 
-enum Register {
-    // Master, SP memory address
-    // (RW): [11:0] DMEM/IMEM address
-    //       [12] 0=DMEM,1=IMEM
-    SP_MEM_ADDR_REG = 0x0,
-    // Slave, SP DRAM DMA address
-    // (RW): [23:0] RDRAM address
-    SP_DRAM_ADDR_REG = 0x4,
-    // SP read DMA length
-    // direction: I/DMEM <- RDRAM
-    // (RW): [11:0] length
-    //       [19:12] count
-    //       [31:20] skip
-    SP_RD_LEN_REG = 0x8,
-    // SP write DMA length
-    // direction: I/DMEM -> RDRAM
-    // (RW): [11:0] length
-    //       [19:12] count
-    //       [31:20] skip
-    SP_WR_LEN_REG = 0xc,
-    // SP status
-    // (W): [0]  clear halt          (R): [0]  halt
-    //      [1]  set halt                 [1]  broke
-    //      [2]  clear broke              [2]  dma busy
-    //      [3]  clear intr               [3]  dma full
-    //      [4]  set intr                 [4]  io full
-    //      [5]  clear sstep              [5]  single step
-    //      [6]  set sstep                [6]  interrupt on break
-    //      [7]  clear intr on break      [7]  signal 0 set
-    //      [8]  set intr on break        [8]  signal 1 set
-    //      [9]  clear signal 0           [9]  signal 2 set
-    //      [10] set signal 0             [10] signal 3 set
-    //      [11] clear signal 1           [11] signal 4 set
-    //      [12] set signal 1             [12] signal 5 set
-    //      [13] clear signal 2           [13] signal 6 set
-    //      [14] set signal 2             [14] signal 7 set
-    //      [15] clear signal 3
-    //      [16] set signal 3
-    //      [17] clear signal 4
-    //      [18] set signal 4
-    //      [19] clear signal 5
-    //      [20] set signal 5
-    //      [21] clear signal 6
-    //      [22] set signal 6
-    //      [23] clear signal 7
-    //      [24] set signal 7
-    SP_STATUS_REG = 0x10,
-    // SP DMA full
-    // (R): [0] valid bit, dma full
-    SP_DMA_FULL_REG = 0x14,
-    // SP DMA busy
-    // (R): [0] valid bit, dma busy
-    SP_DMA_BUSY_REG = 0x18,
-    // SP semaphore
-    // (R): [0] semaphore flag (set on read)
-    // (W): [] clear semaphore flag
-    SP_SEMAPHORE_REG = 0x1c,
-    // SP PC
-    // (RW): [11:0] program counter
-    SP_PC_REG = 0x40000,
-    // SP IMEM BIST REG
-    // (W): [0] BIST check           (R): [0] BIST check
-    //      [1] BIST go                   [1] BIST go
-    //      [2] BIST clear                [2] BIST done
-    //                                    [6:3] BIST fail
-    SP_IBIST_REG = 0x40004,
-};
+// Master, SP memory address
+// (RW): [11:0] DMEM/IMEM address
+//       [12] 0=DMEM,1=IMEM
+const u32 SP_MEM_ADDR_REG =         UINT32_C(0x04040000);
+// Slave, SP DRAM DMA address
+// (RW): [23:0] RDRAM address
+const u32 SP_DRAM_ADDR_REG =        UINT32_C(0x04040004);
+// SP read DMA length
+// direction: I/DMEM <- RDRAM
+// (RW): [11:0] length
+//       [19:12] count
+//       [31:20] skip
+const u32 SP_RD_LEN_REG =           UINT32_C(0x04040008);
+// SP write DMA length
+// direction: I/DMEM -> RDRAM
+// (RW): [11:0] length
+//       [19:12] count
+//       [31:20] skip
+const u32 SP_WR_LEN_REG =           UINT32_C(0x0404000c);
+// SP status
+// (W): [0]  clear halt          (R): [0]  halt
+//      [1]  set halt                 [1]  broke
+//      [2]  clear broke              [2]  dma busy
+//      [3]  clear intr               [3]  dma full
+//      [4]  set intr                 [4]  io full
+//      [5]  clear sstep              [5]  single step
+//      [6]  set sstep                [6]  interrupt on break
+//      [7]  clear intr on break      [7]  signal 0 set
+//      [8]  set intr on break        [8]  signal 1 set
+//      [9]  clear signal 0           [9]  signal 2 set
+//      [10] set signal 0             [10] signal 3 set
+//      [11] clear signal 1           [11] signal 4 set
+//      [12] set signal 1             [12] signal 5 set
+//      [13] clear signal 2           [13] signal 6 set
+//      [14] set signal 2             [14] signal 7 set
+//      [15] clear signal 3
+//      [16] set signal 3
+//      [17] clear signal 4
+//      [18] set signal 4
+//      [19] clear signal 5
+//      [20] set signal 5
+//      [21] clear signal 6
+//      [22] set signal 6
+//      [23] clear signal 7
+//      [24] set signal 7
+const u32 SP_STATUS_REG =           UINT32_C(0x04040010);
+// SP DMA full
+// (R): [0] valid bit, dma full
+const u32 SP_DMA_FULL_REG =         UINT32_C(0x04040014);
+// SP DMA busy
+// (R): [0] valid bit, dma busy
+const u32 SP_DMA_BUSY_REG =         UINT32_C(0x04040018);
+// SP semaphore
+// (R): [0] semaphore flag (set on read)
+// (W): [] clear semaphore flag
+const u32 SP_SEMAPHORE_REG =        UINT32_C(0x0404001c);
+// SP PC
+// (RW): [11:0] program counter
+const u32 SP_PC_REG =               UINT32_C(0x04080000);
+// SP IMEM BIST REG
+// (W): [0] BIST check           (R): [0] BIST check
+//      [1] BIST go                   [1] BIST go
+//      [2] BIST clear                [2] BIST done
+//                                    [6:3] BIST fail
+const u32 SP_IBIST_REG =            UINT32_C(0x04080004);
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
@@ -441,7 +437,7 @@ namespace DPCommand {
 bool read(uint bytes, u64 addr, u64 *value)
 {
     std::cerr << "DPCommand::read(" << std::hex << addr << ")" << std::endl;
-    throw "Unsupported";
+    throw "Unsupported14";
     *value = 0;
     return true;
 }
@@ -449,7 +445,7 @@ bool read(uint bytes, u64 addr, u64 *value)
 bool write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "DPCommand::write(" << std::hex << addr << ")" << std::endl;
-    throw "Unsupported";
+    throw "Unsupported13";
     return true;
 }
 
@@ -460,7 +456,7 @@ namespace DPSpan {
 bool read(uint bytes, u64 addr, u64 *value)
 {
     std::cerr << "DPSpan::read(" << std::hex << addr << ")" << std::endl;
-    throw "Unsupported";
+    throw "Unsupported12";
     *value = 0;
     return true;
 }
@@ -468,7 +464,7 @@ bool read(uint bytes, u64 addr, u64 *value)
 bool write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "DPSpan::write(" << std::hex << addr << ")" << std::endl;
-    throw "Unsupported";
+    throw "Unsupported11";
     return true;
 }
 
@@ -476,39 +472,37 @@ bool write(uint bytes, u64 addr, u64 value)
 
 namespace MI {
 
-enum Register {
-    // MI init mode
-    // (W): [6:0] init length        (R): [6:0] init length
-    //      [7] clear init mode           [7] init mode
-    //      [8] set init mode             [8] ebus test mode
-    //      [9/10] clr/set ebus test mode [9] RDRAM reg mode
-    //      [11] clear DP interrupt
-    //      [12] clear RDRAM reg
-    //      [13] set RDRAM reg mode
-    MI_MODE_REG = 0x0,
-    // MI version
-    // (R): [7:0] io
-    //      [15:8] rac
-    //      [23:16] rdp
-    //      [31:24] rsp
-    MI_VERSION_REG = 0x4,
-    // MI interrupt
-    // (R): [0] SP intr
-    //      [1] SI intr
-    //      [2] AI intr
-    //      [3] VI intr
-    //      [4] PI intr
-    //      [5] DP intr
-    MI_INTR_REG = 0x8,
-    // MI interrupt mask
-    // (W): [0/1] clear/set SP mask  (R): [0] SP intr mask
-    //      [2/3] clear/set SI mask       [1] SI intr mask
-    //      [4/5] clear/set AI mask       [2] AI intr mask
-    //      [6/7] clear/set VI mask       [3] VI intr mask
-    //      [8/9] clear/set PI mask       [4] PI intr mask
-    //      [10/11] clear/set DP mask     [5] DP intr mask
-    MI_INTR_MASK_REG = 0xc,
-};
+// MI init mode
+// (W): [6:0] init length        (R): [6:0] init length
+//      [7] clear init mode           [7] init mode
+//      [8] set init mode             [8] ebus test mode
+//      [9/10] clr/set ebus test mode [9] RDRAM reg mode
+//      [11] clear DP interrupt
+//      [12] clear RDRAM reg
+//      [13] set RDRAM reg mode
+const u32 MI_MODE_REG = UINT32_C(0x04300000);
+// MI version
+// (R): [7:0] io
+//      [15:8] rac
+//      [23:16] rdp
+//      [31:24] rsp
+const u32 MI_VERSION_REG = UINT32_C(0x04300004);
+// MI interrupt
+// (R): [0] SP intr
+//      [1] SI intr
+//      [2] AI intr
+//      [3] VI intr
+//      [4] PI intr
+//      [5] DP intr
+const u32 MI_INTR_REG = UINT32_C(0x04300008);
+// MI interrupt mask
+// (W): [0/1] clear/set SP mask  (R): [0] SP intr mask
+//      [2/3] clear/set SI mask       [1] SI intr mask
+//      [4/5] clear/set AI mask       [2] AI intr mask
+//      [6/7] clear/set VI mask       [3] VI intr mask
+//      [8/9] clear/set PI mask       [4] PI intr mask
+//      [10/11] clear/set DP mask     [5] DP intr mask
+const u32 MI_INTR_MASK_REG = UINT32_C(0x0430000c);
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
@@ -536,7 +530,7 @@ bool read(uint bytes, u64 addr, u64 *value)
             break;
     }
     logRead("MI_??", addr);
-    throw "Unsupported";
+    throw "Unsupported10";
     *value = 0;
     return true;
 }
@@ -620,7 +614,7 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
         default:
             logWrite("MI_??", addr);
-            throw "Unsupported";
+            throw "Unsupported9";
             break;
     }
     return true;
@@ -630,82 +624,80 @@ bool write(uint bytes, u64 addr, u64 value)
 
 namespace VI {
 
-enum Register {
-    // VI status/control
-    // (RW): [1:0] type[1:0] (pixel size)
-    //              0: blank (no data, no sync)
-    //              1: reserved
-    //              2: 5/5/5/3 ("16" bit)
-    //              3: 8/8/8/8 (32 bit)
-    //       [2] gamma_dither_enable (normally on, unless "special effect")
-    //       [3] gamma_enable (normally on, unless MPEG/JPEG)
-    //       [4] divot_enable (normally on if antialiased,
-    //           unless decal lines)
-    //       [5] reserved - always off
-    //       [6] serrate (always on if interlaced, off if not)
-    //       [7] reserved - diagnostics only
-    //       [9:8] anti-alias (aa) mode[1:0]
-    //              0: aa & resamp (always fetch extra lines)
-    //              1: aa & resamp (fetch extra lines if needed)
-    //              2: resamp only (treat as all fully covered)
-    //              3: neither (replicate pixels, no interpolate)
-    //       [11] reserved - diagnostics only
-    //       [15:12] reserved
-    VI_CONTROL_REG = 0x0, // VI_STATUS_REG
-    // VI origin
-    // (RW): [23:0] frame buffer origin in bytes
-    VI_DRAM_ADDR_REG = 0x4, // VI_ORIGIN_REG
-    // VI width
-    // (RW): [11:0] frame buffer line width in pixels
-    VI_WIDTH_REG = 0x8, // VI_H_WIDTH_REG
-    // VI vertical intr
-    // (RW): [9:0] interrupt when current half-line = V_INTR
-    VI_INTR_REG = 0xc, // VI_V_INTR_REG
-    // VI current vertical line
-    // (RW): [9:0] current half line, sampled once per line (the lsb of
-    //             V_CURRENT is constant within a field, and in
-    //             interlaced modes gives the field number - which is
-    //             constant for non-interlaced modes)
-    //             - Writes clears interrupt line
-    VI_CURRENT_REG = 0x10, // VI_V_CURRENT_LINE_REG
-    // VI video timing
-    // (RW): [7:0] horizontal sync width in pixels
-    //       [15:8] color burst width in pixels
-    //       [19:16] vertical sync width in half lines
-    //       [29:20] start of color burst in pixels from h-sync
-    VI_BURST_REG = 0x14, // VI_TIMING_REG
-    // VI vertical sync
-    // (RW): [9:0] number of half-lines per field
-    VI_V_SYNC_REG = 0x18,
-    // VI horizontal sync
-    // (RW): [11:0] total duration of a line in 1/4 pixel
-    //       [20:16] a 5-bit leap pattern used for PAL only (h_sync_period)
-    VI_H_SYNC_REG = 0x1c,
-    // VI horizontal sync leap
-    // (RW): [11:0] identical to h_sync_period
-    //       [27:16] identical to h_sync_period
-    VI_LEAP_REG = 0x20, // VI_H_SYNC_LEAP_REG
-    // VI horizontal video
-    // (RW): [9:0] end of active video in screen pixels
-    //       [25:16] start of active video in screen pixels
-    VI_H_START_REG = 0x24, // VI_H_VIDEO_REG
-    // VI vertical video
-    // (RW): [9:0] end of active video in screen half-lines
-    //       [25:16] start of active video in screen half-lines
-    VI_V_START_REG = 0x28, // VI_V_VIDEO_REG
-    // VI vertical burst
-    // (RW): [9:0] end of color burst enable in half-lines
-    //       [25:16] start of color burst enable in half-lines
-    VI_V_BURST_REG = 0x2c,
-    // VI x-scale
-    // (RW): [11:0] 1/horizontal scale up factor (2.10 format)
-    //       [27:16] horizontal subpixel offset (2.10 format)
-    VI_X_SCALE_REG = 0x30,
-    // VI y-scale
-    // (RW): [11:0] 1/vertical scale up factor (2.10 format)
-    //       [27:16] vertical subpixel offset (2.10 format)
-    VI_Y_SCALE_REG = 0x34,
-};
+// VI status/control
+// (RW): [1:0] type[1:0] (pixel size)
+//              0: blank (no data, no sync)
+//              1: reserved
+//              2: 5/5/5/3 ("16" bit)
+//              3: 8/8/8/8 (32 bit)
+//       [2] gamma_dither_enable (normally on, unless "special effect")
+//       [3] gamma_enable (normally on, unless MPEG/JPEG)
+//       [4] divot_enable (normally on if antialiased,
+//           unless decal lines)
+//       [5] reserved - always off
+//       [6] serrate (always on if interlaced, off if not)
+//       [7] reserved - diagnostics only
+//       [9:8] anti-alias (aa) mode[1:0]
+//              0: aa & resamp (always fetch extra lines)
+//              1: aa & resamp (fetch extra lines if needed)
+//              2: resamp only (treat as all fully covered)
+//              3: neither (replicate pixels, no interpolate)
+//       [11] reserved - diagnostics only
+//       [15:12] reserved
+const u32 VI_CONTROL_REG = UINT32_C(0x04400000); // VI_STATUS_REG
+// VI origin
+// (RW): [23:0] frame buffer origin in bytes
+const u32 VI_DRAM_ADDR_REG = UINT32_C(0x04400004); // VI_ORIGIN_REG
+// VI width
+// (RW): [11:0] frame buffer line width in pixels
+const u32 VI_WIDTH_REG = UINT32_C(0x04400008); // VI_H_WIDTH_REG
+// VI vertical intr
+// (RW): [9:0] interrupt when current half-line = V_INTR
+const u32 VI_INTR_REG = UINT32_C(0x0440000c); // VI_V_INTR_REG
+// VI current vertical line
+// (RW): [9:0] current half line, sampled once per line (the lsb of
+//             V_CURRENT is constant within a field, and in
+//             interlaced modes gives the field number - which is
+//             constant for non-interlaced modes)
+//             - Writes clears interrupt line
+const u32 VI_CURRENT_REG = UINT32_C(0x04400010); // VI_V_CURRENT_LINE_REG
+// VI video timing
+// (RW): [7:0] horizontal sync width in pixels
+//       [15:8] color burst width in pixels
+//       [19:16] vertical sync width in half lines
+//       [29:20] start of color burst in pixels from h-sync
+const u32 VI_BURST_REG = UINT32_C(0x04400014); // VI_TIMING_REG
+// VI vertical sync
+// (RW): [9:0] number of half-lines per field
+const u32 VI_V_SYNC_REG = UINT32_C(0x04400018);
+// VI horizontal sync
+// (RW): [11:0] total duration of a line in 1/4 pixel
+//       [20:16] a 5-bit leap pattern used for PAL only (h_sync_period)
+const u32 VI_H_SYNC_REG = UINT32_C(0x0440001c);
+// VI horizontal sync leap
+// (RW): [11:0] identical to h_sync_period
+//       [27:16] identical to h_sync_period
+const u32 VI_LEAP_REG = UINT32_C(0x04400020); // VI_H_SYNC_LEAP_REG
+// VI horizontal video
+// (RW): [9:0] end of active video in screen pixels
+//       [25:16] start of active video in screen pixels
+const u32 VI_H_START_REG = UINT32_C(0x04400024); // VI_H_VIDEO_REG
+// VI vertical video
+// (RW): [9:0] end of active video in screen half-lines
+//       [25:16] start of active video in screen half-lines
+const u32 VI_V_START_REG = UINT32_C(0x04400028); // VI_V_VIDEO_REG
+// VI vertical burst
+// (RW): [9:0] end of color burst enable in half-lines
+//       [25:16] start of color burst enable in half-lines
+const u32 VI_V_BURST_REG = UINT32_C(0x0440002c);
+// VI x-scale
+// (RW): [11:0] 1/horizontal scale up factor (2.10 format)
+//       [27:16] horizontal subpixel offset (2.10 format)
+const u32 VI_X_SCALE_REG = UINT32_C(0x04400030);
+// VI y-scale
+// (RW): [11:0] 1/vertical scale up factor (2.10 format)
+//       [27:16] vertical subpixel offset (2.10 format)
+const u32 VI_Y_SCALE_REG = UINT32_C(0x04400034);
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
@@ -771,7 +763,7 @@ bool read(uint bytes, u64 addr, u64 *value)
             *value = state.hwreg.VI_Y_SCALE_REG;
             return true;
         default:
-            throw "VI Unsupported";
+            throw "VI Unsupported8";
             break;
     }
     *value = 0;
@@ -841,7 +833,7 @@ bool write(uint bytes, u64 addr, u64 value)
             state.hwreg.VI_Y_SCALE_REG = value;
             return true;
         default:
-            throw "VI Unsupported";
+            throw "VI Unsupported7";
             break;
     }
     return true;
@@ -851,34 +843,32 @@ bool write(uint bytes, u64 addr, u64 value)
 
 namespace AI {
 
-enum Register {
-    // AI DRAM address
-    // (W): [23:0] starting RDRAM address (8B-aligned)
-    AI_DRAM_ADDR_REG = 0x0,
-    // AI length
-    // (RW): [14:0] transfer length (v1.0) - Bottom 3 bits are ignored
-    //       [17:0] transfer length (v2.0) - Bottom 3 bits are ignored
-    AI_LEN_REG = 0x4,
-    // AI control
-    // (W): [0] DMA enable - if LSB == 1, DMA is enabled
-    AI_CONTROL_REG = 0x8,
-    // AI status
-    // (R): [31]/[0] ai_full (addr & len buffer full)
-    //      [30] ai_busy
-    //      Note that a 1to0 transition in ai_full will set interrupt
-    // (W): clear audio interrupt
-    AI_STATUS_REG = 0xc,
-    // AI DAC sample period register
-    // (W): [13:0] dac rate
-    //          - vid_clock/(dperiod + 1) is the DAC sample rate
-    //          - (dperiod + 1) >= 66 * (aclockhp + 1) must be true
-    AI_DACRATE_REG = 0x10,
-    // AI bit rate
-    // (W): [3:0] bit rate (abus clock half period register - aclockhp)
-    //          - vid_clock/(2*(aclockhp + 1)) is the DAC clock rate
-    //          - The abus clock stops if aclockhp is zero
-    AI_BITRATE_REG = 0x14,
-};
+// AI DRAM address
+// (W): [23:0] starting RDRAM address (8B-aligned)
+const u32 AI_DRAM_ADDR_REG = UINT32_C(0x04500000);
+// AI length
+// (RW): [14:0] transfer length (v1.0) - Bottom 3 bits are ignored
+//       [17:0] transfer length (v2.0) - Bottom 3 bits are ignored
+const u32 AI_LEN_REG = UINT32_C(0x04500004);
+// AI control
+// (W): [0] DMA enable - if LSB == 1, DMA is enabled
+const u32 AI_CONTROL_REG = UINT32_C(0x04500008);
+// AI status
+// (R): [31]/[0] ai_full (addr & len buffer full)
+//      [30] ai_busy
+//      Note that a 1to0 transition in ai_full will set interrupt
+// (W): clear audio interrupt
+const u32 AI_STATUS_REG = UINT32_C(0x0450000c);
+// AI DAC sample period register
+// (W): [13:0] dac rate
+//          - vid_clock/(dperiod + 1) is the DAC sample rate
+//          - (dperiod + 1) >= 66 * (aclockhp + 1) must be true
+const u32 AI_DACRATE_REG = UINT32_C(0x04500010);
+// AI bit rate
+// (W): [3:0] bit rate (abus clock half period register - aclockhp)
+//          - vid_clock/(2*(aclockhp + 1)) is the DAC clock rate
+//          - The abus clock stops if aclockhp is zero
+const u32 AI_BITRATE_REG = UINT32_C(0x04500014);
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
@@ -959,49 +949,47 @@ bool write(uint bytes, u64 addr, u64 value)
 
 namespace PI {
 
-enum Register {
-    // PI DRAM address
-    // (RW): [23:0] starting RDRAM address
-    PI_DRAM_ADDR_REG = 0x0,
-    // PI pbus (cartridge) address
-    // (RW): [31:0] starting AD16 address
-    PI_CART_ADDR_REG = 0x4,
-    // PI read length
-    // (RW): [23:0] read data length
-    PI_RD_LEN_REG = 0x8,
-    // PI write length
-    // (RW): [23:0] write data length
-    PI_WR_LEN_REG = 0xc,
-    // PI status
-    // (R): [0] DMA busy             (W): [0] reset controller
-    //      [1] IO busy                       (and abort current op)
-    //      [2] error                     [1] clear intr
-    PI_STATUS_REG = 0x10,
-    // PI dom1 latency
-    // (RW): [7:0] domain 1 device latency
-    PI_BSD_DOM1_LAT_REG = 0x14,
-    // PI dom1 pulse width
-    // (RW): [7:0] domain 1 device R/W strobe pulse width
-    PI_BSD_DOM1_PWD_REG = 0x18,
-    // PI dom1 page size
-    // (RW): [3:0] domain 1 device page size
-    PI_BSD_DOM1_PGS_REG = 0x1c,
-    // PI dom1 release
-    // (RW): [1:0] domain 1 device R/W release duration
-    PI_BSD_DOM1_RLS_REG = 0x20,
-    // PI dom2 latency
-    // (RW): [7:0] domain 2 device latency
-    PI_BSD_DOM2_LAT_REG = 0x24,
-    // PI dom2 pulse width
-    // (RW): [7:0] domain 2 device R/W strobe pulse width
-    PI_BSD_DOM2_PWD_REG = 0x28,
-    // PI dom2 page size
-    // (RW): [3:0] domain 2 device page size
-    PI_BSD_DOM2_PGS_REG = 0x2c,
-    // PI dom2 release
-    // (RW): [1:0] domain 2 device R/W release duration
-    PI_BSD_DOM2_RLS_REG = 0x30,
-};
+// PI DRAM address
+// (RW): [23:0] starting RDRAM address
+const u32 PI_DRAM_ADDR_REG =        UINT32_C(0x04600000);
+// PI pbus (cartridge) address
+// (RW): [31:0] starting AD16 address
+const u32 PI_CART_ADDR_REG =        UINT32_C(0x04600004);
+// PI read length
+// (RW): [23:0] read data length
+const u32 PI_RD_LEN_REG =           UINT32_C(0x04600008);
+// PI write length
+// (RW): [23:0] write data length
+const u32 PI_WR_LEN_REG =           UINT32_C(0x0460000c);
+// PI status
+// (R): [0] DMA busy             (W): [0] reset controller
+//      [1] IO busy                       (and abort current op)
+//      [2] error                     [1] clear intr
+const u32 PI_STATUS_REG =           UINT32_C(0x04600010);
+// PI dom1 latency
+// (RW): [7:0] domain 1 device latency
+const u32 PI_BSD_DOM1_LAT_REG =     UINT32_C(0x04600014);
+// PI dom1 pulse width
+// (RW): [7:0] domain 1 device R/W strobe pulse width
+const u32 PI_BSD_DOM1_PWD_REG =     UINT32_C(0x04600018);
+// PI dom1 page size
+// (RW): [3:0] domain 1 device page size
+const u32 PI_BSD_DOM1_PGS_REG =     UINT32_C(0x0460001c);
+// PI dom1 release
+// (RW): [1:0] domain 1 device R/W release duration
+const u32 PI_BSD_DOM1_RLS_REG =     UINT32_C(0x04600020);
+// PI dom2 latency
+// (RW): [7:0] domain 2 device latency
+const u32 PI_BSD_DOM2_LAT_REG =     UINT32_C(0x04600024);
+// PI dom2 pulse width
+// (RW): [7:0] domain 2 device R/W strobe pulse width
+const u32 PI_BSD_DOM2_PWD_REG =     UINT32_C(0x04600028);
+// PI dom2 page size
+// (RW): [3:0] domain 2 device page size
+const u32 PI_BSD_DOM2_PGS_REG =     UINT32_C(0x0460002c);
+// PI dom2 release
+// (RW): [1:0] domain 2 device R/W release duration
+const u32 PI_BSD_DOM2_RLS_REG =     UINT32_C(0x04600030);
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
@@ -1063,7 +1051,7 @@ bool read(uint bytes, u64 addr, u64 *value)
             return true;
         default:
             logRead("PI_??", addr);
-            throw "Unsupported";
+            throw "Unsupported6";
             break;
     }
     *value = 0;
@@ -1151,7 +1139,7 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
         default:
             logWrite("PI_??", addr);
-            throw "Unsupported";
+            throw "Unsupported5";
             break;
     }
     return true;
@@ -1161,33 +1149,31 @@ bool write(uint bytes, u64 addr, u64 value)
 
 namespace RI {
 
-enum Register {
-    // (RW): [1:0] operating mode
-    //       [2] stop T active
-    //       [3] stop R active
-    RI_MODE_REG = 0x0,
-    // (RW): [5:0] current control input
-    //       [6] current control enable
-    RI_CONFIG_REG = 0x4,
-    // (W): [] any write updates current control register
-    RI_CURRENT_LOAD_REG = 0x8,
-    // (RW): [2:0] receive select
-    //       [2:0] transmit select
-    RI_SELECT_REG = 0xc,
-    // (RW): [7:0] clean refresh delay
-    //       [15:8] dirty refresh delay
-    //       [16] refresh bank
-    //       [17] refresh enable
-    //       [18] refresh optimize
-    RI_REFRESH_REG = 0x10,
-    // (RW): [3:0] DMA latency/overlap
-    RI_LATENCY_REG = 0x14,
-    // (R): [0] nack error
-    //      [1] ack error
-    RI_RERROR_REG  = 0x18,
-    // (W): [] any write clears all error bits
-    RI_WERROR_REG = 0x1c,
-};
+// (RW): [1:0] operating mode
+//       [2] stop T active
+//       [3] stop R active
+const u32 RI_MODE_REG =         UINT32_C(0x04700000);
+// (RW): [5:0] current control input
+//       [6] current control enable
+const u32 RI_CONFIG_REG =       UINT32_C(0x04700004);
+// (W): [] any write updates current control register
+const u32 RI_CURRENT_LOAD_REG = UINT32_C(0x04700008);
+// (RW): [2:0] receive select
+//       [2:0] transmit select
+const u32 RI_SELECT_REG =       UINT32_C(0x0470000c);
+// (RW): [7:0] clean refresh delay
+//       [15:8] dirty refresh delay
+//       [16] refresh bank
+//       [17] refresh enable
+//       [18] refresh optimize
+const u32 RI_REFRESH_REG =      UINT32_C(0x04700010);
+// (RW): [3:0] DMA latency/overlap
+const u32 RI_LATENCY_REG =      UINT32_C(0x04700014);
+// (R): [0] nack error
+//      [1] ack error
+const u32 RI_RERROR_REG  =      UINT32_C(0x04700018);
+// (W): [] any write clears all error bits
+const u32 RI_WERROR_REG =       UINT32_C(0x0470001c);
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
@@ -1231,7 +1217,7 @@ bool read(uint bytes, u64 addr, u64 *value)
             break;
     }
     logRead("RI_??", addr);
-    throw "Unsupported";
+    throw "Unsupported4";
     *value = 0;
     return true;
 }
@@ -1276,7 +1262,7 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
         default:
             logWrite("RI_??", addr);
-            throw "Unsupported";
+            throw "Unsupported3";
             break;
     }
     return true;
@@ -1286,25 +1272,23 @@ bool write(uint bytes, u64 addr, u64 value)
 
 namespace SI {
 
-enum Register {
-    // SI DRAM address
-    // (R/W): [23:0] starting RDRAM address
-    SI_DRAM_ADDR_REG = 0x0,
-    // SI address read 64B
-    // (W): [] any write causes a 64B DMA write
-    SI_PIF_ADDR_RD64B_REG = 0x4,
-    // SI address write 64B
-    // (W): [] any write causes a 64B DMA read
-    SI_PIF_ADDR_WR64B_REG = 0x10,
-    // SI status
-    // (W): [] any write clears interrupt
-    // (R): [0] DMA busy
-    //      [1] IO read busy
-    //      [2] reserved
-    //      [3] DMA error
-    //      [12] interrupt
-    SI_STATUS_REG = 0x18,
-};
+// SI DRAM address
+// (R/W): [23:0] starting RDRAM address
+const u32 SI_DRAM_ADDR_REG = UINT32_C(0x04800000);
+// SI address read 64B
+// (W): [] any write causes a 64B DMA write
+const u32 SI_PIF_ADDR_RD64B_REG = UINT32_C(0x04800004);
+// SI address write 64B
+// (W): [] any write causes a 64B DMA read
+const u32 SI_PIF_ADDR_WR64B_REG = UINT32_C(0x04800010);
+// SI status
+// (W): [] any write clears interrupt
+// (R): [0] DMA busy
+//      [1] IO read busy
+//      [2] reserved
+//      [3] DMA error
+//      [12] interrupt
+const u32 SI_STATUS_REG = UINT32_C(0x04800018);
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
@@ -1329,7 +1313,7 @@ bool read(uint bytes, u64 addr, u64 *value)
             *value = state.hwreg.SI_STATUS_REG;
             return true;
         default:
-            throw "SI Unsupported";
+            throw "SI Unsupported14";
             break;
     }
     *value = 0;
@@ -1376,7 +1360,7 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
 
         default:
-            throw "SI Unsupported";
+            throw "SI Unsupported13";
             break;
     }
     return true;
@@ -1389,7 +1373,8 @@ namespace PIF {
 bool read(uint bytes, u64 addr, u64 *value)
 {
     std::cerr << "PIF::read(" << std::hex << addr << ")" << std::endl;
-    if (addr > 0x800)
+    u64 offset = addr - UINT32_C(0x1fc00000);
+    if (offset >= 0x800)
         return false;
     *value = 0;
     return true;
@@ -1398,7 +1383,8 @@ bool read(uint bytes, u64 addr, u64 *value)
 bool write(uint bytes, u64 addr, u64 value)
 {
     std::cerr << "PIF::write(" << std::hex << addr << ", " << value << ")" << std::endl;
-    if (addr > 0x800)
+    u64 offset = addr - UINT32_C(0x1fc00000);
+    if (offset >= 0x800)
         return false;
     return true;
 }
