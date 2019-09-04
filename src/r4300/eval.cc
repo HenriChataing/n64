@@ -541,7 +541,9 @@ bool eval(u64 vAddr, bool delaySlot)
                     state.reg.multLo = SignExtend(m & 0xffffffffllu, 32);
                     state.reg.multHi = SignExtend((m >> 32) & 0xffffffffllu, 32);
                 })
-                RType(NOR, instr, { throw "Unsupported"; })
+                RType(NOR, instr, {
+                    state.reg.gpr[rd] = ~(state.reg.gpr[rs] | state.reg.gpr[rt]);
+                })
                 RType(OR, instr, {
                     state.reg.gpr[rd] = state.reg.gpr[rs] | state.reg.gpr[rt];
                 })
