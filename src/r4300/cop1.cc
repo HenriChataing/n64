@@ -62,11 +62,6 @@ using namespace R4300;
     }
 
 #define checkCop1Usable() \
-    if (0) { \
-        return true; \
-    }
-
-#define checkCop1Usable() \
     if (!CU1()) { \
         Eval::takeException(CoprocessorUnusable, 0, delaySlot, instr, false); \
         return true; \
@@ -200,6 +195,7 @@ bool eval(u32 instr, bool delaySlot)
             }
             break;
         case Mips::Cop1::W:
+            checkCop1Usable();
             switch (Mips::getFunct(instr)) {
                 FRType(CVTS, instr, {
                     state.cp1reg.fpr_s[fd]->s = state.cp1reg.fpr_s[fs]->w;
