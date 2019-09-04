@@ -324,15 +324,90 @@ bool write(uint bytes, u64 addr, u64 value)
         case SP_RD_LEN_REG:
             logWrite("SP_RD_LEN_REG", value);
             state.hwreg.SP_RD_LEN_REG = value;
-            throw "unsupported";
+            throw "unsupported_rd";
             return true;
         case SP_WR_LEN_REG:
             logWrite("SP_WR_LEN_REG", value);
             state.hwreg.SP_WR_LEN_REG = value;
-            throw "unsupported";
+            throw "unsupported_wr";
             return true;
         case SP_STATUS_REG:
             logWrite("SP_STATUS_REG", value);
+            if (value & SP_STATUS_CLR_HALT) {
+                state.hwreg.SP_STATUS_REG &= ~SP_STATUS_HALT;
+            }
+            if (value & SP_STATUS_SET_HALT) {
+                state.hwreg.SP_STATUS_REG |= SP_STATUS_HALT;
+            }
+            if (value & SP_STATUS_CLR_BROKE) {
+                state.hwreg.SP_STATUS_REG &= ~SP_STATUS_BROKE;
+            }
+            if (value & SP_STATUS_CLR_INTR) {
+                clear_MI_INTR_REG(MI_INTR_SP);
+            }
+            if (value & SP_STATUS_SET_INTR) {
+                throw "set_intr";
+            }
+            if (value & SP_STATUS_CLR_SSTEP) {
+                state.hwreg.SP_STATUS_REG &= ~SP_STATUS_SSTEP;
+            }
+            if (value & SP_STATUS_SET_SSTEP) {
+                state.hwreg.SP_STATUS_REG |= SP_STATUS_SSTEP;
+            }
+            if (value & SP_STATUS_CLR_IOB) {
+                state.hwreg.SP_STATUS_REG &= ~SP_STATUS_IOB;
+            }
+            if (value & SP_STATUS_SET_IOB) {
+                state.hwreg.SP_STATUS_REG |= SP_STATUS_IOB;
+            }
+            if (value & SP_STATUS_CLR_SIGNAL0) {
+                state.hwreg.SP_STATUS_REG &= ~SP_STATUS_SIGNAL0;
+            }
+            if (value & SP_STATUS_SET_SIGNAL0) {
+                state.hwreg.SP_STATUS_REG |= SP_STATUS_SIGNAL0;
+            }
+            if (value & SP_STATUS_CLR_SIGNAL1) {
+                state.hwreg.SP_STATUS_REG &= ~SP_STATUS_SIGNAL1;
+            }
+            if (value & SP_STATUS_SET_SIGNAL1) {
+                state.hwreg.SP_STATUS_REG |= SP_STATUS_SIGNAL1;
+            }
+            if (value & SP_STATUS_CLR_SIGNAL2) {
+                state.hwreg.SP_STATUS_REG &= ~SP_STATUS_SIGNAL2;
+            }
+            if (value & SP_STATUS_SET_SIGNAL2) {
+                state.hwreg.SP_STATUS_REG |= SP_STATUS_SIGNAL2;
+            }
+            if (value & SP_STATUS_CLR_SIGNAL3) {
+                state.hwreg.SP_STATUS_REG &= ~SP_STATUS_SIGNAL3;
+            }
+            if (value & SP_STATUS_SET_SIGNAL3) {
+                state.hwreg.SP_STATUS_REG |= SP_STATUS_SIGNAL3;
+            }
+            if (value & SP_STATUS_CLR_SIGNAL4) {
+                state.hwreg.SP_STATUS_REG &= ~SP_STATUS_SIGNAL4;
+            }
+            if (value & SP_STATUS_SET_SIGNAL4) {
+                state.hwreg.SP_STATUS_REG |= SP_STATUS_SIGNAL4;
+            }
+            if (value & SP_STATUS_CLR_SIGNAL5) {
+                state.hwreg.SP_STATUS_REG &= ~SP_STATUS_SIGNAL5;
+            }
+            if (value & SP_STATUS_SET_SIGNAL5) {
+                state.hwreg.SP_STATUS_REG |= SP_STATUS_SIGNAL5;
+            }
+            if (value & SP_STATUS_CLR_SIGNAL6) {
+                state.hwreg.SP_STATUS_REG &= ~SP_STATUS_SIGNAL6;
+            }
+            if (value & SP_STATUS_SET_SIGNAL6) {
+                state.hwreg.SP_STATUS_REG |= SP_STATUS_SIGNAL6;
+            }
+            if (value & SP_STATUS_CLR_SIGNAL7) {
+                state.hwreg.SP_STATUS_REG &= ~SP_STATUS_SIGNAL7;
+            }
+            if (value & SP_STATUS_SET_SIGNAL7) {
+                state.hwreg.SP_STATUS_REG |= SP_STATUS_SIGNAL7;
+            }
             return true;
         case SP_DMA_FULL_REG:
             logWrite("SP_DMA_FULL_REG", value);
@@ -1271,20 +1346,35 @@ bool write(uint bytes, u64 addr, u64 value)
             logWrite("SI_DRAM_ADDR_REG", value);
             state.hwreg.SI_DRAM_ADDR_REG = value;
             return true;
+
         case SI_PIF_ADDR_RD64B_REG:
             logWrite("SI_PIF_ADDR_RD64B_REG", value);
             state.hwreg.SI_PIF_ADDR_RD64B_REG = value;
-            throw "SI unsupported";
+            state.physmem.copy(
+                state.hwreg.SI_DRAM_ADDR_REG,
+                state.hwreg.SI_PIF_ADDR_RD64B_REG,
+                64);
+            state.hwreg.SI_STATUS_REG = UINT32_C(1) << 12;
+            set_MI_INTR_REG(MI_INTR_SI);
             return true;
+
         case SI_PIF_ADDR_WR64B_REG:
             logWrite("SI_PIF_ADDR_WR64B_REG", value);
             state.hwreg.SI_PIF_ADDR_WR64B_REG = value;
-            throw "SI unsupported";
+            state.physmem.copy(
+                state.hwreg.SI_PIF_ADDR_WR64B_REG,
+                state.hwreg.SI_DRAM_ADDR_REG,
+                64);
+            state.hwreg.SI_STATUS_REG = UINT32_C(1) << 12;
+            set_MI_INTR_REG(MI_INTR_SI);
             return true;
+
         case SI_STATUS_REG:
             logWrite("SI_STATUS_REG", value);
-            state.hwreg.SI_STATUS_REG = value;
+            clear_MI_INTR_REG(MI_INTR_SI);
+            state.hwreg.SI_STATUS_REG &= ~(UINT32_C(1) << 12);
             return true;
+
         default:
             throw "SI Unsupported";
             break;

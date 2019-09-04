@@ -59,6 +59,8 @@ void State::boot() {
     reg.pc = 0xffffffffa4000040llu;
 
     cp1reg.setFprAliases(false);
+
+    hwreg.SP_STATUS_REG = SP_STATUS_HALT;
 }
 
 std::ostream &operator<<(std::ostream &os, const State &state)
