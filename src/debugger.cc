@@ -39,6 +39,11 @@ void Debugger::newStackFrame(u64 functionAddr, u64 callerAddr, u64 stackPointer)
  */
 void Debugger::editStackFrame(u64 functionAddr, u64 stackPointer)
 {
+    if (_current->backtrace.size() == 0) {
+        std::cerr << "Thread " << std::hex << _current->id << ":";
+        std::cerr << "EmptyBacktrace" << std::endl;
+        return;
+    }
     StackFrame &sf = _current->backtrace.back();
     if (stackPointer != sf.stackPointer) {
         std::cerr << "Thread " << std::hex << _current->id << ":";
@@ -57,8 +62,9 @@ void Debugger::deleteStackFrame(u64 returnAddr, u64 callerAddr, u64 stackPointer
 {
     uint i;
 
-    if (_current->backtrace.size() == 0)
+    if (_current->backtrace.size() == 0) {
         return;
+    }
 
     for (i = _current->backtrace.size(); i > 0; i--) {
         StackFrame &sf = _current->backtrace[i - 1];
@@ -115,9 +121,10 @@ void Debugger::runThread(u64 ptr)
      * Assumes the calling function sets the context to jump to the return
      * address on exception return.
      */
-    StackFrame &sf = _current->backtrace.back();
-    deleteStackFrame(sf.callerAddr + 8, 0, sf.stackPointer);
-
+    if (_current->backtrace.size() != 0) {
+        StackFrame &sf = _current->backtrace.back();
+        deleteStackFrame(sf.callerAddr + 8, 0, sf.stackPointer);
+    }
     if (_threads.find(ptr) == _threads.end()) {
         std::cerr << "runThread: thread " << std::hex << ptr;
         std::cerr << " does not exist" << std::endl;
@@ -130,6 +137,12 @@ void Debugger::backtrace(u64 programCounter)
 {
     std::cout << "Thread " << std::hex << _current->id << ":" << std::endl;
     std::cout << std::hex << std::setfill(' ') << std::right;
+
+    if (_current->backtrace.size() == 0) {
+        std::cerr << "Thread " << std::hex << _current->id << ":";
+        std::cerr << "EmptyBacktrace" << std::endl;
+        return;
+    }
 
     StackFrame &top = _current->backtrace.back();
     std::cout << std::setw(16) << programCounter << " (";
