@@ -407,6 +407,8 @@ bool eval(u64 vAddr, bool delaySlot)
     u32 opcode;
     R4300::Exception exn;
 
+    state.cp0reg.incrCount();
+
     if (checkInterrupt(vAddr, delaySlot)) {
         return true;
     }

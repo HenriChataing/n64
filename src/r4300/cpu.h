@@ -50,12 +50,15 @@ struct cp0reg {
     u32 tagHi;          /**< Cache tag register (reserved) */
     u32 errorEpc;       /**< Error exception program counter */
     u32 cpr31;          /**< Unused */
+
+    void incrCount();
 };
 
 #define STATUS_CU3              (UINT32_C(1) << 31)
 #define STATUS_CU2              (UINT32_C(1) << 30)
 #define STATUS_CU1              (UINT32_C(1) << 29)
 #define STATUS_CU0              (UINT32_C(1) << 28)
+#define STATUS_FR               (UINT32_C(1) << 26)
 #define STATUS_BEV              (UINT32_C(1) << 22)
 #define STATUS_ERL              (UINT32_C(1) << 2)
 #define STATUS_EXL              (UINT32_C(1) << 1)
@@ -66,6 +69,7 @@ struct cp0reg {
 #define CAUSE_CE(ce)            ((uint32_t)(ce) << 28)
 #define CAUSE_IP_MASK           (UINT32_C(0xff) << 8)
 #define CAUSE_IP(ip)            ((uint32_t)(ip) << 8)
+#define CAUSE_IP7               (UINT32_C(1) << 15)
 #define CAUSE_EXCCODE_MASK      (UINT32_C(0x1f) << 2)
 #define CAUSE_EXCCODE(exccode)  ((uint32_t)(exccode) << 2)
 
@@ -79,8 +83,8 @@ typedef union {
     u64 l;
 } fpr_d_t;
 
-static_assert(sizeof(fpr_s_t) == sizeof(u32));
-static_assert(sizeof(fpr_d_t) == sizeof(u64));
+static_assert(sizeof(fpr_s_t) == sizeof(u32), "float is not single precision");
+static_assert(sizeof(fpr_d_t) == sizeof(u64), "double is not double precision");
 
 struct cp1reg {
     u64 fpr[32];        /**< FP general purpose registers */

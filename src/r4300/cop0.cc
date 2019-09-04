@@ -14,6 +14,20 @@ using namespace R4300;
 
 namespace R4300 {
 
+/**
+ * @brief Increment the count register by a half measure.
+ *  If the value of the Count register equals that of the Compare register,
+ *  set the IP7 bit of the Cause register.
+ */
+void cp0reg::incrCount()
+{
+    static bool odd = false;
+    if (odd && ++count == compare) {
+        cause |= CAUSE_IP7;
+    }
+    odd ^= true;
+}
+
 class Cop0 : public Coprocessor
 {
 public:
@@ -401,6 +415,7 @@ public:
             case Compare:
                 logWrite("COP0_Compare", imm);
                 state.cp0reg.compare = imm;
+                state.cp0reg.cause &= ~CAUSE_IP7;
                 break;
             case SR:
                 logWrite("COP0_SR", imm);
