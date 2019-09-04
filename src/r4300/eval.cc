@@ -858,8 +858,58 @@ bool eval(u64 vAddr, bool delaySlot)
                 returnException(BusError, vAddr, delaySlot, false, true);
             cop[3]->write(4, rt, SignExtend(val, 32), false);
         })
-        IType(LWL, instr, SignExtend, { throw "Unsupported"; })
-        IType(LWR, instr, SignExtend, { throw "Unsupported"; })
+        IType(LWL, instr, SignExtend, {
+            // @todo only BigEndianMem & !ReverseEndian for now
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr;
+
+            // Not calling checkAddressAlignment:
+            // this instruction specifically ignores the alignment
+            exn = translateAddress(vAddr, &pAddr, true);
+            if (exn != None)
+                returnException(exn, vAddr, delaySlot, false, false);
+
+            size_t bytes = 4 - (vAddr & 3);
+            u64 mask = (UINT64_C(1) << (bytes * 8)) - 1u;
+            u64 val = 0;
+
+            for (size_t nr = 0; nr < bytes; nr++, pAddr++) {
+                u64 byte = 0;
+                if (!state.physmem.load(1, pAddr, &byte)) {
+                    returnException(BusError, vAddr, delaySlot, false, false);
+                }
+                val |= (byte << (8 * nr));
+            }
+
+            val = __builtin_bswap32(val) | (state.reg.gpr[rt] & mask);
+            state.reg.gpr[rt] = SignExtend(val, 32);
+        })
+        IType(LWR, instr, SignExtend, {
+            // @todo only BigEndianMem & !ReverseEndian for now
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr;
+
+            // Not calling checkAddressAlignment:
+            // this instruction specifically ignores the alignment
+            exn = translateAddress(vAddr, &pAddr, true);
+            if (exn != None)
+                returnException(exn, vAddr, delaySlot, false, false);
+
+            size_t bytes = 4 - (vAddr & 3);
+            u64 mask = ((UINT64_C(1) << (32 - 8 * bytes)) - 1u) << (8 * bytes);
+            u64 val = 0;
+
+            for (size_t nr = 0; nr < bytes; nr++, pAddr--) {
+                u64 byte = 0;
+                if (!state.physmem.load(1, pAddr, &byte)) {
+                    returnException(BusError, vAddr, delaySlot, false, false);
+                }
+                val |= (byte << (8 * nr));
+            }
+
+            val = val | (state.reg.gpr[rt] & mask);
+            state.reg.gpr[rt] = SignExtend(val, 32);
+        })
         IType(LWU, instr, SignExtend, { throw "Unsupported"; })
         IType(ORI, instr, ZeroExtend, {
             state.reg.gpr[rt] = state.reg.gpr[rs] | imm;
@@ -963,8 +1013,46 @@ bool eval(u64 vAddr, bool delaySlot)
             if (!state.physmem.store(4, pAddr, cop[1]->read(4, rt, false)))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
-        IType(SWL, instr, SignExtend, { throw "Unsupported"; })
-        IType(SWR, instr, SignExtend, { throw "Unsupported"; })
+        IType(SWL, instr, SignExtend, {
+            // @todo only BigEndianMem & !ReverseEndian for now
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr;
+
+            // Not calling checkAddressAlignment:
+            // this instruction specifically ignores the alignment
+            exn = translateAddress(vAddr, &pAddr, true);
+            if (exn != None)
+                returnException(exn, vAddr, delaySlot, false, false);
+
+            size_t bytes = 4 - (vAddr & 3);
+            u32 val = __builtin_bswap32(state.reg.gpr[rt]);
+            for (size_t nr = 0; nr < bytes; nr++, pAddr++) {
+                if (!state.physmem.store(1, pAddr, val & 0xffllu)) {
+                    returnException(BusError, vAddr, delaySlot, false, false);
+                }
+                val >>= 8;
+            }
+        })
+        IType(SWR, instr, SignExtend, {
+            // @todo only BigEndianMem & !ReverseEndian for now
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr;
+
+            // Not calling checkAddressAlignment:
+            // this instruction specifically ignores the alignment
+            exn = translateAddress(vAddr, &pAddr, true);
+            if (exn != None)
+                returnException(exn, vAddr, delaySlot, false, false);
+
+            size_t bytes = 1 + (vAddr & 3);
+            u32 val = state.reg.gpr[rt];
+            for (size_t nr = 0; nr < bytes; nr++, pAddr--) {
+                if (!state.physmem.store(1, pAddr, val & 0xffllu)) {
+                    returnException(BusError, vAddr, delaySlot, false, false);
+                }
+                val >>= 8;
+            }
+        })
         IType(XORI, instr, ZeroExtend, {
             state.reg.gpr[rt] = state.reg.gpr[rs] ^ imm;
         })
