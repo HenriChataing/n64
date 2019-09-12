@@ -1,4 +1,5 @@
 
+#include <cstring>
 #include <iostream>
 #include <iomanip>
 
@@ -133,6 +134,7 @@ RamRegion::RamRegion(u64 address, u64 size, Region *container)
 {
     ram = true;
     block = new u8[size];
+    memset(block, 0, size);
 }
 
 RamRegion::RamRegion(u64 address, u64 size, const std::string file,
