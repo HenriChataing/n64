@@ -63,7 +63,8 @@ using namespace R4300;
 
 #define checkCop1Usable() \
     if (!CU1()) { \
-        Eval::takeException(CoprocessorUnusable, 0, delaySlot, instr, false); \
+        Eval::takeException(CoprocessorUnusable, 0, \
+                            delaySlot, instr, false, 1u); \
         return true; \
     }
 

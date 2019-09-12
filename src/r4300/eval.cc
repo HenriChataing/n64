@@ -39,7 +39,7 @@ namespace Eval {
 #define checkCop1Usable() \
     if (!CU1()) { \
         takeException(CoprocessorUnusable, 0, \
-                      delaySlot, instr, false); \
+                      delaySlot, instr, false, 1u); \
         return true; \
     }
 
@@ -158,16 +158,14 @@ circular_buffer<LogEntry> _log(64);
  *                      operation.
  */
 void takeException(Exception exn, u64 vAddr,
-                   bool delaySlot, bool instr, bool load)
+                   bool delaySlot, bool instr, bool load, u32 ce)
 {
     std::cerr << "Taking exception " << std::dec << exn << std::endl;
     std::cerr << "delay:" << delaySlot << " instr:" << instr;
-    std::cerr << " load:" << load << std::endl;
+    std::cerr << " load:" << load << " ce:" << ce << std::endl;
     u32 exccode = 0;
     // Default vector valid for all general exceptions.
     u64 vector = 0x180llu;
-    // TODO
-    u32 ce = 0;
 
     // Following the diagrams printed in the following section of the
     // reference manual:

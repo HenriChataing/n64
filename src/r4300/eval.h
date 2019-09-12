@@ -47,7 +47,7 @@ bool eval(u64 vAddr, bool delaySlot);
  *                      operation.
  */
 void takeException(Exception exn, u64 vAddr,
-                   bool delaySlot, bool instr, bool load);
+                   bool delaySlot, bool instr, bool load, u32 ce = 0);
 
 /**
  * @brief Print out the last instructions to execute.
