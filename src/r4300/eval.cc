@@ -774,7 +774,7 @@ bool eval(u64 vAddr, bool delaySlot)
                 returnException(exn, vAddr, delaySlot, false, true);
             if (!state.physmem.load(8, pAddr, &val))
                 returnException(BusError, vAddr, delaySlot, false, true);
-            state.reg.gpr[rt] = val;
+            state.cp1reg.fpr_d[rt]->l = val;
         })
         IType(LDC2, instr, SignExtend, { throw "Unsupported"; })
         IType(LDL, instr, SignExtend, { throw "Unsupported"; })
@@ -997,7 +997,7 @@ bool eval(u64 vAddr, bool delaySlot)
             exn = translateAddress(vAddr, &pAddr, true);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, false);
-            if (!state.physmem.store(4, pAddr, cop[1]->read(4, rt, false)))
+            if (!state.physmem.store(4, pAddr, cop[2]->read(4, rt, false)))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
         IType(SWC3, instr, SignExtend, {
@@ -1008,7 +1008,7 @@ bool eval(u64 vAddr, bool delaySlot)
             exn = translateAddress(vAddr, &pAddr, true);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, false);
-            if (!state.physmem.store(4, pAddr, cop[1]->read(4, rt, false)))
+            if (!state.physmem.store(4, pAddr, cop[3]->read(4, rt, false)))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
         IType(SWL, instr, SignExtend, {
