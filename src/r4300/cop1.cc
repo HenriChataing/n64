@@ -279,7 +279,54 @@ bool eval(u32 instr, bool delaySlot)
                     throw "Unsupported_L";
             }
             break;
-        // BC
+
+        case Mips::Copz::BC:
+            switch (Mips::getRt(instr)) {
+                case Mips::Copz::BCF: {
+                    u64 offset = sign_extend<u64, u16>(Mips::getImmediate(instr));
+                    if ((state.cp1reg.fcr31 & FCR31_C) == 0) {
+                        R4300::Eval::eval(state.reg.pc + 4, true);
+                        state.reg.pc += 4 + (i64)(offset << 2);
+                        state.branch = true;
+                    }
+                    break;
+                }
+                case Mips::Copz::BCFL: {
+                    u64 offset = sign_extend<u64, u16>(Mips::getImmediate(instr));
+                    if (((state.cp1reg.fcr31 & FCR31_C) == 0)) {
+                        R4300::Eval::eval(state.reg.pc + 4, true);
+                        state.reg.pc += 4 + (i64)(offset << 2);
+                        state.branch = true;
+                    } else {
+                        state.reg.pc += 4;
+                    }
+                    break;
+                }
+                case Mips::Copz::BCT: {
+                    u64 offset = sign_extend<u64, u16>(Mips::getImmediate(instr));
+                    if ((state.cp1reg.fcr31 & FCR31_C) != 0) {
+                        R4300::Eval::eval(state.reg.pc + 4, true);
+                        state.reg.pc += 4 + (i64)(offset << 2);
+                        state.branch = true;
+                    }
+                    break;
+                }
+                case Mips::Copz::BCTL: {
+                    u64 offset = sign_extend<u64, u16>(Mips::getImmediate(instr));
+                    if (((state.cp1reg.fcr31 & FCR31_C) != 0)) {
+                        R4300::Eval::eval(state.reg.pc + 4, true);
+                        state.reg.pc += 4 + (i64)(offset << 2);
+                        state.branch = true;
+                    } else {
+                        state.reg.pc += 4;
+                    }
+                    break;
+                }
+                default:
+                    throw "InvalidCop1BranchCondition";
+            }
+            break;
+
         default:
             std::cerr << "fmt is " << std::hex << Mips::getFmt(instr) << std::endl;
             std::cerr << "instr is " << std::hex << instr << std::endl;
