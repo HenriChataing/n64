@@ -1,6 +1,8 @@
 
 #include <r4300/cpu.h>
 #include <r4300/state.h>
+
+#include <debugger.h>
 #include <memory.h>
 
 #define CKSEG3  UINT64_C(0xffffffffe0000000)
@@ -89,6 +91,7 @@ R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
     if (vAddr & parityMask) {
         // Check valid bit
         if ((entry.entryLo1 & 2) == 0) {
+            debugger.stop = true;
             R4300::state.cp0reg.entryHi = vAddr & ~0x1fffllu; // @todo ASID
             return R4300::TLBInvalid;
         }
@@ -102,6 +105,7 @@ R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
     } else {
         // Check valid bit
         if ((entry.entryLo0 & 2) == 0) {
+            debugger.stop = true;
             R4300::state.cp0reg.entryHi = vAddr & ~0x1fffllu; // @todo ASID
             return R4300::TLBInvalid;
         }

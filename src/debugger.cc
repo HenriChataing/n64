@@ -9,7 +9,7 @@ Debugger debugger;
 /**
  * @brief Initialize the debugger with a default thread.
  */
-Debugger::Debugger()
+Debugger::Debugger() : stop(false)
 {
     _current = new Thread(0);
     _threads[0] = _current;

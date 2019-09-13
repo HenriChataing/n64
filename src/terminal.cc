@@ -309,6 +309,14 @@ bool doContinue(Shell &sh, std::vector<std::string> &args)
                 continue;
             }
 
+            // Check stop conditition.
+            if (debugger.stop) {
+                std::cout << "stop condition set" << std::endl;
+                debugger.stop = false;
+                R4300::Eval::hist();
+                return false;
+            }
+
             // Check traces.
             for (size_t i = 0; i < sh.traces.size(); i++) {
                 if (sh.traces[i].first == R4300::state.reg.pc) {

@@ -11,6 +11,9 @@ public:
     Debugger();
     ~Debugger();
 
+    /* Stop condition */
+    bool stop;
+
     /* Symbols. */
     void addSymbol(u64 address, std::string name) {
         _symbols[address] = name;
