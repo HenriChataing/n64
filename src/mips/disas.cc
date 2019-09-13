@@ -229,6 +229,10 @@ static inline char const *getFmtName(u32 fmt) {
     std::cout << "f" << std::dec << fd; \
     std::cout << ", f" << fs;
 
+#define FRType_Fs_Ft(fd, fs, ft) \
+    std::cout << "f" << std::dec << fs; \
+    std::cout << ", f" << ft;
+
 #define FRType_Fd_Fs_Ft(fd, fs, ft) \
     std::cout << "f" << std::dec << fd; \
     std::cout << ", f" << fs; \
@@ -263,6 +267,22 @@ static void disasCop1(u32 instr)
         FRType(Cop1::CVTD, "cvt.d", instr, Fd_Fs)
         FRType(Cop1::CVTW, "cvt.w", instr, Fd_Fs)
         FRType(Cop1::CVTL, "cvt.l", instr, Fd_Fs)
+        FRType(Cop1::CF, "c.f", instr, Fs_Ft)
+        FRType(Cop1::CUN, "c.un", instr, Fs_Ft)
+        FRType(Cop1::CEQ, "c.eq", instr, Fs_Ft)
+        FRType(Cop1::CUEQ, "c.ueq", instr, Fs_Ft)
+        FRType(Cop1::COLT, "c.olt", instr, Fs_Ft)
+        FRType(Cop1::CULT, "c.ult", instr, Fs_Ft)
+        FRType(Cop1::COLE, "c.ole", instr, Fs_Ft)
+        FRType(Cop1::CULE, "c.ule", instr, Fs_Ft)
+        FRType(Cop1::CSF, "c.sf", instr, Fs_Ft)
+        FRType(Cop1::CNGLE, "c.ngle", instr, Fs_Ft)
+        FRType(Cop1::CSEQ, "c.seq", instr, Fs_Ft)
+        FRType(Cop1::CNGL, "c.ngl", instr, Fs_Ft)
+        FRType(Cop1::CLT, "c.lt", instr, Fs_Ft)
+        FRType(Cop1::CNGE, "c.nge", instr, Fs_Ft)
+        FRType(Cop1::CLE, "c.le", instr, Fs_Ft)
+        FRType(Cop1::CNGT, "c.ngt", instr, Fs_Ft)
     }
 }
 
@@ -391,7 +411,7 @@ void disas(u64 pc, u32 instr)
                 RType(DMF, "dmfc" #z, instr, Rt_CRd) \
                 RType(MT, "mtc" #z, instr, Rt_CRd) \
                 RType(DMT, "dmtc" #z, instr, Rt_CRd) \
-                RType(CF, "cfc" #z, instr, Rt_CRd) \
+                RType(Copz::CF, "cfc" #z, instr, Rt_CRd) \
                 RType(CT, "ctc" #z, instr, Rt_CRd) \
                 case BC: \
                     switch (Mips::getRt(instr)) { \

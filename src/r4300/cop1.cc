@@ -1,6 +1,7 @@
 
 #include <iostream>
 #include <cstring>
+#include <cmath>
 
 #include <memory.h>
 #include <mips/asm.h>
@@ -102,7 +103,7 @@ bool eval(u32 instr, bool delaySlot)
             checkCop1Usable();
             state.reg.gpr[rt] = state.cp1reg.fpr_d[rs]->l;
         })
-        RType(CF, instr, {
+        RType(Mips::Copz::CF, instr, {
             checkCop1Usable();
             switch (rd) {
                 case 0: state.reg.gpr[rt] = state.cp1reg.fcr0; break;
@@ -154,6 +155,11 @@ bool eval(u32 instr, bool delaySlot)
                         state.cp1reg.fpr_s[fs]->s /
                         state.cp1reg.fpr_s[ft]->s;
                 })
+                FRType(SQRT, instr, {
+                    // TODO inexact
+                    state.cp1reg.fpr_s[fd]->s =
+                        sqrt(state.cp1reg.fpr_s[fs]->s);
+                })
                 FRType(CVTS, instr, {
                     throw "Unsupported_S";
                 })
@@ -165,6 +171,54 @@ bool eval(u32 instr, bool delaySlot)
                 })
                 FRType(CVTL, instr, {
                     throw "Unsupported_S";
+                })
+                case Mips::Cop1::CF:
+                case CUN:
+                case CEQ:
+                case CUEQ:
+                case COLT:
+                case CULT:
+                case COLE:
+                case CULE:
+                case CSF:
+                case CNGLE:
+                case CSEQ:
+                case CNGL:
+                case CLT:
+                case CNGE:
+                case CLE:
+                FRType(CNGT, instr, {
+                    float s = state.cp1reg.fpr_s[fs]->s;
+                    float t = state.cp1reg.fpr_s[ft]->s;
+                    u32 funct = Mips::getFunct(instr);
+                    bool less;
+                    bool equal;
+                    bool unordered;
+
+                    if (std::isnan(s) || std::isnan(t)) {
+                        less = false;
+                        equal = false;
+                        unordered = true;
+                        if (funct & 0x8lu) {
+                            throw "InvalidOperation";
+                        }
+                    } else {
+                        less = s < t;
+                        equal = s == t;
+                        unordered = false;
+                    }
+
+                    bool condition =
+                        ((funct & 0x4lu) != 0 && less) ||
+                        ((funct & 0x2lu) != 0 && equal) ||
+                        ((funct & 0x1lu) != 0 && unordered);
+                    if (condition) {
+                        // Sets Coprocessor unit 1 condition signal.
+                        state.cp1reg.fcr31 |= FCR31_C;
+                    } else {
+                        // Clears Coprocessor unit 1 condition signal.
+                        state.cp1reg.fcr31 &= ~FCR31_C;
+                    }
                 })
                 default:
                     throw "Unsupported_S";

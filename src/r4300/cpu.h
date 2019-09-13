@@ -100,6 +100,8 @@ struct cp1reg {
     void setFprAliases(bool fr);
 };
 
+#define FCR31_C                 (UINT32_C(1) << 23)
+
 struct tlbEntry {
     u64 pageMask;       /**< TLB page mask */
     u64 entryHi;        /**< High half of TLB entry */

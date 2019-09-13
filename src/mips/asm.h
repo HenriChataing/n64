@@ -176,6 +176,22 @@ const static u32 CVTS       = 0x20;
 const static u32 CVTD       = 0x21;
 const static u32 CVTW       = 0x24;
 const static u32 CVTL       = 0x25;
+const static u32 CF         = 0x30;
+const static u32 CUN        = 0x31;
+const static u32 CEQ        = 0x32;
+const static u32 CUEQ       = 0x33;
+const static u32 COLT       = 0x34;
+const static u32 CULT       = 0x35;
+const static u32 COLE       = 0x36;
+const static u32 CULE       = 0x37;
+const static u32 CSF        = 0x38;
+const static u32 CNGLE      = 0x39;
+const static u32 CSEQ       = 0x3a;
+const static u32 CNGL       = 0x3b;
+const static u32 CLT        = 0x3c;
+const static u32 CNGE       = 0x3d;
+const static u32 CLE        = 0x3e;
+const static u32 CNGT       = 0x3f;
 }
 
 namespace Copz {
