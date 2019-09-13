@@ -54,6 +54,7 @@ public:
     bool abort;
 
 private:
+    std::string lastCommand;
     std::list<std::pair<std::string, Command>> commands;
     std::list<std::string> history;
 };
@@ -79,6 +80,10 @@ void Shell::start()
         std::string cmd;
         std::cout << "> ";
 
+        std::getline(std::cin, cmd);
+        if (cmd.length() == 0) {
+            cmd = lastCommand;
+        }
         while (cmd.length() == 0) {
             std::getline(std::cin, cmd);
         }
@@ -91,6 +96,8 @@ void Shell::start()
             std::cerr << exn << "'" << std::endl;
             break;
         }
+
+        lastCommand = cmd;
     }
 }
 
@@ -106,8 +113,9 @@ bool Shell::execute(std::string cmd)
     std::istringstream scmd(cmd);
     std::string token;
 
-    if (!std::getline(scmd, token, ' '))
+    if (!std::getline(scmd, token, ' ')) {
         return false;
+    }
 
     // comment line
     if (token[0] == '#')
