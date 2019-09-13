@@ -5,22 +5,42 @@
 #include <r4300/hw.h>
 #include <r4300/state.h>
 
+#include <debugger.h>
+
 namespace R4300 {
 
-static inline void logWrite(const char *tag, u64 value)
+static inline void logWrite(bool flag, const char *tag, u64 value)
 {
-#if 1
-    std::cerr << std::left << std::setfill(' ') << std::setw(32);
-    std::cerr << tag << " <- " << std::hex << value << std::endl;
-#endif
+    if (flag) {
+        std::cerr << std::left << std::setfill(' ') << std::setw(32);
+        std::cerr << tag << " <- " << std::hex << value << std::endl;
+    }
 }
 
-static inline void logRead(const char *tag, u64 value)
+static inline void logWriteAtAddr(bool flag, const char *tag, u64 addr, u64 value)
 {
-#if 1
-    std::cerr << std::left << std::setfill(' ') << std::setw(32);
-    std::cerr << tag << " -> " << std::hex << value << std::endl;
-#endif
+    if (flag) {
+        std::cerr << std::left << std::setfill(' ') << std::setw(32);
+        std::cerr << tag << ":" << std::hex << addr;
+        std::cerr << " <- " << std::hex << value << std::endl;
+    }
+}
+
+static inline void logRead(bool flag, const char *tag, u64 value)
+{
+    if (flag) {
+        std::cerr << std::left << std::setfill(' ') << std::setw(32);
+        std::cerr << tag << " -> " << std::hex << value << std::endl;
+    }
+}
+
+static inline void logReadAtAddr(bool flag, const char *tag, u64 addr, u64 value)
+{
+    if (flag) {
+        std::cerr << std::left << std::setfill(' ') << std::setw(32);
+        std::cerr << tag << ":" << std::hex << addr;
+        std::cerr << " -> " << std::hex << value << std::endl;
+    }
 }
 
 namespace Eval {
@@ -79,43 +99,53 @@ bool read(uint bytes, u64 addr, u64 *value)
 
     switch (addr) {
         case RDRAM_DEVICE_TYPE_REG:
-            logRead("RDRAM_DEVICE_TYPE_REG", state.hwreg.RDRAM_DEVICE_TYPE_REG);
+            logRead(debugger.verbose.rdram, "RDRAM_DEVICE_TYPE_REG",
+                    state.hwreg.RDRAM_DEVICE_TYPE_REG);
             *value = state.hwreg.RDRAM_DEVICE_TYPE_REG;
             return true;
         case RDRAM_DEVICE_ID_REG:
-            logRead("RDRAM_DEVICE_ID_REG", state.hwreg.RDRAM_DEVICE_ID_REG);
+            logRead(debugger.verbose.rdram, "RDRAM_DEVICE_ID_REG",
+                    state.hwreg.RDRAM_DEVICE_ID_REG);
             *value = state.hwreg.RDRAM_DEVICE_ID_REG;
             return true;
         case RDRAM_DELAY_REG:
-            logRead("RDRAM_DELAY_REG", state.hwreg.RDRAM_DELAY_REG);
+            logRead(debugger.verbose.rdram, "RDRAM_DELAY_REG",
+                    state.hwreg.RDRAM_DELAY_REG);
             *value = state.hwreg.RDRAM_DELAY_REG;
             return true;
         case RDRAM_MODE_REG:
-            logRead("RDRAM_MODE_REG", state.hwreg.RDRAM_MODE_REG);
+            logRead(debugger.verbose.rdram, "RDRAM_MODE_REG",
+                    state.hwreg.RDRAM_MODE_REG);
             *value = state.hwreg.RDRAM_MODE_REG;
             return true;
         case RDRAM_REF_INTERVAL_REG:
-            logRead("RDRAM_REF_INTERVAL_REG", state.hwreg.RDRAM_REF_INTERVAL_REG);
+            logRead(debugger.verbose.rdram, "RDRAM_REF_INTERVAL_REG",
+                    state.hwreg.RDRAM_REF_INTERVAL_REG);
             *value = state.hwreg.RDRAM_REF_INTERVAL_REG;
             return true;
         case RDRAM_REF_ROW_REG:
-            logRead("RDRAM_REF_ROW_REG", state.hwreg.RDRAM_REF_ROW_REG);
+            logRead(debugger.verbose.rdram, "RDRAM_REF_ROW_REG",
+                    state.hwreg.RDRAM_REF_ROW_REG);
             *value = state.hwreg.RDRAM_REF_ROW_REG;
             return true;
         case RDRAM_RAS_INTERVAL_REG:
-            logRead("RDRAM_RAS_INTERVAL_REG", state.hwreg.RDRAM_RAS_INTERVAL_REG);
+            logRead(debugger.verbose.rdram, "RDRAM_RAS_INTERVAL_REG",
+                    state.hwreg.RDRAM_RAS_INTERVAL_REG);
             *value = state.hwreg.RDRAM_RAS_INTERVAL_REG;
             return true;
         case RDRAM_MIN_INTERVAL_REG:
-            logRead("RDRAM_MIN_INTERVAL_REG", state.hwreg.RDRAM_MIN_INTERVAL_REG);
+            logRead(debugger.verbose.rdram, "RDRAM_MIN_INTERVAL_REG",
+                    state.hwreg.RDRAM_MIN_INTERVAL_REG);
             *value = state.hwreg.RDRAM_MIN_INTERVAL_REG;
             return true;
         case RDRAM_ADDR_SELECT_REG:
-            logRead("RDRAM_ADDR_SELECT_REG", state.hwreg.RDRAM_ADDR_SELECT_REG);
+            logRead(debugger.verbose.rdram, "RDRAM_ADDR_SELECT_REG",
+                    state.hwreg.RDRAM_ADDR_SELECT_REG);
             *value = state.hwreg.RDRAM_ADDR_SELECT_REG;
             return true;
         case RDRAM_DEVICE_MANUF_REG:
-            logRead("RDRAM_DEVICE_MANUF_REG", state.hwreg.RDRAM_DEVICE_MANUF_REG);
+            logRead(debugger.verbose.rdram, "RDRAM_DEVICE_MANUF_REG",
+                    state.hwreg.RDRAM_DEVICE_MANUF_REG);
             *value = state.hwreg.RDRAM_DEVICE_MANUF_REG;
             return true;
         default:
@@ -132,43 +162,43 @@ bool write(uint bytes, u64 addr, u64 value)
 
     switch (addr) {
         case RDRAM_DEVICE_TYPE_REG:
-            logWrite("RDRAM_DEVICE_TYPE_REG", value);
+            logWrite(debugger.verbose.rdram, "RDRAM_DEVICE_TYPE_REG", value);
             state.hwreg.RDRAM_DEVICE_TYPE_REG = value;
             return true;
         case RDRAM_DEVICE_ID_REG:
-            logWrite("RDRAM_DEVICE_ID_REG", value);
+            logWrite(debugger.verbose.rdram, "RDRAM_DEVICE_ID_REG", value);
             state.hwreg.RDRAM_DEVICE_ID_REG = value;
             return true;
         case RDRAM_DELAY_REG:
-            logWrite("RDRAM_DELAY_REG", value);
+            logWrite(debugger.verbose.rdram, "RDRAM_DELAY_REG", value);
             state.hwreg.RDRAM_DELAY_REG = value;
             return true;
         case RDRAM_MODE_REG:
-            logWrite("RDRAM_MODE_REG", value);
+            logWrite(debugger.verbose.rdram, "RDRAM_MODE_REG", value);
             state.hwreg.RDRAM_MODE_REG = value;
             return true;
         case RDRAM_REF_INTERVAL_REG:
-            logWrite("RDRAM_REF_INTERVAL_REG", value);
+            logWrite(debugger.verbose.rdram, "RDRAM_REF_INTERVAL_REG", value);
             state.hwreg.RDRAM_REF_INTERVAL_REG = value;
             return true;
         case RDRAM_REF_ROW_REG:
-            logWrite("RDRAM_REF_ROW_REG", value);
+            logWrite(debugger.verbose.rdram, "RDRAM_REF_ROW_REG", value);
             state.hwreg.RDRAM_REF_ROW_REG = value;
             return true;
         case RDRAM_RAS_INTERVAL_REG:
-            logWrite("RDRAM_RAS_INTERVAL_REG", value);
+            logWrite(debugger.verbose.rdram, "RDRAM_RAS_INTERVAL_REG", value);
             state.hwreg.RDRAM_RAS_INTERVAL_REG = value;
             return true;
         case RDRAM_MIN_INTERVAL_REG:
-            logWrite("RDRAM_MIN_INTERVAL_REG", value);
+            logWrite(debugger.verbose.rdram, "RDRAM_MIN_INTERVAL_REG", value);
             state.hwreg.RDRAM_MIN_INTERVAL_REG = value;
             return true;
         case RDRAM_ADDR_SELECT_REG:
-            logWrite("RDRAM_ADDR_SELECT_REG", value);
+            logWrite(debugger.verbose.rdram, "RDRAM_ADDR_SELECT_REG", value);
             state.hwreg.RDRAM_ADDR_SELECT_REG = value;
             return true;
         case RDRAM_DEVICE_MANUF_REG:
-            logWrite("RDRAM_DEVICE_MANUF_REG", value);
+            logWrite(debugger.verbose.rdram, "RDRAM_DEVICE_MANUF_REG", value);
             state.hwreg.RDRAM_DEVICE_MANUF_REG = value;
             return true;
         default:
@@ -255,44 +285,54 @@ bool read(uint bytes, u64 addr, u64 *value)
 
     switch (addr) {
         case SP_MEM_ADDR_REG:
-            logRead("SP_MEM_ADDR_REG", state.hwreg.SP_MEM_ADDR_REG);
+            logRead(debugger.verbose.SP, "SP_MEM_ADDR_REG",
+                    state.hwreg.SP_MEM_ADDR_REG);
             *value = state.hwreg.SP_MEM_ADDR_REG;
             return true;
         case SP_DRAM_ADDR_REG:
-            logRead("SP_DRAM_ADDR_REG", state.hwreg.SP_DRAM_ADDR_REG);
+            logRead(debugger.verbose.SP, "SP_DRAM_ADDR_REG",
+                    state.hwreg.SP_DRAM_ADDR_REG);
             *value = state.hwreg.SP_DRAM_ADDR_REG;
             return true;
         case SP_RD_LEN_REG:
-            logRead("SP_RD_LEN_REG", state.hwreg.SP_RD_LEN_REG);
+            logRead(debugger.verbose.SP, "SP_RD_LEN_REG",
+                    state.hwreg.SP_RD_LEN_REG);
             *value = state.hwreg.SP_RD_LEN_REG;
             return true;
         case SP_WR_LEN_REG:
-            logRead("SP_WR_LEN_REG", state.hwreg.SP_WR_LEN_REG);
+            logRead(debugger.verbose.SP, "SP_WR_LEN_REG",
+                    state.hwreg.SP_WR_LEN_REG);
             *value = state.hwreg.SP_WR_LEN_REG;
             return true;
         case SP_STATUS_REG:
-            logRead("SP_STATUS_REG", state.hwreg.SP_STATUS_REG);
+            logRead(debugger.verbose.SP, "SP_STATUS_REG",
+                    state.hwreg.SP_STATUS_REG);
             *value = state.hwreg.SP_STATUS_REG;
             return true;
         case SP_DMA_FULL_REG:
-            logRead("SP_DMA_FULL_REG", state.hwreg.SP_DMA_FULL_REG);
+            logRead(debugger.verbose.SP, "SP_DMA_FULL_REG",
+                    state.hwreg.SP_DMA_FULL_REG);
             *value = 0;
             return true;
         case SP_DMA_BUSY_REG:
-            logRead("SP_DMA_BUSY_REG", state.hwreg.SP_DMA_BUSY_REG);
+            logRead(debugger.verbose.SP, "SP_DMA_BUSY_REG",
+                    state.hwreg.SP_DMA_BUSY_REG);
             *value = 0;
             return true;
         case SP_SEMAPHORE_REG:
-            logRead("SP_SEMAPHORE_REG", state.hwreg.SP_SEMAPHORE_REG);
+            logRead(debugger.verbose.SP, "SP_SEMAPHORE_REG",
+                    state.hwreg.SP_SEMAPHORE_REG);
             *value = state.hwreg.SP_SEMAPHORE_REG;
             state.hwreg.SP_SEMAPHORE_REG = 1;
             return true;
         case SP_PC_REG:
-            logRead("SP_PC_REG", state.hwreg.SP_PC_REG);
+            logRead(debugger.verbose.SP, "SP_PC_REG",
+                    state.hwreg.SP_PC_REG);
             *value = state.hwreg.SP_PC_REG;
             return true;
         case SP_IBIST_REG:
-            logRead("SP_IBIST_REG", state.hwreg.SP_IBIST_REG);
+            logRead(debugger.verbose.SP, "SP_IBIST_REG",
+                    state.hwreg.SP_IBIST_REG);
             *value = state.hwreg.SP_IBIST_REG;
             return true;
         default:
@@ -310,16 +350,16 @@ bool write(uint bytes, u64 addr, u64 value)
 
     switch (addr) {
         case SP_MEM_ADDR_REG:
-            logWrite("SP_MEM_ADDR_REG", value);
+            logWrite(debugger.verbose.SP, "SP_MEM_ADDR_REG", value);
             state.hwreg.SP_MEM_ADDR_REG = value;
             return true;
         case SP_DRAM_ADDR_REG:
-            logWrite("SP_DRAM_ADDR_REG", value);
+            logWrite(debugger.verbose.SP, "SP_DRAM_ADDR_REG", value);
             state.hwreg.SP_DRAM_ADDR_REG = value;
             return true;
 
         case SP_RD_LEN_REG: {
-            logWrite("SP_RD_LEN_REG", value);
+            logWrite(debugger.verbose.SP, "SP_RD_LEN_REG", value);
             state.hwreg.SP_RD_LEN_REG = value;
             u32 len = 1u + (value & SP_RD_LEN_LEN_MASK);
             u32 count = 1u + ((value >> SP_RD_LEN_COUNT_SHIFT) & SP_RD_LEN_COUNT_MASK);
@@ -338,12 +378,12 @@ bool write(uint bytes, u64 addr, u64 value)
         }
 
         case SP_WR_LEN_REG:
-            logWrite("SP_WR_LEN_REG", value);
+            logWrite(debugger.verbose.SP, "SP_WR_LEN_REG", value);
             state.hwreg.SP_WR_LEN_REG = value;
             throw "unsupported_wr";
             return true;
         case SP_STATUS_REG:
-            logWrite("SP_STATUS_REG", value);
+            logWrite(debugger.verbose.SP, "SP_STATUS_REG", value);
             if (value & SP_STATUS_CLR_HALT) {
                 state.hwreg.SP_STATUS_REG &= ~SP_STATUS_HALT;
             }
@@ -421,21 +461,21 @@ bool write(uint bytes, u64 addr, u64 value)
             }
             return true;
         case SP_DMA_FULL_REG:
-            logWrite("SP_DMA_FULL_REG", value);
+            logWrite(debugger.verbose.SP, "SP_DMA_FULL_REG", value);
             return true;
         case SP_DMA_BUSY_REG:
-            logWrite("SP_DMA_BUSY_REG", value);
+            logWrite(debugger.verbose.SP, "SP_DMA_BUSY_REG", value);
             return true;
         case SP_SEMAPHORE_REG:
-            logWrite("SP_SEMAPHORE_REG", value);
+            logWrite(debugger.verbose.SP, "SP_SEMAPHORE_REG", value);
             state.hwreg.SP_SEMAPHORE_REG = 0;
             return true;
         case SP_PC_REG:
-            logWrite("SP_PC_REG", value);
+            logWrite(debugger.verbose.SP, "SP_PC_REG", value);
             state.hwreg.SP_PC_REG = value;
             return true;
         case SP_IBIST_REG:
-            logWrite("SP_IBIST_REG", value);
+            logWrite(debugger.verbose.SP, "SP_IBIST_REG", value);
             state.hwreg.SP_IBIST_REG = value;
             return true;
         default:
@@ -526,26 +566,30 @@ bool read(uint bytes, u64 addr, u64 *value)
 
     switch (addr) {
         case MI_MODE_REG:
-            logRead("MI_MODE_REG", state.hwreg.MI_MODE_REG);
+            logRead(debugger.verbose.MI, "MI_MODE_REG",
+                    state.hwreg.MI_MODE_REG);
             *value = state.hwreg.MI_MODE_REG;
             return true;
         case MI_VERSION_REG:
-            logRead("MI_VERSION_REG", state.hwreg.MI_VERSION_REG);
+            logRead(debugger.verbose.MI, "MI_VERSION_REG",
+                    state.hwreg.MI_VERSION_REG);
             *value = state.hwreg.MI_VERSION_REG;
             return true;
         case MI_INTR_REG:
-            logRead("MI_INTR_REG", state.hwreg.MI_INTR_REG);
+            logRead(debugger.verbose.MI, "MI_INTR_REG",
+                    state.hwreg.MI_INTR_REG);
             *value = state.hwreg.MI_INTR_REG;
             return true;
         case MI_INTR_MASK_REG:
-            logRead("MI_INTR_MASK_REG", state.hwreg.MI_INTR_MASK_REG);
+            logRead(debugger.verbose.MI, "MI_INTR_MASK_REG",
+                    state.hwreg.MI_INTR_MASK_REG);
             *value = state.hwreg.MI_INTR_MASK_REG;
             return true;
         default:
+            logReadAtAddr(debugger.verbose.MI, "MI_??", addr, 0);
+            throw "Unsupported10";
             break;
     }
-    logRead("MI_??", addr);
-    throw "Unsupported10";
     *value = 0;
     return true;
 }
@@ -557,7 +601,7 @@ bool write(uint bytes, u64 addr, u64 value)
 
     switch (addr) {
         case MI_MODE_REG:
-            logWrite("MI_MODE_REG", value);
+            logWrite(debugger.verbose.MI, "MI_MODE_REG", value);
             state.hwreg.MI_MODE_REG &= MI_MODE_INIT_LEN_MASK;
             state.hwreg.MI_MODE_REG |= (value & MI_MODE_INIT_LEN_MASK);
             if (value & MI_MODE_CLR_INIT) {
@@ -583,13 +627,13 @@ bool write(uint bytes, u64 addr, u64 value)
             }
             return true;
         case MI_VERSION_REG:
-            logWrite("MI_VERSION_REG", value);
+            logWrite(debugger.verbose.MI, "MI_VERSION_REG", value);
             return true;
         case MI_INTR_REG:
-            logWrite("MI_INTR_REG", value);
+            logWrite(debugger.verbose.MI, "MI_INTR_REG", value);
             return true;
         case MI_INTR_MASK_REG:
-            logWrite("MI_INTR_MASK_REG", value);
+            logWrite(debugger.verbose.MI, "MI_INTR_MASK_REG", value);
             if (value & MI_INTR_MASK_CLR_SP) {
                 state.hwreg.MI_INTR_MASK_REG &= ~MI_INTR_MASK_SP;
             }
@@ -628,7 +672,7 @@ bool write(uint bytes, u64 addr, u64 value)
             }
             return true;
         default:
-            logWrite("MI_??", addr);
+            logWriteAtAddr(debugger.verbose.MI, "MI_??", addr, value);
             throw "Unsupported9";
             break;
     }
@@ -722,59 +766,59 @@ bool read(uint bytes, u64 addr, u64 *value)
     switch (addr) {
 
         case VI_CONTROL_REG:
-            logRead("VI_CONTROL_REG", state.hwreg.VI_CONTROL_REG);
+            logRead(debugger.verbose.VI, "VI_CONTROL_REG", state.hwreg.VI_CONTROL_REG);
             *value = state.hwreg.VI_CONTROL_REG;
             return true;
         case VI_DRAM_ADDR_REG:
-            logRead("VI_DRAM_ADDR_REG", state.hwreg.VI_DRAM_ADDR_REG);
+            logRead(debugger.verbose.VI, "VI_DRAM_ADDR_REG", state.hwreg.VI_DRAM_ADDR_REG);
             *value = state.hwreg.VI_DRAM_ADDR_REG;
             return true;
         case VI_WIDTH_REG:
-            logRead("VI_WIDTH_REG", state.hwreg.VI_WIDTH_REG);
+            logRead(debugger.verbose.VI, "VI_WIDTH_REG", state.hwreg.VI_WIDTH_REG);
             *value = state.hwreg.VI_WIDTH_REG;
             return true;
         case VI_INTR_REG:
-            logRead("VI_INTR_REG", state.hwreg.VI_INTR_REG);
+            logRead(debugger.verbose.VI, "VI_INTR_REG", state.hwreg.VI_INTR_REG);
             *value = state.hwreg.VI_INTR_REG;
             return true;
         case VI_CURRENT_REG:
-            logRead("VI_CURRENT_REG", state.hwreg.VI_CURRENT_REG);
+            logRead(debugger.verbose.VI, "VI_CURRENT_REG", state.hwreg.VI_CURRENT_REG);
             *value = state.hwreg.VI_CURRENT_REG;
             return true;
         case VI_BURST_REG:
-            logRead("VI_BURST_REG", state.hwreg.VI_BURST_REG);
+            logRead(debugger.verbose.VI, "VI_BURST_REG", state.hwreg.VI_BURST_REG);
             *value = state.hwreg.VI_BURST_REG;
             return true;
         case VI_V_SYNC_REG:
-            logRead("VI_V_SYNC_REG", state.hwreg.VI_V_SYNC_REG);
+            logRead(debugger.verbose.VI, "VI_V_SYNC_REG", state.hwreg.VI_V_SYNC_REG);
             *value = state.hwreg.VI_V_SYNC_REG;
             return true;
         case VI_H_SYNC_REG:
-            logRead("VI_H_SYNC_REG", state.hwreg.VI_H_SYNC_REG);
+            logRead(debugger.verbose.VI, "VI_H_SYNC_REG", state.hwreg.VI_H_SYNC_REG);
             *value = state.hwreg.VI_H_SYNC_REG;
             return true;
         case VI_LEAP_REG:
-            logRead("VI_LEAP_REG", state.hwreg.VI_LEAP_REG);
+            logRead(debugger.verbose.VI, "VI_LEAP_REG", state.hwreg.VI_LEAP_REG);
             *value = state.hwreg.VI_LEAP_REG;
             return true;
         case VI_H_START_REG:
-            logRead("VI_H_START_REG", state.hwreg.VI_H_START_REG);
+            logRead(debugger.verbose.VI, "VI_H_START_REG", state.hwreg.VI_H_START_REG);
             *value = state.hwreg.VI_H_START_REG;
             return true;
         case VI_V_START_REG:
-            logRead("VI_V_START_REG", state.hwreg.VI_V_START_REG);
+            logRead(debugger.verbose.VI, "VI_V_START_REG", state.hwreg.VI_V_START_REG);
             *value = state.hwreg.VI_V_START_REG;
             return true;
         case VI_V_BURST_REG:
-            logRead("VI_V_BURST_REG", state.hwreg.VI_V_BURST_REG);
+            logRead(debugger.verbose.VI, "VI_V_BURST_REG", state.hwreg.VI_V_BURST_REG);
             *value = state.hwreg.VI_V_BURST_REG;
             return true;
         case VI_X_SCALE_REG:
-            logRead("VI_X_SCALE_REG", state.hwreg.VI_X_SCALE_REG);
+            logRead(debugger.verbose.VI, "VI_X_SCALE_REG", state.hwreg.VI_X_SCALE_REG);
             *value = state.hwreg.VI_X_SCALE_REG;
             return true;
         case VI_Y_SCALE_REG:
-            logRead("VI_Y_SCALE_REG", state.hwreg.VI_Y_SCALE_REG);
+            logRead(debugger.verbose.VI, "VI_Y_SCALE_REG", state.hwreg.VI_Y_SCALE_REG);
             *value = state.hwreg.VI_Y_SCALE_REG;
             return true;
         default:
@@ -792,59 +836,59 @@ bool write(uint bytes, u64 addr, u64 value)
 
     switch (addr) {
         case VI_CONTROL_REG:
-            logWrite("VI_CONTROL_REG", value);
+            logWrite(debugger.verbose.VI, "VI_CONTROL_REG", value);
             state.hwreg.VI_CONTROL_REG = value;
             return true;
         case VI_DRAM_ADDR_REG:
-            logWrite("VI_DRAM_ADDR_REG", value);
+            logWrite(debugger.verbose.VI, "VI_DRAM_ADDR_REG", value);
             state.hwreg.VI_DRAM_ADDR_REG = value;
             return true;
         case VI_WIDTH_REG:
-            logWrite("VI_WIDTH_REG", value);
+            logWrite(debugger.verbose.VI, "VI_WIDTH_REG", value);
             state.hwreg.VI_WIDTH_REG = value;
             return true;
         case VI_INTR_REG:
-            logWrite("VI_INTR_REG", value);
+            logWrite(debugger.verbose.VI, "VI_INTR_REG", value);
             state.hwreg.VI_INTR_REG = value;
             return true;
         case VI_CURRENT_REG:
-            logWrite("VI_CURRENT_REG", value);
+            logWrite(debugger.verbose.VI, "VI_CURRENT_REG", value);
             state.hwreg.VI_CURRENT_REG = value;
             return true;
         case VI_BURST_REG:
-            logWrite("VI_BURST_REG", value);
+            logWrite(debugger.verbose.VI, "VI_BURST_REG", value);
             state.hwreg.VI_BURST_REG = value;
             return true;
         case VI_V_SYNC_REG:
-            logWrite("VI_V_SYNC_REG", value);
+            logWrite(debugger.verbose.VI, "VI_V_SYNC_REG", value);
             state.hwreg.VI_V_SYNC_REG = value;
             return true;
         case VI_H_SYNC_REG:
-            logWrite("VI_H_SYNC_REG", value);
+            logWrite(debugger.verbose.VI, "VI_H_SYNC_REG", value);
             state.hwreg.VI_H_SYNC_REG = value;
             return true;
         case VI_LEAP_REG:
-            logWrite("VI_LEAP_REG", value);
+            logWrite(debugger.verbose.VI, "VI_LEAP_REG", value);
             state.hwreg.VI_LEAP_REG = value;
             return true;
         case VI_H_START_REG:
-            logWrite("VI_H_START_REG", value);
+            logWrite(debugger.verbose.VI, "VI_H_START_REG", value);
             state.hwreg.VI_H_START_REG = value;
             return true;
         case VI_V_START_REG:
-            logWrite("VI_V_START_REG", value);
+            logWrite(debugger.verbose.VI, "VI_V_START_REG", value);
             state.hwreg.VI_V_START_REG = value;
             return true;
         case VI_V_BURST_REG:
-            logWrite("VI_V_BURST_REG", value);
+            logWrite(debugger.verbose.VI, "VI_V_BURST_REG", value);
             state.hwreg.VI_V_BURST_REG = value;
             return true;
         case VI_X_SCALE_REG:
-            logWrite("VI_X_SCALE_REG", value);
+            logWrite(debugger.verbose.VI, "VI_X_SCALE_REG", value);
             state.hwreg.VI_X_SCALE_REG = value;
             return true;
         case VI_Y_SCALE_REG:
-            logWrite("VI_Y_SCALE_REG", value);
+            logWrite(debugger.verbose.VI, "VI_Y_SCALE_REG", value);
             state.hwreg.VI_Y_SCALE_REG = value;
             return true;
         default:
@@ -892,27 +936,33 @@ bool read(uint bytes, u64 addr, u64 *value)
 
     switch (addr) {
         case AI_DRAM_ADDR_REG:
-            logRead("AI_DRAM_ADDR_REG", state.hwreg.AI_DRAM_ADDR_REG);
+            logRead(debugger.verbose.AI, "AI_DRAM_ADDR_REG",
+                    state.hwreg.AI_DRAM_ADDR_REG);
             *value = state.hwreg.AI_DRAM_ADDR_REG;
             return true;
         case AI_LEN_REG:
-            logRead("AI_LEN_REG", state.hwreg.AI_LEN_REG);
+            logRead(debugger.verbose.AI, "AI_LEN_REG",
+                    state.hwreg.AI_LEN_REG);
             *value = state.hwreg.AI_LEN_REG;
             return true;
         case AI_CONTROL_REG:
-            logRead("AI_CONTROL_REG", state.hwreg.AI_CONTROL_REG);
+            logRead(debugger.verbose.AI, "AI_CONTROL_REG",
+                    state.hwreg.AI_CONTROL_REG);
             *value = state.hwreg.AI_CONTROL_REG;
             return true;
         case AI_STATUS_REG:
-            logRead("AI_STATUS_REG", state.hwreg.AI_STATUS_REG);
+            logRead(debugger.verbose.AI, "AI_STATUS_REG",
+                    state.hwreg.AI_STATUS_REG);
             *value = state.hwreg.AI_STATUS_REG;
             return true;
         case AI_DACRATE_REG:
-            logRead("AI_DACRATE_REG", state.hwreg.AI_DACRATE_REG);
+            logRead(debugger.verbose.AI, "AI_DACRATE_REG",
+                    state.hwreg.AI_DACRATE_REG);
             *value = state.hwreg.AI_DACRATE_REG;
             return true;
         case AI_BITRATE_REG:
-            logRead("AI_BITRATE_REG", state.hwreg.AI_BITRATE_REG);
+            logRead(debugger.verbose.AI, "AI_BITRATE_REG",
+                    state.hwreg.AI_BITRATE_REG);
             *value = state.hwreg.AI_BITRATE_REG;
             return true;
         default:
@@ -930,27 +980,27 @@ bool write(uint bytes, u64 addr, u64 value)
 
     switch (addr) {
         case AI_DRAM_ADDR_REG:
-            logWrite("AI_DRAM_ADDR_REG", value);
+            logWrite(debugger.verbose.AI, "AI_DRAM_ADDR_REG", value);
             state.hwreg.AI_DRAM_ADDR_REG = value;
             return true;
         case AI_LEN_REG:
-            logWrite("AI_LEN_REG", value);
+            logWrite(debugger.verbose.AI, "AI_LEN_REG", value);
             state.hwreg.AI_LEN_REG = value;
             return true;
         case AI_CONTROL_REG:
-            logWrite("AI_CONTROL_REG", value);
+            logWrite(debugger.verbose.AI, "AI_CONTROL_REG", value);
             state.hwreg.AI_CONTROL_REG = value;
             return true;
         case AI_STATUS_REG:
-            logWrite("AI_STATUS_REG", value);
+            logWrite(debugger.verbose.AI, "AI_STATUS_REG", value);
             state.hwreg.AI_STATUS_REG = value;
             return true;
         case AI_DACRATE_REG:
-            logWrite("AI_DACRATE_REG", value);
+            logWrite(debugger.verbose.AI, "AI_DACRATE_REG", value);
             state.hwreg.AI_DACRATE_REG = value;
             return true;
         case AI_BITRATE_REG:
-            logWrite("AI_BITRATE_REG", value);
+            logWrite(debugger.verbose.AI, "AI_BITRATE_REG", value);
             state.hwreg.AI_BITRATE_REG = value;
             return true;
         default:
@@ -1013,59 +1063,72 @@ bool read(uint bytes, u64 addr, u64 *value)
 
     switch (addr) {
         case PI_DRAM_ADDR_REG:
-            logRead("PI_DRAM_ADDR_REG", state.hwreg.PI_DRAM_ADDR_REG);
+            logRead(debugger.verbose.PI, "PI_DRAM_ADDR_REG",
+                    state.hwreg.PI_DRAM_ADDR_REG);
             *value = state.hwreg.PI_DRAM_ADDR_REG;
             return true;
         case PI_CART_ADDR_REG:
-            logRead("PI_CART_ADDR_REG", state.hwreg.PI_CART_ADDR_REG);
+            logRead(debugger.verbose.PI, "PI_CART_ADDR_REG",
+                    state.hwreg.PI_CART_ADDR_REG);
             *value = state.hwreg.PI_CART_ADDR_REG;
             return true;
         case PI_RD_LEN_REG:
-            logRead("PI_RD_LEN_REG", state.hwreg.PI_RD_LEN_REG);
+            logRead(debugger.verbose.PI, "PI_RD_LEN_REG",
+                    state.hwreg.PI_RD_LEN_REG);
             *value = state.hwreg.PI_RD_LEN_REG;
             return true;
         case PI_WR_LEN_REG:
-            logRead("PI_WR_LEN_REG", state.hwreg.PI_WR_LEN_REG);
+            logRead(debugger.verbose.PI, "PI_WR_LEN_REG",
+                    state.hwreg.PI_WR_LEN_REG);
             *value = state.hwreg.PI_WR_LEN_REG;
             return true;
         case PI_STATUS_REG:
-            logRead("PI_STATUS_REG", state.hwreg.PI_STATUS_REG);
+            logRead(debugger.verbose.PI, "PI_STATUS_REG",
+                    state.hwreg.PI_STATUS_REG);
             *value = state.hwreg.PI_STATUS_REG;
             return true;
         case PI_BSD_DOM1_LAT_REG:
-            logRead("PI_BSD_DOM1_LAT_REG", state.hwreg.PI_BSD_DOM1_LAT_REG);
+            logRead(debugger.verbose.PI, "PI_BSD_DOM1_LAT_REG",
+                    state.hwreg.PI_BSD_DOM1_LAT_REG);
             *value = state.hwreg.PI_BSD_DOM1_LAT_REG;
             return true;
         case PI_BSD_DOM1_PWD_REG:
-            logRead("PI_BSD_DOM1_PWD_REG", state.hwreg.PI_BSD_DOM1_PWD_REG);
+            logRead(debugger.verbose.PI, "PI_BSD_DOM1_PWD_REG",
+                    state.hwreg.PI_BSD_DOM1_PWD_REG);
             *value = state.hwreg.PI_BSD_DOM1_PWD_REG;
             return true;
         case PI_BSD_DOM1_PGS_REG:
-            logRead("PI_BSD_DOM1_PGS_REG", state.hwreg.PI_BSD_DOM1_PGS_REG);
+            logRead(debugger.verbose.PI, "PI_BSD_DOM1_PGS_REG",
+                    state.hwreg.PI_BSD_DOM1_PGS_REG);
             *value = state.hwreg.PI_BSD_DOM1_PGS_REG;
             return true;
         case PI_BSD_DOM1_RLS_REG:
-            logRead("PI_BSD_DOM1_RLS_REG", state.hwreg.PI_BSD_DOM1_RLS_REG);
+            logRead(debugger.verbose.PI, "PI_BSD_DOM1_RLS_REG",
+                    state.hwreg.PI_BSD_DOM1_RLS_REG);
             *value = state.hwreg.PI_BSD_DOM1_RLS_REG;
             return true;
         case PI_BSD_DOM2_LAT_REG:
-            logRead("PI_BSD_DOM2_LAT_REG", state.hwreg.PI_BSD_DOM2_LAT_REG);
+            logRead(debugger.verbose.PI, "PI_BSD_DOM2_LAT_REG",
+                    state.hwreg.PI_BSD_DOM2_LAT_REG);
             *value = state.hwreg.PI_BSD_DOM2_LAT_REG;
             return true;
         case PI_BSD_DOM2_PWD_REG:
-            logRead("PI_BSD_DOM2_PWD_REG", state.hwreg.PI_BSD_DOM2_PWD_REG);
+            logRead(debugger.verbose.PI, "PI_BSD_DOM2_PWD_REG",
+                    state.hwreg.PI_BSD_DOM2_PWD_REG);
             *value = state.hwreg.PI_BSD_DOM2_PWD_REG;
             return true;
         case PI_BSD_DOM2_PGS_REG:
-            logRead("PI_BSD_DOM2_PGS_REG", state.hwreg.PI_BSD_DOM2_PGS_REG);
+            logRead(debugger.verbose.PI, "PI_BSD_DOM2_PGS_REG",
+                    state.hwreg.PI_BSD_DOM2_PGS_REG);
             *value = state.hwreg.PI_BSD_DOM2_PGS_REG;
             return true;
         case PI_BSD_DOM2_RLS_REG:
-            logRead("PI_BSD_DOM2_RLS_REG", state.hwreg.PI_BSD_DOM2_RLS_REG);
+            logRead(debugger.verbose.PI, "PI_BSD_DOM2_RLS_REG",
+                    state.hwreg.PI_BSD_DOM2_RLS_REG);
             *value = state.hwreg.PI_BSD_DOM2_RLS_REG;
             return true;
         default:
-            logRead("PI_??", addr);
+            logRead(debugger.verbose.PI, "PI_??", addr);
             throw "Unsupported6";
             break;
     }
@@ -1080,16 +1143,16 @@ bool write(uint bytes, u64 addr, u64 value)
 
     switch (addr) {
         case PI_DRAM_ADDR_REG:
-            logWrite("PI_DRAM_ADDR_REG", value);
+            logWrite(debugger.verbose.PI, "PI_DRAM_ADDR_REG", value);
             state.hwreg.PI_DRAM_ADDR_REG = value;
             return true;
         case PI_CART_ADDR_REG:
-            logWrite("PI_CART_ADDR_REG", value);
+            logWrite(debugger.verbose.PI, "PI_CART_ADDR_REG", value);
             state.hwreg.PI_CART_ADDR_REG = value;
             return true;
 
         case PI_RD_LEN_REG:
-            logWrite("PI_RD_LEN_REG", value);
+            logWrite(debugger.verbose.PI, "PI_RD_LEN_REG", value);
             state.hwreg.PI_RD_LEN_REG = value;
             state.physmem.copy(
                 state.hwreg.PI_CART_ADDR_REG,
@@ -1100,7 +1163,7 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
 
         case PI_WR_LEN_REG:
-            logWrite("PI_WR_LEN_REG", value);
+            logWrite(debugger.verbose.PI, "PI_WR_LEN_REG", value);
             state.hwreg.PI_WR_LEN_REG = value;
             state.physmem.copy(
                 state.hwreg.PI_DRAM_ADDR_REG,
@@ -1111,7 +1174,7 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
 
         case PI_STATUS_REG:
-            logWrite("PI_STATUS_REG", value);
+            logWrite(debugger.verbose.PI, "PI_STATUS_REG", value);
             state.hwreg.PI_STATUS_REG = 0;
             if (value & PI_STATUS_RESET) {
                 throw "Unsupported_PI_STATUS_REG__RESET";
@@ -1121,39 +1184,39 @@ bool write(uint bytes, u64 addr, u64 value)
             }
             return true;
         case PI_BSD_DOM1_LAT_REG:
-            logWrite("PI_BSD_DOM1_LAT_REG", value);
+            logWrite(debugger.verbose.PI, "PI_BSD_DOM1_LAT_REG", value);
             state.hwreg.PI_BSD_DOM1_LAT_REG = value;
             return true;
         case PI_BSD_DOM1_PWD_REG:
-            logWrite("PI_BSD_DOM1_PWD_REG", value);
+            logWrite(debugger.verbose.PI, "PI_BSD_DOM1_PWD_REG", value);
             state.hwreg.PI_BSD_DOM1_PWD_REG = value;
             return true;
         case PI_BSD_DOM1_PGS_REG:
-            logWrite("PI_BSD_DOM1_PGS_REG", value);
+            logWrite(debugger.verbose.PI, "PI_BSD_DOM1_PGS_REG", value);
             state.hwreg.PI_BSD_DOM1_PGS_REG = value;
             return true;
         case PI_BSD_DOM1_RLS_REG:
-            logWrite("PI_BSD_DOM1_RLS_REG", value);
+            logWrite(debugger.verbose.PI, "PI_BSD_DOM1_RLS_REG", value);
             state.hwreg.PI_BSD_DOM1_RLS_REG = value;
             return true;
         case PI_BSD_DOM2_LAT_REG:
-            logWrite("PI_BSD_DOM2_LAT_REG", value);
+            logWrite(debugger.verbose.PI, "PI_BSD_DOM2_LAT_REG", value);
             state.hwreg.PI_BSD_DOM2_LAT_REG = value;
             return true;
         case PI_BSD_DOM2_PWD_REG:
-            logWrite("PI_BSD_DOM2_PWD_REG", value);
+            logWrite(debugger.verbose.PI, "PI_BSD_DOM2_PWD_REG", value);
             state.hwreg.PI_BSD_DOM2_PWD_REG = value;
             return true;
         case PI_BSD_DOM2_PGS_REG:
-            logWrite("PI_BSD_DOM2_PGS_REG", value);
+            logWrite(debugger.verbose.PI, "PI_BSD_DOM2_PGS_REG", value);
             state.hwreg.PI_BSD_DOM2_PGS_REG = value;
             return true;
         case PI_BSD_DOM2_RLS_REG:
-            logWrite("PI_BSD_DOM2_RLS_REG", value);
+            logWrite(debugger.verbose.PI, "PI_BSD_DOM2_RLS_REG", value);
             state.hwreg.PI_BSD_DOM2_RLS_REG = value;
             return true;
         default:
-            logWrite("PI_??", addr);
+            logWrite(debugger.verbose.PI, "PI_??", addr);
             throw "Unsupported5";
             break;
     }
@@ -1197,42 +1260,50 @@ bool read(uint bytes, u64 addr, u64 *value)
 
     switch (addr) {
         case RI_MODE_REG:
-            logRead("RI_MODE_REG", state.hwreg.RI_MODE_REG);
+            logRead(debugger.verbose.RI, "RI_MODE_REG",
+                    state.hwreg.RI_MODE_REG);
             *value = state.hwreg.RI_MODE_REG;
             return true;
         case RI_CONFIG_REG:
-            logRead("RI_CONFIG_REG", state.hwreg.RI_CONFIG_REG);
+            logRead(debugger.verbose.RI, "RI_CONFIG_REG",
+                    state.hwreg.RI_CONFIG_REG);
             *value = state.hwreg.RI_CONFIG_REG;
             return true;
         case RI_CURRENT_LOAD_REG:
-            logRead("RI_CURRENT_LOAD_REG", state.hwreg.RI_CURRENT_LOAD_REG);
+            logRead(debugger.verbose.RI, "RI_CURRENT_LOAD_REG",
+                    state.hwreg.RI_CURRENT_LOAD_REG);
             *value = state.hwreg.RI_CURRENT_LOAD_REG;
             return true;
         case RI_SELECT_REG:
-            logRead("RI_SELECT_REG", state.hwreg.RI_SELECT_REG);
+            logRead(debugger.verbose.RI, "RI_SELECT_REG",
+                    state.hwreg.RI_SELECT_REG);
             *value = state.hwreg.RI_SELECT_REG;
             return true;
         case RI_REFRESH_REG:
-            logRead("RI_REFRESH_REG", state.hwreg.RI_REFRESH_REG);
+            logRead(debugger.verbose.RI, "RI_REFRESH_REG",
+                    state.hwreg.RI_REFRESH_REG);
             *value = state.hwreg.RI_REFRESH_REG;
             return true;
         case RI_LATENCY_REG:
-            logRead("RI_LATENCY_REG", state.hwreg.RI_LATENCY_REG);
+            logRead(debugger.verbose.RI, "RI_LATENCY_REG",
+                    state.hwreg.RI_LATENCY_REG);
             *value = state.hwreg.RI_LATENCY_REG;
             return true;
         case RI_RERROR_REG:
-            logRead("RI_RERROR_REG", state.hwreg.RI_RERROR_REG);
+            logRead(debugger.verbose.RI, "RI_RERROR_REG",
+                    state.hwreg.RI_RERROR_REG);
             *value = state.hwreg.RI_RERROR_REG;
             return true;
         case RI_WERROR_REG:
-            logRead("RI_WERROR_REG", state.hwreg.RI_WERROR_REG);
+            logRead(debugger.verbose.RI, "RI_WERROR_REG",
+                    state.hwreg.RI_WERROR_REG);
             *value = state.hwreg.RI_WERROR_REG;
             return true;
         default:
+            logRead(debugger.verbose.RI, "RI_??", addr);
+            throw "Unsupported4";
             break;
     }
-    logRead("RI_??", addr);
-    throw "Unsupported4";
     *value = 0;
     return true;
 }
@@ -1244,39 +1315,39 @@ bool write(uint bytes, u64 addr, u64 value)
 
     switch (addr) {
         case RI_MODE_REG:
-            logWrite("RI_MODE_REG", value);
+            logWrite(debugger.verbose.RI, "RI_MODE_REG", value);
             state.hwreg.RI_MODE_REG = value;
             return true;
         case RI_CONFIG_REG:
-            logWrite("RI_CONFIG_REG", value);
+            logWrite(debugger.verbose.RI, "RI_CONFIG_REG", value);
             state.hwreg.RI_CONFIG_REG = value;
             return true;
         case RI_CURRENT_LOAD_REG:
-            logWrite("RI_CURRENT_LOAD_REG", value);
+            logWrite(debugger.verbose.RI, "RI_CURRENT_LOAD_REG", value);
             state.hwreg.RI_CURRENT_LOAD_REG = value;
             return true;
         case RI_SELECT_REG:
-            logWrite("RI_SELECT_REG", value);
+            logWrite(debugger.verbose.RI, "RI_SELECT_REG", value);
             state.hwreg.RI_SELECT_REG = value;
             return true;
         case RI_REFRESH_REG:
-            logWrite("RI_REFRESH_REG", value);
+            logWrite(debugger.verbose.RI, "RI_REFRESH_REG", value);
             state.hwreg.RI_REFRESH_REG = value;
             return true;
         case RI_LATENCY_REG:
-            logWrite("RI_LATENCY_REG", value);
+            logWrite(debugger.verbose.RI, "RI_LATENCY_REG", value);
             state.hwreg.RI_LATENCY_REG = value;
             return true;
         case RI_RERROR_REG:
-            logWrite("RI_RERROR_REG", value);
+            logWrite(debugger.verbose.RI, "RI_RERROR_REG", value);
             state.hwreg.RI_RERROR_REG = value;
             return true;
         case RI_WERROR_REG:
-            logWrite("RI_WERROR_REG", value);
+            logWrite(debugger.verbose.RI, "RI_WERROR_REG", value);
             state.hwreg.RI_WERROR_REG = value;
             return true;
         default:
-            logWrite("RI_??", addr);
+            logWrite(debugger.verbose.RI, "RI_??", addr);
             throw "Unsupported3";
             break;
     }
@@ -1312,19 +1383,23 @@ bool read(uint bytes, u64 addr, u64 *value)
 
     switch (addr) {
         case SI_DRAM_ADDR_REG:
-            logRead("SI_DRAM_ADDR_REG", state.hwreg.SI_DRAM_ADDR_REG);
+            logRead(debugger.verbose.SI, "SI_DRAM_ADDR_REG",
+                    state.hwreg.SI_DRAM_ADDR_REG);
             *value = state.hwreg.SI_DRAM_ADDR_REG;
             return true;
         case SI_PIF_ADDR_RD64B_REG:
-            logRead("SI_PIF_ADDR_RD64B_REG", state.hwreg.SI_PIF_ADDR_RD64B_REG);
+            logRead(debugger.verbose.SI, "SI_PIF_ADDR_RD64B_REG",
+                    state.hwreg.SI_PIF_ADDR_RD64B_REG);
             *value = state.hwreg.SI_PIF_ADDR_RD64B_REG;
             return true;
         case SI_PIF_ADDR_WR64B_REG:
-            logRead("SI_PIF_ADDR_WR64B_REG", state.hwreg.SI_PIF_ADDR_WR64B_REG);
+            logRead(debugger.verbose.SI, "SI_PIF_ADDR_WR64B_REG",
+                    state.hwreg.SI_PIF_ADDR_WR64B_REG);
             *value = state.hwreg.SI_PIF_ADDR_WR64B_REG;
             return true;
         case SI_STATUS_REG:
-            logRead("SI_STATUS_REG", state.hwreg.SI_STATUS_REG);
+            logRead(debugger.verbose.SI, "SI_STATUS_REG",
+                    state.hwreg.SI_STATUS_REG);
             *value = state.hwreg.SI_STATUS_REG;
             return true;
         default:
@@ -1342,12 +1417,12 @@ bool write(uint bytes, u64 addr, u64 value)
 
     switch (addr) {
         case SI_DRAM_ADDR_REG:
-            logWrite("SI_DRAM_ADDR_REG", value);
+            logWrite(debugger.verbose.SI, "SI_DRAM_ADDR_REG", value);
             state.hwreg.SI_DRAM_ADDR_REG = value;
             return true;
 
         case SI_PIF_ADDR_RD64B_REG:
-            logWrite("SI_PIF_ADDR_RD64B_REG", value);
+            logWrite(debugger.verbose.SI, "SI_PIF_ADDR_RD64B_REG", value);
             state.hwreg.SI_PIF_ADDR_RD64B_REG = value;
             state.physmem.copy(
                 state.hwreg.SI_DRAM_ADDR_REG,
@@ -1358,7 +1433,7 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
 
         case SI_PIF_ADDR_WR64B_REG:
-            logWrite("SI_PIF_ADDR_WR64B_REG", value);
+            logWrite(debugger.verbose.SI, "SI_PIF_ADDR_WR64B_REG", value);
             state.hwreg.SI_PIF_ADDR_WR64B_REG = value;
             state.physmem.copy(
                 state.hwreg.SI_PIF_ADDR_WR64B_REG,
@@ -1369,7 +1444,7 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
 
         case SI_STATUS_REG:
-            logWrite("SI_STATUS_REG", value);
+            logWrite(debugger.verbose.SI, "SI_STATUS_REG", value);
             clear_MI_INTR_REG(MI_INTR_SI);
             state.hwreg.SI_STATUS_REG &= ~(UINT32_C(1) << 12);
             return true;
@@ -1387,7 +1462,7 @@ namespace PIF {
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
-    std::cerr << "PIF::read(" << std::hex << addr << ")" << std::endl;
+    logReadAtAddr(debugger.verbose.PIF, "PIF", addr, 0);
     u64 offset = addr - UINT32_C(0x1fc00000);
     if (offset >= 0x800)
         return false;
@@ -1397,9 +1472,9 @@ bool read(uint bytes, u64 addr, u64 *value)
 
 bool write(uint bytes, u64 addr, u64 value)
 {
-    std::cerr << "PIF::write(" << std::hex << addr << ", " << value << ")" << std::endl;
+    logWriteAtAddr(debugger.verbose.PIF, "PIF", addr, value);
     u64 offset = addr - UINT32_C(0x1fc00000);
-    if (offset >= 0x800)
+    if (offset < 0x7c0 || offset >= 0x800)
         return false;
     return true;
 }
@@ -1410,14 +1485,16 @@ namespace Cart_2_1 {
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
-    std::cerr << "Cart_2_1::read(" << std::hex << addr << ")" << std::endl;
+    logReadAtAddr(debugger.verbose.cart_2_1, "Cart_2_1", addr, 0);
+    debugger.stop = true;
     *value = 0;
     return true;
 }
 
 bool write(uint bytes, u64 addr, u64 value)
 {
-    std::cerr << "Cart_2_1::write(" << std::hex << addr << ", " << value << ")" << std::endl;
+    logWriteAtAddr(debugger.verbose.cart_2_1, "Cart_2_1", addr, value);
+    debugger.stop = true;
     return true;
 }
 

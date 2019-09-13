@@ -3,12 +3,13 @@
 #include <iostream>
 #include <cstring>
 
-#include <memory.h>
 #include <mips/asm.h>
+#include <r4300/cpu.h>
 #include <r4300/hw.h>
 #include <r4300/state.h>
 
-#include "cpu.h"
+#include <memory.h>
+#include <debugger.h>
 
 using namespace R4300;
 
@@ -160,22 +161,22 @@ public:
 
     static inline void logWrite(const char *tag, u64 value)
     {
-#if 1
-        std::cerr << "\x1b[34;1m"; // blue
-        std::cerr << std::left << std::setfill(' ') << std::setw(32);
-        std::cerr << tag << " <- " << std::hex << value;
-        std::cerr << "\x1b[0m" << std::endl;
-#endif
+        if (debugger.verbose.cop0) {
+            std::cerr << "\x1b[34;1m"; // blue
+            std::cerr << std::left << std::setfill(' ') << std::setw(32);
+            std::cerr << tag << " <- " << std::hex << value;
+            std::cerr << "\x1b[0m" << std::endl;
+        }
     }
 
     static inline void logRead(const char *tag, u64 value)
     {
-#if 0
-        std::cerr << "\x1b[34;1m"; // blue
-        std::cerr << std::left << std::setfill(' ') << std::setw(32);
-        std::cerr << tag << " -> " << std::hex << value;
-        std::cerr << "\x1b[0m" << std::endl;
-#endif
+        if (debugger.verbose.cop0) {
+            std::cerr << "\x1b[34;1m"; // blue
+            std::cerr << std::left << std::setfill(' ') << std::setw(32);
+            std::cerr << tag << " -> " << std::hex << value;
+            std::cerr << "\x1b[0m" << std::endl;
+        }
     }
 
     virtual void cofun(u32 instr)

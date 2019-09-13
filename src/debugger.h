@@ -32,6 +32,27 @@ public:
     /* Request a backtrace of the current thread. */
     void backtrace(u64 programCounter);
 
+    struct {
+        bool cop0;
+        bool cop1;
+        bool memory;
+
+        bool rdram;
+        bool SP;
+        bool DPCommand;
+        bool DPSpan;
+        bool MI;
+        bool VI;
+        bool AI;
+        bool PI;
+        bool RI;
+        bool SI;
+        bool PIF;
+        bool cart_2_1;
+
+        bool thread;
+    } verbose;
+
 private:
     struct StackFrame {
         u64 functionAddr;   /**< Address of the function. */

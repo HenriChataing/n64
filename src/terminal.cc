@@ -506,6 +506,9 @@ bool doPrint(Shell &sh, std::vector<std::string> &args)
 
 bool log_osCreateThread()
 {
+    if (!debugger.verbose.thread)
+        return false;
+
     std::cerr << "\x1b[31;1m" << std::hex; // red
 
     u32 ptr = R4300::state.reg.gpr[4] & 0xffffff;
@@ -526,6 +529,9 @@ bool log_osCreateThread()
 
 bool log_osStartThread()
 {
+    if (!debugger.verbose.thread)
+        return false;
+
     std::cerr << "\x1b[31;1m" << std::hex; // red
 
     u32 ptr = R4300::state.reg.gpr[4] & 0xffffff;
@@ -537,6 +543,9 @@ bool log_osStartThread()
 
 bool log_osSetThreadPri()
 {
+    if (!debugger.verbose.thread)
+        return false;
+
     std::cerr << "\x1b[31;1m" << std::hex; // red
 
     u32 ptr = R4300::state.reg.gpr[4] & 0xffffff;
@@ -549,6 +558,9 @@ bool log_osSetThreadPri()
 
 bool log_osYieldThread()
 {
+    if (!debugger.verbose.thread)
+        return false;
+
     std::cerr << "\x1b[31;1m" << std::hex; // red
 
     u32 ptr = R4300::state.reg.gpr[4] & 0xffffff;
@@ -560,6 +572,9 @@ bool log_osYieldThread()
 
 bool log_osRunThread()
 {
+    if (!debugger.verbose.thread)
+        return false;
+
     std::cerr << "\x1b[31;1m" << std::hex; // red
 
     u32 ptr = R4300::state.reg.gpr[2] & 0xffffff;
@@ -577,6 +592,9 @@ bool log_osDestroyThread()
 
 bool log_osSendMessage()
 {
+    if (!debugger.verbose.thread)
+        return false;
+
     std::cerr << "\x1b[32;1m" << std::hex; // red
 
     u32 ptr = R4300::state.reg.gpr[4] & 0xffffff;
@@ -588,6 +606,9 @@ bool log_osSendMessage()
 
 bool log_osWaitMessage()
 {
+    if (!debugger.verbose.thread)
+        return false;
+
     std::cerr << "\x1b[32;1m" << std::hex; // red
 
     u32 ptr = R4300::state.reg.gpr[4] & 0xffffff;

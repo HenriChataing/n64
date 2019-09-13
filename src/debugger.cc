@@ -13,6 +13,25 @@ Debugger::Debugger() : stop(false)
 {
     _current = new Thread(0);
     _threads[0] = _current;
+
+    verbose.cop0 = false;
+    verbose.cop1 = false;
+    verbose.memory = false;
+
+    verbose.rdram = false;
+    verbose.SP = true;
+    verbose.DPCommand = false;
+    verbose.DPSpan = false;
+    verbose.MI = false;
+    verbose.VI = false;
+    verbose.AI = false;
+    verbose.PI = false;
+    verbose.RI = false;
+    verbose.SI = false;
+    verbose.PIF = false;
+    verbose.cart_2_1 = false;
+
+    verbose.thread = false;
 }
 
 /**
@@ -40,14 +59,14 @@ void Debugger::newStackFrame(u64 functionAddr, u64 callerAddr, u64 stackPointer)
 void Debugger::editStackFrame(u64 functionAddr, u64 stackPointer)
 {
     if (_current->backtrace.size() == 0) {
-        std::cerr << "Thread " << std::hex << _current->id << ":";
-        std::cerr << "EmptyBacktrace" << std::endl;
+        // std::cerr << "Thread " << std::hex << _current->id << ":";
+        // std::cerr << "EmptyBacktrace" << std::endl;
         return;
     }
     StackFrame &sf = _current->backtrace.back();
     if (stackPointer != sf.stackPointer) {
-        std::cerr << "Thread " << std::hex << _current->id << ":";
-        std::cerr << "InvalidStackPointer " << std::hex << stackPointer << std::endl;
+        // std::cerr << "Thread " << std::hex << _current->id << ":";
+        // std::cerr << "InvalidStackPointer " << std::hex << stackPointer << std::endl;
     }
     sf.functionAddr = functionAddr;
 }
@@ -74,18 +93,16 @@ void Debugger::deleteStackFrame(u64 returnAddr, u64 callerAddr, u64 stackPointer
     }
 
     if (i == 0) {
-        std::cerr << "Thread " << std::hex << _current->id << ":";
-        std::cerr << "UnknownStackFrame " << std::hex << returnAddr << std::endl;
-        backtrace(callerAddr);
+        // std::cerr << "Thread " << std::hex << _current->id << ":";
+        // std::cerr << "UnknownStackFrame " << std::hex << returnAddr << std::endl;
         return;
     }
 
     if (i != _current->backtrace.size()) {
-        std::cerr << "Thread " << std::hex << _current->id << ":";
-        std::cerr << "DiscardedStackFrames (" << std::dec << i << "/";
-        std::cerr << _current->backtrace.size() << ") ";
-        std::cerr << std::hex << returnAddr << " " << stackPointer << std::endl;
-        backtrace(callerAddr);
+        // std::cerr << "Thread " << std::hex << _current->id << ":";
+        // std::cerr << "DiscardedStackFrames (" << std::dec << i << "/";
+        // std::cerr << _current->backtrace.size() << ") ";
+        // std::cerr << std::hex << returnAddr << " " << stackPointer << std::endl;
         return;
     }
 
