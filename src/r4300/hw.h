@@ -89,6 +89,15 @@ struct hwreg {
     u32 SI_STATUS_REG;
 };
 
+#define SP_MEM_ADDR_IMEM        (UINT32_C(1) << 12)
+#define SP_MEM_ADDR_MASK        (UINT32_C(0x1fff))
+
+#define SP_RD_LEN_SKIP_SHIFT    (20)
+#define SP_RD_LEN_SKIP_MASK     (UINT32_C(0xfff))
+#define SP_RD_LEN_COUNT_SHIFT   (12)
+#define SP_RD_LEN_COUNT_MASK    (UINT32_C(0xff))
+#define SP_RD_LEN_LEN_MASK      (UINT32_C(0xfff))
+
 #define SP_STATUS_SIGNAL7       (UINT32_C(1) << 14)
 #define SP_STATUS_SIGNAL6       (UINT32_C(1) << 13)
 #define SP_STATUS_SIGNAL5       (UINT32_C(1) << 12)

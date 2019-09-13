@@ -60,6 +60,7 @@ void State::boot() {
 
     cp1reg.setFprAliases(false);
 
+    // Set reset values for HW registers.
     hwreg.SP_STATUS_REG = SP_STATUS_HALT;
 }
 

@@ -317,11 +317,26 @@ bool write(uint bytes, u64 addr, u64 value)
             logWrite("SP_DRAM_ADDR_REG", value);
             state.hwreg.SP_DRAM_ADDR_REG = value;
             return true;
-        case SP_RD_LEN_REG:
+
+        case SP_RD_LEN_REG: {
             logWrite("SP_RD_LEN_REG", value);
             state.hwreg.SP_RD_LEN_REG = value;
-            throw "unsupported_rd";
+            u32 len = 1u + (value & SP_RD_LEN_LEN_MASK);
+            u32 count = 1u + ((value >> SP_RD_LEN_COUNT_SHIFT) & SP_RD_LEN_COUNT_MASK);
+            u32 skip = (value >> SP_RD_LEN_SKIP_SHIFT) & SP_RD_LEN_SKIP_MASK;
+            u32 offset = state.hwreg.SP_MEM_ADDR_REG & SP_MEM_ADDR_MASK;
+            u64 base = 0x04000000llu + offset;
+            // @todo skip+len must be aligned to 8
+            for (; count > 0; count--, base += skip) {
+                state.physmem.copy(
+                    base,
+                    state.hwreg.SP_DRAM_ADDR_REG,
+                    len);
+            }
+            set_MI_INTR_REG(MI_INTR_SP);
             return true;
+        }
+
         case SP_WR_LEN_REG:
             logWrite("SP_WR_LEN_REG", value);
             state.hwreg.SP_WR_LEN_REG = value;
