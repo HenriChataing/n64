@@ -25,12 +25,10 @@ class Shell;
 typedef bool (*Command)(Shell &sh, std::vector<std::string> &args);
 typedef bool (*Callback)();
 
-static bool interrupted;
-
 void signalHandler(int signum)
 {
     std::cout << "Received signal " << std::dec << signum << std::endl;
-    interrupted = true;
+    debugger.stop = true;
 }
 
 class Shell
@@ -298,7 +296,7 @@ bool doContinue(Shell &sh, std::vector<std::string> &args)
 {
     if (sh.abort)
         return false;
-    interrupted = false;
+    debugger.stop = false;
     try {
         for (;;) {
             // Advance one step.
@@ -312,7 +310,6 @@ bool doContinue(Shell &sh, std::vector<std::string> &args)
             // Check stop conditition.
             if (debugger.stop) {
                 std::cout << "stop condition set" << std::endl;
-                debugger.stop = false;
                 R4300::Eval::hist();
                 return false;
             }
@@ -353,10 +350,6 @@ bool doContinue(Shell &sh, std::vector<std::string> &args)
             }
 
             if (modified)
-                return false;
-
-            // Check interrupt signal.
-            if (interrupted)
                 return false;
         }
     } catch (const char *exn) {
@@ -447,9 +440,9 @@ bool doDisas(Shell &sh, std::vector<std::string> &args)
 
     R4300::translateAddress(vAddr, &pAddr, 0);
 
-    interrupted = false;
+    debugger.stop = false;
     for (size_t i = 0; i < count; i++, pAddr += 4, vAddr += 4) {
-        if (interrupted)
+        if (debugger.stop)
             return false;
         R4300::state.physmem.load(4, pAddr, &instr);
         std::cout << std::hex << std::setfill(' ') << std::right;
