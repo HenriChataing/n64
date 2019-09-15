@@ -23,6 +23,8 @@ public:
     struct cp1reg cp1reg;       /**< Co-processor 0 registers */
     struct tlbEntry tlb[tlbEntryCount];    /**< Translation look-aside buffer */
 
+    u8 dmem[0x1000];
+    u8 imem[0x1000];
     Memory::AddressSpace physmem;
     struct hwreg hwreg;
 

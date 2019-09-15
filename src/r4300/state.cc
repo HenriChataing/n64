@@ -22,8 +22,8 @@ void State::init(std::string romFile) {
     physmem.root->insertRam(  0x00000000llu, 0x200000);   /* RDRAM range 0 */
     physmem.root->insertRam(  0x00200000llu, 0x200000);   /* RDRAM range 1 */
     physmem.root->insertIOmem(0x03f00000llu, 0x100000, RdRam::read, RdRam::write); /* RDRAM Registers */
-    physmem.root->insertRam(  0x04000000llu, 0x1000);     /* SP DMEM */
-    physmem.root->insertRam(  0x04001000llu, 0x1000);     /* SP IMEM */
+    physmem.root->insertRam(  0x04000000llu, 0x1000, dmem); /* SP DMEM */
+    physmem.root->insertRam(  0x04001000llu, 0x1000, imem); /* SP IMEM */
     physmem.root->insertIOmem(0x04040000llu, 0x80000, SP::read, SP::write); /* SP Registers */
     physmem.root->insertIOmem(0x04100000llu, 0x100000, DPCommand::read, DPCommand::write); /* DP Command Registers */
     physmem.root->insertIOmem(0x04200000llu, 0x100000, DPSpan::read, DPSpan::write); /* DP Span Registers */

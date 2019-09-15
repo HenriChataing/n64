@@ -36,7 +36,7 @@ public:
 
     void print();
     void insert(Region *region);
-    void insertRam(u64 addr, u64 size);
+    void insertRam(u64 addr, u64 size, u8 *mem = NULL);
     void insertRom(u64 addr, u64 size, const std::string file);
     void insertIOmem(u64 addr, u64 size,
                      bool (*read)(uint bytes, u64 addr, u64 *value),

@@ -121,19 +121,37 @@ class RamRegion : public Region
 {
 public:
     RamRegion(u64 address, u64 size, Region *container = NULL);
+    RamRegion(u64 address, u64 size, u8 *mem, Region *container = NULL);
     RamRegion(u64 address, u64 size, const std::string file,
               Region *container = NULL);
     virtual ~RamRegion();
 
     virtual bool load(uint bytes, u64 addr, u64 *value);
     virtual bool store(uint bytes, u64 addr, u64 value);
+
+private:
+    bool _allocated;
 };
 
 RamRegion::RamRegion(u64 address, u64 size, Region *container)
-    : Region(address, size, container)
+    : Region(address, size, container), _allocated(true)
 {
     ram = true;
     block = new u8[size];
+    memset(block, 0, size);
+}
+
+RamRegion::RamRegion(u64 address, u64 size, u8 *mem, Region *container)
+    : Region(address, size, container)
+{
+    ram = true;
+    if (mem == NULL) {
+        block = new u8[size];
+        _allocated = true;
+    } else {
+        block = mem;
+        _allocated = false;
+    }
     memset(block, 0, size);
 }
 
@@ -167,7 +185,8 @@ RamRegion::RamRegion(u64 address, u64 size, const std::string file,
 
 RamRegion::~RamRegion()
 {
-    delete block;
+    if (_allocated)
+        delete block;
 }
 
 bool RamRegion::load(uint bytes, u64 addr, u64 *value)
@@ -251,9 +270,9 @@ IOmemRegion::IOmemRegion(u64 address, u64 size,
     device = true;
 }
 
-void Region::insertRam(u64 addr, u64 size)
+void Region::insertRam(u64 addr, u64 size, u8 *mem)
 {
-    insert(new RamRegion(addr, size, this));
+    insert(new RamRegion(addr, size, mem, this));
 }
 
 void Region::insertRom(u64 addr, u64 size, const std::string file)
