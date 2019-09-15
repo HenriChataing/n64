@@ -24,8 +24,6 @@ struct hwreg {
     u32 SP_RD_LEN_REG;
     u32 SP_WR_LEN_REG;
     u32 SP_STATUS_REG;
-    u32 SP_DMA_FULL_REG;
-    u32 SP_DMA_BUSY_REG;
     u32 SP_SEMAPHORE_REG;
     u32 SP_PC_REG;
     u32 SP_IBIST_REG;
@@ -89,6 +87,12 @@ struct hwreg {
     u32 SI_STATUS_REG;
 };
 
+void set_MI_INTR_REG(u32 bits);
+void clear_MI_INTR_REG(u32 bits);
+void write_SP_RD_LEN_REG(u32 value);
+void write_SP_STATUS_REG(u32 value);
+u32 read_SP_SEMAPHORE_REG();
+
 #define SP_MEM_ADDR_IMEM        (UINT32_C(1) << 12)
 #define SP_MEM_ADDR_MASK        (UINT32_C(0x1fff))
 
@@ -106,7 +110,7 @@ struct hwreg {
 #define SP_STATUS_SIGNAL2       (UINT32_C(1) << 9)
 #define SP_STATUS_SIGNAL1       (UINT32_C(1) << 8)
 #define SP_STATUS_SIGNAL0       (UINT32_C(1) << 7)
-#define SP_STATUS_IOB           (UINT32_C(1) << 6) /* interrupt on break */
+#define SP_STATUS_INTR_BREAK    (UINT32_C(1) << 6) /* interrupt on break */
 #define SP_STATUS_SSTEP         (UINT32_C(1) << 5) /* single step */
 #define SP_STATUS_IO_FULL       (UINT32_C(1) << 4)
 #define SP_STATUS_DMA_FULL      (UINT32_C(1) << 3)
@@ -130,8 +134,8 @@ struct hwreg {
 #define SP_STATUS_CLR_SIGNAL1   (UINT32_C(1) << 11)
 #define SP_STATUS_SET_SIGNAL0   (UINT32_C(1) << 10)
 #define SP_STATUS_CLR_SIGNAL0   (UINT32_C(1) << 9)
-#define SP_STATUS_SET_IOB       (UINT32_C(1) << 8)
-#define SP_STATUS_CLR_IOB       (UINT32_C(1) << 7)
+#define SP_STATUS_SET_INTR_BREAK    (UINT32_C(1) << 8)
+#define SP_STATUS_CLR_INTR_BREAK    (UINT32_C(1) << 7)
 #define SP_STATUS_SET_SSTEP     (UINT32_C(1) << 6)
 #define SP_STATUS_CLR_SSTEP     (UINT32_C(1) << 5)
 #define SP_STATUS_SET_INTR      (UINT32_C(1) << 4)
@@ -186,7 +190,6 @@ struct hwreg {
 
 #define PI_STATUS_CLR_INTR      (UINT32_C(1) << 1)
 #define PI_STATUS_RESET         (UINT32_C(1) << 0)
-
 
 namespace RdRam {
 bool read(uint bytes, u64 addr, u64 *value);

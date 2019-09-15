@@ -284,6 +284,7 @@ bool doStep(Shell &sh, std::vector<std::string> &args)
         return false;
     try {
         R4300::Eval::step();
+        R4300::RSP::step();
         R4300::Eval::hist();
     } catch (const char *exn) {
         std::cout << "caught exception '" << exn << "'" << std::endl;
@@ -300,12 +301,8 @@ bool doContinue(Shell &sh, std::vector<std::string> &args)
     try {
         for (;;) {
             // Advance one step.
-            if (R4300::Eval::step()) {
-                // R4300::Eval::hist();
-                // std::cout << "halting at exception" << std::endl;
-                // return false;
-                continue;
-            }
+            R4300::Eval::step();
+            R4300::RSP::step();
 
             // Check stop conditition.
             if (debugger.stop) {

@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include <r4300/cpu.h>
+#include <r4300/rsp.h>
 #include <r4300/hw.h>
 
 namespace R4300 {
@@ -21,12 +22,13 @@ public:
     struct cpureg reg;          /**< CPU registers */
     struct cp0reg cp0reg;       /**< Co-processor 0 registers */
     struct cp1reg cp1reg;       /**< Co-processor 0 registers */
+    struct rspreg rspreg;
+    struct hwreg hwreg;
     struct tlbEntry tlb[tlbEntryCount];    /**< Translation look-aside buffer */
 
     u8 dmem[0x1000];
     u8 imem[0x1000];
     Memory::AddressSpace physmem;
-    struct hwreg hwreg;
 
     ulong cycles;
     bool branch;
