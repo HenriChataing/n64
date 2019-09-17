@@ -1,4 +1,5 @@
 
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <vector>
@@ -139,30 +140,14 @@ static u32 readCop0Register(u32 r) {
         case 5: return (state.hwreg.SP_STATUS_REG & SP_STATUS_DMA_FULL) != 0;
         case 6: return (state.hwreg.SP_STATUS_REG & SP_STATUS_DMA_BUSY) != 0;
         case 7: return read_SP_SEMAPHORE_REG();
-        case 8:
-            throw "RSP::RDP_command_start";
-            break;
-        case 9:
-            throw "RSP::RDP_command_end";
-            break;
-        case 10:
-            throw "RSP::RDP_command_current";
-            break;
-        case 11:
-            throw "RSP::RDP_status";
-            break;
-        case 12:
-            throw "RSP::RDP_clock_counter";
-            break;
-        case 13:
-            throw "RSP::RDP_command_busy";
-            break;
-        case 14:
-            throw "RSP::RDP_pipe_busy_counter";
-            break;
-        case 15:
-            throw "RSP::RDP_TMEM_load_counter";
-            break;
+        case 8: return state.hwreg.DPC_START_REG;
+        case 9: return state.hwreg.DPC_END_REG;
+        case 10: return state.hwreg.DPC_CURRENT_REG;
+        case 11: return state.hwreg.DPC_STATUS_REG;
+        case 12: return state.hwreg.DPC_CLOCK_REG;
+        case 13: return state.hwreg.DPC_BUF_BUSY_REG;
+        case 14: return state.hwreg.DPC_PIPE_BUSY_REG;
+        case 15: return state.hwreg.DPC_TMEM_REG;
         default:
             /* unknown register access */
             std::cerr << "RSP: writing unknown Cop0 register ";
@@ -179,25 +164,19 @@ static void writeCop0Register(u32 r, u32 value) {
         case 0: state.hwreg.SP_MEM_ADDR_REG = value; break;
         case 1: state.hwreg.SP_DRAM_ADDR_REG = value; break;
         case 2: write_SP_RD_LEN_REG(value); break;
-        case 3:
-            throw "RSP::unsupported_wr";
-            break;
+        case 3: write_SP_WR_LEN_REG(value); break;
         case 4: write_SP_STATUS_REG(value); break;
         case 5: /* DMA_FULL, read only */ break;
         case 6: /* DMA_BUSY, read only */ break;
         case 7: state.hwreg.SP_SEMAPHORE_REG = 0; break;
-        case 8:
-            throw "RSP::RDP_command_start";
-            break;
-        case 9:
-            throw "RSP::RDP_command_end";
-            break;
+        case 8: // TODO set valid bit
+            state.hwreg.DPC_START_REG = value; break;
+        case 9: // TODO set valid bit
+            state.hwreg.DPC_END_REG = value; break;
         case 10:
             throw "RSP::RDP_command_current";
             break;
-        case 11:
-            throw "RSP::RDP_status";
-            break;
+        case 11: write_DPC_STATUS_REG(value); break;
         case 12:
             throw "RSP::RDP_clock_counter";
             break;
@@ -555,13 +534,67 @@ bool eval(u64 addr, bool delaySlot)
             }
         })
         /* LWC1 not implemented */
-        IType(LWC2, instr, sign_extend, {
-            // u64 addr = state.rspreg.gpr[rs] + imm;
-            // if (checkAddressAlignment(addr, 4)) {
-            //     u64 val = __builtin_bswap32(*(u32 *)&state.dmem[addr & 0xffflu]);
-            // }
-            throw "RSP::LWC2 not implemented";
-        })
+        case LWC2: {
+            u32 base = (instr >> 21) & 0x1flu;
+            u32 vt = (instr >> 16) & 0x1flu;
+            u32 funct = (instr >> 11) & 0x1flu;
+            u32 element = (instr >> 7) & 0xflu;
+            u32 offset = i7_to_i32(instr & 0x7flu);
+            u32 addr = state.rspreg.gpr[base] + offset;
+
+            switch (funct) {
+                case 0x0: /* LBV */
+                    state.rspreg.vr[vt].b[element] =
+                        state.dmem[addr & 0xffflu];
+                    break;
+                case 0x1lu: /* LSV */
+                    memcpy(
+                        &state.rspreg.vr[vt].w[element / 2],
+                        &state.dmem[(addr << 1) & 0xffflu],
+                        2);
+                    break;
+                case 0x2lu: /* LLV */
+                    memcpy(
+                        &state.rspreg.vr[vt].w[element / 4],
+                        &state.dmem[(addr << 2) & 0xffflu],
+                        4);
+                    break;
+                case 0x3lu: /* LDV */
+                    memcpy(
+                        &state.rspreg.vr[vt].d[element / 8],
+                        &state.dmem[(addr << 3) & 0xffflu],
+                        8);
+                    break;
+                case 0x4lu: /* LQV */
+                    memcpy(
+                        &state.rspreg.vr[vt].b[element],
+                        &state.dmem[addr & 0xffflu],
+                        16lu - (offset & 15lu));
+                    break;
+                case 0x5lu: /* LRV */
+                    memcpy(
+                        &state.rspreg.vr[vt].b[element],
+                        &state.dmem[(addr & 0xffflu) & ~15lu],
+                        offset & 15lu);
+                    break;
+                case 0x6lu: /* LPV */
+                    throw "RSP::LPV not supported";
+                    break;
+                case 0x7lu: /* LUV */
+                    throw "RSP::LUV not supported";
+                    break;
+                case 0x8lu: /* LHV */
+                    throw "RSP::LHV not supported";
+                    break;
+                case 0xblu: /* LTV */
+                    throw "RSP::LTV not supported";
+                    break;
+                default:
+                    throw "RSP::invalid LWC2 operation";
+                    break;
+            }
+            break;
+        }
         /* LWC3 not implemented */
         /* LWL not implemented */
         /* LWR not implemented */

@@ -28,7 +28,15 @@ struct hwreg {
     u32 SP_PC_REG;
     u32 SP_IBIST_REG;
 
-    // DPCOMMAND
+    u32 DPC_START_REG;
+    u32 DPC_END_REG;
+    u32 DPC_CURRENT_REG;
+    u32 DPC_STATUS_REG;
+    u32 DPC_CLOCK_REG;
+    u32 DPC_BUF_BUSY_REG;
+    u32 DPC_PIPE_BUSY_REG;
+    u32 DPC_TMEM_REG;
+
     // DPSPAN
 
     u32 MI_MODE_REG;
@@ -90,8 +98,10 @@ struct hwreg {
 void set_MI_INTR_REG(u32 bits);
 void clear_MI_INTR_REG(u32 bits);
 void write_SP_RD_LEN_REG(u32 value);
+void write_SP_WR_LEN_REG(u32 value);
 void write_SP_STATUS_REG(u32 value);
 u32 read_SP_SEMAPHORE_REG();
+void write_DPC_STATUS_REG(u32 value);
 
 #define SP_MEM_ADDR_IMEM        (UINT32_C(1) << 12)
 #define SP_MEM_ADDR_MASK        (UINT32_C(0x1fff))
@@ -143,6 +153,29 @@ u32 read_SP_SEMAPHORE_REG();
 #define SP_STATUS_CLR_BROKE     (UINT32_C(1) << 2)
 #define SP_STATUS_SET_HALT      (UINT32_C(1) << 1)
 #define SP_STATUS_CLR_HALT      (UINT32_C(1) << 0)
+
+#define DPC_STATUS_CLR_CLOCK_CTR        (UINT32_C(1) << 9)
+#define DPC_STATUS_CLR_CMD_CTR          (UINT32_C(1) << 8)
+#define DPC_STATUS_CLR_PIPE_CTR         (UINT32_C(1) << 7)
+#define DPC_STATUS_CLR_TMEM_CTR         (UINT32_C(1) << 6)
+#define DPC_STATUS_SET_FLUSH    (UINT32_C(1) << 5)
+#define DPC_STATUS_CLR_FLUSH    (UINT32_C(1) << 4)
+#define DPC_STATUS_SET_FREEZE   (UINT32_C(1) << 3)
+#define DPC_STATUS_CLR_FREEZE   (UINT32_C(1) << 2)
+#define DPC_STATUS_SET_XBUS_DMEM_DMA    (UINT32_C(1) << 1)
+#define DPC_STATUS_CLR_XBUS_DMEM_DMA    (UINT32_C(1) << 0)
+
+#define DPC_STATUS_START_VALID  (UINT32_C(1) << 10)
+#define DPC_STATUS_END_VALID    (UINT32_C(1) << 9)
+#define DPC_STATUS_DMA_BUSY     (UINT32_C(1) << 8)
+#define DPC_STATUS_CBUF_READY   (UINT32_C(1) << 7)
+#define DPC_STATUS_CMD_BUSY     (UINT32_C(1) << 6)
+#define DPC_STATUS_PIPE_BUSY    (UINT32_C(1) << 5)
+#define DPC_STATUS_TMEM_BUSY    (UINT32_C(1) << 4)
+#define DPC_STATUS_START_GCLK   (UINT32_C(1) << 3)
+#define DPC_STATUS_FLUSH        (UINT32_C(1) << 2)
+#define DPC_STATUS_FREEZE       (UINT32_C(1) << 1)
+#define DPC_STATUS_XBUS_DMEM_DMA        (UINT32_C(1) << 0)
 
 #define MI_MODE_RDRAM_REG       (UINT32_C(1) << 9)
 #define MI_MODE_EBUS_TEST       (UINT32_C(1) << 8)

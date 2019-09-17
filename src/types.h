@@ -30,6 +30,11 @@ static inline T sign_extend(U x) {
     return (T)sy;
 }
 
+static inline u32 i7_to_i32(u32 val) {
+    bool neg = (val & (1lu << 6)) != 0;
+    return neg ? (val | 0xffffff80lu) : val;
+}
+
 template<typename T, typename U>
 static inline T zero_extend(U x) {
     static_assert(std::is_unsigned<T>::value && std::is_unsigned<U>::value,

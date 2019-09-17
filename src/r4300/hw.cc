@@ -90,14 +90,37 @@ void write_SP_RD_LEN_REG(u32 value) {
     u32 count = 1u + ((value >> SP_RD_LEN_COUNT_SHIFT) & SP_RD_LEN_COUNT_MASK);
     u32 skip = (value >> SP_RD_LEN_SKIP_SHIFT) & SP_RD_LEN_SKIP_MASK;
     u32 offset = state.hwreg.SP_MEM_ADDR_REG & SP_MEM_ADDR_MASK;
-    u64 base = 0x04000000llu + offset;
+    u64 dst_base = 0x04000000llu + offset;
+    u64 src_base = state.hwreg.SP_DRAM_ADDR_REG;
     // @todo skip+len must be aligned to 8
     // @todo clear/set DMA busy+full bits.
-    for (; count > 0; count--, base += skip) {
+    for (; count > 0; count--, src_base += len + skip, dst_base += len) {
         // @todo access memory buffers directly
         //  it is an error if DRAM_ADDR is not inside the Ram.
-        state.physmem.copy(
-            base, state.hwreg.SP_DRAM_ADDR_REG, len);
+        state.physmem.copy(dst_base, src_base, len);
+    }
+    set_MI_INTR_REG(MI_INTR_SP);
+}
+
+/**
+ * @brief Write the SP register SP_WR_LEN_REG.
+ *  Writing the register starts a DMA tranfer from DMEM/IMEM to DRAM.
+ */
+void write_SP_WR_LEN_REG(u32 value) {
+    logWrite(debugger.verbose.SP, "SP_RD_LEN_REG", value);
+    state.hwreg.SP_RD_LEN_REG = value;
+    u32 len = 1u + (value & SP_RD_LEN_LEN_MASK);
+    u32 count = 1u + ((value >> SP_RD_LEN_COUNT_SHIFT) & SP_RD_LEN_COUNT_MASK);
+    u32 skip = (value >> SP_RD_LEN_SKIP_SHIFT) & SP_RD_LEN_SKIP_MASK;
+    u32 offset = state.hwreg.SP_MEM_ADDR_REG & SP_MEM_ADDR_MASK;
+    u64 dst_base = state.hwreg.SP_DRAM_ADDR_REG;
+    u64 src_base = 0x04000000llu + offset;
+    // @todo skip+len must be aligned to 8
+    // @todo clear/set DMA busy+full bits.
+    for (; count > 0; count--, src_base += len, dst_base += len + skip) {
+        // @todo access memory buffers directly
+        //  it is an error if DRAM_ADDR is not inside the Ram.
+        state.physmem.copy(dst_base, src_base, len);
     }
     set_MI_INTR_REG(MI_INTR_SP);
 }
@@ -196,6 +219,45 @@ u32 read_SP_SEMAPHORE_REG() {
     u32 value = state.hwreg.SP_SEMAPHORE_REG;
     state.hwreg.SP_SEMAPHORE_REG = 1;
     return value;
+}
+
+/**
+ * @brief Write the DP Command register DPC_STATUS_REG.
+ *  This function is used for both the CPU (DPC_STATUS_REG) and
+ *  RSP (Coprocessor 0 register 11) view of the register.
+ */
+void write_DPC_STATUS_REG(u32 value) {
+    logWrite(debugger.verbose.DPCommand, "DPC_STATUS_REG", value);
+    if (value & DPC_STATUS_CLR_XBUS_DMEM_DMA) {
+        state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_XBUS_DMEM_DMA;
+    }
+    if (value & DPC_STATUS_SET_XBUS_DMEM_DMA) {
+        state.hwreg.DPC_STATUS_REG |= DPC_STATUS_XBUS_DMEM_DMA;
+    }
+    if (value & DPC_STATUS_CLR_FREEZE) {
+        state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_FREEZE;
+    }
+    if (value & DPC_STATUS_SET_FREEZE) {
+        state.hwreg.DPC_STATUS_REG |= DPC_STATUS_FREEZE;
+    }
+    if (value & DPC_STATUS_CLR_FLUSH) {
+        state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_FLUSH;
+    }
+    if (value & DPC_STATUS_SET_FLUSH) {
+        state.hwreg.DPC_STATUS_REG |= DPC_STATUS_FLUSH;
+    }
+    if (value & DPC_STATUS_CLR_TMEM_CTR) {
+        state.hwreg.DPC_TMEM_REG = 0;
+    }
+    if (value & DPC_STATUS_CLR_PIPE_CTR) {
+        state.hwreg.DPC_PIPE_BUSY_REG = 0;
+    }
+    if (value & DPC_STATUS_CLR_CMD_CTR) {
+        state.hwreg.DPC_BUF_BUSY_REG = 0;
+    }
+    if (value & DPC_STATUS_CLR_CLOCK_CTR) {
+        state.hwreg.DPC_CLOCK_REG = 0;
+    }
 }
 
 namespace RdRam {
@@ -510,6 +572,34 @@ bool write(uint bytes, u64 addr, u64 value)
 }; /* namespace SP */
 
 namespace DPCommand {
+
+// (RW): [23:0] DMEM/RDRam start address
+const u32 DPC_START_REG =           UINT32_C(0x04100000);
+// (RW): [23:0] DMEM/RDRam end address
+const u32 DPC_END_REG =             UINT32_C(0x04100004);
+// (R):  [23:0] DMEM/RDRam current address
+const u32 DPC_CURRENT_REG =         UINT32_C(0x04100008);
+// (W): [0]  clear xbus_dmem_dma (R): [0]  xbus_dmem_dma
+//      [1]  set xbus_dmem_dma        [1]  freeze
+//      [2]  clear freeze             [2]  flush
+//      [3]  set freeze               [3]  start gclk
+//      [4]  clear flush              [4]  tmem busy
+//      [5]  set flush                [5]  pipe busy
+//      [6]  clear tmem ctr           [6]  cmd busy
+//      [7]  clear pipe ctr           [7]  cbuf ready
+//      [8]  clear cmd ctr            [8]  dma busy
+//      [9]  clear clock ctr          [9]  end valid
+//                                    [10] start valid
+const u32 DPC_STATUS_REG =          UINT32_C(0x0410000c);
+// (R): [23:0] clock counter
+const u32 DPC_CLOCK_REG =           UINT32_C(0x04100010);
+// (R): [23:0] buf busy counter
+const u32 DPC_BUF_BUSY_REG =        UINT32_C(0x04100014);
+// (R): [23:0] pipe busy counter
+const u32 DPC_PIPE_BUSY_REG =       UINT32_C(0x04100018);
+// (R): [23:0] tmem counter
+const u32 DPC_TMEM_REG =            UINT32_C(0x0404001c);
+
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
