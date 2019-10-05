@@ -16,18 +16,29 @@
 namespace R4300 {
 namespace RSP {
 
+static inline void logWrite(bool flag, const char *tag, u64 value)
+{
+    if (flag) {
+        std::cerr << std::left << std::setfill(' ') << std::setw(32);
+        std::cerr << tag << " <- " << std::hex << value << std::endl;
+    }
+}
+
 /**
  * Check whether a virtual memory address is correctly aligned for a memory
  * access. The RSP does not implement exceptions but the alignment is checked
  * for the sake of catching suspicious states for debugging purposes.
  *
- * @param addr          Checked DMEM address.
+ * @param addr          Checked DMEM/IMEM address.
  * @param bytes         Required alignment, must be a power of two.
  */
 static inline bool checkAddressAlignment(u64 addr, u64 bytes) {
     if ((addr & (bytes - 1u)) != 0) {
-        std::cerr << "RSP: detected unaligned DMEM access at pc: ";
+        std::cerr << "RSP: detected unaligned DMEM/IMEM access of ";
+        std::cerr << std::dec << bytes << " bytes from address ";
+        std::cerr << std::hex << addr << ", at pc: ";
         std::cerr << std::hex << state.rspreg.pc << std::endl;
+        debugger.stop = true;
         return false;
     } else {
         return true;
@@ -161,18 +172,30 @@ static u32 readCop0Register(u32 r) {
 /** @brief Read a COP0 register value. */
 static void writeCop0Register(u32 r, u32 value) {
     switch (r) {
-        case 0: state.hwreg.SP_MEM_ADDR_REG = value; break;
-        case 1: state.hwreg.SP_DRAM_ADDR_REG = value; break;
+        case 0:
+            logWrite(debugger.verbose.SP, "SP_MEM_ADDR_REG(rsp)", value);
+            state.hwreg.SP_MEM_ADDR_REG = value;
+            break;
+        case 1:
+            logWrite(debugger.verbose.SP, "SP_DRAM_ADDR_REG(rsp)", value);
+            state.hwreg.SP_DRAM_ADDR_REG = value;
+            break;
         case 2: write_SP_RD_LEN_REG(value); break;
         case 3: write_SP_WR_LEN_REG(value); break;
         case 4: write_SP_STATUS_REG(value); break;
         case 5: /* DMA_FULL, read only */ break;
         case 6: /* DMA_BUSY, read only */ break;
         case 7: state.hwreg.SP_SEMAPHORE_REG = 0; break;
-        case 8: // TODO set valid bit
-            state.hwreg.DPC_START_REG = value; break;
-        case 9: // TODO set valid bit
-            state.hwreg.DPC_END_REG = value; break;
+        case 8:
+            state.hwreg.DPC_START_REG = value;
+            state.hwreg.DPC_CURRENT_REG = value;
+            // state.hwreg.DPC_STATUS_REG |= DPC_STATUS_START_VALID;
+            break;
+        case 9:
+            state.hwreg.DPC_END_REG = value;
+            state.hwreg.DPC_CURRENT_REG = value;
+            // state.hwreg.DPC_STATUS_REG |= DPC_STATUS_END_VALID;
+            break;
         case 10:
             throw "RSP::RDP_command_current";
             break;
@@ -230,8 +253,6 @@ bool eval(u64 addr, bool delaySlot)
 {
     u64 instr;
     u32 opcode;
-
-    // state.cp0reg.incrCount();
 
     checkAddressAlignment(addr, 4);
     instr = __builtin_bswap32(*(u32 *)&state.imem[addr & 0xffflu]);
@@ -515,8 +536,15 @@ bool eval(u64 addr, bool delaySlot)
         IType(LHU, instr, sign_extend, {
             u64 addr = state.rspreg.gpr[rs] + imm;
 
-            if (checkAddressAlignment(addr, 2)) {
+            // if (checkAddressAlignment(addr, 2)) {
+            // TODO unaligned access !
+            if ((addr & 1u) != 0) {
                 u64 val = __builtin_bswap16(*(u16 *)&state.dmem[addr & 0xffflu]);
+                state.rspreg.gpr[rt] = zero_extend<u64, u16>(val);
+            } else {
+                u64 val =
+                    ((u16)state.dmem[addr & 0xffflu] << 8) |
+                    (u16)state.dmem[(addr + 1u) & 0xffflu];
                 state.rspreg.gpr[rt] = zero_extend<u64, u16>(val);
             }
         })
