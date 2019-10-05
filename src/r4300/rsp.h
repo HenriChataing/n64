@@ -32,6 +32,12 @@ bool eval(u64 addr, bool delaySlot);
 
 /** @brief Move the RSP one step, if not halted. */
 bool step();
+
+/**
+ * @brief Print out the last instructions to execute.
+ * @todo export instructions instead
+ */
+void hist(void);
 }; /* namespace RSP */
 
 };

@@ -199,6 +199,31 @@ bool printCop0Registers(Shell &sh, std::vector<std::string> &args)
     return false;
 }
 
+bool printRspRegisters(Shell &sh, std::vector<std::string> &args)
+{
+    using namespace std;
+    cout << setw(6) << setfill(' ') << left << "pc";
+    cout << setw(16) << setfill('0') << right << hex;
+    cout << R4300::state.rspreg.pc << endl;
+
+    for (int i = 0; i < 32; i ++) {
+        if (i && !(i % 4))
+            cout << endl;
+
+        u64 reg = R4300::state.rspreg.gpr[i];
+        cout << setw(6) << setfill(' ') << left << Mips::getRegisterName(i);
+        cout << setw(16) << setfill('0') << right << hex << reg << "    ";
+    }
+    cout << endl;
+    return false;
+}
+
+bool printRspHist(Shell &sh, std::vector<std::string> &args)
+{
+    R4300::RSP::hist();
+    return false;
+}
+
 bool printTLB(Shell &sh, std::vector<std::string> &args)
 {
     using namespace std;
@@ -624,6 +649,9 @@ void terminal()
     sh.config("cop0", printCop0Registers);
     sh.config("cp0regs", printCop0Registers);
     sh.config("cop0regs", printCop0Registers);
+    sh.config("rspregs", printRspRegisters);
+    sh.config("rsp", printRspRegisters);
+    sh.config("rsphist", printRspHist);
     sh.config("tlb", printTLB);
     sh.config("s", doStep);
     sh.config("step", doStep);
