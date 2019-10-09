@@ -260,6 +260,74 @@ void write_DPC_STATUS_REG(u32 value) {
     }
 }
 
+/**
+ * @brief Write the PI register PI_RD_LEN_REG.
+ *  Writing the register starts a DMA tranfer from DRAM to cartridge memory.
+ */
+void write_PI_RD_LEN_REG(u32 value) {
+    logWrite(debugger.verbose.PI, "PI_RD_LEN_REG", value);
+    state.hwreg.PI_RD_LEN_REG = value;
+    u32 len = value + 1;
+    u32 dst = state.hwreg.PI_CART_ADDR_REG;
+    u32 src = state.hwreg.PI_DRAM_ADDR_REG;
+
+    // Check that the destination range fits in the cartridge memory, and in
+    // particular does not overflow.
+    if ((dst + len) <= dst ||
+        dst < 0x10000000llu ||
+        (dst + len) > 0x1fc00000llu) {
+        std::cerr << "write_PI_RD_LEN_REG() destination range invalid" << std::endl;
+        return;
+    }
+
+    // Check that the source range fits in the dram memory, and in
+    // particular does not overflow.
+    if ((src + len) <= src ||
+        (src + len) > 0x400000llu) {
+        std::cerr << "write_PI_RD_LEN_REG() source range invalid" << std::endl;
+        return;
+    }
+
+    // Perform the actual copy.
+    state.physmem.copy(dst, src, len);
+    state.hwreg.PI_STATUS_REG = 0;
+    set_MI_INTR_REG(MI_INTR_PI);
+}
+
+/**
+ * @brief Write the PI register PI_WR_LEN_REG.
+ *  Writing the register starts a DMA tranfer from cartridge memory to DRAM.
+ */
+void write_PI_WR_LEN_REG(u32 value) {
+    logWrite(debugger.verbose.PI, "PI_WR_LEN_REG", value);
+    state.hwreg.PI_WR_LEN_REG = value;
+    u32 len = value + 1;
+    u32 dst = state.hwreg.PI_DRAM_ADDR_REG;
+    u32 src = state.hwreg.PI_CART_ADDR_REG;
+
+    // Check that the destination range fits in the dram memory, and in
+    // particular does not overflow.
+    if ((dst + len) <= dst ||
+        (dst + len) > 0x400000llu) {
+        std::cerr << "write_PI_RD_LEN_REG() source range invalid" << std::endl;
+        return;
+    }
+
+    // Check that the source range fits in the cartridge memory, and in
+    // particular does not overflow.
+    if ((src + len) <= src ||
+        src < 0x10000000llu ||
+        (src + len) > 0x1fc00000llu) {
+        std::cerr << "write_PI_RD_LEN_REG() destination range invalid" << std::endl;
+        return;
+    }
+
+    // Perform the actual copy.
+    state.physmem.copy(dst, src, len);
+    state.hwreg.PI_STATUS_REG = 0;
+    set_MI_INTR_REG(MI_INTR_PI);
+}
+
 namespace RdRam {
 
 const u32 RDRAM_DEVICE_TYPE_REG =   UINT32_C(0x03f00000);
@@ -1264,25 +1332,10 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
 
         case PI_RD_LEN_REG:
-            logWrite(debugger.verbose.PI, "PI_RD_LEN_REG", value);
-            state.hwreg.PI_RD_LEN_REG = value;
-            state.physmem.copy(
-                state.hwreg.PI_CART_ADDR_REG,
-                state.hwreg.PI_DRAM_ADDR_REG,
-                state.hwreg.PI_RD_LEN_REG + 1U);
-            state.hwreg.PI_STATUS_REG = 0;
-            set_MI_INTR_REG(MI_INTR_PI);
+            write_PI_RD_LEN_REG(value);
             return true;
-
         case PI_WR_LEN_REG:
-            logWrite(debugger.verbose.PI, "PI_WR_LEN_REG", value);
-            state.hwreg.PI_WR_LEN_REG = value;
-            state.physmem.copy(
-                state.hwreg.PI_DRAM_ADDR_REG,
-                state.hwreg.PI_CART_ADDR_REG,
-                state.hwreg.PI_WR_LEN_REG + 1U);
-            state.hwreg.PI_STATUS_REG = 0;
-            set_MI_INTR_REG(MI_INTR_PI);
+            write_PI_WR_LEN_REG(value);
             return true;
 
         case PI_STATUS_REG:
