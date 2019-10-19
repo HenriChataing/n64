@@ -1,4 +1,7 @@
 
+#pragma once
+
+#include <string>
 #include "types.h"
 
 namespace Mips {
@@ -299,7 +302,7 @@ static inline u32 getFunct(u32 instr) {
 /**
  * @brief Pretty print an instruction.
  */
-void disas(u64 pc, u32 instr);
+std::string disas(u64 pc, u32 instr);
 
 /**
  * @brief Return the standardized name for a general purpose register.

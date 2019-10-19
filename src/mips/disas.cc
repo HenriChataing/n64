@@ -1,6 +1,7 @@
 
 #include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <types.h>
 
 #include "asm.h"
@@ -11,14 +12,25 @@ const char *colorGreen = "\x1b[32;1m";
 const char *colorReset = "\x1b[0m";
 
 const char *RegisterNames[32] = {
-    "zero", "at",   "v0",   "v1",
-    "a0",   "a1",   "a2",   "a3",
-    "t0",   "t1",   "t2",   "t3",
-    "t4",   "t5",   "t6",   "t7",
-    "s0",   "s1",   "s2",   "s3",
-    "s4",   "s5",   "s6",   "s7",
-    "t8",   "t9",   "k0",   "k1",
-    "gp",   "sp",   "fp",   "ra",
+    "zero",     "at",       "v0",       "v1",
+    "a0",       "a1",       "a2",       "a3",
+    "t0",       "t1",       "t2",       "t3",
+    "t4",       "t5",       "t6",       "t7",
+    "s0",       "s1",       "s2",       "s3",
+    "s4",       "s5",       "s6",       "s7",
+    "t8",       "t9",       "k0",       "k1",
+    "gp",       "sp",       "fp",       "ra",
+};
+
+const char *Cop0RegisterNames[32] = {
+    "index",    "random",   "entrylo0", "entrylo1",
+    "context",  "pagemask", "wired",    "$7",
+    "badvaddr", "count",    "entryhi",  "compare",
+    "sr",       "cause",    "epc",      "prid",
+    "config",   "lladdr",   "watchlo",  "watchhi",
+    "xcontext", "$21",      "$22",      "$23",
+    "$24",      "$25",      "perr",     "cacheerr",
+    "taglo",    "taghi",    "errorepc", "$31",
 };
 
 /**
@@ -30,15 +42,15 @@ char const *getRegisterName(uint reg)
 }
 
 #define Unknown(instr) \
-    std::cout << "?" << std::hex << std::setfill('0') << std::setw(8); \
-    std::cout << instr << "?";
+    buffer << "?" << std::hex << std::setfill('0') << std::setw(8); \
+    buffer << instr << "?";
 
 /**
  * @brief Unparametrized instruction.
  */
 #define SType(opcode, name) \
     case opcode: \
-        std::cout << name; \
+        buffer << name; \
         break;
 
 /**
@@ -59,58 +71,58 @@ char const *getRegisterName(uint reg)
         u32 rs = Mips::getRs(instr); \
         u16 imm = Mips::getImmediate(instr); \
         (void)rs; (void)rt; (void)imm; \
-        std::cout << std::setw(8) << std::setfill(' ') << std::left << name; \
-        std::cout << " " << std::setfill('0'); \
+        buffer << std::setw(8) << std::setfill(' ') << std::left << name; \
+        buffer << " " << std::setfill('0'); \
         IType_##fmt(rt, rs, imm); \
         break; \
     }
 
 #define IType_Rt_Rs_Imm(rt, rs, imm) \
-    std::cout << getRegisterName(rt); \
-    std::cout << ", " << getRegisterName(rs); \
-    std::cout << ", " << std::dec << (i16)imm;
+    buffer << getRegisterName(rt); \
+    buffer << ", " << getRegisterName(rs); \
+    buffer << ", " << std::dec << (i16)imm;
 
 #define IType_Rt_Rs_XImm(rt, rs, imm) \
-    std::cout << getRegisterName(rt); \
-    std::cout << ", " << getRegisterName(rs); \
-    std::cout << ", 0x" << std::hex << std::left << imm;
+    buffer << getRegisterName(rt); \
+    buffer << ", " << getRegisterName(rs); \
+    buffer << ", 0x" << std::hex << std::left << imm;
 
 #define IType_Rt_XImm(rt, rs, imm) \
-    std::cout << getRegisterName(rt); \
-    std::cout << ", 0x" << std::hex << std::left << imm;
+    buffer << getRegisterName(rt); \
+    buffer << ", 0x" << std::hex << std::left << imm;
 
 #define IType_Rt_Off_Rs(rt, rs, off) \
     i16 soff = (i16)off; \
-    std::cout << getRegisterName(rt) << std::hex; \
+    buffer << getRegisterName(rt) << std::hex; \
     if (soff < 0) \
-        std::cout << ", -0x" << (u16)(-soff); \
+        buffer << ", -0x" << (u16)(-soff); \
     else \
-        std::cout << ", 0x" << (u16)off; \
-    std::cout << "(" << getRegisterName(rs) << ")";
+        buffer << ", 0x" << (u16)off; \
+    buffer << "(" << getRegisterName(rs) << ")";
 
 #define IType_CRt_Off_Rs(rt, rs, off) \
     i16 soff = (i16)off; \
-    std::cout << "cr" << std::dec << rt << std::hex; \
+    buffer << "cr" << std::dec << rt << std::hex; \
     if (soff < 0) \
-        std::cout << ", -0x" << (u16)(-soff); \
+        buffer << ", -0x" << (u16)(-soff); \
     else \
-        std::cout << ", 0x" << (u16)off; \
-    std::cout << "(" << getRegisterName(rs) << ")";
+        buffer << ", 0x" << (u16)off; \
+    buffer << "(" << getRegisterName(rs) << ")";
 
 #define IType_Tg(rt, rs, off) \
     i64 off64 = (i16)(4 * off); \
-    std::cout << std::hex << "0x" << (pc + 4 + off64);
+    buffer << std::hex << "0x" << (pc + 4 + off64);
 
 #define IType_Rs_Tg(rt, rs, off) \
     i64 off64 = (i16)(4 * off); \
-    std::cout << getRegisterName(rs); \
-    std::cout << ", 0x" << std::hex << (pc + 4 + off64);
+    buffer << getRegisterName(rs); \
+    buffer << ", 0x" << std::hex << (pc + 4 + off64);
 
 #define IType_Rs_Rt_Tg(rt, rs, off) \
     i64 off64 = (i16)(4 * off); \
-    std::cout << getRegisterName(rs); \
-    std::cout << ", " << getRegisterName(rt); \
-    std::cout << ", 0x" << std::hex << (pc + 4 + off64);
+    buffer << getRegisterName(rs); \
+    buffer << ", " << getRegisterName(rt); \
+    buffer << ", 0x" << std::hex << (pc + 4 + off64);
 
 /**
  * @brief Preprocessor template for J-type instructions.
@@ -126,8 +138,8 @@ char const *getRegisterName(uint reg)
 #define JType(opcode, name, instr, pc) \
     case opcode: { \
         u64 tg = (pc & 0xfffffffff0000000llu) | (4 * Mips::getTarget(instr)); \
-        std::cout << std::setw(8) << std::left << name << " 0x" << std::hex; \
-        std::cout << std::setfill('0') << std::setw(8) << std::right << tg; \
+        buffer << std::setw(8) << std::left << name << " 0x" << std::hex; \
+        buffer << std::setfill('0') << std::setw(8) << std::right << tg; \
         break; \
     }
 
@@ -149,43 +161,43 @@ char const *getRegisterName(uint reg)
         u32 rt = Mips::getRt(instr); \
         u32 shamnt = Mips::getShamnt(instr); \
         (void)rd; (void)rs; (void)rt; (void)shamnt; \
-        std::cout << std::setw(8) << std::left << name << " "; \
+        buffer << std::setw(8) << std::left << name << " "; \
         RType_##fmt(rd, rs, rt, shamnt); \
         break; \
     }
 
 #define RType_Rd_Rs_Rt(rd, rs, rt, shamnt) \
-    std::cout << getRegisterName(rd); \
-    std::cout << ", " << getRegisterName(rs); \
-    std::cout << ", " << getRegisterName(rt);
+    buffer << getRegisterName(rd); \
+    buffer << ", " << getRegisterName(rs); \
+    buffer << ", " << getRegisterName(rt);
 
 #define RType_Rd_Rt_Rs(rd, rs, rt, shamnt) \
-    std::cout << getRegisterName(rd); \
-    std::cout << ", " << getRegisterName(rt); \
-    std::cout << ", " << getRegisterName(rs);
+    buffer << getRegisterName(rd); \
+    buffer << ", " << getRegisterName(rt); \
+    buffer << ", " << getRegisterName(rs);
 
 #define RType_Rs_Rt(rd, rs, rt, shamnt) \
-    std::cout << getRegisterName(rs); \
-    std::cout << ", " << getRegisterName(rt);
+    buffer << getRegisterName(rs); \
+    buffer << ", " << getRegisterName(rt);
 
 #define RType_Rd_Rs(rd, rs, rt, shamnt) \
-    std::cout << getRegisterName(rd); \
-    std::cout << ", " << getRegisterName(rs);
+    buffer << getRegisterName(rd); \
+    buffer << ", " << getRegisterName(rs);
 
 #define RType_Rs(rd, rs, rt, shamnt) \
-    std::cout << getRegisterName(rs);
+    buffer << getRegisterName(rs);
 
 #define RType_Rd(rd, rs, rt, shamnt) \
-    std::cout << getRegisterName(rd);
+    buffer << getRegisterName(rd);
 
 #define RType_Rd_Rt_Shamnt(rd, rs, rt, shamnt) \
-    std::cout << getRegisterName(rd); \
-    std::cout << ", " << getRegisterName(rt); \
-    std::cout << ", " << std::dec << shamnt;
+    buffer << getRegisterName(rd); \
+    buffer << ", " << getRegisterName(rt); \
+    buffer << ", " << std::dec << shamnt;
 
 #define RType_Rt_CRd(rd, rs, rt, shamnt) \
-    std::cout << getRegisterName(rt); \
-    std::cout << ", cr" << std::dec << rd;
+    buffer << getRegisterName(rt); \
+    buffer << ", cr" << std::dec << rd;
 
 /**
  * @brief Return the string representation for a format.
@@ -220,31 +232,31 @@ static inline char const *getFmtName(u32 fmt) {
         std::string nameFmt = name; \
         nameFmt += "."; \
         nameFmt += getFmtName(Mips::getFmt(instr)); \
-        std::cout << std::setw(8) << std::left << nameFmt << " "; \
+        buffer << std::setw(8) << std::left << nameFmt << " "; \
         FRType_##fmt(fd, fs, ft); \
         break; \
     }
 
 #define FRType_Fd_Fs(fd, fs, ft) \
-    std::cout << "f" << std::dec << fd; \
-    std::cout << ", f" << fs;
+    buffer << "f" << std::dec << fd; \
+    buffer << ", f" << fs;
 
 #define FRType_Fs_Ft(fd, fs, ft) \
-    std::cout << "f" << std::dec << fs; \
-    std::cout << ", f" << ft;
+    buffer << "f" << std::dec << fs; \
+    buffer << ", f" << ft;
 
 #define FRType_Fd_Fs_Ft(fd, fs, ft) \
-    std::cout << "f" << std::dec << fd; \
-    std::cout << ", f" << fs; \
-    std::cout << ", f" << ft;
+    buffer << "f" << std::dec << fd; \
+    buffer << ", f" << fs; \
+    buffer << ", f" << ft;
 
-static void disasCop0(u32 instr)
+static void disasCop0(std::ostringstream &buffer, u32 instr)
 {
-    std::cout << "cop0 $" << std::hex;
-    std::cout << std::setfill('0') << std::setw(8) << instr;
+    buffer << "cop0 $" << std::hex;
+    buffer << std::setfill('0') << std::setw(8) << instr;
 }
 
-static void disasCop1(u32 instr)
+static void disasCop1(std::ostringstream &buffer, u32 instr)
 {
     switch (Mips::getFunct(instr)) {
         FRType(Cop1::ADD, "add", instr, Fd_Fs_Ft)
@@ -286,24 +298,25 @@ static void disasCop1(u32 instr)
     }
 }
 
-static void disasCop2(u32 instr)
+static void disasCop2(std::ostringstream &buffer, u32 instr)
 {
-    std::cout << "cop2 $" << std::hex;
-    std::cout << std::setfill('0') << std::setw(8) << instr;
+    buffer << std::setw(8) << std::left << "cop2" << std::hex;
+    buffer << " $" << std::setfill('0') << std::setw(8) << instr;
 }
 
-static void disasCop3(u32 instr)
+static void disasCop3(std::ostringstream &buffer, u32 instr)
 {
-    std::cout << "cop3 $" << std::hex;
-    std::cout << std::setfill('0') << std::setw(8) << instr;
+    buffer << std::setw(8) << std::left << "cop3" << std::hex;
+    buffer << " $" << std::setfill('0') << std::setw(8) << instr;
 }
 
 /**
  * @brief Print out an instruction.
  */
-void disas(u64 pc, u32 instr)
+std::string disas(u64 pc, u32 instr)
 {
     u32 opcode;
+    std::ostringstream buffer;
 
     using namespace Mips::Opcode;
     using namespace Mips::Special;
@@ -313,8 +326,7 @@ void disas(u64 pc, u32 instr)
 
     // Special case (SLL 0, 0, 0)
     if (instr == 0) {
-        std::cout << "nop";
-        return;
+        return "nop";
     }
 
     switch (opcode = Mips::getOpcode(instr)) {
@@ -367,7 +379,7 @@ void disas(u64 pc, u32 instr)
                 RType(XOR, "xor", instr, Rd_Rs_Rt)
                 default:
                     Unknown(instr);
-                    return;
+                    break;
             }
             break;
 
@@ -383,7 +395,7 @@ void disas(u64 pc, u32 instr)
                 IType(BLTZALL, "bltzall", instr, Rs_Tg)
                 default:
                     Unknown(instr);
-                    return;
+                    break;
             }
             break;
 
@@ -403,7 +415,7 @@ void disas(u64 pc, u32 instr)
 #define COPz(z) \
         case COP##z: \
             if (instr & Mips::COFUN) { \
-                disasCop##z(instr); \
+                disasCop##z(buffer, instr); \
                 break; \
             } \
             switch (Mips::getRs(instr)) { \
@@ -421,12 +433,12 @@ void disas(u64 pc, u32 instr)
                         IType(BCTL, "bc" #z "tl", instr, Tg) \
                         default: \
                             Unknown(instr); \
-                            return; \
+                            break; \
                     } \
                     break; \
                 default: \
                     Unknown(instr); \
-                    return; \
+                    break; \
             } \
             break;
 
@@ -479,8 +491,10 @@ void disas(u64 pc, u32 instr)
         IType(XORI, "xori", instr, Rt_Rs_XImm)
         default:
             Unknown(instr);
-            return;
+            break;
     }
+
+    return buffer.str();
 }
 
 }; /* namespace Mips */

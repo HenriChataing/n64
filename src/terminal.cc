@@ -495,7 +495,7 @@ bool doDisas(Shell &sh, std::vector<std::string> &args)
         std::cout << std::hex << std::setfill('0');
         std::cout << std::setw(8) << instr << "    ";
         std::cout << std::setfill(' ');
-        Mips::disas(vAddr, instr);
+        std::cout << Mips::disas(vAddr, instr);
         std::cout << std::endl;
     }
 
