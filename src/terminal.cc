@@ -658,7 +658,7 @@ bool log_osWaitMessage()
     return false;
 }
 
-void terminal()
+void startTerminal()
 {
     Shell sh;
     sh.config("help", printHelp);
