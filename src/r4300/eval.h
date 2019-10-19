@@ -50,12 +50,6 @@ void takeException(Exception exn, u64 vAddr,
                    bool delaySlot, bool instr, bool load, u32 ce = 0);
 
 /**
- * @brief Print out the last instructions to execute.
- * @todo export instructions instead
- */
-void hist(void);
-
-/**
  * @brief Print out a backtrace of the program execution.
  * The backtrace is inferred from the control flow, and can be erroneous.
  */

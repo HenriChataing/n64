@@ -2,9 +2,13 @@
 #ifndef _DEBUGGER_H_INCLUDED_
 #define _DEBUGGER_H_INCLUDED_
 
+#include <circular_buffer.h>
 #include <map>
 #include <vector>
 #include <types.h>
+
+/** @brief Type of an entry in the interpreter execution trace. */
+typedef std::pair<u64, u32> TraceEntry;
 
 class Debugger {
 public:
@@ -12,7 +16,7 @@ public:
     ~Debugger();
 
     /* Stop condition */
-    bool stop;
+    bool halted;
 
     /* Symbols. */
     void addSymbol(u64 address, std::string name) {
@@ -52,6 +56,9 @@ public:
 
         bool thread;
     } verbose;
+
+    circular_buffer<TraceEntry> cpuTrace;
+    circular_buffer<TraceEntry> rspTrace;
 
 private:
     struct StackFrame {

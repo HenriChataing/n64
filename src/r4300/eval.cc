@@ -3,7 +3,6 @@
 #include <iostream>
 #include <vector>
 
-#include <circular_buffer.h>
 #include <mips/asm.h>
 #include <r4300/cpu.h>
 #include <r4300/hw.h>
@@ -124,16 +123,6 @@ namespace Eval {
         } else \
             state.reg.pc += 4; \
     })
-
-/**
- * @brief Type of an entry in the interpreter log.
- */
-typedef std::pair<u64, u32> LogEntry;
-
-/**
- * @brief Circular buffer for storing the last instructions executed.
- */
-circular_buffer<LogEntry> _log(64);
 
 /**
  * @brief Raise an exception and update the state of the processor.
@@ -263,6 +252,7 @@ void takeException(Exception exn, u64 vAddr,
         //        and the process executes in either User or Supervisor mode.
         case CoprocessorUnusable:
             exccode = 11; // CpU
+            debugger.halted = true;
             break;
         // The Floating-Point exception is used by the floating-point
         // coprocessor.
@@ -407,7 +397,7 @@ bool eval(u64 vAddr, bool delaySlot)
     if (!state.physmem.load(4, pAddr, &instr))
         returnException(BusError, vAddr, delaySlot, true, true);
 
-    _log.put(LogEntry(vAddr, instr));
+    debugger.cpuTrace.put(TraceEntry(vAddr, instr));
 
     using namespace Mips::Opcode;
     using namespace Mips::Special;
@@ -1056,20 +1046,6 @@ void run()
     // while (1)
     for (int i = 0; i < 1000; i++)
         step();
-}
-
-void hist()
-{
-    while (!_log.empty()) {
-        LogEntry entry = _log.get();
-        std::cout << std::hex << std::setfill(' ') << std::right;
-        std::cout << std::setw(16) << entry.first << "    ";
-        std::cout << std::hex << std::setfill('0');
-        std::cout << std::setw(8) << entry.second << "    ";
-        std::cout << std::setfill(' ');
-        Mips::disas(entry.first, entry.second);
-        std::cout << std::endl;
-    }
 }
 
 }; /* namespace Eval */

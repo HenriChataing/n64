@@ -28,7 +28,7 @@ typedef bool (*Callback)();
 void signalHandler(int signum)
 {
     std::cout << "Received signal " << std::dec << signum << std::endl;
-    debugger.stop = true;
+    debugger.halted = true;
 }
 
 class Shell
@@ -220,8 +220,31 @@ bool printRspRegisters(Shell &sh, std::vector<std::string> &args)
 
 bool printRspHist(Shell &sh, std::vector<std::string> &args)
 {
-    R4300::RSP::hist();
+    while (!debugger.rspTrace.empty()) {
+        TraceEntry entry = debugger.rspTrace.get();
+        std::cout << std::hex << std::setfill(' ') << std::right;
+        std::cout << std::setw(16) << entry.first << "    ";
+        std::cout << std::hex << std::setfill('0');
+        std::cout << std::setw(8) << entry.second << "    ";
+        std::cout << std::setfill(' ');
+        std::cout << Mips::disas(entry.first, entry.second);
+        std::cout << std::endl;
+    }
     return false;
+}
+
+void doPrintCpuHist()
+{
+    while (!debugger.cpuTrace.empty()) {
+        TraceEntry entry = debugger.cpuTrace.get();
+        std::cout << std::hex << std::setfill(' ') << std::right;
+        std::cout << std::setw(16) << entry.first << "    ";
+        std::cout << std::hex << std::setfill('0');
+        std::cout << std::setw(8) << entry.second << "    ";
+        std::cout << std::setfill(' ');
+        std::cout << Mips::disas(entry.first, entry.second);
+        std::cout << std::endl;
+    }
 }
 
 bool printTLB(Shell &sh, std::vector<std::string> &args)
@@ -310,7 +333,7 @@ bool doStep(Shell &sh, std::vector<std::string> &args)
     try {
         R4300::Eval::step();
         R4300::RSP::step();
-        R4300::Eval::hist();
+        doPrintCpuHist();
     } catch (const char *exn) {
         std::cout << "caught exception '" << exn << "'" << std::endl;
         sh.abort = true;
@@ -322,7 +345,7 @@ bool doContinue(Shell &sh, std::vector<std::string> &args)
 {
     if (sh.abort)
         return false;
-    debugger.stop = false;
+    debugger.halted = false;
     try {
         for (;;) {
             // Advance one step.
@@ -330,9 +353,9 @@ bool doContinue(Shell &sh, std::vector<std::string> &args)
             R4300::RSP::step();
 
             // Check stop conditition.
-            if (debugger.stop) {
+            if (debugger.halted) {
                 std::cout << "stop condition set" << std::endl;
-                R4300::Eval::hist();
+                doPrintCpuHist();
                 return false;
             }
 
@@ -347,7 +370,7 @@ bool doContinue(Shell &sh, std::vector<std::string> &args)
             // Check breakpoints.
             for (size_t i = 0; i < sh.breakpoints.size(); i++) {
                 if (sh.breakpoints[i] == R4300::state.reg.pc) {
-                    R4300::Eval::hist();
+                    doPrintCpuHist();
                     std::cout << "halting at breakpoint #" << i << ": ";
                     std::cout << std::hex << R4300::state.reg.pc << std::endl;
                     return false;
@@ -360,7 +383,7 @@ bool doContinue(Shell &sh, std::vector<std::string> &args)
                 u64 val = 0;
                 R4300::state.physmem.load(4, sh.addresses[i].first, &val);
                 if (val != sh.addresses[i].second) {
-                    R4300::Eval::hist();
+                    doPrintCpuHist();
                     std::cout << "watched address 0x";
                     std::cout << std::hex << sh.addresses[i].first;
                     std::cout << " modified : 0x";
@@ -375,7 +398,7 @@ bool doContinue(Shell &sh, std::vector<std::string> &args)
                 return false;
         }
     } catch (const char *exn) {
-        R4300::Eval::hist();
+        doPrintCpuHist();
         std::cout << "caught exception '" << exn << "'" << std::endl;
         sh.abort = true;
     }
@@ -462,9 +485,9 @@ bool doDisas(Shell &sh, std::vector<std::string> &args)
 
     R4300::translateAddress(vAddr, &pAddr, 0);
 
-    debugger.stop = false;
+    debugger.halted = false;
     for (size_t i = 0; i < count; i++, pAddr += 4, vAddr += 4) {
-        if (debugger.stop)
+        if (debugger.halted)
             return false;
         R4300::state.physmem.load(4, pAddr, &instr);
         std::cout << std::hex << std::setfill(' ') << std::right;

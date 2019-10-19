@@ -38,7 +38,7 @@ static inline bool checkAddressAlignment(u64 addr, u64 bytes) {
         std::cerr << std::dec << bytes << " bytes from address ";
         std::cerr << std::hex << addr << ", at pc: ";
         std::cerr << std::hex << state.rspreg.pc << std::endl;
-        debugger.stop = true;
+        debugger.halted = true;
         return false;
     } else {
         return true;
@@ -130,16 +130,6 @@ static inline bool checkAddressAlignment(u64 addr, u64 bytes) {
         } \
     })
 
-/**
- * @brief Type of an entry in the interpreter log.
- */
-typedef std::pair<u64, u32> LogEntry;
-
-/**
- * @brief Circular buffer for storing the last instructions executed.
- */
-circular_buffer<LogEntry> _log(64);
-
 /** @brief Write a COP0 register value. */
 static u32 readCop0Register(u32 r) {
     switch (r) {
@@ -163,7 +153,7 @@ static u32 readCop0Register(u32 r) {
             /* unknown register access */
             std::cerr << "RSP: writing unknown Cop0 register ";
             std::cerr << std::dec << r << std::endl;
-            debugger.stop = true;
+            debugger.halted = true;
             break;
     }
     return 0;
@@ -216,7 +206,7 @@ static void writeCop0Register(u32 r, u32 value) {
             /* unknown register access */
             std::cerr << "RSP: writing unknown Cop0 register ";
             std::cerr << std::dec << r << std::endl;
-            debugger.stop = true;
+            debugger.halted = true;
             break;
     }
 }
@@ -257,7 +247,7 @@ bool eval(u64 addr, bool delaySlot)
     checkAddressAlignment(addr, 4);
     instr = __builtin_bswap32(*(u32 *)&state.imem[addr & 0xffflu]);
 
-    _log.put(LogEntry(addr, instr));
+    debugger.rspTrace.put(TraceEntry(addr, instr));
 
     using namespace Mips::Opcode;
     using namespace Mips::Special;
@@ -683,20 +673,6 @@ bool eval(u64 addr, bool delaySlot)
     }
 
     return false;
-}
-
-void hist()
-{
-    while (!_log.empty()) {
-        LogEntry entry = _log.get();
-        std::cout << std::hex << std::setfill(' ') << std::right;
-        std::cout << std::setw(16) << entry.first << "    ";
-        std::cout << std::hex << std::setfill('0');
-        std::cout << std::setw(8) << entry.second << "    ";
-        std::cout << std::setfill(' ');
-        Mips::disas(entry.first, entry.second);
-        std::cout << std::endl;
-    }
 }
 
 }; /* namespace RSP */
