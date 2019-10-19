@@ -274,6 +274,8 @@ bool eval(u64 addr, bool delaySlot)
                     if (state.hwreg.SP_STATUS_REG & SP_STATUS_INTR_BREAK) {
                         set_MI_INTR_REG(MI_INTR_SP);
                     }
+                    state.hwreg.SP_STATUS_REG |=
+                        SP_STATUS_BROKE | SP_STATUS_HALT;
                     break;
                 }
                 /* DADD not implemented */
