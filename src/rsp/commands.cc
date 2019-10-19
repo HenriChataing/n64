@@ -87,7 +87,7 @@ void readGeneralRegisters(char *in, RSP::buffer &out)
     out.appendU64(R4300::state.cp0reg.sr);
     out.appendU64(R4300::state.reg.multLo);
     out.appendU64(R4300::state.reg.multHi);
-    out.appendU64(R4300::state.cp0reg.badVAddr);
+    out.appendU64(R4300::state.cp0reg.badvaddr);
     out.appendU64(R4300::state.cp0reg.cause);
     out.appendU64(R4300::state.reg.pc);
 

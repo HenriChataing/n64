@@ -48,7 +48,7 @@ void State::boot() {
     memset(&cp0reg, 0, sizeof(cp0reg));
     cp0reg.random = 0x0000001f;
     cp0reg.sr     = 0x70400004;
-    cp0reg.prId   = 0x00000b00;
+    cp0reg.prid   = 0x00000b00;
     cp0reg.config = 0x0006e463;
     memset(&cp1reg, 0, sizeof(cp1reg));
     memset(tlb, 0, sizeof(tlb));

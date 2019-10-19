@@ -179,18 +179,18 @@ bool printCop0Registers(Shell &sh, std::vector<std::string> &args)
     PrintReg(name0); cout << " "; PrintReg(name1); cout << endl
 
     Print2Regs(index, random);
-    Print2Regs(entryLo0, entryLo1);
-    Print2Regs(context, pageMask);
-    Print2Regs(wired, badVAddr);
-    Print2Regs(count, entryHi);
+    Print2Regs(entrylo0, entrylo1);
+    Print2Regs(context, pagemask);
+    Print2Regs(wired, badvaddr);
+    Print2Regs(count, entryhi);
     Print2Regs(compare, sr);
     Print2Regs(cause, epc);
-    Print2Regs(prId, config);
-    Print2Regs(llAddr, watchLo);
-    Print2Regs(watchHi, xContext);
-    Print2Regs(pErr, cacheErr);
-    Print2Regs(tagLo, tagHi);
-    PrintReg(errorEpc);
+    Print2Regs(prid, config);
+    Print2Regs(lladdr, watchlo);
+    Print2Regs(watchhi, xcontext);
+    Print2Regs(perr, cacheerr);
+    Print2Regs(taglo, taghi);
+    PrintReg(errorepc);
     cout << endl;
 
 #undef PrintReg

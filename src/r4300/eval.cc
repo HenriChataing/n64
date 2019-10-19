@@ -162,7 +162,7 @@ void takeException(Exception exn, u64 vAddr,
         //      - reference the supervisor address space from User mode
         case AddressError:
             exccode = load ? 4 : 5; // AdEL : AdES
-            state.cp0reg.badVAddr = vAddr;
+            state.cp0reg.badvaddr = vAddr;
             break;
         // TLB Refill occurs when there is no TLB entry that matches an
         // attempted reference to a mapped address space.
@@ -174,7 +174,7 @@ void takeException(Exception exn, u64 vAddr,
         // TLB entry that is marked invalid.
         case TLBInvalid:
             exccode = load ? 2 : 3; // TLBL : TLBS
-            state.cp0reg.badVAddr = vAddr;
+            state.cp0reg.badvaddr = vAddr;
             // TODO : Context, XContext, EntryHi
             break;
         // TLB Modified occurs when a store operation virtual address
@@ -182,7 +182,7 @@ void takeException(Exception exn, u64 vAddr,
         // valid but is not dirty (the entry is not writable).
         case TLBModified:
             exccode = 1; // Mod
-            state.cp0reg.badVAddr = vAddr;
+            state.cp0reg.badvaddr = vAddr;
             // TODO : Context, XContext, EntryHi
             break;
         // The Cache Error exception occurs when either a secondary cache ECC
@@ -202,7 +202,7 @@ void takeException(Exception exn, u64 vAddr,
         //        specifies that the page is cached
         case VirtualCoherency:
             exccode = instr ? 14 : 31; // VCEI : VCED
-            state.cp0reg.badVAddr = vAddr;
+            state.cp0reg.badvaddr = vAddr;
             break;
         // A Bus Error exception is raised by board-level circuitry for events
         // such as bus time-out, backplane bus parity errors, and invalid

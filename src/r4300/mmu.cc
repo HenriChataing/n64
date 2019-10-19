@@ -69,14 +69,14 @@ R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
         if ((vAddr & pageMask) == (entry.entryHi & pageMask)) {
             // Check global bit and ASID
             if (entry.global ||
-                (entry.asid == (R4300::state.cp0reg.entryHi & 0xffllu)))
+                (entry.asid == (R4300::state.cp0reg.entryhi & 0xffllu)))
                 break;
         }
     }
 
     // No matching TLB entry, send for TLB refill.
     if (i >= R4300::tlbEntryCount)  {
-        R4300::state.cp0reg.entryHi = vAddr & ~0x1fffllu; // @todo ASID
+        R4300::state.cp0reg.entryhi = vAddr & ~0x1fffllu; // @todo ASID
         return extendedAddressing ? R4300::XTLBRefill : R4300::TLBRefill;
     }
 
@@ -92,12 +92,12 @@ R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
         // Check valid bit
         if ((entry.entryLo1 & 2) == 0) {
             debugger.halted = true;
-            R4300::state.cp0reg.entryHi = vAddr & ~0x1fffllu; // @todo ASID
+            R4300::state.cp0reg.entryhi = vAddr & ~0x1fffllu; // @todo ASID
             return R4300::TLBInvalid;
         }
         // Check if trying to write dirty address.
         if (writeAccess && (entry.entryLo1 & 4) == 0) {
-            R4300::state.cp0reg.entryHi = vAddr & ~0x1fffllu; // @todo ASID
+            R4300::state.cp0reg.entryhi = vAddr & ~0x1fffllu; // @todo ASID
             return R4300::TLBModified;
         }
 
@@ -106,12 +106,12 @@ R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
         // Check valid bit
         if ((entry.entryLo0 & 2) == 0) {
             debugger.halted = true;
-            R4300::state.cp0reg.entryHi = vAddr & ~0x1fffllu; // @todo ASID
+            R4300::state.cp0reg.entryhi = vAddr & ~0x1fffllu; // @todo ASID
             return R4300::TLBInvalid;
         }
         // Check if trying to write dirty address.
         if (writeAccess && (entry.entryLo0 & 4) == 0) {
-            R4300::state.cp0reg.entryHi = vAddr & ~0x1fffllu; // @todo ASID
+            R4300::state.cp0reg.entryhi = vAddr & ~0x1fffllu; // @todo ASID
             return R4300::TLBModified;
         }
 
@@ -132,7 +132,7 @@ bool probeTLB(u64 vAddr, uint *index)
         if ((vAddr & pageMask) == (entry.entryHi & pageMask)) {
             // Check global bit and ASID
             if (entry.global ||
-                (entry.asid == (R4300::state.cp0reg.entryHi & 0xffllu))) {
+                (entry.asid == (R4300::state.cp0reg.entryhi & 0xffllu))) {
                 *index = i;
                 return true;
             }

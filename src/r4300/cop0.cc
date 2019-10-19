@@ -189,10 +189,10 @@ public:
                 i = state.cp0reg.index & 0x3flu;
                 if (i > tlbEntryCount)
                     break;
-                state.cp0reg.pageMask = state.tlb[i].pageMask;
-                state.cp0reg.entryHi = state.tlb[i].entryHi;
-                state.cp0reg.entryLo0 = state.tlb[i].entryLo0;
-                state.cp0reg.entryLo1 = state.tlb[i].entryLo1;
+                state.cp0reg.pagemask = state.tlb[i].pageMask;
+                state.cp0reg.entryhi = state.tlb[i].entryHi;
+                state.cp0reg.entrylo0 = state.tlb[i].entryLo0;
+                state.cp0reg.entrylo1 = state.tlb[i].entryLo1;
                 break;
 
             case Mips::Cop0::TLBWI:
@@ -206,25 +206,25 @@ public:
                     state.cp0reg.random = (i + tlbEntryCount - 1) % tlbEntryCount;
                 }
 
-                state.tlb[i].pageMask = state.cp0reg.pageMask & 0x1ffe000llu;
-                state.tlb[i].entryHi = state.cp0reg.entryHi;
-                state.tlb[i].entryLo0 = state.cp0reg.entryLo0;
-                state.tlb[i].entryLo1 = state.cp0reg.entryLo1;
-                state.tlb[i].asid = state.cp0reg.entryHi & 0xfflu;
+                state.tlb[i].pageMask = state.cp0reg.pagemask & 0x1ffe000llu;
+                state.tlb[i].entryHi = state.cp0reg.entryhi;
+                state.tlb[i].entryLo0 = state.cp0reg.entrylo0;
+                state.tlb[i].entryLo1 = state.cp0reg.entrylo1;
+                state.tlb[i].asid = state.cp0reg.entryhi & 0xfflu;
                 state.tlb[i].global =
-                    (state.cp0reg.entryLo0 & 1lu) &&
-                    (state.cp0reg.entryLo1 & 1lu);
+                    (state.cp0reg.entrylo0 & 1lu) &&
+                    (state.cp0reg.entrylo1 & 1lu);
                 break;
 
             case Mips::Cop0::TLBP:
                 state.cp0reg.index = 0x80000000lu;
-                if (probeTLB(state.cp0reg.entryHi, &i))
+                if (probeTLB(state.cp0reg.entryhi, &i))
                     state.cp0reg.index = i;
                 break;
 
             case Mips::Cop0::ERET:
                 if (ERL()) {
-                    state.reg.pc = state.cp0reg.errorEpc;
+                    state.reg.pc = state.cp0reg.errorepc;
                     state.cp0reg.sr &= ~(1lu << 2);
                     state.branch = true;
                 } else {
@@ -253,18 +253,18 @@ public:
                 logRead("COP0_Random", state.cp0reg.random);
                 return state.cp0reg.random;
             case EntryLo0:
-                logRead("COP0_EntryLo0", state.cp0reg.entryLo0);
-                return state.cp0reg.entryLo0;
+                logRead("COP0_EntryLo0", state.cp0reg.entrylo0);
+                return state.cp0reg.entrylo0;
             case EntryLo1:
-                logRead("COP0_EntryLo1", state.cp0reg.entryLo1);
-                return state.cp0reg.entryLo1;
+                logRead("COP0_EntryLo1", state.cp0reg.entrylo1);
+                return state.cp0reg.entrylo1;
             case Context:
                 logRead("COP0_Context", state.cp0reg.context);
                 throw "ReadContext";
                 break;
             case PageMask:
-                logRead("COP0_PageMask", state.cp0reg.pageMask);
-                return state.cp0reg.pageMask;
+                logRead("COP0_PageMask", state.cp0reg.pagemask);
+                return state.cp0reg.pagemask;
             case Wired:
                 logRead("COP0_Wired", state.cp0reg.wired);
                 throw "ReadWired";
@@ -274,14 +274,14 @@ public:
                 throw "ReadCPR7";
                 break;
             case BadVAddr:
-                logRead("COP0_BadVAddr", state.cp0reg.badVAddr);
-                return state.cp0reg.badVAddr;
+                logRead("COP0_BadVAddr", state.cp0reg.badvaddr);
+                return state.cp0reg.badvaddr;
             case Count:
                 logRead("COP0_Count", state.cp0reg.count);
                 return state.cp0reg.count;
             case EntryHi:
-                logRead("COP0_EntryHi", state.cp0reg.entryHi);
-                return state.cp0reg.entryHi;
+                logRead("COP0_EntryHi", state.cp0reg.entryhi);
+                return state.cp0reg.entryhi;
             case Compare:
                 logRead("COP0_Compare", state.cp0reg.compare);
                 return state.cp0reg.compare;
@@ -295,7 +295,7 @@ public:
                 logRead("COP0_EPC", state.cp0reg.epc);
                 return state.cp0reg.epc;
             case PrId:
-                logRead("COP0_PrId", state.cp0reg.prId);
+                logRead("COP0_PrId", state.cp0reg.prid);
                 throw "ReadPrId";
                 break;
             case Config:
@@ -303,19 +303,19 @@ public:
                 throw "ReadConfig";
                 break;
             case LLAddr:
-                logRead("COP0_LLAddr", state.cp0reg.llAddr);
+                logRead("COP0_LLAddr", state.cp0reg.lladdr);
                 throw "ReadLLAddr";
                 break;
             case WatchLo:
-                logRead("COP0_WatchLo", state.cp0reg.watchLo);
+                logRead("COP0_WatchLo", state.cp0reg.watchlo);
                 throw "ReadWatchLo";
                 break;
             case WatchHi:
-                logRead("COP0_WatchHi", state.cp0reg.watchHi);
+                logRead("COP0_WatchHi", state.cp0reg.watchhi);
                 throw "ReadWatchHi";
                 break;
             case XContext:
-                logRead("COP0_XContext", state.cp0reg.xContext);
+                logRead("COP0_XContext", state.cp0reg.xcontext);
                 throw "ReadXContext";
                 break;
             case CPR21:
@@ -339,21 +339,21 @@ public:
                 throw "ReadCPR25";
                 break;
             case PErr:
-                logRead("COP0_PErr", state.cp0reg.pErr);
+                logRead("COP0_PErr", state.cp0reg.perr);
                 throw "ReadPErr";
                 break;
             case CacheErr:
-                logRead("COP0_CacheErr", state.cp0reg.cacheErr);
+                logRead("COP0_CacheErr", state.cp0reg.cacheerr);
                 throw "ReadCacheErr";
                 break;
             case TagLo:
-                logRead("COP0_TagLo", state.cp0reg.tagLo);
-                return state.cp0reg.tagLo;
+                logRead("COP0_TagLo", state.cp0reg.taglo);
+                return state.cp0reg.taglo;
             case TagHi:
-                logRead("COP0_TagHi", state.cp0reg.tagHi);
-                return state.cp0reg.tagHi;
+                logRead("COP0_TagHi", state.cp0reg.taghi);
+                return state.cp0reg.taghi;
             case ErrorEPC:
-                logRead("COP0_ErrorEPC", state.cp0reg.errorEpc);
+                logRead("COP0_ErrorEPC", state.cp0reg.errorepc);
                 throw "ReadErrPC";
                 break;
             case CPR31:
@@ -379,11 +379,11 @@ public:
                 break;
             case EntryLo0:
                 logWrite("COP0_EntryLo0", imm);
-                state.cp0reg.entryLo0 = imm;
+                state.cp0reg.entrylo0 = imm;
                 break;
             case EntryLo1:
                 logWrite("COP0_EntryLo1", imm);
-                state.cp0reg.entryLo1 = imm;
+                state.cp0reg.entrylo1 = imm;
                 break;
             case Context:
                 logWrite("COP0_Context", imm);
@@ -391,7 +391,7 @@ public:
                 break;
             case PageMask:
                 logWrite("COP0_PageMask", imm);
-                state.cp0reg.pageMask = imm & 0x1ffe000lu;
+                state.cp0reg.pagemask = imm & 0x1ffe000lu;
                 break;
             case Wired:
                 logWrite("COP0_Wired", imm);
@@ -411,7 +411,7 @@ public:
                 break;
             case EntryHi:
                 logWrite("COP0_EntryHi", imm);
-                state.cp0reg.entryHi = imm;
+                state.cp0reg.entryhi = imm;
                 break;
             case Compare:
                 logWrite("COP0_Compare", imm);
@@ -487,11 +487,11 @@ public:
                 break;
             case TagLo:
                 logWrite("COP0_TagLo", imm);
-                state.cp0reg.tagLo = imm;
+                state.cp0reg.taglo = imm;
                 break;
             case TagHi:
                 logWrite("COP0_TagHi", imm);
-                state.cp0reg.tagHi = imm;
+                state.cp0reg.taghi = imm;
                 break;
             case ErrorEPC:
                 logWrite("COP0_ErrorEPC", imm);

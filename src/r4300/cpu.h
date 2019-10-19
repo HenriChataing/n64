@@ -20,36 +20,36 @@ struct cpureg {
 struct cp0reg {
     u32 index;          /**< Programmable pointer into TLB array */
     u32 random;         /**< Random pointer into TLB array */
-    u64 entryLo0;       /**< Low half of the TLB entry for even VPN */
-    u64 entryLo1;       /**< Low half of the TLB entry for odd VPN */
+    u64 entrylo0;       /**< Low half of the TLB entry for even VPN */
+    u64 entrylo1;       /**< Low half of the TLB entry for odd VPN */
     u64 context;        /**< Pointer to kernel PTE table */
-    u32 pageMask;       /**< TLB page mask */
+    u32 pagemask;       /**< TLB page mask */
     u32 wired;          /**< Number of wire TLB entries */
-    u32 cpr7;           /**< Unused */
-    u64 badVAddr;       /**< Bad virtual address */
+    u32 c7;             /**< Unused */
+    u64 badvaddr;       /**< Bad virtual address */
     u32 count;          /**< Timer count */
-    u64 entryHi;        /**< High half of TLB entry */
+    u64 entryhi;        /**< High half of TLB entry */
     u32 compare;        /**< Timer compare */
     u32 sr;             /**< Status register */
     u32 cause;          /**< Cause register */
     u64 epc;            /**< Exception program counter */
-    u32 prId;           /**< Processor revision identifier */
+    u32 prid;           /**< Processor revision identifier */
     u32 config;         /**< Configuration register */
-    u32 llAddr;         /**< Load linked address */
-    u32 watchLo;        /**< Memory reference trap address lower bits */
-    u32 watchHi;        /**< Memory reference trap address upper bits */
-    u64 xContext;       /**< Context register for MIPS-III addressing */
-    u32 cpr21;          /**< Unused */
-    u32 cpr22;          /**< Unused */
-    u32 cpr23;          /**< Unused */
-    u32 cpr24;          /**< Unused */
-    u32 cpr25;          /**< Unused */
-    u32 pErr;           /**< Not Used */
-    u32 cacheErr;       /**< Not Used */
-    u32 tagLo;          /**< Cache tag register */
-    u32 tagHi;          /**< Cache tag register (reserved) */
-    u32 errorEpc;       /**< Error exception program counter */
-    u32 cpr31;          /**< Unused */
+    u32 lladdr;         /**< Load linked address */
+    u32 watchlo;        /**< Memory reference trap address lower bits */
+    u32 watchhi;        /**< Memory reference trap address upper bits */
+    u64 xcontext;       /**< Context register for MIPS-III addressing */
+    u32 c21;            /**< Unused */
+    u32 c22;            /**< Unused */
+    u32 c23;            /**< Unused */
+    u32 c24;            /**< Unused */
+    u32 c25;            /**< Unused */
+    u32 perr;           /**< Not Used */
+    u32 cacheerr;       /**< Not Used */
+    u32 taglo;          /**< Cache tag register */
+    u32 taghi;          /**< Cache tag register (reserved) */
+    u32 errorepc;       /**< Error exception program counter */
+    u32 c31;            /**< Unused */
 
     void incrCount();
 };
