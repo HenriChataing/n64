@@ -363,6 +363,8 @@ int startGui()
         {
             ImGui::Begin("Debugger");
             if (debugger.halted) {
+                ImGui::Text("Machine halt reason: '%s'\n",
+                    debugger.haltedReason.c_str());
                 if (ImGui::Button("Continue")) {
                     std::unique_lock<std::mutex> lock(evalMutex);
                     debugger.halted = false;
@@ -374,7 +376,7 @@ int startGui()
                 }
             } else {
                 if (ImGui::Button("Halt")) {
-                    debugger.halted = true;
+                    debugger.halt("Interrupted by user");
                 }
             }
             if (ImGui::BeginTabBar("Registers", 0))
@@ -442,6 +444,10 @@ int startGui()
         // Displays traces for the CPU and the RSP.
         {
             ImGui::Begin("Trace");
+            if (ImGui::Button("Clear traces")) {
+                debugger.cpuTrace.reset();
+                debugger.rspTrace.reset();
+            }
             if (ImGui::BeginTabBar("Trace", 0)) {
                 if (ImGui::BeginTabItem("Cpu")) {
                     if (debugger.halted) {

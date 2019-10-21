@@ -252,7 +252,7 @@ void takeException(Exception exn, u64 vAddr,
         //        and the process executes in either User or Supervisor mode.
         case CoprocessorUnusable:
             exccode = 11; // CpU
-            debugger.halted = true;
+            debugger.halt("Exception CoprocessorUnusable");
             break;
         // The Floating-Point exception is used by the floating-point
         // coprocessor.

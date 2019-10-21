@@ -1651,7 +1651,7 @@ namespace Cart_2_1 {
 bool read(uint bytes, u64 addr, u64 *value)
 {
     logReadAtAddr(debugger.verbose.cart_2_1, "Cart_2_1", addr, 0);
-    debugger.halted = true;
+    debugger.halt("Cart_2_1 read access");
     *value = 0;
     return true;
 }
@@ -1659,7 +1659,7 @@ bool read(uint bytes, u64 addr, u64 *value)
 bool write(uint bytes, u64 addr, u64 value)
 {
     logWriteAtAddr(debugger.verbose.cart_2_1, "Cart_2_1", addr, value);
-    debugger.halted = true;
+    debugger.halt("Cart_2_1 write access");
     return true;
 }
 

@@ -27,8 +27,7 @@ typedef bool (*Callback)();
 
 void signalHandler(int signum)
 {
-    std::cout << "Received signal " << std::dec << signum << std::endl;
-    debugger.halted = true;
+    debugger.halt("Interrupted by user");
 }
 
 class Shell

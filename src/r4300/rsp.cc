@@ -38,7 +38,7 @@ static inline bool checkAddressAlignment(u64 addr, u64 bytes) {
         std::cerr << std::dec << bytes << " bytes from address ";
         std::cerr << std::hex << addr << ", at pc: ";
         std::cerr << std::hex << state.rspreg.pc << std::endl;
-        debugger.halted = true;
+        debugger.halt("Invalid address alignment");
         return false;
     } else {
         return true;
@@ -145,15 +145,23 @@ static u32 readCop0Register(u32 r) {
         case 9: return state.hwreg.DPC_END_REG;
         case 10: return state.hwreg.DPC_CURRENT_REG;
         case 11: return state.hwreg.DPC_STATUS_REG;
-        case 12: return state.hwreg.DPC_CLOCK_REG;
-        case 13: return state.hwreg.DPC_BUF_BUSY_REG;
-        case 14: return state.hwreg.DPC_PIPE_BUSY_REG;
-        case 15: return state.hwreg.DPC_TMEM_REG;
+        case 12:
+            debugger.halt("DPC_CLOCK_REG read access");
+            return state.hwreg.DPC_CLOCK_REG;
+        case 13:
+            debugger.halt("DPC_BUF_BUSY_REG read access");
+            return state.hwreg.DPC_BUF_BUSY_REG;
+        case 14:
+            debugger.halt("DPC_PIPE_BUSY_REG read access");
+            return state.hwreg.DPC_PIPE_BUSY_REG;
+        case 15:
+            debugger.halt("DPC_TMEM_REG read access");
+            return state.hwreg.DPC_TMEM_REG;
         default:
             /* unknown register access */
             std::cerr << "RSP: writing unknown Cop0 register ";
             std::cerr << std::dec << r << std::endl;
-            debugger.halted = true;
+            debugger.halt("Unknown Cop0 register read access");
             break;
     }
     return 0;
@@ -206,7 +214,7 @@ static void writeCop0Register(u32 r, u32 value) {
             /* unknown register access */
             std::cerr << "RSP: writing unknown Cop0 register ";
             std::cerr << std::dec << r << std::endl;
-            debugger.halted = true;
+            debugger.halt("Unknown Cop0 register write access");
             break;
     }
 }
@@ -271,7 +279,7 @@ bool eval(u64 addr, bool delaySlot)
                     state.rspreg.gpr[rd] = state.rspreg.gpr[rs] & state.rspreg.gpr[rt];
                 })
                 case BREAK: {
-                    debugger.halted = true;
+                    debugger.halt("RSP BREAK instruction");;
                     if (state.hwreg.SP_STATUS_REG & SP_STATUS_INTR_BREAK) {
                         set_MI_INTR_REG(MI_INTR_SP);
                     }

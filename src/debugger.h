@@ -17,6 +17,12 @@ public:
 
     /* Stop condition */
     bool halted;
+    std::string haltedReason;
+
+    void halt(std::string reason) {
+        haltedReason = reason;
+        halted = true;
+    }
 
     /* Symbols. */
     void addSymbol(u64 address, std::string name) {

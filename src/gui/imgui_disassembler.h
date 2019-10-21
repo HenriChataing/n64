@@ -472,6 +472,13 @@ struct Disassembler
                 }
             }
             ImGui::PopItemWidth();
+            ImGui::SameLine();
+            if (ImGui::Button("Jump to pc"))
+            {
+                size_t addr_mask = (1u << AddrSize) - 1u;
+                GotoAddr = program_counter & addr_mask;
+                HighlightMin = HighlightMax = (size_t)-1;
+            }
 
             if (GotoAddr != (size_t)-1)
             {
