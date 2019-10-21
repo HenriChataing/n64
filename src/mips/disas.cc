@@ -36,9 +36,15 @@ const char *Cop0RegisterNames[32] = {
 /**
  * @brief Return the standardized name for a general purpose register.
  */
-char const *getRegisterName(uint reg)
-{
+char const *getRegisterName(uint reg) {
     return (reg > 31) ? "?" : RegisterNames[reg];
+}
+
+/**
+ * @brief Return the standardized name for a coprocessor 0 register.
+ */
+char const *getCop0RegisterName(uint reg) {
+    return (reg > 31) ? "?" : Cop0RegisterNames[reg];
 }
 
 #define Unknown(instr) \
@@ -199,6 +205,10 @@ char const *getRegisterName(uint reg)
     buffer << getRegisterName(rt); \
     buffer << ", cr" << std::dec << rd;
 
+#define RType_Rt_C0Rd(rd, rs, rt, shamnt) \
+    buffer << getRegisterName(rt); \
+    buffer << ", " << getCop0RegisterName(rd);
+
 /**
  * @brief Return the string representation for a format.
  */
@@ -250,10 +260,47 @@ static inline char const *getFmtName(u32 fmt) {
     buffer << ", f" << fs; \
     buffer << ", f" << ft;
 
-static void disasCop0(std::ostringstream &buffer, u32 instr)
+static void disasCop0(std::ostringstream &buffer, u64 pc, u32 instr)
 {
-    buffer << "cop0 $" << std::hex;
-    buffer << std::setfill('0') << std::setw(8) << instr;
+    using namespace Mips::Opcode;
+    using namespace Mips::Cop0;
+    using namespace Mips::Copz;
+
+    if (instr & Mips::COFUN) {
+        switch (Mips::getFunct(instr)) {
+            SType(Cop0::TLBR, "tlbr")
+            SType(Cop0::TLBWI, "tlbwi")
+            SType(Cop0::TLBWR, "tlbwr")
+            SType(Cop0::TLBP, "tlbp")
+            SType(Cop0::ERET, "eret")
+            default:
+                Unknown(instr);
+                break;
+        }
+    } else {
+        switch (Mips::getRs(instr)) {
+            RType(MF, "mfc0", instr, Rt_C0Rd)
+            RType(DMF, "dmfc0", instr, Rt_C0Rd)
+            RType(MT, "mtc0", instr, Rt_C0Rd)
+            RType(DMT, "dmtc0", instr, Rt_C0Rd)
+            RType(Copz::CF, "cfc0", instr, Rt_C0Rd)
+            RType(CT, "ctc0", instr, Rt_C0Rd)
+            case BC:
+                switch (Mips::getRt(instr)) {
+                    IType(BCF, "bc0f", instr, Tg)
+                    IType(BCT, "bc0t", instr, Tg)
+                    IType(BCFL, "bc0fl", instr, Tg)
+                    IType(BCTL, "bc0tl", instr, Tg)
+                    default:
+                        Unknown(instr);
+                        break;
+                }
+                break;
+            default:
+                Unknown(instr);
+                break;
+        }
+    }
 }
 
 static void disasCop1(std::ostringstream &buffer, u32 instr)
@@ -412,6 +459,10 @@ std::string disas(u64 pc, u32 instr)
         IType(BNEL, "bnel", instr, Rs_Rt_Tg)
         SType(CACHE, "cache")
 
+        case COP0:
+            disasCop0(buffer, pc, instr);
+            break;
+
 #define COPz(z) \
         case COP##z: \
             if (instr & Mips::COFUN) { \
@@ -442,7 +493,6 @@ std::string disas(u64 pc, u32 instr)
             } \
             break;
 
-        COPz(0)
         COPz(1)
         COPz(2)
         COPz(3)

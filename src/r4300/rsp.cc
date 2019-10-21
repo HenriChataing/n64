@@ -271,6 +271,7 @@ bool eval(u64 addr, bool delaySlot)
                     state.rspreg.gpr[rd] = state.rspreg.gpr[rs] & state.rspreg.gpr[rt];
                 })
                 case BREAK: {
+                    debugger.halted = true;
                     if (state.hwreg.SP_STATUS_REG & SP_STATUS_INTR_BREAK) {
                         set_MI_INTR_REG(MI_INTR_SP);
                     }
