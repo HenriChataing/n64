@@ -88,6 +88,35 @@ static void displayCpuCp0Registers(void) {
     #undef Print2Regs
 }
 
+static void displayCpuCp1Registers(void) {
+    ImGui::Text("fcr0     %08" PRIx32 "  fcr31    %08" PRIx32 "\n",
+                R4300::state.cp1reg.fcr0, R4300::state.cp1reg.fcr31);
+
+    if (R4300::FR()) {
+        for (unsigned int nr = 0; nr < 32; nr+=2) {
+            ImGui::Text("fgr%-2u    %016" PRIx64 "  fgr%-2u    %016" PRIx64 "\n",
+                        nr, R4300::state.cp1reg.fpr_d[nr]->l,
+                        nr + 1, R4300::state.cp1reg.fpr_d[nr + 1]->l);
+        }
+        for (unsigned int nr = 0; nr < 32; nr++) {
+            ImGui::Text("fpr%-2u    d:%f s:%f\n",
+                        nr, R4300::state.cp1reg.fpr_d[nr]->d,
+                        R4300::state.cp1reg.fpr_s[nr]->s);
+        }
+    } else {
+        for (unsigned int nr = 0; nr < 32; nr+=2) {
+            ImGui::Text("fgr%-2u    %08" PRIx32 "  fgr%-2u    %08" PRIx32 "\n",
+                        nr, R4300::state.cp1reg.fpr_s[nr]->w,
+                        nr + 1, R4300::state.cp1reg.fpr_s[nr + 1]->w);
+        }
+        for (unsigned int nr = 0; nr < 32; nr+=2) {
+            ImGui::Text("fpr%-2u    d:%f s:%f\n",
+                        nr, R4300::state.cp1reg.fpr_d[nr]->d,
+                        R4300::state.cp1reg.fpr_s[nr]->s);
+        }
+    }
+}
+
 static void displayHWRegisters(void) {
     if (ImGui::BeginTabBar("HWRegisters", 0))
     {
@@ -394,6 +423,10 @@ int startGui()
                     displayCpuCp0Registers();
                     ImGui::EndTabItem();
                 }
+                if (ImGui::BeginTabItem("Cpu::Cp1")) {
+                    displayCpuCp1Registers();
+                    ImGui::EndTabItem();
+                }
                 if (ImGui::BeginTabItem("Rsp")) {
                     ImGui::Text("pc       %016" PRIx64 "\n", R4300::state.rspreg.pc);
                     for (unsigned int i = 0; i < 32; i+=2) {
@@ -423,16 +456,16 @@ int startGui()
         {
             ImGui::Begin("Disassembler");
             if (ImGui::BeginTabBar("Memory", 0)) {
-                if (ImGui::BeginTabItem("IMEM")) {
-                    imemDisassembler.DrawContents(
-                        R4300::state.imem, sizeof(R4300::state.imem),
-                        R4300::state.rspreg.pc);
-                    ImGui::EndTabItem();
-                }
                 if (ImGui::BeginTabItem("DRAM")) {
                     dramDisassembler.DrawContents(
                         R4300::state.dram, sizeof(R4300::state.dram),
                         R4300::state.reg.pc);
+                    ImGui::EndTabItem();
+                }
+                if (ImGui::BeginTabItem("IMEM")) {
+                    imemDisassembler.DrawContents(
+                        R4300::state.imem, sizeof(R4300::state.imem),
+                        R4300::state.rspreg.pc);
                     ImGui::EndTabItem();
                 }
                 ImGui::EndTabBar();
