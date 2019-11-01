@@ -105,14 +105,12 @@ static void displayCpuCp1Registers(void) {
         }
     } else {
         for (unsigned int nr = 0; nr < 32; nr+=2) {
-            ImGui::Text("fgr%-2u    %08" PRIx32 "  fgr%-2u    %08" PRIx32 "\n",
+            ImGui::Text("fgr%-2u    %08" PRIx32 "  fgr%-2u    %08" PRIx32
+                        "    s:%f    d:%f\n",
                         nr, R4300::state.cp1reg.fpr_s[nr]->w,
-                        nr + 1, R4300::state.cp1reg.fpr_s[nr + 1]->w);
-        }
-        for (unsigned int nr = 0; nr < 32; nr+=2) {
-            ImGui::Text("fpr%-2u    d:%f s:%f\n",
-                        nr, R4300::state.cp1reg.fpr_d[nr]->d,
-                        R4300::state.cp1reg.fpr_s[nr]->s);
+                        nr + 1, R4300::state.cp1reg.fpr_s[nr + 1]->w,
+                        R4300::state.cp1reg.fpr_s[nr]->s,
+                        R4300::state.cp1reg.fpr_d[nr]->d);
         }
     }
 }
