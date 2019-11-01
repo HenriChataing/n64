@@ -423,11 +423,17 @@ public:
                 if ((imm & STATUS_FR) != (state.cp0reg.sr & STATUS_FR)) {
                     state.cp1reg.setFprAliases((imm & STATUS_FR) != 0);
                 }
+                if (imm & STATUS_RE) {
+                    debugger.halt("RE bit set");
+                }
                 state.cp0reg.sr = imm;
                 // @todo check written value and consequences
                 break;
             case Cause:
                 logWrite("COP0_Cause", imm);
+                state.cp0reg.cause =
+                    (state.cp0reg.cause & ~CAUSE_IP_MASK) |
+                    (imm & CAUSE_IP_MASK);
                 break;
             case EPC:
                 logWrite("COP0_EPC", imm);

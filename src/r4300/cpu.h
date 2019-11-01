@@ -59,6 +59,7 @@ struct cp0reg {
 #define STATUS_CU1              (UINT32_C(1) << 29)
 #define STATUS_CU0              (UINT32_C(1) << 28)
 #define STATUS_FR               (UINT32_C(1) << 26)
+#define STATUS_RE               (UINT32_C(1) << 25)
 #define STATUS_BEV              (UINT32_C(1) << 22)
 #define STATUS_ERL              (UINT32_C(1) << 2)
 #define STATUS_EXL              (UINT32_C(1) << 1)
