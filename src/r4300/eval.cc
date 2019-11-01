@@ -833,39 +833,19 @@ bool eval(u64 vAddr, bool delaySlot)
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr, val;
 
+            checkCop1Usable();
             checkAddressAlignment(vAddr, 4, delaySlot, false, true);
             exn = translateAddress(vAddr, &pAddr, false);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, true);
             if (!state.physmem.load(4, pAddr, &val))
                 returnException(BusError, vAddr, delaySlot, false, true);
-            cop[1]->write(4, rt, sign_extend<u64, u32>(val), false);
+            state.cp1reg.fpr_s[rt]->w = val;
         })
-        IType(LWC2, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr, val;
-
-            checkAddressAlignment(vAddr, 4, delaySlot, false, true);
-            exn = translateAddress(vAddr, &pAddr, false);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, true);
-            if (!state.physmem.load(4, pAddr, &val))
-                returnException(BusError, vAddr, delaySlot, false, true);
-            cop[2]->write(4, rt, sign_extend<u64, u32>(val), false);
-        })
-        IType(LWC3, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr, val;
-
-            checkAddressAlignment(vAddr, 4, delaySlot, false, true);
-            exn = translateAddress(vAddr, &pAddr, false);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, true);
-            if (!state.physmem.load(4, pAddr, &val))
-                returnException(BusError, vAddr, delaySlot, false, true);
-            cop[3]->write(4, rt, sign_extend<u64, u32>(val), false);
-        })
+        IType(LWC2, instr, sign_extend, { throw "Unsupported"; })
+        IType(LWC3, instr, sign_extend, { throw "Unsupported"; })
         IType(LWL, instr, sign_extend, {
+            // debugger.halt("LWL instruction");
             // @todo only BigEndianMem & !ReverseEndian for now
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;
@@ -893,6 +873,7 @@ bool eval(u64 vAddr, bool delaySlot)
             state.reg.gpr[rt] = sign_extend<u64, u32>(val);
         })
         IType(LWR, instr, sign_extend, {
+            // debugger.halt("LWR instruction");
             // @todo only BigEndianMem & !ReverseEndian for now
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;
@@ -994,36 +975,18 @@ bool eval(u64 vAddr, bool delaySlot)
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;
 
+            checkCop1Usable();
             checkAddressAlignment(vAddr, 4, delaySlot, false, false);
             exn = translateAddress(vAddr, &pAddr, true);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, false);
-            if (!state.physmem.store(4, pAddr, cop[1]->read(4, rt, false)))
+            if (!state.physmem.store(4, pAddr, state.cp1reg.fpr_s[rt]->w))
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
-        IType(SWC2, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-
-            checkAddressAlignment(vAddr, 4, delaySlot, false, false);
-            exn = translateAddress(vAddr, &pAddr, true);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, false);
-            if (!state.physmem.store(4, pAddr, cop[2]->read(4, rt, false)))
-                returnException(BusError, vAddr, delaySlot, false, false);
-        })
-        IType(SWC3, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-
-            checkAddressAlignment(vAddr, 4, delaySlot, false, false);
-            exn = translateAddress(vAddr, &pAddr, true);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, false);
-            if (!state.physmem.store(4, pAddr, cop[3]->read(4, rt, false)))
-                returnException(BusError, vAddr, delaySlot, false, false);
-        })
+        IType(SWC2, instr, sign_extend, { throw "Unsupported"; })
+        IType(SWC3, instr, sign_extend, { throw "Unsupported"; })
         IType(SWL, instr, sign_extend, {
+            // debugger.halt("SWL instruction");
             // @todo only BigEndianMem & !ReverseEndian for now
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;
@@ -1045,6 +1008,7 @@ bool eval(u64 vAddr, bool delaySlot)
             }
         })
         IType(SWR, instr, sign_extend, {
+            // debugger.halt("SWR instruction");
             // @todo only BigEndianMem & !ReverseEndian for now
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;

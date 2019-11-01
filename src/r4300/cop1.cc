@@ -3,6 +3,7 @@
 #include <cstring>
 #include <cmath>
 
+#include <debugger.h>
 #include <memory.h>
 #include <mips/asm.h>
 #include <r4300/hw.h>
@@ -93,15 +94,16 @@ bool eval(u32 instr, bool delaySlot)
     switch (Mips::getFmt(instr)) {
         RType(MF, instr, {
             checkCop1Usable();
-            state.reg.gpr[rt] = sign_extend<u64, u32>(state.cp1reg.fpr_s[rs]->w);
+            state.reg.gpr[rt] = sign_extend<u64, u32>(state.cp1reg.fpr_s[rd]->w);
         })
         RType(DMF, instr, {
-            // NB: the instruction puts an undefined value in rs for
+            debugger.halt("DMFC1 instruction");
+            // NB: the instruction puts an undefined value in rd for
             // odd register access. To remove some checks, the instruction
-            // returns the value as if read from the register rt - 1.
+            // returns the value as if read from the register rd - 1.
             // See \ref cp1reg::setFprAliases for details.
             checkCop1Usable();
-            state.reg.gpr[rt] = state.cp1reg.fpr_d[rs]->l;
+            state.reg.gpr[rt] = state.cp1reg.fpr_d[rd]->l;
         })
         RType(Mips::Copz::CF, instr, {
             checkCop1Usable();
@@ -114,15 +116,16 @@ bool eval(u32 instr, bool delaySlot)
         })
         RType(MT, instr, {
             checkCop1Usable();
-            state.cp1reg.fpr_s[rs]->w = state.reg.gpr[rt];
+            state.cp1reg.fpr_s[rd]->w = state.reg.gpr[rt];
         })
         RType(DMT, instr, {
+            debugger.halt("DMTC1 instruction");
             // NB: the instruction presents an undefined behaviour for
             // odd register access. To remove some checks, the instruction
             // has for side effect to write as if the register index
             // were rt - 1. See \ref cp1reg::setFprAliases for details.
             checkCop1Usable();
-            state.cp1reg.fpr_d[rs]->l = state.reg.gpr[rt];
+            state.cp1reg.fpr_d[rd]->l = state.reg.gpr[rt];
         })
         RType(CT, instr, {
             checkCop1Usable();
@@ -141,6 +144,12 @@ bool eval(u32 instr, bool delaySlot)
                     // TODO overflow
                     state.cp1reg.fpr_s[fd]->s =
                         state.cp1reg.fpr_s[fs]->s +
+                        state.cp1reg.fpr_s[ft]->s;
+                })
+                FRType(SUB, instr, {
+                    // TODO overflow
+                    state.cp1reg.fpr_s[fd]->s =
+                        state.cp1reg.fpr_s[fs]->s -
                         state.cp1reg.fpr_s[ft]->s;
                 })
                 FRType(MUL, instr, {
@@ -188,6 +197,7 @@ bool eval(u32 instr, bool delaySlot)
                 case CNGE:
                 case CLE:
                 FRType(CNGT, instr, {
+                    debugger.halt("C1::COMP instruction");
                     float s = state.cp1reg.fpr_s[fs]->s;
                     float t = state.cp1reg.fpr_s[ft]->s;
                     u32 funct = Mips::getFunct(instr);
@@ -283,6 +293,7 @@ bool eval(u32 instr, bool delaySlot)
         case Mips::Copz::BC:
             switch (Mips::getRt(instr)) {
                 case Mips::Copz::BCF: {
+                    debugger.halt("C1::BCF instruction");
                     u64 offset = sign_extend<u64, u16>(Mips::getImmediate(instr));
                     if ((state.cp1reg.fcr31 & FCR31_C) == 0) {
                         R4300::Eval::eval(state.reg.pc + 4, true);
@@ -292,6 +303,7 @@ bool eval(u32 instr, bool delaySlot)
                     break;
                 }
                 case Mips::Copz::BCFL: {
+                    debugger.halt("C1::BCFL instruction");
                     u64 offset = sign_extend<u64, u16>(Mips::getImmediate(instr));
                     if (((state.cp1reg.fcr31 & FCR31_C) == 0)) {
                         R4300::Eval::eval(state.reg.pc + 4, true);
@@ -303,6 +315,7 @@ bool eval(u32 instr, bool delaySlot)
                     break;
                 }
                 case Mips::Copz::BCT: {
+                    debugger.halt("C1::BCT instruction");
                     u64 offset = sign_extend<u64, u16>(Mips::getImmediate(instr));
                     if ((state.cp1reg.fcr31 & FCR31_C) != 0) {
                         R4300::Eval::eval(state.reg.pc + 4, true);
@@ -312,6 +325,7 @@ bool eval(u32 instr, bool delaySlot)
                     break;
                 }
                 case Mips::Copz::BCTL: {
+                    debugger.halt("C1::BCTL instruction");
                     u64 offset = sign_extend<u64, u16>(Mips::getImmediate(instr));
                     if (((state.cp1reg.fcr31 & FCR31_C) != 0)) {
                         R4300::Eval::eval(state.reg.pc + 4, true);
@@ -336,56 +350,5 @@ bool eval(u32 instr, bool delaySlot)
 }
 
 }; /* Cop1 */
-
-#if 0
-    valueFPR(fpr, fmt) {
-        if SR 26 = 1 then /* 64-bit wide FGRs */
-            case fmt of
-                S, W:
-                    value ← FGR[fpr] 31...0
-                    return
-                D, L:
-                    value ← FGR[fpr]
-                    return
-            endcase
-        elseif fpr0 = 0 then /* valid specifier, 32-bit wide FGRs */
-            case fmt of
-                S, W:
-                    value ← FGR[fpr]
-                    return
-                D, L:
-                    value ← FGR[fpr+1] || FGR[fpr]
-                    return
-            endcase
-        else /* undefined result for odd 32-bit reg #s */
-            value ← undefined
-        endif
-    }
-
-    StoreFPR(fpr, fmt, value)
-        if SR 26 = 1 then /* 64-bit wide FGRs */
-            case fmt of
-            S, W:
-                FGR[fpr] ← undefined 32 || value
-                return
-            D, L:
-                FGR[fpr] ← value
-                return
-            endcase
-        elseif fpr 0 = 0 then /* valid specifier, 32-bit wide FGRs */
-            case fmt of
-            S, W:
-                FGR[fpr+1] ← undefined
-                FGR[fpr] ← value
-                return
-            D, L:
-                FGR[fpr+1] ← value 63...32
-                FGR[fpr] ← value 31...0
-                return
-            endcase
-        else /* undefined result for odd 32-bit reg #s */
-            undefined_result
-        endif
-#endif
 
 }; /* namespace R4300 */
