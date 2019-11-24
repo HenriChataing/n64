@@ -154,8 +154,8 @@ static void displayHWRegisters(void) {
                 R4300::state.hwreg.SP_STATUS_REG);
             ImGui::Text("SP_SEMAPHORE_REG       %08" PRIx32 "\n",
                 R4300::state.hwreg.SP_SEMAPHORE_REG);
-            ImGui::Text("SP_PC_REG              %08" PRIx32 "\n",
-                R4300::state.hwreg.SP_PC_REG);
+            ImGui::Text("SP_PC_REG              %08" PRIx64 "\n",
+                R4300::state.rspreg.pc);
             ImGui::Text("SP_IBIST_REG           %08" PRIx32 "\n",
                 R4300::state.hwreg.SP_IBIST_REG);
             ImGui::EndTabItem();

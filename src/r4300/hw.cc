@@ -570,9 +570,8 @@ bool read(uint bytes, u64 addr, u64 *value)
             *value = read_SP_SEMAPHORE_REG();
             return true;
         case SP_PC_REG:
-            logRead(debugger.verbose.SP, "SP_PC_REG",
-                    state.hwreg.SP_PC_REG);
-            *value = state.hwreg.SP_PC_REG;
+            logRead(debugger.verbose.SP, "SP_PC_REG", state.rspreg.pc);
+            *value = state.rspreg.pc;
             return true;
         case SP_IBIST_REG:
             logRead(debugger.verbose.SP, "SP_IBIST_REG",
@@ -624,7 +623,7 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
         case SP_PC_REG:
             logWrite(debugger.verbose.SP, "SP_PC_REG", value);
-            state.hwreg.SP_PC_REG = value;
+            state.rspreg.pc = value & 0xffflu;
             return true;
         case SP_IBIST_REG:
             logWrite(debugger.verbose.SP, "SP_IBIST_REG", value);

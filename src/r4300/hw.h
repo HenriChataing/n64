@@ -25,7 +25,6 @@ struct hwreg {
     u32 SP_WR_LEN_REG;
     u32 SP_STATUS_REG;
     u32 SP_SEMAPHORE_REG;
-    u32 SP_PC_REG;
     u32 SP_IBIST_REG;
 
     u32 DPC_START_REG;
