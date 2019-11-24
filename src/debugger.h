@@ -24,6 +24,10 @@ public:
         halted = true;
     }
 
+    void warn(std::string msg) {
+        (void)msg;
+    }
+
     /* Symbols. */
     void addSymbol(u64 address, std::string name) {
         _symbols[address] = name;
