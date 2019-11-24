@@ -46,6 +46,9 @@
 // - Using InputText() is awkward and maybe overkill here, consider implementing something custom.
 
 #pragma once
+#include <iomanip>
+#include <iostream>
+#include <fstream>
 #include <stdio.h>      // sprintf, scanf
 #include <stdint.h>     // uint8_t, etc.
 
@@ -478,6 +481,24 @@ struct Disassembler
                 size_t addr_mask = (1u << AddrSize) - 1u;
                 GotoAddr = program_counter & addr_mask;
                 HighlightMin = HighlightMax = (size_t)-1;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Export"))
+            {
+                std::ofstream os;
+                u32 *mem_data_u32_ptr = (u32 *)mem_data_void_ptr;
+                os.open("a.S");
+                for (size_t a = 0; a < mem_size; a += 4) {
+                    u32 instr = __builtin_bswap32(mem_data_u32_ptr[a / 4]);
+                    os << std::hex << std::setfill(' ') << std::right;
+                    os << std::setw(16) << a << "    ";
+                    os << std::hex << std::setfill('0');
+                    os << std::setw(8) << instr << "    ";
+                    os << std::setfill(' ');
+                    os << Mips::disas(a, instr);
+                    os << std::endl;
+                }
+                os.close();
             }
 
             if (GotoAddr != (size_t)-1)
