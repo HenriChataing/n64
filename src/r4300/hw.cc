@@ -1032,7 +1032,7 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
         case VI_CURRENT_REG:
             logWrite(debugger.verbose.VI, "VI_CURRENT_REG", value);
-            state.hwreg.VI_CURRENT_REG = value;
+            clear_MI_INTR_REG(MI_INTR_VI);
             return true;
         case VI_BURST_REG:
             logWrite(debugger.verbose.VI, "VI_BURST_REG", value);
