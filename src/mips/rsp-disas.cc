@@ -7,6 +7,7 @@
 #include "asm.h"
 
 namespace Mips {
+namespace RSP {
 
 const char *colorGreen = "\x1b[32;1m";
 const char *colorReset = "\x1b[0m";
@@ -23,28 +24,20 @@ const char *RegisterNames[32] = {
 };
 
 const char *Cop0RegisterNames[32] = {
-    "index",    "random",   "entrylo0", "entrylo1",
-    "context",  "pagemask", "wired",    "$7",
-    "badvaddr", "count",    "entryhi",  "compare",
-    "sr",       "cause",    "epc",      "prid",
-    "config",   "lladdr",   "watchlo",  "watchhi",
-    "xcontext", "$21",      "$22",      "$23",
-    "$24",      "$25",      "perr",     "cacheerr",
-    "taglo",    "taghi",    "errorepc", "$31",
+    "dma_cache",    "dma_dram",     "dma_rd_len",   "dma_wr_len",
+    "sp_status",    "dma_full",     "dma_busy",     "sp_reserved",
+    "cmd_start",    "cmd_end",      "cmd_current",  "cmd_status",
+    "cmd_clock",    "cmd_busy",     "cmd_pipe_busy","cmd_tmem_busy",
 };
 
-/**
- * @brief Return the standardized name for a general purpose register.
- */
+/** @brief Return the standardized name for a general purpose register. */
 char const *getRegisterName(uint reg) {
     return (reg > 31) ? "?" : RegisterNames[reg];
 }
 
-/**
- * @brief Return the standardized name for a coprocessor 0 register.
- */
+/** @brief Return the standardized name for a coprocessor 0 register. */
 char const *getCop0RegisterName(uint reg) {
-    return (reg > 31) ? "?" : Cop0RegisterNames[reg];
+    return (reg > 15) ? "?" : Cop0RegisterNames[reg];
 }
 
 #define Unknown(instr) \
@@ -547,4 +540,5 @@ std::string disas(u64 pc, u32 instr)
     return buffer.str();
 }
 
+}; /* namespace RSP */
 }; /* namespace Mips */

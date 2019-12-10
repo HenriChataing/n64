@@ -183,32 +183,11 @@ struct Disassembler
         s.WindowWidth = s.PosInstrEnd + style.ScrollbarSize + style.WindowPadding.x * 2 + s.GlyphWidth;
     }
 
-    // Standalone Memory Editor window
-    void DrawWindow(const char* title, void* mem_data, size_t mem_size, size_t base_display_addr = 0x0000)
-    {
-        Sizes s;
-        CalcSizes(s, mem_size, base_display_addr);
-        ImGui::SetNextWindowSizeConstraints(
-            ImVec2(0.0f, 0.0f), ImVec2(s.WindowWidth, FLT_MAX));
-
-        Open = true;
-        if (ImGui::Begin(title, &Open, ImGuiWindowFlags_NoScrollbar))
-        {
-            if (ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows) &&
-                ImGui::IsMouseClicked(1))
-                ImGui::OpenPopup("context");
-            DrawContents(mem_data, mem_size, base_display_addr);
-            if (ContentsWidthChanged)
-            {
-                CalcSizes(s, mem_size, base_display_addr);
-                ImGui::SetWindowSize(ImVec2(s.WindowWidth, ImGui::GetWindowSize().y));
-            }
-        }
-        ImGui::End();
-    }
-
     // Memory Editor contents only
-    void DrawContents(void* mem_data_void_ptr, size_t mem_size,
+    void DrawContents(
+        std::string (*disas)(u64 pc, u32 instr),
+        void* mem_data_void_ptr,
+        size_t mem_size,
         uint64_t program_counter,
         size_t base_display_addr = 0x0000
         )
@@ -423,7 +402,7 @@ struct Disassembler
             ImGui::SameLine(s.PosInstrStart);
             addr = line_i * Cols;
             u32 instr = __builtin_bswap32(*(u32 *)&mem_data[addr]);
-            std::string instr_str = Mips::disas(base_display_addr + addr, instr);
+            std::string instr_str = disas(base_display_addr + addr, instr);
             ImGui::Text("%s", instr_str.c_str());
         }
         clipper.End();
@@ -495,7 +474,7 @@ struct Disassembler
                     os << std::hex << std::setfill('0');
                     os << std::setw(8) << instr << "    ";
                     os << std::setfill(' ');
-                    os << Mips::disas(a, instr);
+                    os << disas(a, instr);
                     os << std::endl;
                 }
                 os.close();

@@ -159,7 +159,7 @@ bool printRegisters(Shell &sh, std::vector<std::string> &args)
             cout << endl;
 
         u64 reg = R4300::state.reg.gpr[i];
-        cout << setw(6) << setfill(' ') << left << Mips::getRegisterName(i);
+        cout << setw(6) << setfill(' ') << left << Mips::CPU::getRegisterName(i);
         cout << setw(16) << setfill('0') << right << hex << reg << "    ";
     }
     cout << endl;
@@ -210,7 +210,7 @@ bool printRspRegisters(Shell &sh, std::vector<std::string> &args)
             cout << endl;
 
         u64 reg = R4300::state.rspreg.gpr[i];
-        cout << setw(6) << setfill(' ') << left << Mips::getRegisterName(i);
+        cout << setw(6) << setfill(' ') << left << Mips::RSP::getRegisterName(i);
         cout << setw(16) << setfill('0') << right << hex << reg << "    ";
     }
     cout << endl;
@@ -226,7 +226,7 @@ bool printRspHist(Shell &sh, std::vector<std::string> &args)
         std::cout << std::hex << std::setfill('0');
         std::cout << std::setw(8) << entry.second << "    ";
         std::cout << std::setfill(' ');
-        std::cout << Mips::disas(entry.first, entry.second);
+        std::cout << Mips::CPU::disas(entry.first, entry.second);
         std::cout << std::endl;
     }
     return false;
@@ -241,7 +241,7 @@ void doPrintCpuHist()
         std::cout << std::hex << std::setfill('0');
         std::cout << std::setw(8) << entry.second << "    ";
         std::cout << std::setfill(' ');
-        std::cout << Mips::disas(entry.first, entry.second);
+        std::cout << Mips::CPU::disas(entry.first, entry.second);
         std::cout << std::endl;
     }
 }
@@ -494,7 +494,7 @@ bool doDisas(Shell &sh, std::vector<std::string> &args)
         std::cout << std::hex << std::setfill('0');
         std::cout << std::setw(8) << instr << "    ";
         std::cout << std::setfill(' ');
-        std::cout << Mips::disas(vAddr, instr);
+        std::cout << Mips::CPU::disas(vAddr, instr);
         std::cout << std::endl;
     }
 

@@ -51,7 +51,7 @@ struct Trace
     }
 
     // Trace contents only
-    void DrawContents()
+    void DrawContents(std::string (*disas)(u64 pc, u32 instr))
     {
         Sizes s;
         CalcSizes(s);
@@ -104,7 +104,7 @@ struct Trace
 
             // Draw disassembled instruction
             ImGui::SameLine(s.PosInstrStart);
-            std::string instr_str = Mips::disas(entry.first, entry.second);
+            std::string instr_str = disas(entry.first, entry.second);
             ImGui::Text("%s", instr_str.c_str());
         }
 

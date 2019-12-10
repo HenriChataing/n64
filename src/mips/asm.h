@@ -299,14 +299,22 @@ static inline u32 getFunct(u32 instr) {
     return instr & 0x3flu;
 }
 
-/**
- * @brief Pretty print an instruction.
- */
-std::string disas(u64 pc, u32 instr);
+namespace CPU {
 
-/**
- * @brief Return the standardized name for a general purpose register.
- */
-char const *getRegisterName(u32 reg);
+/** @brief Pretty print an instruction. */
+std::string disas(u64 pc, u32 instr);
+/** @brief Return the standardized name for a general purpose register. */
+char const *getRegisterName(uint reg);
+
+};
+
+namespace RSP {
+
+/** @brief Pretty print an instruction. */
+std::string disas(u64 pc, u32 instr);
+/** @brief Return the standardized name for a general purpose register. */
+char const *getRegisterName(uint reg);
+
+};
 
 };

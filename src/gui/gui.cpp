@@ -412,8 +412,8 @@ int startGui()
                     ImGui::Text("pc       %016" PRIx64 "\n", R4300::state.reg.pc);
                     for (unsigned int i = 0; i < 32; i+=2) {
                         ImGui::Text("%-8.8s %016" PRIx64 "  %-8.8s %016" PRIx64 "\n",
-                            Mips::getRegisterName(i), R4300::state.reg.gpr[i],
-                            Mips::getRegisterName(i + 1), R4300::state.reg.gpr[i + 1]);
+                            Mips::CPU::getRegisterName(i), R4300::state.reg.gpr[i],
+                            Mips::CPU::getRegisterName(i + 1), R4300::state.reg.gpr[i + 1]);
                     }
                     ImGui::EndTabItem();
                 }
@@ -429,8 +429,8 @@ int startGui()
                     ImGui::Text("pc       %016" PRIx64 "\n", R4300::state.rspreg.pc);
                     for (unsigned int i = 0; i < 32; i+=2) {
                         ImGui::Text("%-8.8s %016" PRIx64 "  %-8.8s %016" PRIx64 "\n",
-                            Mips::getRegisterName(i), R4300::state.rspreg.gpr[i],
-                            Mips::getRegisterName(i + 1), R4300::state.rspreg.gpr[i + 1]);
+                            Mips::CPU::getRegisterName(i), R4300::state.rspreg.gpr[i],
+                            Mips::CPU::getRegisterName(i + 1), R4300::state.rspreg.gpr[i + 1]);
                     }
                     ImGui::EndTabItem();
                 }
@@ -456,12 +456,14 @@ int startGui()
             if (ImGui::BeginTabBar("Memory", 0)) {
                 if (ImGui::BeginTabItem("DRAM")) {
                     dramDisassembler.DrawContents(
+                        Mips::CPU::disas,
                         R4300::state.dram, sizeof(R4300::state.dram),
                         R4300::state.reg.pc);
                     ImGui::EndTabItem();
                 }
                 if (ImGui::BeginTabItem("IMEM")) {
                     imemDisassembler.DrawContents(
+                        Mips::RSP::disas,
                         R4300::state.imem, sizeof(R4300::state.imem),
                         R4300::state.rspreg.pc);
                     ImGui::EndTabItem();
@@ -482,7 +484,7 @@ int startGui()
             if (ImGui::BeginTabBar("Trace", 0)) {
                 if (ImGui::BeginTabItem("Cpu")) {
                     if (debugger.halted) {
-                        cpuTrace.DrawContents();
+                        cpuTrace.DrawContents(Mips::CPU::disas);
                     } else {
                         ImGui::Text("Cpu is running...");
                     }
@@ -490,7 +492,7 @@ int startGui()
                 }
                 if (ImGui::BeginTabItem("Rsp")) {
                     if (debugger.halted) {
-                        rspTrace.DrawContents();
+                        rspTrace.DrawContents(Mips::RSP::disas);
                     } else {
                         ImGui::Text("Rsp is running...");
                     }

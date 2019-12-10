@@ -26,7 +26,8 @@ SRC       := \
     debugger.cc
 
 SRC       += \
-    mips/disas.cc \
+    mips/cpu-disas.cc \
+    mips/rsp-disas.cc \
     r4300/cpu.cc \
     r4300/state.cc \
     r4300/cop0.cc \
