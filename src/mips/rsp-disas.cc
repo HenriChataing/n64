@@ -216,42 +216,73 @@ static inline char const *getFmtName(u32 fmt) {
 }
 
 /**
- * @brief Preprocessor template for R-type floating point instructions.
+ * @brief Preprocessor template for vector load and store
+ *  instructions.
  *
  * The registers are automatically extracted from the instruction and added
- * as fd, fs, ft in a new scope.
+ * as rd, rs, rt, shamt in a new scope.
+ *
+ * @param opcode            Instruction opcode
+ * @param name              Display name of the instruction
+ * @param instr             Original instruction
+ */
+#define VLSType(opcode, name, instr, offset_shift) \
+    case opcode: { \
+        u32 base = (instr >> 21) & 0x1flu; \
+        u32 vt = (instr >> 16) & 0x1flu; \
+        u32 element = (instr >> 7) & 0xflu; \
+        i32 offset = i7_to_i32(instr & 0x7flu); \
+        buffer << std::setw(8) << std::left << name << " "; \
+        buffer << "v" << std::dec << vt; \
+        buffer << "[" << element << "], "; \
+        buffer << (offset << offset_shift) << "("; \
+        buffer << getRegisterName(base) << ")" << std::endl; \
+        break; \
+    }
+
+static inline u32 getVt(u32 instr) {
+    return (instr >> 16) & 0x1flu;
+}
+
+static inline u32 getVs(u32 instr) {
+    return (instr >> 11) & 0x1flu;
+}
+
+static inline u32 getVd(u32 instr) {
+    return (instr >> 6) & 0x1flu;
+}
+
+/**
+ * @brief Preprocessor template for R-type vector instructions.
+ *
+ * The registers are automatically extracted from the instruction and added
+ * as e, vd, vs, vt in a new scope.
  *
  * @param opcode            Instruction opcode
  * @param name              Display name of the instruction
  * @param instr             Original instruction
  * @param fmt               Formatting to use to print the instruction
  */
-#define FRType(opcode, name, instr, fmt) \
+#define VRType(opcode, name, instr, fmt) \
     case opcode: { \
-        u32 fd = Mips::getFd(instr); \
-        u32 fs = Mips::getFs(instr); \
-        u32 ft = Mips::getFt(instr); \
-        (void)fd; (void)fs; (void)ft; \
-        std::string nameFmt = name; \
-        nameFmt += "."; \
-        nameFmt += getFmtName(Mips::getFmt(instr)); \
-        buffer << std::setw(8) << std::left << nameFmt << " "; \
-        FRType_##fmt(fd, fs, ft); \
+        u32 vd = getVd(instr); \
+        u32 vs = getVs(instr); \
+        u32 vt = getVt(instr); \
+        u32 e = (instr >> 21) & UINT32_C(0xf); \
+        (void)vd; (void)vs; (void)vt; (void)e; \
+        buffer << std::setw(8) << std::left << name << " "; \
+        VRType_##fmt(vd, vs, vt, e); \
         break; \
     }
 
-#define FRType_Fd_Fs(fd, fs, ft) \
-    buffer << "f" << std::dec << fd; \
-    buffer << ", f" << fs;
+#define VRType_Vd_Vs(vd, vs, vt, e) \
+    buffer << "v" << std::dec << vd; \
+    buffer << ", v" << vs << "[" << e << "]";
 
-#define FRType_Fs_Ft(fd, fs, ft) \
-    buffer << "f" << std::dec << fs; \
-    buffer << ", f" << ft;
-
-#define FRType_Fd_Fs_Ft(fd, fs, ft) \
-    buffer << "f" << std::dec << fd; \
-    buffer << ", f" << fs; \
-    buffer << ", f" << ft;
+#define VRType_Vd_Vs_Vt(vd, vs, vt, e) \
+    buffer << "v" << std::dec << vd; \
+    buffer << ", v" << vs; \
+    buffer << ", v" << vt << "[" << e << "]";
 
 static void disasCop0(std::ostringstream &buffer, u64 pc, u32 instr)
 {
@@ -259,95 +290,79 @@ static void disasCop0(std::ostringstream &buffer, u64 pc, u32 instr)
     using namespace Mips::Cop0;
     using namespace Mips::Copz;
 
-    if (instr & Mips::COFUN) {
-        switch (Mips::getFunct(instr)) {
-            SType(Cop0::TLBR, "tlbr")
-            SType(Cop0::TLBWI, "tlbwi")
-            SType(Cop0::TLBWR, "tlbwr")
-            SType(Cop0::TLBP, "tlbp")
-            SType(Cop0::ERET, "eret")
+    switch (Mips::getRs(instr)) {
+        RType(MF, "mfc0", instr, Rt_C0Rd)
+        RType(MT, "mtc0", instr, Rt_C0Rd)
+        default:
+            Unknown(instr);
+            break;
+    }
+}
+
+static void disasCop2(std::ostringstream &buffer, u64 pc, u32 instr)
+{
+    using namespace Mips::Opcode;
+    using namespace Mips::Copz;
+
+    if ((instr & (1lu << 25)) != 0) {
+        switch (instr & 0x3flu) {
+            VRType(0x13, "vabs", instr, Vd_Vs_Vt)
+            VRType(0x10, "vadd", instr, Vd_Vs_Vt)
+            VRType(0x14, "vaddc", instr, Vd_Vs_Vt)
+            VRType(0x28, "vand", instr, Vd_Vs_Vt)
+            VRType(0x25, "vch", instr, Vd_Vs_Vt)
+            VRType(0x24, "vcl", instr, Vd_Vs_Vt)
+            VRType(0x26, "vcr", instr, Vd_Vs_Vt)
+            VRType(0x21, "veq", instr, Vd_Vs_Vt)
+            VRType(0x23, "vge", instr, Vd_Vs_Vt)
+            VRType(0x20, "vlt", instr, Vd_Vs_Vt)
+            VRType(0x08, "vmacf", instr, Vd_Vs_Vt)
+            VRType(0x0b, "vmacq", instr, Vd_Vs_Vt)
+            VRType(0x09, "vmacu", instr, Vd_Vs_Vt)
+            VRType(0x0f, "vmadh", instr, Vd_Vs_Vt)
+            VRType(0x0c, "vmadl", instr, Vd_Vs_Vt)
+            VRType(0x0d, "vmadm", instr, Vd_Vs_Vt)
+            VRType(0x0e, "vmadn", instr, Vd_Vs_Vt)
+            VRType(0x33, "vmov", instr, Vd_Vs_Vt)
+            VRType(0x27, "vmrg", instr, Vd_Vs_Vt)
+            VRType(0x07, "vmudh", instr, Vd_Vs_Vt)
+            VRType(0x04, "vmudl", instr, Vd_Vs_Vt)
+            VRType(0x05, "vmudm", instr, Vd_Vs_Vt)
+            VRType(0x06, "vmudn", instr, Vd_Vs_Vt)
+            VRType(0x00, "vmulf", instr, Vd_Vs_Vt)
+            VRType(0x03, "vmulq", instr, Vd_Vs_Vt)
+            VRType(0x01, "vmulu", instr, Vd_Vs_Vt)
+            VRType(0x29, "vnand", instr, Vd_Vs_Vt)
+            VRType(0x22, "vne", instr, Vd_Vs_Vt)
+            VRType(0x37, "vnop", instr, Vd_Vs_Vt)
+            VRType(0x2b, "vnor", instr, Vd_Vs_Vt)
+            VRType(0x2d, "vnxor", instr, Vd_Vs_Vt)
+            VRType(0x2a, "vor", instr, Vd_Vs_Vt)
+            VRType(0x30, "vrcp", instr, Vd_Vs_Vt)
+            VRType(0x32, "vrcph", instr, Vd_Vs_Vt)
+            VRType(0x31, "vrcpl", instr, Vd_Vs_Vt)
+            VRType(0x0a, "vrndn", instr, Vd_Vs_Vt)
+            VRType(0x02, "vrndp", instr, Vd_Vs_Vt)
+            VRType(0x34, "vrsq", instr, Vd_Vs_Vt)
+            VRType(0x36, "vrsqh", instr, Vd_Vs_Vt)
+            VRType(0x35, "vrsql", instr, Vd_Vs_Vt)
+            VRType(0x1d, "vsar", instr, Vd_Vs_Vt)
+            VRType(0x11, "vsub", instr, Vd_Vs_Vt)
+            VRType(0x15, "vsubc", instr, Vd_Vs_Vt)
+            VRType(0x2c, "vxor", instr, Vd_Vs_Vt)
             default:
                 Unknown(instr);
                 break;
         }
     } else {
         switch (Mips::getRs(instr)) {
-            RType(MF, "mfc0", instr, Rt_C0Rd)
-            RType(DMF, "dmfc0", instr, Rt_C0Rd)
-            RType(MT, "mtc0", instr, Rt_C0Rd)
-            RType(DMT, "dmtc0", instr, Rt_C0Rd)
-            RType(Copz::CF, "cfc0", instr, Rt_C0Rd)
-            RType(CT, "ctc0", instr, Rt_C0Rd)
-            case BC:
-                switch (Mips::getRt(instr)) {
-                    IType(BCF, "bc0f", instr, Tg)
-                    IType(BCT, "bc0t", instr, Tg)
-                    IType(BCFL, "bc0fl", instr, Tg)
-                    IType(BCTL, "bc0tl", instr, Tg)
-                    default:
-                        Unknown(instr);
-                        break;
-                }
-                break;
+            RType(MF, "mfc2", instr, Rt_C0Rd)
+            RType(MT, "mtc2", instr, Rt_C0Rd)
             default:
                 Unknown(instr);
                 break;
         }
     }
-}
-
-static void disasCop1(std::ostringstream &buffer, u32 instr)
-{
-    switch (Mips::getFunct(instr)) {
-        FRType(Cop1::ADD, "add", instr, Fd_Fs_Ft)
-        FRType(Cop1::SUB, "sub", instr, Fd_Fs_Ft)
-        FRType(Cop1::MUL, "mul", instr, Fd_Fs_Ft)
-        FRType(Cop1::DIV, "div", instr, Fd_Fs_Ft)
-        FRType(Cop1::SQRT, "sqrt", instr, Fd_Fs)
-        FRType(Cop1::ABS, "abs", instr, Fd_Fs)
-        FRType(Cop1::MOV, "mov", instr, Fd_Fs)
-        FRType(Cop1::NEG, "neg", instr, Fd_Fs)
-        FRType(Cop1::ROUNDL, "round.l", instr, Fd_Fs)
-        FRType(Cop1::TRUNCL, "trunc.l", instr, Fd_Fs)
-        FRType(Cop1::CEILL, "ceil.l", instr, Fd_Fs)
-        FRType(Cop1::FLOORL, "floor.l", instr, Fd_Fs)
-        FRType(Cop1::ROUNDW, "round.w", instr, Fd_Fs)
-        FRType(Cop1::TRUNCW, "trunc.w", instr, Fd_Fs)
-        FRType(Cop1::CEILW, "ceil.w", instr, Fd_Fs)
-        FRType(Cop1::FLOORW, "floor.w", instr, Fd_Fs)
-        FRType(Cop1::CVTS, "cvt.s", instr, Fd_Fs)
-        FRType(Cop1::CVTD, "cvt.d", instr, Fd_Fs)
-        FRType(Cop1::CVTW, "cvt.w", instr, Fd_Fs)
-        FRType(Cop1::CVTL, "cvt.l", instr, Fd_Fs)
-        FRType(Cop1::CF, "c.f", instr, Fs_Ft)
-        FRType(Cop1::CUN, "c.un", instr, Fs_Ft)
-        FRType(Cop1::CEQ, "c.eq", instr, Fs_Ft)
-        FRType(Cop1::CUEQ, "c.ueq", instr, Fs_Ft)
-        FRType(Cop1::COLT, "c.olt", instr, Fs_Ft)
-        FRType(Cop1::CULT, "c.ult", instr, Fs_Ft)
-        FRType(Cop1::COLE, "c.ole", instr, Fs_Ft)
-        FRType(Cop1::CULE, "c.ule", instr, Fs_Ft)
-        FRType(Cop1::CSF, "c.sf", instr, Fs_Ft)
-        FRType(Cop1::CNGLE, "c.ngle", instr, Fs_Ft)
-        FRType(Cop1::CSEQ, "c.seq", instr, Fs_Ft)
-        FRType(Cop1::CNGL, "c.ngl", instr, Fs_Ft)
-        FRType(Cop1::CLT, "c.lt", instr, Fs_Ft)
-        FRType(Cop1::CNGE, "c.nge", instr, Fs_Ft)
-        FRType(Cop1::CLE, "c.le", instr, Fs_Ft)
-        FRType(Cop1::CNGT, "c.ngt", instr, Fs_Ft)
-    }
-}
-
-static void disasCop2(std::ostringstream &buffer, u32 instr)
-{
-    buffer << std::setw(8) << std::left << "cop2" << std::hex;
-    buffer << " $" << std::setfill('0') << std::setw(8) << instr;
-}
-
-static void disasCop3(std::ostringstream &buffer, u32 instr)
-{
-    buffer << std::setw(8) << std::left << "cop3" << std::hex;
-    buffer << " $" << std::setfill('0') << std::setw(8) << instr;
 }
 
 /**
@@ -376,33 +391,9 @@ std::string disas(u64 pc, u32 instr)
                 RType(ADDU, "addu", instr, Rd_Rs_Rt)
                 RType(AND, "and", instr, Rd_Rs_Rt)
                 SType(BREAK, "break")
-                RType(DADD, "dadd", instr, Rd_Rs_Rt)
-                RType(DADDU, "daddu", instr, Rd_Rs_Rt)
-                RType(DDIV, "ddiv", instr, Rs_Rt)
-                RType(DDIVU, "ddivu", instr, Rs_Rt)
-                RType(DIV, "div", instr, Rs_Rt)
-                RType(DIVU, "divu", instr, Rs_Rt)
-                RType(DMULT, "dmult", instr, Rs_Rt)
-                RType(DMULTU, "dmultu", instr, Rs_Rt)
-                RType(DSLL, "dsll", instr, Rd_Rt_Shamnt)
-                RType(DSLL32, "dsll32", instr, Rd_Rt_Shamnt)
-                RType(DSLLV, "dsllv", instr, Rd_Rt_Rs)
-                RType(DSRA, "dsra", instr, Rd_Rt_Shamnt)
-                RType(DSRA32, "dsra32", instr, Rd_Rt_Shamnt)
-                RType(DSRAV, "dsrav", instr, Rd_Rt_Rs)
-                RType(DSRL, "dsrl", instr, Rd_Rt_Shamnt)
-                RType(DSRL32, "dsrl32", instr, Rd_Rt_Shamnt)
-                RType(DSRLV, "dsrlv", instr, Rd_Rt_Rs)
-                RType(DSUB, "dsub", instr, Rd_Rs_Rt)
-                RType(DSUBU, "dsubu", instr, Rd_Rs_Rt)
                 RType(JALR, "jalr", instr, Rd_Rs)
                 RType(JR, "jr", instr, Rs)
-                RType(MFHI, "mfhi", instr, Rd)
-                RType(MFLO, "mflo", instr, Rd)
-                RType(MTHI, "mthi", instr, Rs)
-                RType(MTLO, "mtlo", instr, Rs)
-                RType(MULT, "mult", instr, Rs_Rt)
-                RType(MULTU, "multu", instr, Rs_Rt)
+                /* MOVN, MOVZ */
                 RType(NOR, "nor", instr, Rd_Rs_Rt)
                 RType(OR, "or", instr, Rd_Rs_Rt)
                 RType(SLL, "sll", instr, Rd_Rt_Shamnt)
@@ -415,7 +406,6 @@ std::string disas(u64 pc, u32 instr)
                 RType(SRLV, "srlv", instr, Rd_Rt_Rs)
                 RType(SUB, "sub", instr, Rd_Rs_Rt)
                 RType(SUBU, "subu", instr, Rd_Rs_Rt)
-                SType(SYSCALL, "syscall")
                 RType(XOR, "xor", instr, Rd_Rs_Rt)
                 default:
                     Unknown(instr);
@@ -426,13 +416,9 @@ std::string disas(u64 pc, u32 instr)
         case REGIMM:
             switch (Mips::getRt(instr)) {
                 IType(BGEZ, "bgez", instr, Rs_Tg)
-                IType(BGEZL, "bgezl", instr, Rs_Tg)
                 IType(BGEZAL, "bgezal", instr, Rs_Tg)
-                IType(BGEZALL, "bgezall", instr, Rs_Tg)
                 IType(BLTZ, "bltz", instr, Rs_Tg)
-                IType(BLTZL, "bltzl", instr, Rs_Tg)
                 IType(BLTZAL, "bltzal", instr, Rs_Tg)
-                IType(BLTZALL, "bltzall", instr, Rs_Tg)
                 default:
                     Unknown(instr);
                     break;
@@ -445,92 +431,67 @@ std::string disas(u64 pc, u32 instr)
         IType(BEQ, "beq", instr, Rs_Rt_Tg)
         IType(BEQL, "beql", instr, Rs_Rt_Tg)
         IType(BGTZ, "bgtz", instr, Rs_Rt_Tg)
-        IType(BGTZL, "bgtzl", instr, Rs_Rt_Tg)
         IType(BLEZ, "blez", instr, Rs_Rt_Tg)
-        IType(BLEZL, "blezl", instr, Rs_Rt_Tg)
         IType(BNE, "bne", instr, Rs_Rt_Tg)
-        IType(BNEL, "bnel", instr, Rs_Rt_Tg)
         SType(CACHE, "cache")
 
         case COP0:
             disasCop0(buffer, pc, instr);
             break;
-
-#define COPz(z) \
-        case COP##z: \
-            if (instr & Mips::COFUN) { \
-                disasCop##z(buffer, instr); \
-                break; \
-            } \
-            switch (Mips::getRs(instr)) { \
-                RType(MF, "mfc" #z, instr, Rt_CRd) \
-                RType(DMF, "dmfc" #z, instr, Rt_CRd) \
-                RType(MT, "mtc" #z, instr, Rt_CRd) \
-                RType(DMT, "dmtc" #z, instr, Rt_CRd) \
-                RType(Copz::CF, "cfc" #z, instr, Rt_CRd) \
-                RType(CT, "ctc" #z, instr, Rt_CRd) \
-                case BC: \
-                    switch (Mips::getRt(instr)) { \
-                        IType(BCF, "bc" #z "f", instr, Tg) \
-                        IType(BCT, "bc" #z "t", instr, Tg) \
-                        IType(BCFL, "bc" #z "fl", instr, Tg) \
-                        IType(BCTL, "bc" #z "tl", instr, Tg) \
-                        default: \
-                            Unknown(instr); \
-                            break; \
-                    } \
-                    break; \
-                default: \
-                    Unknown(instr); \
-                    break; \
-            } \
+        case COP2:
+            disasCop2(buffer, pc, instr);
             break;
 
-        COPz(1)
-        COPz(2)
-        COPz(3)
-
-        IType(DADDI, "daddi", instr, Rt_Rs_Imm)
-        IType(DADDIU, "daddiu", instr, Rt_Rs_XImm)
         JType(J, "j", instr, pc)
         JType(JAL, "jal", instr, pc)
         IType(LB, "lb", instr, Rt_Off_Rs)
         IType(LBU, "lbu", instr, Rt_Off_Rs)
-        IType(LD, "ld", instr, Rt_Off_Rs)
-        IType(LDC1, "ldc1", instr, CRt_Off_Rs)
-        IType(LDC2, "ldc2", instr, CRt_Off_Rs)
-        IType(LDL, "ldl", instr, Rt_Off_Rs)
-        IType(LDR, "ldr", instr, Rt_Off_Rs)
         IType(LH, "lh", instr, Rt_Off_Rs)
         IType(LHU, "lhu", instr, Rt_Off_Rs)
-        IType(LL, "ll", instr, Rt_Off_Rs)
-        IType(LLD, "lld", instr, Rt_Off_Rs)
         IType(LUI, "lui", instr, Rt_XImm)
         IType(LW, "lw", instr, Rt_Off_Rs)
-        IType(LWC1, "lwc1", instr, CRt_Off_Rs)
-        IType(LWC2, "lwc2", instr, CRt_Off_Rs)
-        IType(LWC3, "lwc3", instr, CRt_Off_Rs)
-        IType(LWL, "lwl", instr, Rt_Off_Rs)
-        IType(LWR, "lwr", instr, Rt_Off_Rs)
-        IType(LWU, "lwu", instr, Rt_Off_Rs)
+        case LWC2:
+            switch ((instr >> 11) & 0x1flu) {
+                VLSType(0x0, "lbv", instr, 0)
+                VLSType(0x1, "lsv", instr, 1)
+                VLSType(0x2, "llv", instr, 2)
+                VLSType(0x3, "ldv", instr, 3)
+                VLSType(0x4, "lqv", instr, 4)
+                VLSType(0x5, "lrv", instr, 4)
+                VLSType(0x6, "lpv", instr, 0)
+                VLSType(0x7, "luv", instr, 0)
+                VLSType(0x8, "lhv", instr, 0)
+                VLSType(0x9, "lfv", instr, 0)
+                VLSType(0xb, "ltv", instr, 0)
+                default:
+                    Unknown(instr);
+                    break;
+            }
+            break;
         IType(ORI, "ori", instr, Rt_Rs_XImm)
         IType(SB, "sb", instr, Rt_Off_Rs)
-        IType(SC, "sc", instr, Rt_Off_Rs)
-        IType(SCD, "scd", instr, Rt_Off_Rs)
-        IType(SD, "sd", instr, Rt_Off_Rs)
-        IType(SDC1, "sdc1", instr, CRt_Off_Rs)
-        IType(SDC2, "sdc2", instr, CRt_Off_Rs)
-        IType(SDL, "sdl", instr, Rt_Off_Rs)
-        IType(SDR, "sdr", instr, Rt_Off_Rs)
         IType(SH, "sh", instr, Rt_Off_Rs)
         IType(SLTI, "slti", instr, Rt_Rs_Imm)
         IType(SLTIU, "sltiu", instr, Rt_Rs_Imm)
         IType(SW, "sw", instr, Rt_Off_Rs)
-        IType(SWC1, "swc1", instr, CRt_Off_Rs)
-        IType(SWC2, "swc2", instr, CRt_Off_Rs)
-        IType(SWC3, "swc3", instr, CRt_Off_Rs)
-        IType(SWL, "swl", instr, Rt_Off_Rs)
-        IType(SWR, "swr", instr, Rt_Off_Rs)
+        case SWC2:
+            switch ((instr >> 11) & 0x1flu) {
+                VLSType(0x0, "sbv", instr, 0)
+                VLSType(0x1, "ssv", instr, 1)
+                VLSType(0x2, "slv", instr, 2)
+                VLSType(0x3, "sdv", instr, 3)
+                VLSType(0x4, "sqv", instr, 4)
+                VLSType(0x5, "srv", instr, 4)
+                VLSType(0x6, "spv", instr, 0)
+                VLSType(0x7, "suv", instr, 0)
+                VLSType(0x8, "shv", instr, 0)
+                VLSType(0x9, "sfv", instr, 0)
+                VLSType(0xb, "stv", instr, 0)
+                default:
+                    Unknown(instr);
+                    break;
+            }
+            break;
         IType(XORI, "xori", instr, Rt_Rs_XImm)
         default:
             Unknown(instr);
