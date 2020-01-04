@@ -2,7 +2,6 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
-#include <vector>
 
 #include <circular_buffer.h>
 #include <mips/asm.h>
@@ -10,6 +9,7 @@
 #include <r4300/hw.h>
 #include <r4300/state.h>
 #include <debugger.h>
+#include <types.h>
 
 #include "eval.h"
 
@@ -130,6 +130,105 @@ static inline bool checkAddressAlignment(u64 addr, u64 bytes) {
         } \
     })
 
+/**
+ * @brief Write the DPC_START_REG register.
+ * This action is emulated as writing to DPC_CURRENT_REG at the same time,
+ * which is only an approximation.
+ */
+void write_DPC_START_REG(u32 value) {
+    state.hwreg.DPC_START_REG = value;
+    state.hwreg.DPC_CURRENT_REG = value;
+    // state.hwreg.DPC_STATUS_REG |= DPC_STATUS_START_VALID;
+}
+
+static bool DPC_hasNext(void) {
+    return state.hwreg.DPC_CURRENT_REG < state.hwreg.DPC_END_REG;
+}
+
+static u64 DPC_peekNext(void) {
+    u64 value;
+    if (state.hwreg.DPC_STATUS_REG & DPC_STATUS_XBUS_DMEM_DMA) {
+        memcpy(&value, &state.dmem[state.hwreg.DPC_CURRENT_REG], sizeof(value));
+    } else {
+        // @todo addres is a virtual address.
+        state.physmem.load(8, state.hwreg.DPC_CURRENT_REG & 0x3ffffflu, &value);
+    }
+    return value;
+}
+
+/**
+ * @brief Write the DPC_END_REG register, which kickstarts the process of
+ * loading commands from memory.
+ * Commands are read from the DPC_CURRENT_REG until the DPC_END_REG excluded,
+ * updating DPC_CURRENT_REG at the same time.
+ */
+void write_DPC_END_REG(u32 value) {
+    state.hwreg.DPC_END_REG = value;
+    while (DPC_hasNext()) {
+        std::cerr << std::hex << state.hwreg.DPC_CURRENT_REG << " ";
+        u64 command = DPC_peekNext();
+        u64 opcode = (command >> 56) & 0x3flu;
+        switch (opcode) {
+            case UINT64_C(0x3f):
+                std::cerr << "DPC set color image " << std::hex << command << std::endl;
+                break;
+            case UINT64_C(0x3d):
+                std::cerr << "DPC set texture image " << std::hex << command << std::endl;
+                break;
+            case UINT64_C(0x3e):
+                std::cerr << "DPC set z image " << std::hex << command << std::endl;
+                break;
+            case UINT64_C(0x2d):
+                std::cerr << "DPC set scissor " << std::hex << command << std::endl;
+                break;
+            case UINT64_C(0x3c):
+                std::cerr << "DPC set combine mode " << std::hex << command << std::endl;
+                break;
+            case UINT64_C(0x2f):
+                std::cerr << "DPC set other modes " << std::hex << command << std::endl;
+                break;
+            case UINT64_C(0x35):
+                std::cerr << "DPC set tile " << std::hex << command << std::endl;
+                break;
+            case UINT64_C(0x34):
+                std::cerr << "DPC load tile " << std::hex << command << std::endl;
+                break;
+            case UINT64_C(0x37):
+                std::cerr << "DPC set fill color " << std::hex << command << std::endl;
+                break;
+            case UINT64_C(0x36):
+                std::cerr << "DPC fill rectangle " << std::hex << command << std::endl;
+                break;
+            case UINT64_C(0x24):
+                std::cerr << "DPC texture rectangle " << std::hex << command << std::endl;
+                if (DPC_hasNext()) {
+                    state.hwreg.DPC_CURRENT_REG += 8;
+                } else {
+                    std::cerr << "### incomplete command" << std::endl;
+                }
+                break;
+            case UINT64_C(0x31):
+                std::cerr << "DPC sync load " << std::hex << command << std::endl;
+                break;
+            case UINT64_C(0x28):
+                std::cerr << "DPC sync tile " << std::hex << command << std::endl;
+                break;
+            case UINT64_C(0x27):
+                std::cerr << "DPC sync pipe " << std::hex << command << std::endl;
+                break;
+            case UINT64_C(0x29):
+                std::cerr << "DPC sync full " << std::hex << command << std::endl;
+                set_MI_INTR_REG(MI_INTR_DP);
+                // MI_INTR_VI
+                break;
+            default:
+                std::cerr << "DPC unknown opcode " << std::hex << command << std::endl;
+                break;
+        }
+        state.hwreg.DPC_CURRENT_REG += 8;
+    }
+}
+
 /** @brief Write a COP0 register value. */
 static u32 readCop0Register(u32 r) {
     switch (r) {
@@ -184,31 +283,23 @@ static void writeCop0Register(u32 r, u32 value) {
         case 5: /* DMA_FULL, read only */ break;
         case 6: /* DMA_BUSY, read only */ break;
         case 7: state.hwreg.SP_SEMAPHORE_REG = 0; break;
-        case 8:
-            state.hwreg.DPC_START_REG = value;
-            state.hwreg.DPC_CURRENT_REG = value;
-            // state.hwreg.DPC_STATUS_REG |= DPC_STATUS_START_VALID;
-            break;
-        case 9:
-            state.hwreg.DPC_END_REG = value;
-            state.hwreg.DPC_CURRENT_REG = value;
-            // state.hwreg.DPC_STATUS_REG |= DPC_STATUS_END_VALID;
-            break;
+        case 8: write_DPC_START_REG(value); break;
+        case 9: write_DPC_END_REG(value); break;
         case 10:
-            throw "RSP::RDP_command_current";
+            debugger.halt("RSP::RDP_command_current");
             break;
         case 11: write_DPC_STATUS_REG(value); break;
         case 12:
-            throw "RSP::RDP_clock_counter";
+            debugger.halt("RSP::RDP_clock_counter");
             break;
         case 13:
-            throw "RSP::RDP_command_busy";
+            debugger.halt("RSP::RDP_command_busy");
             break;
         case 14:
-            throw "RSP::RDP_pipe_busy_counter";
+            debugger.halt("RSP::RDP_pipe_busy_counter");
             break;
         case 15:
-            throw "RSP::RDP_TMEM_load_counter";
+            debugger.halt("RSP::RDP_TMEM_load_counter");
             break;
         default:
             /* unknown register access */
@@ -321,8 +412,8 @@ bool eval(u64 addr, bool delaySlot)
                 })
                 /* MFHI not implemented */
                 /* MFLO not implemented */
-                RType(MOVN, instr, { throw "Unsupported"; })
-                RType(MOVZ, instr, { throw "Unsupported"; })
+                RType(MOVN, instr, { debugger.halt("Unsupported"); })
+                RType(MOVZ, instr, { debugger.halt("Unsupported"); })
                 /* MTHI not implemented */
                 /* MTLO not implemented */
                 /* MULT not implemented */
