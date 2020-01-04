@@ -14,13 +14,14 @@ struct Trace
     int             Cols;                                   // = 4      // number of columns to display.
     bool            OptUpperCaseHex;                        // = true   // display hexadecimal values as "FF" instead of "ff".
     int             OptAddrDigitsCount;                     // = 16     // number of addr digits to display (default calculated based on maximum displayed addr).
-
+    int             ExportCounter;
 
     Trace(circular_buffer<TraceEntry> const *trace) : TraceBuffer(trace)
     {
         Cols = 4;
         OptUpperCaseHex = true;
         OptAddrDigitsCount = 16;
+        ExportCounter = 0;
     }
 
     struct Sizes
@@ -51,17 +52,20 @@ struct Trace
     }
 
     // Trace contents only
-    void DrawContents(std::string (*disas)(u64 pc, u32 instr))
+    void DrawContents(std::string name, std::string (*disas)(u64 pc, u32 instr))
     {
         Sizes s;
         CalcSizes(s);
+
+        const float height_separator = ImGui::GetStyle().ItemSpacing.y;
+        float footer_height = height_separator + ImGui::GetFrameHeightWithSpacing();
 
         // We begin into our scrolling region with the 'ImGuiWindowFlags_NoMove'
         // in order to prevent click from moving the window.
         // This is used as a facility since our main click detection code
         // doesn't assign an ActiveId so the click would normally be caught as
         // a window-move.
-        ImGui::BeginChild("##scrolling", ImVec2(0, 0), false,
+        ImGui::BeginChild("##scrolling", ImVec2(0, -footer_height), false,
             ImGuiWindowFlags_NoMove);
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
@@ -111,6 +115,25 @@ struct Trace
         clipper.End();
         ImGui::PopStyleVar(2);
         ImGui::EndChild();
+
+        ImGui::Separator();
+        if (ImGui::Button("Export")) {
+            std::ofstream os;
+            os.open(name + "_trace_" + std::to_string(ExportCounter) + ".txt");
+            ExportCounter++;
+            for (size_t i = 0; i < TraceBuffer->length(); i++)
+            {
+                TraceEntry entry = TraceBuffer->peek_front(i);
+                os << std::hex << std::setfill(' ') << std::right;
+                os << std::setw(16) << entry.first << "    ";
+                os << std::hex << std::setfill('0');
+                os << std::setw(8) << entry.second << "    ";
+                os << std::setfill(' ');
+                os << disas(entry.first, entry.second);
+                os << std::endl;
+            }
+            os.close();
+        }
 
         // Notify the main window of our ideal child content size
         // (FIXME: we are missing an API to get the contents size from the child)

@@ -484,7 +484,7 @@ int startGui()
             if (ImGui::BeginTabBar("Trace", 0)) {
                 if (ImGui::BeginTabItem("Cpu")) {
                     if (debugger.halted) {
-                        cpuTrace.DrawContents(Mips::CPU::disas);
+                        cpuTrace.DrawContents("cpu", Mips::CPU::disas);
                     } else {
                         ImGui::Text("Cpu is running...");
                     }
@@ -492,7 +492,7 @@ int startGui()
                 }
                 if (ImGui::BeginTabItem("Rsp")) {
                     if (debugger.halted) {
-                        rspTrace.DrawContents(Mips::RSP::disas);
+                        rspTrace.DrawContents("rsp", Mips::RSP::disas);
                     } else {
                         ImGui::Text("Rsp is running...");
                     }
