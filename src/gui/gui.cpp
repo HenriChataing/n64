@@ -222,6 +222,14 @@ static void displayHWRegisters(void) {
                 R4300::state.hwreg.VI_X_SCALE_REG);
             ImGui::Text("VI_Y_SCALE_REG         %08" PRIx32 "\n",
                 R4300::state.hwreg.VI_Y_SCALE_REG);
+            ImGui::Text("vi_NextIntr            %lu\n",
+                R4300::state.hwreg.vi_NextIntr);
+            ImGui::Text("vi_IntrInterval        %lu\n",
+                R4300::state.hwreg.vi_IntrInterval);
+            ImGui::Text("vi_LastCycleCount      %lu\n",
+                R4300::state.hwreg.vi_LastCycleCount);
+            ImGui::Text("vi_CyclesPerLine       %lu\n",
+                R4300::state.hwreg.vi_CyclesPerLine);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("AI")) {

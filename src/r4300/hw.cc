@@ -937,6 +937,46 @@ const u32 VI_X_SCALE_REG = UINT32_C(0x04400030);
 //       [27:16] vertical subpixel offset (2.10 format)
 const u32 VI_Y_SCALE_REG = UINT32_C(0x04400034);
 
+/** @brief Write the value of the VI_INTR_REG register. */
+void write_VI_INTR_REG(u32 value) {
+    logWrite(debugger.verbose.VI, "VI_INTR_REG", value);
+    state.hwreg.VI_INTR_REG = value;
+}
+
+/**
+ * @brief Read the value of the VI_CURRENT_REG register.
+ *  The value of the register is estimated from:
+ *      1. the difference between the last vblank interrupt and the
+ *          current time
+ *      2. the current number of cycles per vertical line
+ *          (depends on the cpu clock frequency, the screen refresh frequency,
+ *           the number of vertical lines in VI_V_SYNC_REG)
+ *  The read value is cached in hwreg->VI_CURRENT_REG.
+ */
+u32 read_VI_CURRENT_REG(void) {
+    ulong diff = state.cycles - state.hwreg.vi_LastCycleCount;
+    u32 linesPerFrame = state.hwreg.VI_V_SYNC_REG;
+    u32 current = state.hwreg.VI_CURRENT_REG;
+    u32 count = (current + diff / state.hwreg.vi_CyclesPerLine) % linesPerFrame;
+
+    state.hwreg.vi_LastCycleCount += diff - (diff % state.hwreg.vi_CyclesPerLine);
+    state.hwreg.VI_CURRENT_REG = count;
+
+    /* Bit 0 always indicates the interlacing mode. */
+    count &= ~UINT32_C(1);
+    count |= (state.hwreg.VI_CONTROL_REG & VI_CONTROL_SERRATE) != 0;
+    logRead(debugger.verbose.VI, "VI_CURRENT_REG", count);
+    return count;
+}
+
+/** @brief Write the value of the VI_V_SYNC_REG register. */
+void write_VI_V_SYNC_REG(u32 value) {
+    logWrite(debugger.verbose.VI, "VI_V_SYNC_REG", value);
+    state.hwreg.VI_V_SYNC_REG = value;
+    state.hwreg.vi_CyclesPerLine = 93750000lu / (60 * (value + 1));
+    state.hwreg.vi_IntrInterval = state.hwreg.vi_CyclesPerLine * value;
+}
+
 bool read(uint bytes, u64 addr, u64 *value)
 {
     if (bytes != 4)
@@ -961,8 +1001,7 @@ bool read(uint bytes, u64 addr, u64 *value)
             *value = state.hwreg.VI_INTR_REG;
             return true;
         case VI_CURRENT_REG:
-            logRead(debugger.verbose.VI, "VI_CURRENT_REG", state.hwreg.VI_CURRENT_REG);
-            *value = state.hwreg.VI_CURRENT_REG;
+            *value = read_VI_CURRENT_REG();
             return true;
         case VI_BURST_REG:
             logRead(debugger.verbose.VI, "VI_BURST_REG", state.hwreg.VI_BURST_REG);
@@ -1027,8 +1066,7 @@ bool write(uint bytes, u64 addr, u64 value)
             state.hwreg.VI_WIDTH_REG = value;
             return true;
         case VI_INTR_REG:
-            logWrite(debugger.verbose.VI, "VI_INTR_REG", value);
-            state.hwreg.VI_INTR_REG = value;
+            write_VI_INTR_REG(value);
             return true;
         case VI_CURRENT_REG:
             logWrite(debugger.verbose.VI, "VI_CURRENT_REG", value);
@@ -1039,8 +1077,7 @@ bool write(uint bytes, u64 addr, u64 value)
             state.hwreg.VI_BURST_REG = value;
             return true;
         case VI_V_SYNC_REG:
-            logWrite(debugger.verbose.VI, "VI_V_SYNC_REG", value);
-            state.hwreg.VI_V_SYNC_REG = value;
+            write_VI_V_SYNC_REG(value);
             return true;
         case VI_H_SYNC_REG:
             logWrite(debugger.verbose.VI, "VI_H_SYNC_REG", value);

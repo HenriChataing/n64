@@ -43,6 +43,11 @@ struct hwreg {
     u32 MI_INTR_REG;
     u32 MI_INTR_MASK_REG;
 
+    ulong vi_NextIntr;
+    ulong vi_IntrInterval;
+    ulong vi_LastCycleCount;
+    ulong vi_CyclesPerLine;
+
     u32 VI_CONTROL_REG; // VI_STATUS_REG
     u32 VI_DRAM_ADDR_REG; // VI_ORIGIN_REG
     u32 VI_WIDTH_REG; // VI_H_WIDTH_REG
@@ -215,6 +220,8 @@ void write_DPC_STATUS_REG(u32 value);
 #define MI_INTR_MASK_CLR_SI     (UINT32_C(1) << 2)
 #define MI_INTR_MASK_SET_SP     (UINT32_C(1) << 1)
 #define MI_INTR_MASK_CLR_SP     (UINT32_C(1) << 0)
+
+#define VI_CONTROL_SERRATE      (UINT32_C(1) << 6)
 
 #define PI_STATUS_ERROR         (UINT32_C(1) << 2)
 #define PI_STATUS_IO_BUSY       (UINT32_C(1) << 1)

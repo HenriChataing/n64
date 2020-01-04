@@ -61,6 +61,14 @@ void State::boot() {
 
     // Set reset values for HW registers.
     hwreg.SP_STATUS_REG = SP_STATUS_HALT;
+
+    // Set reset video mode to NTSC.
+    hwreg.VI_V_SYNC_REG = UINT32_C(0x20d); // 525 lines
+    hwreg.VI_H_SYNC_REG = UINT32_C(0xc15); // 773,4 pixels per line
+    hwreg.vi_NextIntr = 1562500lu;
+    hwreg.vi_IntrInterval = 1562500lu;
+    hwreg.vi_LastCycleCount = 0;
+    hwreg.vi_CyclesPerLine = 2971lu;
 }
 
 std::ostream &operator<<(std::ostream &os, const State &state)

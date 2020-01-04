@@ -386,6 +386,11 @@ bool eval(u64 vAddr, bool delaySlot)
 
     state.cp0reg.incrCount();
 
+    // CPU freq is 93.75 MHz, refresh frequency is assumed 60Hz.
+    if (state.cycles++ == state.hwreg.vi_NextIntr) {
+        state.hwreg.vi_NextIntr += state.hwreg.vi_IntrInterval;
+        set_MI_INTR_REG(MI_INTR_VI);
+    }
     if (checkInterrupt(vAddr, delaySlot)) {
         return true;
     }
