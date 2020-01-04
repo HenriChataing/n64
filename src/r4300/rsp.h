@@ -24,6 +24,12 @@ struct rspreg {
      * of the RSP, they are not reproduced here. */
 
     vr_t vr[32];
+    /* The accumulator is saved in host cpu format (typically little endian).
+     * Technically, the accumulator is only 48-bits wide. */
+    u64 vacc[8];
+    u16 vcc;
+    u16 vco;
+    u8 vce;
 };
 
 namespace RSP {

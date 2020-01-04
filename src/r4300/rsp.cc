@@ -310,6 +310,449 @@ static void writeCop0Register(u32 r, u32 value) {
     }
 }
 
+static inline u32 getVt(u32 instr) {
+    return (instr >> 16) & 0x1flu;
+}
+
+static inline u32 getVs(u32 instr) {
+    return (instr >> 11) & 0x1flu;
+}
+
+static inline u32 getVd(u32 instr) {
+    return (instr >> 6) & 0x1flu;
+}
+
+static void eval_LWC2(u32 instr) {
+    u32 base = (instr >> 21) & 0x1flu;
+    u32 vt = (instr >> 16) & 0x1flu;
+    u32 funct = (instr >> 11) & 0x1flu;
+    u32 element = (instr >> 7) & 0xflu;
+    u32 offset = i7_to_i32(instr & 0x7flu);
+    u32 addr = state.rspreg.gpr[base];
+
+    switch (funct) {
+        case UINT32_C(0x0): /* LBV */
+            state.rspreg.vr[vt].b[element] =
+                state.dmem[(addr + offset) & 0xffflu];
+            break;
+        case UINT32_C(0x1): /* LSV */
+            memcpy(
+                &state.rspreg.vr[vt].w[element / 2],
+                &state.dmem[(addr + (offset << 1)) & 0xffflu],
+                2);
+            break;
+        case UINT32_C(0x2): /* LLV */
+            memcpy(
+                &state.rspreg.vr[vt].w[element / 4],
+                &state.dmem[(addr + (offset << 2)) & 0xffflu],
+                4);
+            break;
+        case UINT32_C(0x3): /* LDV */
+            memcpy(
+                &state.rspreg.vr[vt].d[element / 8],
+                &state.dmem[(addr + (offset << 3)) & 0xffflu],
+                8);
+            break;
+        case UINT32_C(0x4): { /* LQV */
+            u32 start = addr + (offset << 4);
+            u32 end = (start & ~UINT32_C(15)) + UINT32_C(16);
+            memcpy(
+                &state.rspreg.vr[vt].b[0],
+                &state.dmem[start & 0xffflu],
+                end - start);
+            debugger.warn("RSP::LQV offset shift uncertain");
+            break;
+        }
+        case UINT32_C(0x5): { /* LRV */
+            u32 end = addr + (offset << 4);
+            u32 start = (end & ~UINT32_C(15));
+            unsigned elt = 16 - (end & UINT32_C(15));
+            memcpy(
+                &state.rspreg.vr[vt].b[elt],
+                &state.dmem[start & 0xffflu],
+                end - start);
+            debugger.warn("RSP::LRV offset shift uncertain");
+            break;
+        }
+        case UINT32_C(0x6): /* LPV */
+            debugger.halt("RSP::LPV not supported");
+            break;
+        case UINT32_C(0x7): /* LUV */
+            debugger.halt("RSP::LUV not supported");
+            break;
+        case UINT32_C(0x8): /* LHV */
+            debugger.halt("RSP::LHV not supported");
+            break;
+        case UINT32_C(0x9): /* LFV */
+            debugger.halt("RSP::LFV not supported");
+            break;
+        case UINT32_C(0xb): /* LTV */
+            debugger.halt("RSP::LTV not supported");
+            break;
+        default:
+            debugger.halt("RSP::LWC2 invalid operation");
+            break;
+    }
+}
+
+static void eval_SWC2(u32 instr) {
+    u32 base = (instr >> 21) & 0x1flu;
+    u32 vt = (instr >> 16) & 0x1flu;
+    u32 funct = (instr >> 11) & 0x1flu;
+    u32 element = (instr >> 7) & 0xflu;
+    u32 offset = i7_to_i32(instr & 0x7flu);
+    u32 addr = state.rspreg.gpr[base];
+
+    switch (funct) {
+        case UINT32_C(0x0): /* SBV */
+            state.rspreg.vr[vt].b[element] =
+                state.dmem[(addr + offset) & 0xffflu];
+            break;
+        case UINT32_C(0x1): /* SSV */
+            memcpy(
+                &state.dmem[(addr + (offset << 1)) & 0xffflu],
+                &state.rspreg.vr[vt].w[element / 2],
+                2);
+            break;
+        case UINT32_C(0x2): /* SLV */
+            memcpy(
+                &state.dmem[(addr + (offset << 2)) & 0xffflu],
+                &state.rspreg.vr[vt].w[element / 4],
+                4);
+            break;
+        case UINT32_C(0x3): /* SDV */
+            memcpy(
+                &state.dmem[(addr + (offset << 3)) & 0xffflu],
+                &state.rspreg.vr[vt].d[element / 8],
+                8);
+            break;
+        case UINT32_C(0x4): { /* SQV */
+            u32 start = addr + (offset << 4);
+            u32 end = (start & ~UINT32_C(15)) + UINT32_C(16);
+            memcpy(
+                &state.dmem[start & 0xffflu],
+                &state.rspreg.vr[vt].b[0],
+                end - start);
+            debugger.warn("RSP::SQV offset shift uncertain");
+            break;
+        }
+        case UINT32_C(0x5): { /* SRV */
+            u32 end = addr + (offset << 4);
+            u32 start = (end & ~UINT32_C(15));
+            unsigned elt = 16 - (end & UINT32_C(15));
+            memcpy(
+                &state.dmem[start & 0xffflu],
+                &state.rspreg.vr[vt].b[elt],
+                end - start);
+            debugger.warn("RSP::SRV offset shift uncertain");
+            break;
+        }
+        case UINT32_C(0x6): /* SPV */
+            debugger.halt("RSP::SPV not supported");
+            break;
+        case UINT32_C(0x7): /* SUV */
+            debugger.halt("RSP::SUV not supported");
+            break;
+        case UINT32_C(0x8): /* SHV */
+            debugger.halt("RSP::SHV not supported");
+            break;
+        case UINT32_C(0x9): /* SFV */
+            debugger.halt("RSP::SFV not supported");
+            break;
+        case UINT32_C(0xb): /* STV */
+            debugger.halt("RSP::STV not supported");
+            break;
+        default:
+            debugger.halt("RSP::SWC2 invalid operation");
+            break;
+    }
+}
+
+static void eval_VADD(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j;
+        if (e == 0) {
+            j = i;
+        } else if ((e & 0b1110lu) == 0b0010lu) {
+            j = (i & 0b1110lu) + (e & 0b0001lu);
+        } else if ((e & 0b1100lu) == 0b0100lu) {
+            j = (i & 0b1100lu) + (e & 0b0011lu);
+        } else if ((e & 0b1000lu) == 0b1000lu) {
+            j = (e & 0b0111lu);
+        }
+        u32 res =
+            __builtin_bswap16(state.rspreg.vr[vs].h[i]) +
+            __builtin_bswap16(state.rspreg.vr[vt].h[j]) +
+            ((state.rspreg.vco >> i) & UINT16_C(1));
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= (u64)(u16)res;
+        state.rspreg.vr[vd].h[i] = __builtin_bswap16(res);
+    }
+
+    state.rspreg.vco = 0;
+    debugger.warn("RSP::VADD clamp_signed not implemented");
+}
+
+static void eval_VADDC(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    state.rspreg.vco = 0;
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j;
+        if (e == 0) {
+            j = i;
+        } else if ((e & 0b1110lu) == 0b0010lu) {
+            j = (i & 0b1110lu) + (e & 0b0001lu);
+        } else if ((e & 0b1100lu) == 0b0100lu) {
+            j = (i & 0b1100lu) + (e & 0b0011lu);
+        } else if ((e & 0b1000lu) == 0b1000lu) {
+            j = (e & 0b0111lu);
+        }
+        u32 res =
+            __builtin_bswap16(state.rspreg.vr[vs].h[i]) +
+            __builtin_bswap16(state.rspreg.vr[vt].h[j]);
+        state.rspreg.vco |= ((res & UINT32_C(0x10000)) >> 16) << i;
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= (u64)(u16)res;
+        state.rspreg.vr[vd].h[i] = __builtin_bswap16(res);
+    }
+}
+
+static void eval_VMACF(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j;
+        if (e == 0) {
+            j = i;
+        } else if ((e & 0b1110lu) == 0b0010lu) {
+            j = (i & 0b1110lu) + (e & 0b0001lu);
+        } else if ((e & 0b1100lu) == 0b0100lu) {
+            j = (i & 0b1100lu) + (e & 0b0011lu);
+        } else if ((e & 0b1000lu) == 0b1000lu) {
+            j = (e & 0b0111lu);
+        }
+        i16 svs = (i16)__builtin_bswap16(state.rspreg.vr[vs].h[i]);
+        i16 svt = (i16)__builtin_bswap16(state.rspreg.vr[vt].h[j]);
+        i32 mul = (i32)svs * (i32)svt;
+
+        u32 acc = state.rspreg.vacc[i] >> 16;
+        acc += (u32)mul << 1;
+
+        i32 res = (i32)acc;
+        if (res < INT32_C(-32768))
+            res = INT32_C(-32768);
+        if (res > INT32_C(+32767))
+            res = INT32_C(+32767);
+
+        state.rspreg.vacc[i] &= UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= acc << 16;
+        state.rspreg.vr[vd].h[i] = __builtin_bswap16((u16)(i16)res);
+    }
+}
+
+static void eval_VMULF(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j;
+        if (e == 0) {
+            j = i;
+        } else if ((e & 0b1110lu) == 0b0010lu) {
+            j = (i & 0b1110lu) + (e & 0b0001lu);
+        } else if ((e & 0b1100lu) == 0b0100lu) {
+            j = (i & 0b1100lu) + (e & 0b0011lu);
+        } else if ((e & 0b1000lu) == 0b1000lu) {
+            j = (e & 0b0111lu);
+        }
+        i16 svs = (i16)__builtin_bswap16(state.rspreg.vr[vs].h[i]);
+        i16 svt = (i16)__builtin_bswap16(state.rspreg.vr[vt].h[j]);
+        i32 mul = (i32)svs * (i32)svt;
+
+        u64 acc = state.rspreg.vacc[i] & UINT64_C(0xffff);
+        acc |= (u64)(u32)mul << 17;
+        acc += UINT64_C(0x8000);
+
+        i32 res = (i32)(u32)(acc >> 16);
+        if (res < INT32_C(-32768))
+            res = INT32_C(-32768);
+        if (res > INT32_C(+32767))
+            res = INT32_C(+32767);
+
+        state.rspreg.vacc[i] = acc;
+        state.rspreg.vr[vd].h[i] = __builtin_bswap16((u16)(i16)res);
+    }
+}
+
+static void eval_VXOR(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j;
+        if (e == 0) {
+            j = i;
+        } else if ((e & 0b1110lu) == 0b0010lu) {
+            j = (i & 0b1110lu) + (e & 0b0001lu);
+        } else if ((e & 0b1100lu) == 0b0100lu) {
+            j = (i & 0b1100lu) + (e & 0b0011lu);
+        } else if ((e & 0b1000lu) == 0b1000lu) {
+            j = (e & 0b0111lu);
+        }
+        u16 res = state.rspreg.vr[vs].h[i] ^ state.rspreg.vr[vt].h[j];
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= (u64)res;
+        state.rspreg.vr[vd].h[i] = res;
+    }
+}
+
+static void eval_COP2(u32 instr) {
+    switch (instr & 0x3flu) {
+        case UINT32_C(0x13):
+            debugger.halt("RSP::VABS unsupported");
+            break;
+        case UINT32_C(0x10): eval_VADD(instr); break;
+        case UINT32_C(0x14): eval_VADDC(instr); break;
+        case UINT32_C(0x28):
+            debugger.halt("RSP::VAND unsupported");
+            break;
+        case UINT32_C(0x25):
+            debugger.halt("RSP::VCH unsupported");
+            break;
+        case UINT32_C(0x24):
+            debugger.halt("RSP::VCL unsupported");
+            break;
+        case UINT32_C(0x26):
+            debugger.halt("RSP::VCR unsupported");
+            break;
+        case UINT32_C(0x21):
+            debugger.halt("RSP::VEQ unsupported");
+            break;
+        case UINT32_C(0x23):
+            debugger.halt("RSP::VGE unsupported");
+            break;
+        case UINT32_C(0x20):
+            debugger.halt("RSP::VLT unsupported");
+            break;
+        case UINT32_C(0x08): eval_VMACF(instr); break;
+        case UINT32_C(0x0b):
+            debugger.halt("RSP::VMACQ unsupported");
+            break;
+        case UINT32_C(0x09):
+            debugger.halt("RSP::VMACU unsupported");
+            break;
+        case UINT32_C(0x0f):
+            debugger.halt("RSP::VMADH unsupported");
+            break;
+        case UINT32_C(0x0c):
+            debugger.halt("RSP::VMADL unsupported");
+            break;
+        case UINT32_C(0x0d):
+            debugger.halt("RSP::VMADM unsupported");
+            break;
+        case UINT32_C(0x0e):
+            debugger.halt("RSP::VMADN unsupported");
+            break;
+        case UINT32_C(0x33):
+            debugger.halt("RSP::VMOV unsupported");
+            break;
+        case UINT32_C(0x27):
+            debugger.halt("RSP::VMRG unsupported");
+            break;
+        case UINT32_C(0x07):
+            debugger.halt("RSP::VMUDH unsupported");
+            break;
+        case UINT32_C(0x04):
+            debugger.halt("RSP::VMUDL unsupported");
+            break;
+        case UINT32_C(0x05):
+            debugger.halt("RSP::VMUDM unsupported");
+            break;
+        case UINT32_C(0x06):
+            debugger.halt("RSP::VMUDN unsupported");
+            break;
+        case UINT32_C(0x00): eval_VMULF(instr); break;
+        case UINT32_C(0x03):
+            debugger.halt("RSP::VMULQ unsupported");
+            break;
+        case UINT32_C(0x01):
+            debugger.halt("RSP::VMULU unsupported");
+            break;
+        case UINT32_C(0x29):
+            debugger.halt("RSP::VNAND unsupported");
+            break;
+        case UINT32_C(0x22):
+            debugger.halt("RSP::VNE unsupported");
+            break;
+        case UINT32_C(0x37):
+            debugger.halt("RSP::VNOP unsupported");
+            break;
+        case UINT32_C(0x2b):
+            debugger.halt("RSP::VNOR unsupported");
+            break;
+        case UINT32_C(0x2d):
+            debugger.halt("RSP::VNXOR unsupported");
+            break;
+        case UINT32_C(0x2a):
+            debugger.halt("RSP::VOR unsupported");
+            break;
+        case UINT32_C(0x30):
+            debugger.halt("RSP::VRCP unsupported");
+            break;
+        case UINT32_C(0x32):
+            debugger.halt("RSP::VRCPH unsupported");
+            break;
+        case UINT32_C(0x31):
+            debugger.halt("RSP::VRCPL unsupported");
+            break;
+        case UINT32_C(0x0a):
+            debugger.halt("RSP::VRNDN unsupported");
+            break;
+        case UINT32_C(0x02):
+            debugger.halt("RSP::VRNDP unsupported");
+            break;
+        case UINT32_C(0x34):
+            debugger.halt("RSP::VRSQ unsupported");
+            break;
+        case UINT32_C(0x36):
+            debugger.halt("RSP::VRSQH unsupported");
+            break;
+        case UINT32_C(0x35):
+            debugger.halt("RSP::VRSQL unsupported");
+            break;
+        case UINT32_C(0x1d):
+            debugger.halt("RSP::VSAR unsupported");
+            break;
+        case UINT32_C(0x11):
+            debugger.halt("RSP::VSUB unsupported");
+            break;
+        case UINT32_C(0x15):
+            debugger.halt("RSP::VSUBC unsupported");
+            break;
+        case UINT32_C(0x2c): eval_VXOR(instr); break;
+        default:
+            debugger.halt("RSP::COP2 invalid operation");
+            break;
+    }
+}
+
 /**
  * @brief Fetch and interpret a single instruction from memory.
  * @return true if the instruction caused an exception
@@ -563,7 +1006,30 @@ bool eval(u64 addr, bool delaySlot)
             break;
         /* COP1 not implemented */
         case COP2:
-            throw "COP2 unsupported";
+            switch (Mips::getRs(instr)) {
+                RType(MF, instr, {
+                    debugger.halt("RSP::MFC2 unsupported");
+                })
+                RType(MT, instr, {
+                    u32 e = (instr >> 7) & UINT32_C(0xf);
+                    u16 val = __builtin_bswap16((u16)state.reg.gpr[rt]);
+                    memcpy(&state.rspreg.vr[rd].b[e], &val, 2);
+                })
+                RType(CF, instr, {
+                    debugger.halt("RSP::CFC2 unsupported");
+                })
+                RType(CT, instr, {
+                    debugger.halt("RSP::CTC2 unsupported");
+                })
+                default:
+                    if ((instr & (1lu << 25)) == 0) {
+                        debugger.halt("RSP::COP2 invalid operation");
+                    } else {
+                        eval_COP2(instr);
+                    }
+                    break;
+            }
+
 #if 0
             if (instr & Mips::COFUN) {
                 cop[opcode & 0x3]->cofun(instr);
@@ -667,67 +1133,9 @@ bool eval(u64 addr, bool delaySlot)
             }
         })
         /* LWC1 not implemented */
-        case LWC2: {
-            u32 base = (instr >> 21) & 0x1flu;
-            u32 vt = (instr >> 16) & 0x1flu;
-            u32 funct = (instr >> 11) & 0x1flu;
-            u32 element = (instr >> 7) & 0xflu;
-            u32 offset = i7_to_i32(instr & 0x7flu);
-            u32 addr = state.rspreg.gpr[base] + offset;
-
-            switch (funct) {
-                case 0x0: /* LBV */
-                    state.rspreg.vr[vt].b[element] =
-                        state.dmem[addr & 0xffflu];
-                    break;
-                case 0x1lu: /* LSV */
-                    memcpy(
-                        &state.rspreg.vr[vt].w[element / 2],
-                        &state.dmem[(addr << 1) & 0xffflu],
-                        2);
-                    break;
-                case 0x2lu: /* LLV */
-                    memcpy(
-                        &state.rspreg.vr[vt].w[element / 4],
-                        &state.dmem[(addr << 2) & 0xffflu],
-                        4);
-                    break;
-                case 0x3lu: /* LDV */
-                    memcpy(
-                        &state.rspreg.vr[vt].d[element / 8],
-                        &state.dmem[(addr << 3) & 0xffflu],
-                        8);
-                    break;
-                case 0x4lu: /* LQV */
-                    memcpy(
-                        &state.rspreg.vr[vt].b[element],
-                        &state.dmem[addr & 0xffflu],
-                        16lu - (offset & 15lu));
-                    break;
-                case 0x5lu: /* LRV */
-                    memcpy(
-                        &state.rspreg.vr[vt].b[element],
-                        &state.dmem[(addr & 0xffflu) & ~15lu],
-                        offset & 15lu);
-                    break;
-                case 0x6lu: /* LPV */
-                    throw "RSP::LPV not supported";
-                    break;
-                case 0x7lu: /* LUV */
-                    throw "RSP::LUV not supported";
-                    break;
-                case 0x8lu: /* LHV */
-                    throw "RSP::LHV not supported";
-                    break;
-                case 0xblu: /* LTV */
-                    throw "RSP::LTV not supported";
-                    break;
-                default:
-                    throw "RSP::invalid LWC2 operation";
-                    break;
-            }
+        case LWC2:
+            eval_LWC2(instr);
             break;
-        }
         /* LWC3 not implemented */
         /* LWL not implemented */
         /* LWR not implemented */
@@ -767,14 +1175,9 @@ bool eval(u64 addr, bool delaySlot)
             }
         })
         /* SWC1 not implemented */
-        IType(SWC2, instr, sign_extend, {
-            // u64 addr = state.rspreg.gpr[rs] + imm;
-            // if (checkAddressAlignment(addr, 4)) {
-            //     *(u32 *)&state.dmem[addr & 0xffflu] =
-            //         __builtin_bswap32(state.rspreg.gpr[rt]);
-            // }
-            throw "RSP::SWC2 not implemented";
-        })
+        case SWC2:
+            eval_SWC2(instr);
+            break;
         /* SWC3 not implemented */
         /* SWL not implemented */
         /* SWR not implemented */
