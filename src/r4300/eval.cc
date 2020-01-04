@@ -1,7 +1,6 @@
 
 #include <iomanip>
 #include <iostream>
-#include <vector>
 
 #include <mips/asm.h>
 #include <r4300/cpu.h>
@@ -138,9 +137,6 @@ namespace Eval {
 void takeException(Exception exn, u64 vAddr,
                    bool delaySlot, bool instr, bool load, u32 ce)
 {
-    std::cerr << "Taking exception " << std::dec << exn << std::endl;
-    std::cerr << "delay:" << delaySlot << " instr:" << instr;
-    std::cerr << " load:" << load << " ce:" << ce << std::endl;
     u32 exccode = 0;
     // Default vector valid for all general exceptions.
     u64 vector = 0x180llu;
@@ -163,6 +159,7 @@ void takeException(Exception exn, u64 vAddr,
         case AddressError:
             exccode = load ? 4 : 5; // AdEL : AdES
             state.cp0reg.badvaddr = vAddr;
+            debugger.halt("AddressError");
             break;
         // TLB Refill occurs when there is no TLB entry that matches an
         // attempted reference to a mapped address space.
@@ -175,6 +172,7 @@ void takeException(Exception exn, u64 vAddr,
         case TLBInvalid:
             exccode = load ? 2 : 3; // TLBL : TLBS
             state.cp0reg.badvaddr = vAddr;
+            debugger.halt("TLBInvalid / TLBRefill");
             // TODO : Context, XContext, EntryHi
             break;
         // TLB Modified occurs when a store operation virtual address
@@ -183,6 +181,7 @@ void takeException(Exception exn, u64 vAddr,
         case TLBModified:
             exccode = 1; // Mod
             state.cp0reg.badvaddr = vAddr;
+            debugger.halt("TLBModified");
             // TODO : Context, XContext, EntryHi
             break;
         // The Cache Error exception occurs when either a secondary cache ECC
@@ -203,33 +202,39 @@ void takeException(Exception exn, u64 vAddr,
         case VirtualCoherency:
             exccode = instr ? 14 : 31; // VCEI : VCED
             state.cp0reg.badvaddr = vAddr;
+            debugger.halt("VirtualCoherency");
             break;
         // A Bus Error exception is raised by board-level circuitry for events
         // such as bus time-out, backplane bus parity errors, and invalid
         // physical memory addresses or access types.
         case BusError:
             exccode = instr ? 6 : 7; // IBE : DBE
+            debugger.halt("BusError");
             break;
         // An Integer Overflow exception occurs when an ADD, ADDI, SUB, DADD,
         // DADDI or DSUB instruction results in a 2’s complement overflow
         case IntegerOverflow:
             exccode = 12; // Ov
+            debugger.halt("IntegerOverflow");
             break;
         // The Trap exception occurs when a TGE, TGEU, TLT, TLTU, TEQ, TNE,
         // TGEI, TGEUI, TLTI, TLTUI, TEQI, or TNEI instruction results in a TRUE
         // condition.
         case Trap:
             exccode = 13; // Tr
+            debugger.halt("Trap");
             break;
         // A System Call exception occurs during an attempt to execute the
         // SYSCALL instruction.
         case SystemCall:
             exccode = 8; // Sys
+            debugger.halt("SystemCall");
             break;
         // A Breakpoint exception occurs when an attempt is made to execute the
         // BREAK instruction.
         case Breakpoint:
             exccode = 9; // Bp
+            debugger.halt("Breakpoint");
             break;
         // The Reserved Instruction exception occurs when one of the following
         // conditions occurs:
@@ -243,6 +248,7 @@ void takeException(Exception exn, u64 vAddr,
         //        when in User or Supervisor mode
         case ReservedInstruction:
             exccode = 10; // RI
+            debugger.halt("ReservedInstruction");
             break;
         // The Coprocessor Unusable exception occurs when an attempt is made to
         // execute a coprocessor instruction for either:
@@ -252,12 +258,12 @@ void takeException(Exception exn, u64 vAddr,
         //        and the process executes in either User or Supervisor mode.
         case CoprocessorUnusable:
             exccode = 11; // CpU
-            debugger.halt("Exception CoprocessorUnusable");
             break;
         // The Floating-Point exception is used by the floating-point
         // coprocessor.
         case FloatingPoint:
             exccode = 15; // FPEEXL
+            debugger.halt("FloatingPoint");
             // TODO: Set FP Control Status Register
             break;
         // A Watch exception occurs when a load or store instruction references
@@ -266,6 +272,7 @@ void takeException(Exception exn, u64 vAddr,
         // load or store initiated this exception.
         case Watch:
             exccode = 23; // WATCH
+            debugger.halt("Watch");
             // TODO: Set Watch register
             break;
         // The Interrupt exception occurs when one of the eight interrupt conditions
