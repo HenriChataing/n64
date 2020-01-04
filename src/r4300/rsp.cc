@@ -429,8 +429,9 @@ bool eval(u64 addr, bool delaySlot)
                         state.rspreg.gpr[rt] << shamnt);
                 })
                 RType(SLLV, instr, {
+                    unsigned int shamnt = state.rspreg.gpr[rs] & 0x1flu;
                     state.rspreg.gpr[rd] = sign_extend<u64, u32>(
-                        state.rspreg.gpr[rt] << state.rspreg.gpr[rs]);
+                        state.rspreg.gpr[rt] << shamnt);
                 })
                 RType(SLT, instr, {
                     state.rspreg.gpr[rd] = (i64)state.rspreg.gpr[rs] < (i64)state.rspreg.gpr[rt];
@@ -439,22 +440,34 @@ bool eval(u64 addr, bool delaySlot)
                     state.rspreg.gpr[rd] = state.rspreg.gpr[rs] < state.rspreg.gpr[rt];
                 })
                 RType(SRA, instr, {
-                    // Undefined if rt is not a valid sign extended value
-                    state.rspreg.gpr[rd] = sign_extend<u64, u32>(
-                        state.rspreg.gpr[rt] >> shamnt);
+                    bool sign = (state.rspreg.gpr[rt] & (1lu << 31)) != 0;
+                    // Right shift is logical for unsigned c types,
+                    // we need to add the type manually.
+                    state.rspreg.gpr[rd] = state.rspreg.gpr[rt] >> shamnt;
+                    if (sign) {
+                        u64 mask = (1ul << (shamnt + 32)) - 1u;
+                        state.rspreg.gpr[rd] |= mask << (32 - shamnt);
+                    }
                 })
                 RType(SRAV, instr, {
-                    // Undefined if rt is not a valid sign extended value
-                    state.rspreg.gpr[rd] = sign_extend<u64, u32>(
-                        state.rspreg.gpr[rt] >> state.rspreg.gpr[rs]);
+                    bool sign = (state.rspreg.gpr[rt] & (1lu << 31)) != 0;
+                    unsigned int shamnt = state.rspreg.gpr[rs] & 0x1flu;
+                    // Right shift is logical for unsigned c types,
+                    // we need to add the type manually.
+                    state.rspreg.gpr[rd] = state.rspreg.gpr[rt] >> shamnt;
+                    if (sign) {
+                        u64 mask = (1ul << (shamnt + 32)) - 1u;
+                        state.rspreg.gpr[rd] |= mask << (32 - shamnt);
+                    }
                 })
                 RType(SRL, instr, {
                     u64 r = (state.rspreg.gpr[rt] & 0xffffffffllu) >> shamnt;
                     state.rspreg.gpr[rd] = sign_extend<u64, u32>(r);
                 })
                 RType(SRLV, instr, {
-                    u64 r = (state.rspreg.gpr[rt] & 0xffffffffllu) >> state.rspreg.gpr[rs];
-                    state.rspreg.gpr[rd] = sign_extend<u64, u32>(r);
+                    unsigned int shamnt = state.rspreg.gpr[rs] & 0x1flu;
+                    u64 res = (state.rspreg.gpr[rt] & 0xfffffffflu) >> shamnt;
+                    state.rspreg.gpr[rd] = sign_extend<u64, u32>(res);
                 })
                 RType(SUB, instr, {
                     state.rspreg.gpr[rd] = sign_extend<u64, u32>(
@@ -476,7 +489,7 @@ bool eval(u64 addr, bool delaySlot)
                     state.rspreg.gpr[rd] = state.rspreg.gpr[rs] ^ state.rspreg.gpr[rt];
                 })
                 default:
-                    throw "Unsupported Special";
+                    debugger.halt("Unsupported Special");
             }
             break;
 
@@ -511,7 +524,7 @@ bool eval(u64 addr, bool delaySlot)
                 /* TLTIU not implemented */
                 /* TNEI not implemented */
                 default:
-                    throw "Unupported Regimm";
+                    debugger.halt("Unupported Regimm");
                     break;
             }
             break;
@@ -531,8 +544,7 @@ bool eval(u64 addr, bool delaySlot)
         BType(BGTZ, instr, (i64)state.rspreg.gpr[rs] > 0)
         BType(BLEZ, instr, (i64)state.rspreg.gpr[rs] <= 0)
         BType(BNE, instr, state.rspreg.gpr[rt] != state.rspreg.gpr[rs])
-        IType(CACHE, instr, sign_extend, {/* @todo */ })
-        /* COP1 not implemented */
+        IType(CACHE, instr, sign_extend, { /* @todo */ })
         case COP0:
             switch (Mips::getRs(instr)) {
                 RType(MF, instr, {
@@ -546,9 +558,10 @@ bool eval(u64 addr, bool delaySlot)
                 /* DMTC0 not implemented */
                 /* CTC0 not implemented */
                 default:
-                    throw "UnsupportedCOP0Instruction";
+                    debugger.halt("UnsupportedCOP0Instruction");
             }
             break;
+        /* COP1 not implemented */
         case COP2:
             throw "COP2 unsupported";
 #if 0
@@ -573,16 +586,16 @@ bool eval(u64 addr, bool delaySlot)
                 })
                 case BC:
                     switch (Mips::getRt(instr)) {
-                        IType(BCF, instr, sign_extend, { throw "Unsupported"; })
-                        IType(BCT, instr, sign_extend, { throw "Unsupported"; })
-                        IType(BCFL, instr, sign_extend, { throw "Unsupported"; })
-                        IType(BCTL, instr, sign_extend, { throw "Unsupported"; })
+                        IType(BCF, instr, sign_extend, { debugger.halt("Unsupported"); })
+                        IType(BCT, instr, sign_extend, { debugger.halt("Unsupported"); })
+                        IType(BCFL, instr, sign_extend, { debugger.halt("Unsupported"); })
+                        IType(BCTL, instr, sign_extend, { debugger.halt("Unsupported"); })
                         default:
-                            throw "ReservedInstruction";
+                            debugger.halt("ReservedInstruction");
                     }
                     break;
                 default:
-                    throw "ReservedInstruction";
+                    debugger.halt("ReservedInstruction");
             }
 #endif
             break;
@@ -741,7 +754,7 @@ bool eval(u64 addr, bool delaySlot)
             }
         })
         IType(SLTI, instr, sign_extend, {
-            state.rspreg.gpr[rt] = state.rspreg.gpr[rs] < imm;
+            state.rspreg.gpr[rt] = (i64)state.rspreg.gpr[rs] < (i64)imm;
         })
         IType(SLTIU, instr, sign_extend, {
             state.rspreg.gpr[rt] = state.rspreg.gpr[rs] < imm;
@@ -770,7 +783,7 @@ bool eval(u64 addr, bool delaySlot)
         })
 
         default:
-            throw "Unsupported Opcode";
+            debugger.halt("Unsupported Opcode");
             break;
     }
 

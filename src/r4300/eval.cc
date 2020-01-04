@@ -967,7 +967,7 @@ bool eval(u64 vAddr, bool delaySlot)
                 returnException(BusError, vAddr, delaySlot, false, false);
         })
         IType(SLTI, instr, sign_extend, {
-            state.reg.gpr[rt] = state.reg.gpr[rs] < imm;
+            state.reg.gpr[rt] = (i64)state.reg.gpr[rs] < (i64)imm;
         })
         IType(SLTIU, instr, sign_extend, {
             state.reg.gpr[rt] = state.reg.gpr[rs] < imm;
