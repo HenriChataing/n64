@@ -111,7 +111,7 @@ bool eval(u32 instr, bool delaySlot)
                 case 0: state.reg.gpr[rt] = state.cp1reg.fcr0; break;
                 case 31: state.reg.gpr[rt] = state.cp1reg.fcr31; break;
                 default:
-                    throw "Nonexisting COP1 control register";
+                    debugger.halt("COP1::CF Unimplemented control register");
             }
         })
         RType(MT, instr, {
@@ -133,7 +133,7 @@ bool eval(u32 instr, bool delaySlot)
                 case 0: state.cp1reg.fcr0 = state.reg.gpr[rt]; break;
                 case 31: state.cp1reg.fcr31 = state.reg.gpr[rt]; break;
                 default:
-                    throw "Nonexisting COP1 control register";
+                    debugger.halt("COP1::CT Unimplemented control register");
             }
         })
 
@@ -169,17 +169,64 @@ bool eval(u32 instr, bool delaySlot)
                     state.cp1reg.fpr_s[fd]->s =
                         sqrt(state.cp1reg.fpr_s[fs]->s);
                 })
+                FRType(ABS, instr, {
+                    debugger.halt("COP1::S::ABS unsupported");
+                })
+                FRType(MOV, instr, {
+                    state.cp1reg.fpr_s[fd]->s = state.cp1reg.fpr_s[fs]->s;
+                })
+                FRType(NEG, instr, {
+                    if (std::isnan(state.cp1reg.fpr_s[fs]->s)) {
+                        // TODO invalid operation exception is NaN
+                        debugger.halt("COP1::S::NEG invalid operation");
+                    }
+                    state.cp1reg.fpr_s[fd]->s = -state.cp1reg.fpr_s[fs]->s;
+                })
+                FRType(ROUNDL, instr, {
+                    debugger.halt("COP1::S::ROUNDL unsupported");
+                })
+                FRType(TRUNCL, instr, {
+                    debugger.halt("COP1::S::TRUNCL unsupported");
+                })
+                FRType(CEILL, instr, {
+                    debugger.halt("COP1::S::CEILL unsupported");
+                })
+                FRType(FLOORL, instr, {
+                    debugger.halt("COP1::S::FLOORL unsupported");
+                })
+                FRType(ROUNDW, instr, {
+                    debugger.halt("COP1::S::ROUNDW unsupported");
+                })
+                FRType(TRUNCW, instr, {
+                    float in = ::trunc(state.cp1reg.fpr_s[fs]->s);
+                    int32_t out;
+                    if (std::isnan(in) || std::isinf(in) ||
+                        in > INT32_MAX || in < INT32_MIN) {
+                        // TODO invalid operation exception if enabled
+                        debugger.halt("COP1::S::TRUNCW invalid operation");
+                        out = INT32_MIN;
+                    } else {
+                        out = in;
+                    }
+                    state.cp1reg.fpr_s[fd]->w = out;
+                })
+                FRType(CEILW, instr, {
+                    debugger.halt("COP1::S::CEILW unsupported");
+                })
+                FRType(FLOORW, instr, {
+                    debugger.halt("COP1::S::FLOORW unsupported");
+                })
                 FRType(CVTS, instr, {
-                    throw "Unsupported_S";
+                    debugger.halt("COP1::S::CVTS unsupported");
                 })
                 FRType(CVTD, instr, {
-                    throw "Unsupported_S";
+                    state.cp1reg.fpr_d[fd]->d = state.cp1reg.fpr_s[fs]->s;
                 })
                 FRType(CVTW, instr, {
                     state.cp1reg.fpr_s[fd]->w = state.cp1reg.fpr_s[fs]->s;
                 })
                 FRType(CVTL, instr, {
-                    throw "Unsupported_S";
+                    debugger.halt("COP1::S::CVTL unsupported");
                 })
                 case Mips::Cop1::CF:
                 case CUN:
@@ -197,7 +244,6 @@ bool eval(u32 instr, bool delaySlot)
                 case CNGE:
                 case CLE:
                 FRType(CNGT, instr, {
-                    debugger.halt("C1::COMP instruction");
                     float s = state.cp1reg.fpr_s[fs]->s;
                     float t = state.cp1reg.fpr_s[ft]->s;
                     u32 funct = Mips::getFunct(instr);
@@ -210,7 +256,7 @@ bool eval(u32 instr, bool delaySlot)
                         equal = false;
                         unordered = true;
                         if (funct & 0x8lu) {
-                            throw "InvalidOperation";
+                            debugger.halt("COP1::S::COMP invalid operation");
                         }
                     } else {
                         less = s < t;
@@ -231,25 +277,143 @@ bool eval(u32 instr, bool delaySlot)
                     }
                 })
                 default:
-                    throw "Unsupported_S";
+                    debugger.halt("COP1::S::* unsupported");
             }
             break;
         case Mips::Cop1::D:
             switch (Mips::getFunct(instr)) {
+                FRType(ADD, instr, {
+                    // TODO overflow
+                    state.cp1reg.fpr_d[fd]->d =
+                        state.cp1reg.fpr_d[fs]->d +
+                        state.cp1reg.fpr_d[ft]->d;
+                })
+                FRType(SUB, instr, {
+                    // TODO overflow
+                    state.cp1reg.fpr_d[fd]->d =
+                        state.cp1reg.fpr_d[fs]->d -
+                        state.cp1reg.fpr_d[ft]->d;
+                })
+                FRType(MUL, instr, {
+                    // TODO overflow
+                    state.cp1reg.fpr_d[fd]->d =
+                        state.cp1reg.fpr_d[fs]->d *
+                        state.cp1reg.fpr_d[ft]->d;
+                })
+                FRType(DIV, instr, {
+                    // TODO divide by zero
+                    state.cp1reg.fpr_d[fd]->d =
+                        state.cp1reg.fpr_d[fs]->d /
+                        state.cp1reg.fpr_d[ft]->d;
+                })
+                FRType(SQRT, instr, {
+                    debugger.halt("COP1::D::SQRT unsupported");
+                })
+                FRType(ABS, instr, {
+                    debugger.halt("COP1::D::ABS unsupported");
+                })
+                FRType(MOV, instr, {
+                    state.cp1reg.fpr_d[fd]->d = state.cp1reg.fpr_d[fs]->d;
+                })
+                FRType(NEG, instr, {
+                    if (std::isnan(state.cp1reg.fpr_d[fs]->d)) {
+                        // TODO invalid operation exception is NaN
+                        debugger.halt("COP1::D::NEG invalid operation");
+                    }
+                    state.cp1reg.fpr_d[fd]->d = -state.cp1reg.fpr_d[fs]->d;
+                })
+                FRType(ROUNDL, instr, {
+                    debugger.halt("COP1::D::ROUNDL unsupported");
+                })
+                FRType(TRUNCL, instr, {
+                    debugger.halt("COP1::D::TRUNCL unsupported");
+                })
+                FRType(CEILL, instr, {
+                    debugger.halt("COP1::D::CEILL unsupported");
+                })
+                FRType(FLOORL, instr, {
+                    debugger.halt("COP1::D::FLOORL unsupported");
+                })
+                FRType(ROUNDW, instr, {
+                    debugger.halt("COP1::D::ROUNDW unsupported");
+                })
+                FRType(TRUNCW, instr, {
+                    double in = ::trunc(state.cp1reg.fpr_d[fs]->d);
+                    int32_t out;
+                    if (std::isnan(in) || std::isinf(in) ||
+                        in > INT32_MAX || in < INT32_MIN) {
+                        // TODO invalid operation exception if enabled
+                        debugger.halt("COP1::D::TRUNCW invalid operation");
+                        out = INT32_MIN;
+                    } else {
+                        out = in;
+                    }
+                    state.cp1reg.fpr_s[fd]->w = out;
+                })
                 FRType(CVTS, instr, {
-                    throw "Unsupported_D";
+                    // TODO Rounding occurs with specified rounding mode
+                    state.cp1reg.fpr_s[fd]->s = state.cp1reg.fpr_d[fs]->d;
                 })
                 FRType(CVTD, instr, {
-                    throw "Unsupported_D";
+                    debugger.halt("COP1::D::CVTD unsupported");
                 })
                 FRType(CVTW, instr, {
-                    throw "Unsupported_D";
+                    // TODO Rounding occurs with specified rounding mode
+                    state.cp1reg.fpr_s[fd]->w = state.cp1reg.fpr_d[fs]->d;
                 })
                 FRType(CVTL, instr, {
-                    throw "Unsupported_D";
+                    debugger.halt("COP1::D::CVTL unsupported");
+                })
+                case Mips::Cop1::CF:
+                case CUN:
+                case CEQ:
+                case CUEQ:
+                case COLT:
+                case CULT:
+                case COLE:
+                case CULE:
+                case CSF:
+                case CNGLE:
+                case CSEQ:
+                case CNGL:
+                case CLT:
+                case CNGE:
+                case CLE:
+                FRType(CNGT, instr, {
+                    double s = state.cp1reg.fpr_d[fs]->d;
+                    double t = state.cp1reg.fpr_d[ft]->d;
+                    u32 funct = Mips::getFunct(instr);
+                    bool less;
+                    bool equal;
+                    bool unordered;
+
+                    if (std::isnan(s) || std::isnan(t)) {
+                        less = false;
+                        equal = false;
+                        unordered = true;
+                        if (funct & 0x8lu) {
+                            debugger.halt("COP1::D::COMP invalid operation");
+                        }
+                    } else {
+                        less = s < t;
+                        equal = s == t;
+                        unordered = false;
+                    }
+
+                    bool condition =
+                        ((funct & 0x4lu) != 0 && less) ||
+                        ((funct & 0x2lu) != 0 && equal) ||
+                        ((funct & 0x1lu) != 0 && unordered);
+                    if (condition) {
+                        // Sets Coprocessor unit 1 condition signal.
+                        state.cp1reg.fcr31 |= FCR31_C;
+                    } else {
+                        // Clears Coprocessor unit 1 condition signal.
+                        state.cp1reg.fcr31 &= ~FCR31_C;
+                    }
                 })
                 default:
-                    throw "Unsupported_D";
+                    debugger.halt("COP1::D::* unsupported");
             }
             break;
         case Mips::Cop1::W:
@@ -259,41 +423,40 @@ bool eval(u32 instr, bool delaySlot)
                     state.cp1reg.fpr_s[fd]->s = state.cp1reg.fpr_s[fs]->w;
                 })
                 FRType(CVTD, instr, {
-                    throw "Unsupported_W";
+                    state.cp1reg.fpr_d[fd]->d = state.cp1reg.fpr_s[fs]->w;
                 })
                 FRType(CVTW, instr, {
-                    throw "Unsupported_W";
+                    debugger.halt("COP1::W::CVTW unsupported");
                 })
                 FRType(CVTL, instr, {
-                    throw "Unsupported_W";
+                    debugger.halt("COP1::W::CVTL unsupported");
                 })
                 default:
-                    throw "Unsupported_W";
+                    debugger.halt("COP1::W::* unsupported");
             }
             break;
         case Mips::Cop1::L:
             switch (Mips::getFunct(instr)) {
                 FRType(CVTS, instr, {
-                    throw "Unsupported_L";
+                    debugger.halt("COP1::L::CVTS unsupported");
                 })
                 FRType(CVTD, instr, {
-                    throw "Unsupported_L";
+                    debugger.halt("COP1::L::CVTD unsupported");
                 })
                 FRType(CVTW, instr, {
-                    throw "Unsupported_L";
+                    debugger.halt("COP1::L::CVTW unsupported");
                 })
                 FRType(CVTL, instr, {
-                    throw "Unsupported_L";
+                    debugger.halt("COP1::L::CVTL unsupported");
                 })
                 default:
-                    throw "Unsupported_L";
+                    debugger.halt("COP1::L::* unsupported");
             }
             break;
 
         case Mips::Copz::BC:
             switch (Mips::getRt(instr)) {
                 case Mips::Copz::BCF: {
-                    debugger.halt("C1::BCF instruction");
                     u64 offset = sign_extend<u64, u16>(Mips::getImmediate(instr));
                     if ((state.cp1reg.fcr31 & FCR31_C) == 0) {
                         R4300::Eval::eval(state.reg.pc + 4, true);
@@ -303,7 +466,6 @@ bool eval(u32 instr, bool delaySlot)
                     break;
                 }
                 case Mips::Copz::BCFL: {
-                    debugger.halt("C1::BCFL instruction");
                     u64 offset = sign_extend<u64, u16>(Mips::getImmediate(instr));
                     if (((state.cp1reg.fcr31 & FCR31_C) == 0)) {
                         R4300::Eval::eval(state.reg.pc + 4, true);
@@ -337,14 +499,14 @@ bool eval(u32 instr, bool delaySlot)
                     break;
                 }
                 default:
-                    throw "InvalidCop1BranchCondition";
+                    debugger.halt("COP1::BC invalid branch condition");
             }
             break;
 
         default:
             std::cerr << "fmt is " << std::hex << Mips::getFmt(instr) << std::endl;
             std::cerr << "instr is " << std::hex << instr << std::endl;
-            throw "UnsupportedCop1Instruction";
+            debugger.halt("COP1::* unsupported instruction");
     }
     return false;
 }
