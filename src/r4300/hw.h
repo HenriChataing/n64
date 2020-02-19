@@ -94,8 +94,6 @@ struct hwreg {
     u32 RI_WERROR_REG;
 
     u32 SI_DRAM_ADDR_REG;
-    u32 SI_PIF_ADDR_RD64B_REG;
-    u32 SI_PIF_ADDR_WR64B_REG;
     u32 SI_STATUS_REG;
 };
 
@@ -229,6 +227,11 @@ void write_DPC_STATUS_REG(u32 value);
 
 #define PI_STATUS_CLR_INTR      (UINT32_C(1) << 1)
 #define PI_STATUS_RESET         (UINT32_C(1) << 0)
+
+#define SI_STATUS_INTR          (UINT32_C(1) << 12)
+#define SI_STATUS_DMA_ERROR     (UINT32_C(1) << 3)
+#define SI_STATUS_IO_BUSY       (UINT32_C(1) << 2)
+#define SI_STATUS_DMA_BUSY      (UINT32_C(1) << 0)
 
 namespace RdRam {
 bool read(uint bytes, u64 addr, u64 *value);

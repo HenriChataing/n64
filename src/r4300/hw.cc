@@ -1,6 +1,7 @@
 
 #include <iostream>
 #include <iomanip>
+#include <cstring>
 
 #include <r4300/hw.h>
 #include <r4300/state.h>
@@ -309,7 +310,7 @@ void write_PI_WR_LEN_REG(u32 value) {
     // particular does not overflow.
     if ((dst + len) <= dst ||
         (dst + len) > 0x400000llu) {
-        std::cerr << "write_PI_RD_LEN_REG() source range invalid" << std::endl;
+        std::cerr << "write_PI_RD_LEN_REG() destination range invalid" << std::endl;
         return;
     }
 
@@ -318,7 +319,7 @@ void write_PI_WR_LEN_REG(u32 value) {
     if ((src + len) <= src ||
         src < 0x10000000llu ||
         (src + len) > 0x1fc00000llu) {
-        std::cerr << "write_PI_RD_LEN_REG() destination range invalid" << std::endl;
+        std::cerr << "write_PI_RD_LEN_REG() source range invalid" << std::endl;
         return;
     }
 
@@ -326,6 +327,228 @@ void write_PI_WR_LEN_REG(u32 value) {
     state.physmem.copy(dst, src, len);
     state.hwreg.PI_STATUS_REG = 0;
     set_MI_INTR_REG(MI_INTR_PI);
+}
+
+
+/*
+
+           Command Types:
+
+         | Command |       Description        |t |r |
+         +---------+--------------------------+-----+
+         |   00    |   request info (status)  |01|03|
+         |   01    |   read button values     |01|04|
+         |   02    |   read from mempack slot |03|21|
+         |   03    |   write to mempack slot  |23|01|
+         |   04    |   read eeprom            |02|08|
+         |   05    |   write eeprom           |10|01|
+         |   ff    |   reset                  |01|03|
+              NOTE: values are in hex
+
+     Error bits (written to r byte)
+      0x00 - no error, operation successful.
+      0x80 - error, device not present for specified command.
+      0x40 - error, unable to send/recieve the number bytes for command type.
+
+     Button bits:
+        unsigned A : 1;
+        unsigned B : 1;
+        unsigned Z : 1;
+        unsigned start : 1;
+        unsigned up : 1;
+        unsigned down : 1;
+        unsigned left : 1;
+        unsigned right : 1;
+        unsigned : 2;
+        unsigned L : 1;
+        unsigned R : 1;
+        unsigned C_up : 1;
+        unsigned C_down : 1;
+        unsigned C_left : 1;
+        unsigned C_right : 1;
+        signed x : 8;
+        signed y : 8;
+ */
+
+void eval_PIF_commands()
+{
+    size_t i = 0;
+    size_t channel = 0;
+
+    while (i < 0x3e)
+    {
+        uint8_t t = state.pifram[i];
+        size_t ir = i + 1;
+
+        if (t == 0xfeu) {
+            break; /* Break command */
+        }
+        if (t & 0x80u) {
+            /* Negative length, discard transmit byte and retry */
+            i = ir;
+            continue;
+        }
+        if (t == 0) {
+            /* Null command, increment the channel and retry */
+            i = ir;
+            channel++;
+            continue;
+        }
+
+        uint8_t r = state.pifram[ir];
+        size_t itbuf = ir + 1;
+        size_t irbuf = itbuf + t;
+
+        if (irbuf >= 0x40u) {
+            state.pifram[ir] |= 0x40u;
+            break; /* Transmit overflow */
+        }
+
+#define write_pifram_byte(nr, val) \
+    ({  if ((nr) < r && (irbuf + (nr)) < 0x3fu) \
+            state.pifram[irbuf + (nr)] = (val); \
+        else \
+            state.pifram[ir] |= 0x40u; \
+    })
+
+        /* Interpret command byte. */
+        if (channel < 4) {
+            switch (state.pifram[itbuf]) {
+                case 0x0: /* Request info */
+                    if (t != 0x1) {
+                        state.pifram[ir] |= 0x40u;
+                    }
+                    if (r != 0x3) {
+                        state.pifram[ir] |= 0x40u;
+                    }
+                    write_pifram_byte(0, 0x00); /* Model byte 0 */
+                    write_pifram_byte(1, 0x00); /* Model byte 1 */
+                    /* Status: 1= something plugged,
+                     *         2= nothing plugged,
+                     *         4= pad address CRC (mempack) */
+                    write_pifram_byte(2, channel == 0 ? 0x1 : 0x2);
+                    break;
+
+                case 0x1: /* Read button values */
+                    if (t != 0x1) {
+                        state.pifram[ir] |= 0x40u;
+                    }
+                    if (r != 0x4) {
+                        state.pifram[ir] |= 0x40u;
+                    }
+                    if (channel != 0) {
+                        state.pifram[ir] |= 0x80u;
+                        break;
+                    }
+                    write_pifram_byte(0, 0x00);
+                    write_pifram_byte(1, 0x00);
+                    write_pifram_byte(2, 0x00);
+                    write_pifram_byte(3, 0x00);
+                    break;
+
+                default:
+                    state.pifram[ir] |= 0x80u;
+                    break;
+            }
+        } else {
+            switch (state.pifram[itbuf]) {
+                case 0x0: /* Request info */
+                    if (t != 0x1) {
+                        state.pifram[ir] |= 0x40u;
+                    }
+                    if (r != 0x3) {
+                        state.pifram[ir] |= 0x40u;
+                    }
+                    write_pifram_byte(0, 0x00); /* Model byte 0 */
+                    write_pifram_byte(1, 0x00); /* Model byte 1 */
+                    /* Status: 1= something plugged,
+                     *         2= nothing plugged,
+                     *         4= pad address CRC (mempack) */
+                    write_pifram_byte(2, 0x2); // channel == 4 ? 0x1 : 0x2);
+                    break;
+
+                default:
+                    state.pifram[ir] |= 0x80u;
+                    break;
+            }
+        }
+
+        channel++;
+        i = irbuf + r;
+    }
+
+    state.pifram[0x3f] = 0;
+}
+
+/**
+ * @brief Write the SI register SI_PIF_ADDR_RD64B_REG.
+ *  Writing the register starts a DMA transfer from PIF ram to DRAM.
+ */
+void write_SI_PIF_ADDR_RD64B_REG(u32 value)
+{
+    logWrite(debugger.verbose.SI, "SI_PIF_ADDR_RD64B_REG", value);
+    u32 dst = state.hwreg.SI_DRAM_ADDR_REG;
+
+    // Check that the destination range fits in the dram memory, and in
+    // particular does not overflow.
+    if ((dst + 64) <= dst ||
+        (dst + 64) > 0x400000llu) {
+        std::cerr << "write_SI_PIF_ADDR_RD64B_REG() destination range invalid";
+        std::cerr << std::endl;
+        state.hwreg.SI_STATUS_REG = SI_STATUS_INTR | SI_STATUS_DMA_ERROR;
+        set_MI_INTR_REG(MI_INTR_SI);
+        return;
+    }
+
+    memcpy(state.dram + dst, state.pifram, 64);
+    state.hwreg.SI_STATUS_REG = SI_STATUS_INTR;
+    set_MI_INTR_REG(MI_INTR_SI);
+
+    std::cerr << "PIF response buffer:" << std::endl;
+    for (size_t n = 0; n < 64; n++) {
+        if (n && !(n % 16))
+            std::cerr << std::endl;
+        std::cerr << std::hex << " ";
+        std::cerr << std::setw(2) << (unsigned)state.pifram[n];
+    }
+    std::cerr << std::endl;
+}
+
+/**
+ * @brief Write the SI register SI_PIF_ADDR_WR64B_REG.
+ *  Writing the register starts a DMA transfer from DRAM to pif ram.
+ */
+void write_SI_PIF_ADDR_WR64B_REG(u32 value)
+{
+    logWrite(debugger.verbose.SI, "SI_PIF_ADDR_WR64B_REG", value);
+    u32 src = state.hwreg.SI_DRAM_ADDR_REG;
+
+    // Check that the sourece range fits in the dram memory, and in
+    // particular does not overflow.
+    if ((src + 64) <= src ||
+        (src + 64) > 0x400000llu) {
+        std::cerr << "write_SI_PIF_ADDR_RD64B_REG() source range invalid";
+        std::cerr << std::endl;
+        state.hwreg.SI_STATUS_REG = SI_STATUS_INTR | SI_STATUS_DMA_ERROR;
+        set_MI_INTR_REG(MI_INTR_SI);
+        return;
+    }
+
+    memcpy(state.pifram, state.dram + src, 64);
+    state.hwreg.SI_STATUS_REG = SI_STATUS_INTR;
+    set_MI_INTR_REG(MI_INTR_SI);
+
+    std::cerr << "PIF command buffer:" << std::endl;
+    for (size_t n = 0; n < 64; n++) {
+        if (n && !(n % 16))
+            std::cerr << std::endl;
+        std::cerr << std::hex << " ";
+        std::cerr << std::setw(2) << (unsigned)state.pifram[n];
+    }
+    std::cerr << std::endl;
+
+    // Run the commands encoded in the PIF ram.
+    eval_PIF_commands();
 }
 
 namespace RdRam {
@@ -1589,14 +1812,12 @@ bool read(uint bytes, u64 addr, u64 *value)
             *value = state.hwreg.SI_DRAM_ADDR_REG;
             return true;
         case SI_PIF_ADDR_RD64B_REG:
-            logRead(debugger.verbose.SI, "SI_PIF_ADDR_RD64B_REG",
-                    state.hwreg.SI_PIF_ADDR_RD64B_REG);
-            *value = state.hwreg.SI_PIF_ADDR_RD64B_REG;
+            logRead(debugger.verbose.SI, "SI_PIF_ADDR_RD64B_REG", 0);
+            *value = 0;
             return true;
         case SI_PIF_ADDR_WR64B_REG:
-            logRead(debugger.verbose.SI, "SI_PIF_ADDR_WR64B_REG",
-                    state.hwreg.SI_PIF_ADDR_WR64B_REG);
-            *value = state.hwreg.SI_PIF_ADDR_WR64B_REG;
+            logRead(debugger.verbose.SI, "SI_PIF_ADDR_WR64B_REG", 0);
+            *value = 0;
             return true;
         case SI_STATUS_REG:
             logRead(debugger.verbose.SI, "SI_STATUS_REG",
@@ -1623,31 +1844,16 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
 
         case SI_PIF_ADDR_RD64B_REG:
-            logWrite(debugger.verbose.SI, "SI_PIF_ADDR_RD64B_REG", value);
-            state.hwreg.SI_PIF_ADDR_RD64B_REG = value;
-            state.physmem.copy(
-                state.hwreg.SI_DRAM_ADDR_REG,
-                state.hwreg.SI_PIF_ADDR_RD64B_REG,
-                64);
-            state.hwreg.SI_STATUS_REG = UINT32_C(1) << 12;
-            set_MI_INTR_REG(MI_INTR_SI);
+            write_SI_PIF_ADDR_RD64B_REG(value);
             return true;
-
         case SI_PIF_ADDR_WR64B_REG:
-            logWrite(debugger.verbose.SI, "SI_PIF_ADDR_WR64B_REG", value);
-            state.hwreg.SI_PIF_ADDR_WR64B_REG = value;
-            state.physmem.copy(
-                state.hwreg.SI_PIF_ADDR_WR64B_REG,
-                state.hwreg.SI_DRAM_ADDR_REG,
-                64);
-            state.hwreg.SI_STATUS_REG = UINT32_C(1) << 12;
-            set_MI_INTR_REG(MI_INTR_SI);
+            write_SI_PIF_ADDR_WR64B_REG(value);
             return true;
 
         case SI_STATUS_REG:
             logWrite(debugger.verbose.SI, "SI_STATUS_REG", value);
             clear_MI_INTR_REG(MI_INTR_SI);
-            state.hwreg.SI_STATUS_REG &= ~(UINT32_C(1) << 12);
+            state.hwreg.SI_STATUS_REG &= ~SI_STATUS_INTR;
             return true;
 
         default:
@@ -1663,11 +1869,11 @@ namespace PIF {
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
-    logReadAtAddr(debugger.verbose.PIF, "PIF", addr, 0);
     u64 offset = addr - UINT32_C(0x1fc00000);
-    if (offset >= 0x800)
+    if (offset < 0x7c0 || offset >= 0x800)
         return false;
-    *value = 0;
+    *value = state.pifram[offset - 0x7c0];
+    logReadAtAddr(debugger.verbose.PIF, "PIF", addr, *value);
     return true;
 }
 
@@ -1677,6 +1883,10 @@ bool write(uint bytes, u64 addr, u64 value)
     u64 offset = addr - UINT32_C(0x1fc00000);
     if (offset < 0x7c0 || offset >= 0x800)
         return false;
+
+    state.pifram[offset - 0x7c0] = value;
+    if ((state.pifram[0x3f] & 0x1) != 0)
+        eval_PIF_commands();
     return true;
 }
 

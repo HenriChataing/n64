@@ -298,10 +298,6 @@ static void displayHWRegisters(void) {
         if (ImGui::BeginTabItem("SI")) {
             ImGui::Text("SI_DRAM_ADDR_REG       %08" PRIx32 "\n",
                 R4300::state.hwreg.SI_DRAM_ADDR_REG);
-            ImGui::Text("SI_PIF_ADDR_RD64B_REG  %08" PRIx32 "\n",
-                R4300::state.hwreg.SI_PIF_ADDR_RD64B_REG);
-            ImGui::Text("SI_PIF_ADDR_WR64B_REG  %08" PRIx32 "\n",
-                R4300::state.hwreg.SI_PIF_ADDR_WR64B_REG);
             ImGui::Text("SI_STATUS_REG          %08" PRIx32 "\n",
                 R4300::state.hwreg.SI_STATUS_REG);
             ImGui::EndTabItem();
@@ -397,6 +393,8 @@ int startGui()
         // Displays Continue, Halt commands and register values.
         {
             ImGui::Begin("Debugger");
+            // CPU freq is 93.75 MHz
+            ImGui::Text("Real time: %lums\n", R4300::state.cycles / 93750lu);
             if (debugger.halted) {
                 ImGui::Text("Machine halt reason: '%s'\n",
                     debugger.haltedReason.c_str());

@@ -29,6 +29,7 @@ public:
     u8 dram[0x400000];
     u8 dmem[0x1000];
     u8 imem[0x1000];
+    u8 pifram[0x40];
     Memory::AddressSpace physmem;
 
     ulong cycles;
