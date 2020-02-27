@@ -228,7 +228,6 @@ void takeException(Exception exn, u64 vAddr,
         // SYSCALL instruction.
         case SystemCall:
             exccode = 8; // Sys
-            debugger.halt("SystemCall");
             break;
         // A Breakpoint exception occurs when an attempt is made to execute the
         // BREAK instruction.
@@ -457,7 +456,10 @@ static bool eval(bool delaySlot)
                 case BREAK:
                     throw "BREAK trap";
                 RType(DADD, instr, { throw "Unsupported"; })
-                RType(DADDU, instr, { throw "Unsupported"; })
+                RType(DADDU, instr, {
+                    u64 res = state.reg.gpr[rs] + state.reg.gpr[rt];
+                    state.reg.gpr[rd] = res;
+                })
                 RType(DDIV, instr, { throw "Unsupported"; })
                 RType(DDIVU, instr, {
                     state.reg.multLo = state.reg.gpr[rs] / state.reg.gpr[rt];
@@ -509,7 +511,10 @@ static bool eval(bool delaySlot)
                 })
                 RType(DSRAV, instr, { throw "Unsupported"; })
                 RType(DSRL, instr, { throw "Unsupported"; })
-                RType(DSRL32, instr, { throw "Unsupported"; })
+                RType(DSRL32, instr, {
+                    // Right shift is logical for unsigned c types.
+                    state.reg.gpr[rd] = state.reg.gpr[rt] >> (shamnt + 32);
+                })
                 RType(DSRLV, instr, { throw "Unsupported"; })
                 RType(DSUB, instr, { throw "Unsupported"; })
                 RType(DSUBU, instr, { throw "Unsupported"; })
@@ -542,7 +547,14 @@ static bool eval(bool delaySlot)
                 RType(MTLO, instr, {
                     state.reg.multLo = state.reg.gpr[rs];
                 })
-                RType(MULT, instr, { throw "Unsupported"; })
+                RType(MULT, instr, {
+                    // @todo instruction takes 3 cycles
+                    int32_t a = (int32_t)(uint32_t)state.reg.gpr[rs];
+                    int32_t b = (int32_t)(uint32_t)state.reg.gpr[rt];
+                    int64_t m = a * b;
+                    state.reg.multLo = sign_extend<u64, u32>((uint64_t)m);
+                    state.reg.multHi = sign_extend<u64, u32>((uint64_t)m >> 32);
+                })
                 RType(MULTU, instr, {
                     // @todo instruction takes 3 cycles
                     u64 m = (uint32_t)state.reg.gpr[rs] * (uint32_t)state.reg.gpr[rt];
@@ -613,7 +625,9 @@ static bool eval(bool delaySlot)
                         state.reg.gpr[rs] - state.reg.gpr[rt]);
                 })
                 RType(SYNC, instr, { throw "Unsupported"; })
-                RType(SYSCALL, instr, { throw "Unsupported"; })
+                RType(SYSCALL, instr, {
+                    returnException(SystemCall, 0, delaySlot, false, false, 0);
+                })
                 RType(TEQ, instr, { throw "Unsupported"; })
                 RType(TGE, instr, { throw "Unsupported"; })
                 RType(TGEU, instr, { throw "Unsupported"; })
@@ -744,7 +758,9 @@ static bool eval(bool delaySlot)
             break;
 
         IType(DADDI, instr, sign_extend, { throw "Unsupported"; })
-        IType(DADDIU, instr, sign_extend, { throw "Unsupported"; })
+        IType(DADDIU, instr, sign_extend, {
+            state.reg.gpr[rt] = state.reg.gpr[rs] + imm;
+        })
         JType(J, instr, {
             tg = (state.reg.pc & 0xfffffffff0000000llu) | (tg << 2);
             state.cpu.nextAction = State::Action::Delay;
@@ -919,7 +935,18 @@ static bool eval(bool delaySlot)
             val = val | (state.reg.gpr[rt] & mask);
             state.reg.gpr[rt] = sign_extend<u64, u32>(val);
         })
-        IType(LWU, instr, sign_extend, { throw "Unsupported"; })
+        IType(LWU, instr, sign_extend, {
+            u64 vAddr = state.reg.gpr[rs] + imm;
+            u64 pAddr, val;
+
+            checkAddressAlignment(vAddr, 4, delaySlot, false, true);
+            exn = translateAddress(vAddr, &pAddr, false);
+            if (exn != None)
+                returnException(exn, vAddr, delaySlot, false, true);
+            if (!state.physmem.load(4, pAddr, &val))
+                returnException(BusError, vAddr, delaySlot, false, true);
+            state.reg.gpr[rt] = zero_extend<u64, u32>(val);
+        })
         IType(ORI, instr, zero_extend, {
             state.reg.gpr[rt] = state.reg.gpr[rs] | imm;
         })
