@@ -20,6 +20,7 @@
 
 static Disassembler imemDisassembler(12);
 static Disassembler dramDisassembler(22);
+static Disassembler romDisassembler(12);
 static Trace cpuTrace(&debugger.cpuTrace);
 static Trace rspTrace(&debugger.rspTrace);
 
@@ -472,6 +473,13 @@ int startGui()
                         Mips::RSP::disas,
                         R4300::state.imem, sizeof(R4300::state.imem),
                         R4300::state.rspreg.pc);
+                    ImGui::EndTabItem();
+                }
+                if (ImGui::BeginTabItem("ROM")) {
+                    romDisassembler.DrawContents(
+                        Mips::CPU::disas,
+                        R4300::state.rom, 0x1000,
+                        R4300::state.reg.pc);
                     ImGui::EndTabItem();
                 }
                 ImGui::EndTabBar();

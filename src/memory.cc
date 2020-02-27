@@ -122,7 +122,7 @@ class RamRegion : public Region
 public:
     RamRegion(u64 address, u64 size, Region *container = NULL);
     RamRegion(u64 address, u64 size, u8 *mem, Region *container = NULL);
-    RamRegion(u64 address, u64 size, const std::string file,
+    RamRegion(u64 address, u64 size, u8 *mem, const std::string file,
               Region *container = NULL);
     virtual ~RamRegion();
 
@@ -155,12 +155,20 @@ RamRegion::RamRegion(u64 address, u64 size, u8 *mem, Region *container)
     memset(block, 0, size);
 }
 
-RamRegion::RamRegion(u64 address, u64 size, const std::string file,
+RamRegion::RamRegion(u64 address, u64 size, u8 *mem, const std::string file,
                      Region *container)
     : Region(address, size, container)
 {
     readonly = true;
-    block = new u8[size];
+
+    if (mem == NULL) {
+        block = new u8[size];
+        _allocated = true;
+    } else {
+        block = mem;
+        _allocated = false;
+    }
+    memset(block, 0, size);
 
     FILE *romFile = fopen(file.c_str(), "r");
     if (romFile == NULL)
@@ -275,9 +283,9 @@ void Region::insertRam(u64 addr, u64 size, u8 *mem)
     insert(new RamRegion(addr, size, mem, this));
 }
 
-void Region::insertRom(u64 addr, u64 size, const std::string file)
+void Region::insertRom(u64 addr, u64 size, u8 *mem, const std::string file)
 {
-    insert(new RamRegion(addr, size, file, this));
+    insert(new RamRegion(addr, size, mem, file, this));
 }
 
 void Region::insertIOmem(u64 addr, u64 size,
