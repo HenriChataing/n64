@@ -65,7 +65,7 @@ R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
     for (i = 0; i < R4300::tlbEntryCount; i++) {
         R4300::tlbEntry &entry = R4300::state.tlb[i];
         // Check VPN against vAddr
-        u64 pageMask = ~entry.pageMask & 0xfffffe000llu;
+        u64 pageMask = ~entry.pageMask & 0xffffffe000llu;
         if ((vAddr & pageMask) == (entry.entryHi & pageMask)) {
             // Check global bit and ASID
             if (entry.global ||
@@ -83,15 +83,14 @@ R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
     R4300::tlbEntry &entry = R4300::state.tlb[i];
 
     // Compute physical address + cache attributes.
-    u64 maskShift = entry.pageMask >> 2;
-    u64 offsetMask = maskShift ^ (maskShift - 1llu);
+    u64 pageMask = entry.pageMask | 0x0000001fffllu;
+    u64 offsetMask = pageMask >> 1;
     u64 parityMask = offsetMask + 1llu;
     u64 offset = vAddr & offsetMask;
 
     if (vAddr & parityMask) {
         // Check valid bit
         if ((entry.entryLo1 & 2) == 0) {
-            debugger.halt("Invalid TLB entry found");
             R4300::state.cp0reg.entryhi = vAddr & ~0x1fffllu; // @todo ASID
             return R4300::TLBInvalid;
         }
@@ -105,7 +104,6 @@ R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
     } else {
         // Check valid bit
         if ((entry.entryLo0 & 2) == 0) {
-            debugger.halt("Invalid TLB entry found");
             R4300::state.cp0reg.entryhi = vAddr & ~0x1fffllu; // @todo ASID
             return R4300::TLBInvalid;
         }

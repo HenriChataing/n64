@@ -170,7 +170,9 @@ void takeException(Exception exn, u64 vAddr,
         case TLBInvalid:
             exccode = load ? 2 : 3; // TLBL : TLBS
             state.cp0reg.badvaddr = vAddr;
-            debugger.halt("TLBInvalid / TLBRefill");
+            state.cp0reg.entryhi &= ~0xffffffe000llu;
+            state.cp0reg.entryhi |= (vAddr & 0xffffffe000llu);
+            // debugger.halt("TLBInvalid / TLBRefill");
             // TODO : Context, XContext, EntryHi
             break;
         // TLB Modified occurs when a store operation virtual address
@@ -712,7 +714,8 @@ static bool eval(bool delaySlot)
             }
             switch (Mips::getRs(instr)) {
                 RType(MF, instr, {
-                    state.reg.gpr[rt] = cop[opcode & 0x3]->read(4, rd, false);
+                    state.reg.gpr[rt] =
+                        sign_extend<u64, u32>(cop[opcode & 0x3]->read(4, rd, false));
                 })
                 RType(DMF, instr, { throw "Unsupported"; })
                 RType(CF, instr, {

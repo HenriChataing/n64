@@ -8,7 +8,7 @@
 
 namespace R4300 {
 
-const static uint tlbEntryCount = 47;
+const static uint tlbEntryCount = 48;
 
 struct cpureg {
     u64 pc;             /**< Program counter */
@@ -48,7 +48,7 @@ struct cp0reg {
     u32 cacheerr;       /**< Not Used */
     u32 taglo;          /**< Cache tag register */
     u32 taghi;          /**< Cache tag register (reserved) */
-    u32 errorepc;       /**< Error exception program counter */
+    u64 errorepc;       /**< Error exception program counter */
     u32 c31;            /**< Unused */
 
     void incrCount();

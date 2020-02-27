@@ -78,6 +78,9 @@ public:
          *      for 4K pages, up to 1111_1111_1111 for 16M pages.
          */
         PageMask = 5,
+        /**
+         * Specifies the boundary between wired and random entries of the TLB.
+         */
         Wired = 6,
         CPR7 = 7,
         BadVAddr = 8,
@@ -187,7 +190,7 @@ public:
         switch (op) {
             case Mips::Cop0::TLBR:
                 i = state.cp0reg.index & 0x3flu;
-                if (i > tlbEntryCount)
+                if (i >= tlbEntryCount)
                     break;
                 state.cp0reg.pagemask = state.tlb[i].pageMask;
                 state.cp0reg.entryhi = state.tlb[i].entryHi;
@@ -199,11 +202,12 @@ public:
             case Mips::Cop0::TLBWR:
                 if (op == Mips::Cop0::TLBWI) {
                     i = state.cp0reg.index & 0x3flu;
-                    if (i > tlbEntryCount)
+                    if (i >= tlbEntryCount)
                         break;
                 } else {
                     i = state.cp0reg.random;
-                    state.cp0reg.random = (i + tlbEntryCount - 1) % tlbEntryCount;
+                    state.cp0reg.random =
+                        i == state.cp0reg.wired ? tlbEntryCount - 1 : i - 1;
                 }
 
                 state.tlb[i].pageMask = state.cp0reg.pagemask & 0x1ffe000llu;
@@ -267,8 +271,7 @@ public:
                 return state.cp0reg.pagemask;
             case Wired:
                 logRead("COP0_Wired", state.cp0reg.wired);
-                throw "ReadWired";
-                break;
+                return state.cp0reg.wired;
             case CPR7:
                 logRead("COP0_CPR7", 0);
                 throw "ReadCPR7";
@@ -354,8 +357,7 @@ public:
                 return state.cp0reg.taghi;
             case ErrorEPC:
                 logRead("COP0_ErrorEPC", state.cp0reg.errorepc);
-                throw "ReadErrPC";
-                break;
+                return state.cp0reg.errorepc;
             case CPR31:
                 logRead("COP0_CPR31", 0);
                 throw "ReadCPR31";
@@ -371,7 +373,7 @@ public:
         switch (rd) {
             case Index:
                 logWrite("COP0_Index", imm);
-                state.cp0reg.index |= imm & 0x3flu;
+                state.cp0reg.index = imm & 0x3flu;
                 break;
             case Random:
                 logWrite("COP0_Random", imm);
@@ -395,7 +397,10 @@ public:
                 break;
             case Wired:
                 logWrite("COP0_Wired", imm);
-                throw "WriteWired";
+                state.cp0reg.wired = imm & 0x3flu;
+                if (state.cp0reg.wired >= tlbEntryCount)
+                    debugger.halt("Invalid Wired value");
+                state.cp0reg.random = tlbEntryCount - 1;
                 break;
             case CPR7:
                 logWrite("COP0_CPR7", imm);
@@ -437,7 +442,8 @@ public:
                 break;
             case EPC:
                 logWrite("COP0_EPC", imm);
-                state.cp0reg.epc = imm;
+                state.cp0reg.epc =
+                    bytes == 8 ? imm : sign_extend<u64, u32>((u32)imm);
                 break;
             case PrId:
                 logWrite("COP0_PrId", imm);
@@ -501,7 +507,8 @@ public:
                 break;
             case ErrorEPC:
                 logWrite("COP0_ErrorEPC", imm);
-                throw "WriteErrPC";
+                state.cp0reg.errorepc =
+                    bytes == 8 ? imm : sign_extend<u64, u32>((u32)imm);
                 break;
             case CPR31:
                 logWrite("COP0_CPR31", imm);

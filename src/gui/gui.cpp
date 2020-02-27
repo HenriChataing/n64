@@ -85,7 +85,7 @@ static void displayCpuCp0Registers(void) {
     Print2Regs(PRIx32, c24,      PRIx32, c25);
     Print2Regs(PRIx32, perr,     PRIx32, cacheerr);
     Print2Regs(PRIx32, taglo,    PRIx32, taghi);
-    Print2Regs(PRIx32, errorepc, PRIx32, c31);
+    Print2Regs(PRIx64, errorepc, PRIx32, c31);
     #undef Print2Regs
 }
 
