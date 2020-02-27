@@ -124,9 +124,8 @@ static inline bool checkAddressAlignment(u64 addr, u64 bytes) {
 #define BType(opcode, instr, ...) \
     IType(opcode, instr, sign_extend, { \
         if (__VA_ARGS__) { \
-            eval(state.rspreg.pc + 4, true); \
-            state.rspreg.pc += 4 + (i64)(imm << 2); \
-            state.branch = true; \
+            state.rsp.nextAction = State::Action::Delay; \
+            state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2); \
         } \
     })
 
@@ -753,6 +752,8 @@ static void eval_COP2(u32 instr) {
     }
 }
 
+static bool eval(bool delaySlot);
+
 /**
  * @brief Fetch and interpret a single instruction from memory.
  * @return true if the instruction caused an exception
@@ -763,13 +764,25 @@ bool step()
     if (state.hwreg.SP_STATUS_REG & SP_STATUS_HALT)
         return false;
 
-    u64 pc = R4300::state.rspreg.pc;
-    R4300::state.branch = false;
-    bool exn = eval(pc, false);
+    bool exn;
+    switch (state.rsp.nextAction) {
+        case State::Action::Continue:
+            state.rspreg.pc += 4;
+            exn = eval(false);
+            break;
 
-    if (!R4300::state.branch && !exn)
-        R4300::state.rspreg.pc += 4;
+        case State::Action::Delay:
+            state.rspreg.pc += 4;
+            state.rsp.nextAction = State::Action::Jump;
+            exn = eval(true);
+            break;
 
+        case State::Action::Jump:
+            state.rspreg.pc = state.rsp.nextPc;
+            state.rsp.nextAction = State::Action::Continue;
+            exn = eval(false);
+            break;
+    }
     return exn;
 }
 
@@ -781,8 +794,9 @@ bool step()
  *                      branch delay slot.
  * @return true if the instruction caused an exception
  */
-bool eval(u64 addr, bool delaySlot)
+static bool eval(bool delaySlot)
 {
+    u64 addr = state.rspreg.pc;
     u64 instr;
     u32 opcode;
 
@@ -843,15 +857,13 @@ bool eval(u64 addr, bool delaySlot)
                 RType(JALR, instr, {
                     u64 tg = state.rspreg.gpr[rs];
                     state.rspreg.gpr[rd] = state.rspreg.pc + 8;
-                    eval(state.rspreg.pc + 4, true);
-                    state.rspreg.pc = tg;
-                    state.branch = true;
+                    state.rsp.nextAction = State::Action::Delay;
+                    state.rsp.nextPc = tg;
                 })
                 RType(JR, instr, {
                     u64 tg = state.rspreg.gpr[rs];
-                    eval(state.rspreg.pc + 4, true);
-                    state.rspreg.pc = tg;
-                    state.branch = true;
+                    state.rsp.nextAction = State::Action::Delay;
+                    state.rsp.nextPc = tg;
                 })
                 /* MFHI not implemented */
                 /* MFLO not implemented */
@@ -944,9 +956,8 @@ bool eval(u64 addr, bool delaySlot)
                     i64 r = state.rspreg.gpr[rs];
                     state.rspreg.gpr[31] = state.rspreg.pc + 8;
                     if (r >= 0) {
-                        eval(state.rspreg.pc + 4, true);
-                        state.rspreg.pc += 4 + (i64)(imm << 2);
-                        state.branch = true;
+                        state.rsp.nextAction = State::Action::Delay;
+                        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
                     }
                 })
                 /* BGEZALL not implemented */
@@ -954,9 +965,8 @@ bool eval(u64 addr, bool delaySlot)
                     i64 r = state.rspreg.gpr[rs];
                     state.rspreg.gpr[31] = state.rspreg.pc + 8;
                     if (r < 0) {
-                        eval(state.rspreg.pc + 4, true);
-                        state.rspreg.pc += 4 + (i64)(imm << 2);
-                        state.branch = true;
+                        state.rsp.nextAction = State::Action::Delay;
+                        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
                     }
                 })
                 /* BLTZALL not implemented */
@@ -1070,16 +1080,14 @@ bool eval(u64 addr, bool delaySlot)
         /* DADDIU not implemented */
         JType(J, instr, {
             tg = (state.rspreg.pc & 0xfffffffff0000000llu) | (tg << 2);
-            eval(state.rspreg.pc + 4, true);
-            state.rspreg.pc = tg;
-            state.branch = true;
+            state.rsp.nextAction = State::Action::Delay;
+            state.rsp.nextPc = tg;
         })
         JType(JAL, instr, {
             tg = (state.rspreg.pc & 0xfffffffff0000000llu) | (tg << 2);
             state.rspreg.gpr[31] = state.rspreg.pc + 8;
-            eval(state.rspreg.pc + 4, true);
-            state.rspreg.pc = tg;
-            state.branch = true;
+            state.rsp.nextAction = State::Action::Delay;
+            state.rsp.nextPc = tg;
         })
         IType(LB, instr, sign_extend, {
             u64 addr = state.rspreg.gpr[rs] + imm;

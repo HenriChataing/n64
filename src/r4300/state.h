@@ -34,7 +34,20 @@ public:
     Memory::AddressSpace physmem;
 
     ulong cycles;
-    bool branch;
+
+    enum Action {
+        /**< Evaluate the instruction at pc+4 */
+        Continue,
+        /**< Evaluate the instruction at pc+4, then perform a jump */
+        Delay,
+        /**< Jump to the specified address. */
+        Jump,
+    };
+
+    struct {
+        Action nextAction;
+        u64 nextPc;
+    } cpu, rsp;
 };
 
 /** Current machine state. */

@@ -224,13 +224,13 @@ public:
 
             case Mips::Cop0::ERET:
                 if (ERL()) {
-                    state.reg.pc = state.cp0reg.errorepc;
+                    state.cpu.nextAction = State::Action::Jump;
+                    state.cpu.nextPc = state.cp0reg.errorepc;
                     state.cp0reg.sr &= ~(1lu << 2);
-                    state.branch = true;
                 } else {
-                    state.reg.pc = state.cp0reg.epc;
+                    state.cpu.nextAction = State::Action::Jump;
+                    state.cpu.nextPc = state.cp0reg.epc;
                     state.cp0reg.sr &= ~(1lu << 1);
-                    state.branch = true;
                 }
                 break;
 

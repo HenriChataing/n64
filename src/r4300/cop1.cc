@@ -459,18 +459,16 @@ bool eval(u32 instr, bool delaySlot)
                 case Mips::Copz::BCF: {
                     u64 offset = sign_extend<u64, u16>(Mips::getImmediate(instr));
                     if ((state.cp1reg.fcr31 & FCR31_C) == 0) {
-                        R4300::Eval::eval(state.reg.pc + 4, true);
-                        state.reg.pc += 4 + (i64)(offset << 2);
-                        state.branch = true;
+                        state.cpu.nextAction = State::Action::Delay;
+                        state.cpu.nextPc = state.reg.pc + 4 + (i64)(offset << 2);
                     }
                     break;
                 }
                 case Mips::Copz::BCFL: {
                     u64 offset = sign_extend<u64, u16>(Mips::getImmediate(instr));
                     if (((state.cp1reg.fcr31 & FCR31_C) == 0)) {
-                        R4300::Eval::eval(state.reg.pc + 4, true);
-                        state.reg.pc += 4 + (i64)(offset << 2);
-                        state.branch = true;
+                        state.cpu.nextAction = State::Action::Delay;
+                        state.cpu.nextPc = state.reg.pc + 4 + (i64)(offset << 2);
                     } else {
                         state.reg.pc += 4;
                     }
@@ -480,9 +478,8 @@ bool eval(u32 instr, bool delaySlot)
                     debugger.halt("C1::BCT instruction");
                     u64 offset = sign_extend<u64, u16>(Mips::getImmediate(instr));
                     if ((state.cp1reg.fcr31 & FCR31_C) != 0) {
-                        R4300::Eval::eval(state.reg.pc + 4, true);
-                        state.reg.pc += 4 + (i64)(offset << 2);
-                        state.branch = true;
+                        state.cpu.nextAction = State::Action::Delay;
+                        state.cpu.nextPc = state.reg.pc + 4 + (i64)(offset << 2);
                     }
                     break;
                 }
@@ -490,9 +487,8 @@ bool eval(u32 instr, bool delaySlot)
                     debugger.halt("C1::BCTL instruction");
                     u64 offset = sign_extend<u64, u16>(Mips::getImmediate(instr));
                     if (((state.cp1reg.fcr31 & FCR31_C) != 0)) {
-                        R4300::Eval::eval(state.reg.pc + 4, true);
-                        state.reg.pc += 4 + (i64)(offset << 2);
-                        state.branch = true;
+                        state.cpu.nextAction = State::Action::Delay;
+                        state.cpu.nextPc = state.reg.pc + 4 + (i64)(offset << 2);
                     } else {
                         state.reg.pc += 4;
                     }

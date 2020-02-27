@@ -33,9 +33,6 @@ struct rspreg {
 };
 
 namespace RSP {
-/** @brief Interpret the RSP instruction at the specified address. */
-bool eval(u64 addr, bool delaySlot);
-
 /** @brief Move the RSP one step, if not halted. */
 bool step();
 }; /* namespace RSP */

@@ -109,16 +109,14 @@ namespace Eval {
 #define BType(opcode, instr, ...) \
     IType(opcode, instr, sign_extend, { \
         if (__VA_ARGS__) { \
-            eval(state.reg.pc + 4, true); \
-            state.reg.pc += 4 + (i64)(imm << 2); \
-            state.branch = true; \
+            state.cpu.nextAction = State::Action::Delay; \
+            state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2); \
         } \
     }) \
     IType(opcode##L, instr, sign_extend, { \
         if (__VA_ARGS__) { \
-            eval(state.reg.pc + 4, true); \
-            state.reg.pc += 4 + (i64)(imm << 2); \
-            state.branch = true; \
+            state.cpu.nextAction = State::Action::Delay; \
+            state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2); \
         } else \
             state.reg.pc += 4; \
     })
@@ -307,11 +305,15 @@ void takeException(Exception exn, u64 vAddr,
     state.cp0reg.sr |= STATUS_EXL;
     // Check if exceuting bootstrap code
     // and jump to the designated handler.
+    u64 pc;
     if (BEV()) {
-        state.reg.pc = 0xffffffffbfc00200llu + vector;
+        pc = 0xffffffffbfc00200llu + vector;
     } else {
-        state.reg.pc = 0xffffffff80000000llu + vector;
+        pc = 0xffffffff80000000llu + vector;
     }
+
+    state.cpu.nextAction = State::Action::Jump;
+    state.cpu.nextPc = pc;
 }
 
 #define returnException(...) \
@@ -361,31 +363,45 @@ void clearInterruptPending(uint irq)
     state.cp0reg.cause &= ~CAUSE_IP(1lu << irq);
 }
 
+static bool eval(bool delaySlot);
+
 /**
  * @brief Fetch and interpret a single instruction from memory.
  * @return true if the instruction caused an exception
  */
 bool step()
 {
-    u64 pc = R4300::state.reg.pc;
-    R4300::state.branch = false;
-    bool exn = eval(pc, false);
+    bool exn;
+    switch (state.cpu.nextAction) {
+        case State::Action::Continue:
+            state.reg.pc += 4;
+            exn = eval(false);
+            break;
 
-    if (!R4300::state.branch && !exn)
-        R4300::state.reg.pc += 4;
+        case State::Action::Delay:
+            state.reg.pc += 4;
+            state.cpu.nextAction = State::Action::Jump;
+            exn = eval(true);
+            break;
+
+        case State::Action::Jump:
+            state.reg.pc = state.cpu.nextPc;
+            state.cpu.nextAction = State::Action::Continue;
+            exn = eval(false);
+            break;
+    }
     return exn;
 }
 
 /**
  * @brief Fetch and interpret a single instruction from the provided address.
- *
- * @param vAddr         Virtual address of the instruction to execute.
  * @param delaySlot     Whether the instruction executed is in a
  *                      branch delay slot.
  * @return true if the instruction caused an exception
  */
-bool eval(u64 vAddr, bool delaySlot)
+static bool eval(bool delaySlot)
 {
+    u64 vAddr = state.reg.pc;
     u64 pAddr;
     u64 instr;
     u32 opcode;
@@ -403,7 +419,6 @@ bool eval(u64 vAddr, bool delaySlot)
     }
 
     exn = translateAddress(vAddr, &pAddr, false);
-
     if (exn != R4300::None)
         returnException(exn, vAddr, delaySlot, true, true);
     if (!state.physmem.load(4, pAddr, &instr))
@@ -499,17 +514,13 @@ bool eval(u64 vAddr, bool delaySlot)
                 RType(JALR, instr, {
                     u64 tg = state.reg.gpr[rs];
                     state.reg.gpr[rd] = state.reg.pc + 8;
-                    eval(state.reg.pc + 4, true);
-                    debugger.newStackFrame(tg, state.reg.pc, state.reg.gpr[29]);
-                    state.reg.pc = tg;
-                    state.branch = true;
+                    state.cpu.nextAction = State::Action::Delay;
+                    state.cpu.nextPc = tg;
                 })
                 RType(JR, instr, {
                     u64 tg = state.reg.gpr[rs];
-                    eval(state.reg.pc + 4, true);
-                    debugger.deleteStackFrame(tg, state.reg.pc, state.reg.gpr[29]);
-                    state.reg.pc = tg;
-                    state.branch = true;
+                    state.cpu.nextAction = State::Action::Delay;
+                    state.cpu.nextPc = tg;
                 })
                 RType(MFHI, instr, {
                     // undefined if an instruction that follows modify
@@ -623,18 +634,16 @@ bool eval(u64 vAddr, bool delaySlot)
                     i64 r = state.reg.gpr[rs];
                     state.reg.gpr[31] = state.reg.pc + 8;
                     if (r >= 0) {
-                        eval(state.reg.pc + 4, true);
-                        state.reg.pc += 4 + (i64)(imm << 2);
-                        state.branch = true;
+                        state.cpu.nextAction = State::Action::Delay;
+                        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
                     }
                 })
                 IType(BGEZALL, instr, sign_extend, {
                     i64 r = state.reg.gpr[rs];
                     state.reg.gpr[31] = state.reg.pc + 8;
                     if (r >= 0) {
-                        eval(state.reg.pc + 4, true);
-                        state.reg.pc += 4 + (i64)(imm << 2);
-                        state.branch = true;
+                        state.cpu.nextAction = State::Action::Delay;
+                        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
                     } else
                         state.reg.pc += 4;
                 })
@@ -642,18 +651,16 @@ bool eval(u64 vAddr, bool delaySlot)
                     i64 r = state.reg.gpr[rs];
                     state.reg.gpr[31] = state.reg.pc + 8;
                     if (r < 0) {
-                        eval(state.reg.pc + 4, true);
-                        state.reg.pc += 4 + (i64)(imm << 2);
-                        state.branch = true;
+                        state.cpu.nextAction = State::Action::Delay;
+                        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
                     }
                 })
                 IType(BLTZALL, instr, sign_extend, {
                     i64 r = state.reg.gpr[rs];
                     state.reg.gpr[31] = state.reg.pc + 8;
                     if (r < 0) {
-                        eval(state.reg.pc + 4, true);
-                        state.reg.pc += 4 + (i64)(imm << 2);
-                        state.branch = true;
+                        state.cpu.nextAction = State::Action::Delay;
+                        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
                     } else
                         state.reg.pc += 4;
                 })
@@ -737,18 +744,14 @@ bool eval(u64 vAddr, bool delaySlot)
         IType(DADDIU, instr, sign_extend, { throw "Unsupported"; })
         JType(J, instr, {
             tg = (state.reg.pc & 0xfffffffff0000000llu) | (tg << 2);
-            eval(state.reg.pc + 4, true);
-            debugger.editStackFrame(tg, state.reg.gpr[29]);
-            state.reg.pc = tg;
-            state.branch = true;
+            state.cpu.nextAction = State::Action::Delay;
+            state.cpu.nextPc = tg;
         })
         JType(JAL, instr, {
             tg = (state.reg.pc & 0xfffffffff0000000llu) | (tg << 2);
             state.reg.gpr[31] = state.reg.pc + 8;
-            eval(state.reg.pc + 4, true);
-            debugger.newStackFrame(tg, state.reg.pc, state.reg.gpr[29]);
-            state.reg.pc = tg;
-            state.branch = true;
+            state.cpu.nextAction = State::Action::Delay;
+            state.cpu.nextPc = tg;
         })
         IType(LB, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;

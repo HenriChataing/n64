@@ -69,6 +69,12 @@ void State::boot() {
     hwreg.vi_IntrInterval = 1562500lu;
     hwreg.vi_LastCycleCount = 0;
     hwreg.vi_CyclesPerLine = 2971lu;
+
+    // Setup initial action.
+    cpu.nextAction = Action::Jump;
+    cpu.nextPc = 0xffffffffa4000040llu;
+    rsp.nextAction = Action::Jump;
+    rsp.nextPc = 0x0;
 }
 
 std::ostream &operator<<(std::ostream &os, const State &state)
