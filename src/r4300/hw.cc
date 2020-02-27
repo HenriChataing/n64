@@ -552,10 +552,38 @@ void write_SI_PIF_ADDR_WR64B_REG(u32 value)
 }
 
 namespace RdRam {
-
+/*
+ * Read only field describing the characteristics of the device.
+ * The rambus exist in 18M and 64M format, with device type:
+ *
+ * [31:27]    col - number of column address bits (11(18M) or 11(64M))
+ * [25]       bonus - specifies 8(0) or 9(1) byte length
+ * [23:20]    bnk - number of bank address bits (1(18M) or 2(64M))
+ * [19:16]    row - number of row address bits (9(18M) or 10(64M))
+ * [11:8]     version - always 0010
+ * [7:0]      type - always 0000
+ */
 const u32 RDRAM_DEVICE_TYPE_REG =   UINT32_C(0x03f00000);
 const u32 RDRAM_DEVICE_ID_REG =     UINT32_C(0x03f00004);
 const u32 RDRAM_DELAY_REG =         UINT32_C(0x03f00008);
+
+/*
+ * Read/Write register with fields that control the operating mode of
+ * the RDRAM.
+ *
+ *
+ * [28]       AS     - specifies manual (0) or auto (1) t TR control. Set to 1.
+ * [27]       SK     - specifies Skip value for manual t TR control. Set to 0.
+ * [26]       SV     - skip value for auto t TR control. Read-only.
+ * [25]       DE     - device Enable. Used during initialization.
+ *            C(0:5) - specifies I OL output current. 111111b min, 000000b max.
+ * [23:22]    C5,C2
+ * [20]       FR     - force RXCLK,TXCLK on. FR = 1 => RDRAM Enable.
+ * [18]       BASE   - set to 1 if Base RDRAMs with acknowledge are present.
+ * [15:14]    C4,C1
+ * [9]        CCAsym - current Control-Asymmetry adjustment.
+ * [7:6]      C3,C0
+ */
 const u32 RDRAM_MODE_REG =          UINT32_C(0x03f0000c);
 const u32 RDRAM_REF_INTERVAL_REG =  UINT32_C(0x03f00010);
 const u32 RDRAM_REF_ROW_REG =       UINT32_C(0x03f00014);
@@ -621,7 +649,8 @@ bool read(uint bytes, u64 addr, u64 *value)
             *value = state.hwreg.RDRAM_DEVICE_MANUF_REG;
             return true;
         default:
-            throw "RDRAM read unsupported";
+            logRead(debugger.verbose.rdram, "RDRAM_UNKNOWN", 0);
+            debugger.halt("RDRAM read");
             break;
     }
     return true;
@@ -673,8 +702,18 @@ bool write(uint bytes, u64 addr, u64 value)
             logWrite(debugger.verbose.rdram, "RDRAM_DEVICE_MANUF_REG", value);
             state.hwreg.RDRAM_DEVICE_MANUF_REG = value;
             return true;
+
+        /* Unknown registers accessed by CIC-NUS-6102 bootcode */
+        case UINT32_C(0x03f80004):
+        case UINT32_C(0x03f80008):
+        case UINT32_C(0x03f8000c):
+        case UINT32_C(0x03f80014):
+        case UINT32_C(0x03f04004):
+            return true;
+
         default:
-            // throw "RDRAM write unsupported";
+            logWrite(debugger.verbose.rdram, "RDRAM_UNKNOWN", value);
+            debugger.halt("RDRAM write");
             break;
     }
     return true;

@@ -52,15 +52,16 @@ void State::boot() {
     cp0reg.config = 0x0006e463;
     memset(&cp1reg, 0, sizeof(cp1reg));
     memset(tlb, 0, sizeof(tlb));
+    cp1reg.setFprAliases(false);
 
-    physmem.store(4, 0x04300004llu, 0x01010101);
+    // Copy the cart boot code to the beginning of the physical RAM.
     physmem.copy(0x04000000llu, 0x10000000llu, 0x1000);
     reg.pc = 0xffffffffa4000040llu;
 
-    cp1reg.setFprAliases(false);
-
     // Set reset values for HW registers.
+    hwreg.RDRAM_DEVICE_TYPE_REG = RDRAM_DEVICE_TYPE_18M;
     hwreg.SP_STATUS_REG = SP_STATUS_HALT;
+    hwreg.MI_VERSION_REG = 0x01010101u;
 
     // Set reset video mode to NTSC.
     hwreg.VI_V_SYNC_REG = UINT32_C(0x20d); // 525 lines
