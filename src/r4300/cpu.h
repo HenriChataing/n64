@@ -54,6 +54,8 @@ struct cp0reg {
     void incrCount();
 };
 
+#define INDEX_P                 (UINT32_C(0x80000000))
+
 #define STATUS_CU3              (UINT32_C(1) << 31)
 #define STATUS_CU2              (UINT32_C(1) << 30)
 #define STATUS_CU1              (UINT32_C(1) << 29)
@@ -104,10 +106,10 @@ struct cp1reg {
 #define FCR31_C                 (UINT32_C(1) << 23)
 
 struct tlbEntry {
-    u64 pageMask;       /**< TLB page mask */
     u64 entryHi;        /**< High half of TLB entry */
     u64 entryLo0;       /**< Low half of the TLB entry for even VPN */
     u64 entryLo1;       /**< Low half of the TLB entry for odd VPN */
+    u32 pageMask;       /**< TLB page mask */
 
     u8 asid;            /**< Extracted ASID */
     bool global;        /**< Extracted global bit */
@@ -133,24 +135,6 @@ enum Exception {
     Watch = 16,
     Interrupt = 17,
 };
-
-class Coprocessor
-{
-public:
-    Coprocessor() {}
-    ~Coprocessor() {}
-
-    virtual void cofun(u32 instr) {}
-    virtual u64 read(uint bytes, u32 rd, bool ctrl) { return 0; }
-    virtual void write(uint bytes, u32 rd, u64 imm, bool ctrl) {}
-
-    virtual void BCF(u32 rd, u64 imm) {}
-    virtual void BCT(u32 rd, u64 imm) {}
-    virtual void BCFL(u32 rd, u64 imm) {}
-    virtual void BCTL(u32 rd, u64 imm) {}
-};
-
-extern Coprocessor *cop[4];
 
 /**
  * @brief Translate a virtual memory address into a physical memory address

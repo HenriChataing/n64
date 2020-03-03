@@ -6,6 +6,13 @@
 
 namespace R4300 {
 
+namespace Cop0 {
+/**
+ * @brief Interpret an instruction with the COP0 special opcode.
+ */
+bool eval(u32 instr, bool delaySlot);
+}; /* namespace Cop0 */
+
 namespace Cop1 {
 /**
  * @brief Interpret an instruction with the COP1 special opcode.
