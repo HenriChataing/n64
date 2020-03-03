@@ -9,7 +9,7 @@ Debugger debugger;
 /**
  * @brief Initialize the debugger with a default thread.
  */
-Debugger::Debugger() : halted(false), cpuTrace(0x10000), rspTrace(0x10000)
+Debugger::Debugger() : halted(true), haltedReason("Reset"), cpuTrace(0x10000), rspTrace(0x10000)
 {
     _current = new Thread(0);
     _threads[0] = _current;

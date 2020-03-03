@@ -17,6 +17,7 @@
 #include <debugger.h>
 #include <r4300/state.h>
 #include <r4300/eval.h>
+#include <graphics.h>
 
 static Disassembler imemDisassembler(12);
 static Disassembler dramDisassembler(22);
@@ -311,8 +312,6 @@ int startGui()
 {
     // Initialize the machine state.
     R4300::state.boot();
-    // Make sure the machine is halted.
-    debugger.halted = true;
     // Start interpreter thread.
     std::thread evalThread(evalRoutine);
 
@@ -454,6 +453,29 @@ int startGui()
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
                 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
             ImGui::End();
+        }
+
+        // Show the screen rendering.
+        // ImGuiCond_FirstUseEver
+        {
+            size_t width;
+            size_t height;
+            GLuint texture;
+
+            if (getVideoImage(&width, &height, &texture)) {
+                ImGui::SetNextWindowSize(ImVec2(width + 15, height + 35));
+                ImGui::Begin("Screen");
+                ImVec2 pos = ImGui::GetCursorScreenPos();
+                    ImGui::GetWindowDrawList()->AddImage(
+                        (void *)(unsigned long)texture, pos,
+                        ImVec2(pos.x + width, pos.y + height),
+                        ImVec2(0, 0), ImVec2(1, 1));
+                ImGui::End();
+            } else {
+                ImGui::Begin("Screen");
+                ImGui::Text("Framebuffer invalid");
+                ImGui::End();
+            }
         }
 
         // Show the memory disassembler window.

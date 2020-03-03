@@ -6,6 +6,7 @@
 #include <r4300/hw.h>
 #include <r4300/state.h>
 
+#include <graphics.h>
 #include <debugger.h>
 
 namespace R4300 {
@@ -1199,6 +1200,58 @@ const u32 VI_X_SCALE_REG = UINT32_C(0x04400030);
 //       [27:16] vertical subpixel offset (2.10 format)
 const u32 VI_Y_SCALE_REG = UINT32_C(0x04400034);
 
+/**
+ * @brief Rebuild the current framebuffer object with the configuration
+ *  in the registers VI_MODE_REG, VI_DRAM_ADDR_REG, VI_WIDTH_REG.
+ */
+void updateCurrentFramebuffer(void) {
+    bool valid = true;
+    unsigned pixelSize = 0;
+    unsigned width = 0;
+    unsigned height = 0;
+    void *start = NULL;
+
+    u32 colorDepth =
+        (state.hwreg.VI_CONTROL_REG >> VI_CONTROL_COLOR_DEPTH_SHIFT) &
+        VI_CONTROL_COLOR_DEPTH_MASK;
+
+    switch (colorDepth) {
+        case VI_CONTROL_COLOR_DEPTH_32BIT: pixelSize = 32; break;
+        case VI_CONTROL_COLOR_DEPTH_16BIT: pixelSize = 16; break;
+        case VI_CONTROL_COLOR_DEPTH_BLANK:
+        default:
+            std::cerr << "Invalid COLOR_DEPTH config" << std::endl;
+            valid = false;
+            break;
+    }
+    switch (state.hwreg.VI_WIDTH_REG) {
+        case UINT32_C(0x140):
+            width = 320;
+            height = 240;
+            break;
+        case UINT32_C(0x280):
+            width = 640;
+            height = 480;
+            break;
+        default:
+            std::cerr << "Unsupported WIDTH config" << std::endl;
+            valid = false;
+            break;
+    }
+
+    u32 offset = state.hwreg.VI_DRAM_ADDR_REG;
+    unsigned framebufferSize = width * height * (pixelSize / 8);
+    if (offset + framebufferSize <= sizeof(state.dram)) {
+        start = &state.dram[offset];
+    } else {
+        std::cerr << "Invalid DRAM_ADDR config: " << std::hex;
+        std::cerr << offset << "," << framebufferSize << std::endl;
+        valid = false;
+    }
+
+    setVideoImage(width, height, pixelSize, valid ? start : NULL);
+}
+
 /** @brief Write the value of the VI_INTR_REG register. */
 void write_VI_INTR_REG(u32 value) {
     logWrite(debugger.verbose.VI, "VI_INTR_REG", value);
@@ -1245,7 +1298,6 @@ bool read(uint bytes, u64 addr, u64 *value)
         return false;
 
     switch (addr) {
-
         case VI_CONTROL_REG:
             logRead(debugger.verbose.VI, "VI_CONTROL_REG", state.hwreg.VI_CONTROL_REG);
             *value = state.hwreg.VI_CONTROL_REG;
@@ -1318,14 +1370,17 @@ bool write(uint bytes, u64 addr, u64 value)
         case VI_CONTROL_REG:
             logWrite(debugger.verbose.VI, "VI_CONTROL_REG", value);
             state.hwreg.VI_CONTROL_REG = value;
+            updateCurrentFramebuffer();
             return true;
         case VI_DRAM_ADDR_REG:
             logWrite(debugger.verbose.VI, "VI_DRAM_ADDR_REG", value);
             state.hwreg.VI_DRAM_ADDR_REG = value;
+            updateCurrentFramebuffer();
             return true;
         case VI_WIDTH_REG:
             logWrite(debugger.verbose.VI, "VI_WIDTH_REG", value);
             state.hwreg.VI_WIDTH_REG = value;
+            updateCurrentFramebuffer();
             return true;
         case VI_INTR_REG:
             write_VI_INTR_REG(value);

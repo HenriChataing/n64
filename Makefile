@@ -53,7 +53,8 @@ SRC       += \
     gui/imgui_impl_glfw.cpp \
     gui/imgui_impl_opengl3.cpp \
     gui/imgui_widgets.cpp \
-    gui/gui.cpp
+    gui/gui.cpp \
+    gui/graphics.cc
 
 OBJS      := $(filter %.o, \
                  $(patsubst %.c,$(OBJDIR)/%.o, $(SRC)) \

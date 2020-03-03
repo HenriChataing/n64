@@ -36,12 +36,9 @@ public:
     ulong cycles;
 
     enum Action {
-        /**< Evaluate the instruction at pc+4 */
-        Continue,
-        /**< Evaluate the instruction at pc+4, then perform a jump */
-        Delay,
-        /**< Jump to the specified address. */
-        Jump,
+        Continue,   /**< Evaluate the instruction at pc+4 */
+        Delay,      /**< Evaluate the instruction at pc+4, then perform a jump */
+        Jump,       /**< Jump to the specified address. */
     };
 
     struct {
