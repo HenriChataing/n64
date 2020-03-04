@@ -147,10 +147,23 @@ static bool DPC_hasNext(void) {
 static u64 DPC_peekNext(void) {
     u64 value;
     if (state.hwreg.DPC_STATUS_REG & DPC_STATUS_XBUS_DMEM_DMA) {
-        memcpy(&value, &state.dmem[state.hwreg.DPC_CURRENT_REG], sizeof(value));
+        u64 offset = state.hwreg.DPC_CURRENT_REG & UINT64_C(0xfff);
+        memcpy(&value, &state.dmem[offset], sizeof(value));
+        value = __builtin_bswap64(value);
     } else {
-        // @todo addres is a virtual address.
-        state.physmem.load(8, state.hwreg.DPC_CURRENT_REG & 0x3ffffflu, &value);
+        // state.hwreg.DPC_CURRENT_REG contains a virtual memory address;
+        // convert it first.
+        R4300::Exception exn;
+        u64 vAddr = state.hwreg.DPC_CURRENT_REG;
+        u64 pAddr;
+        value = 0;
+
+        exn = translateAddress(vAddr, &pAddr, false);
+        if (exn == R4300::None) {
+            state.physmem.load(8, pAddr, &value);
+        } else {
+            debugger.halt("DPC_CURRENT_REG invalid");
+        }
     }
     return value;
 }
@@ -164,9 +177,9 @@ static u64 DPC_peekNext(void) {
 void write_DPC_END_REG(u32 value) {
     state.hwreg.DPC_END_REG = value;
     while (DPC_hasNext()) {
-        std::cerr << std::hex << state.hwreg.DPC_CURRENT_REG << " ";
         u64 command = DPC_peekNext();
         u64 opcode = (command >> 56) & 0x3flu;
+        std::cerr << std::hex << state.hwreg.DPC_CURRENT_REG << " ";
         switch (opcode) {
             case UINT64_C(0x3f):
                 std::cerr << "DPC set color image " << std::hex << command << std::endl;
