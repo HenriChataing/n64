@@ -3,6 +3,7 @@
 #define _TYPE_H_INCLUDED_
 
 #include <cstdint>
+#include <limits>
 #include <type_traits>
 
 typedef int8_t i8;
@@ -40,6 +41,18 @@ static inline T zero_extend(U x) {
     static_assert(std::is_unsigned<T>::value && std::is_unsigned<U>::value,
                   "zero_extend expects unsigned integral types");
     return (T)x;
+}
+
+template<typename T, typename U>
+static inline T clamp(U x) {
+    static_assert(std::is_signed<T>::value == std::is_signed<U>::value,
+                  "clamp expects integral types, both signed or unsigned");
+    static_assert(sizeof (T) < sizeof (U),
+                  "clamp expects a smaller return type");
+
+    return x > std::numeric_limits<T>::max() ? std::numeric_limits<T>::max() :
+           x < std::numeric_limits<T>::min() ? std::numeric_limits<T>::min() :
+           (T)x;
 }
 
 #endif /* _TYPE_H_INCLUDED_ */

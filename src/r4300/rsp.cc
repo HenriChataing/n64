@@ -140,8 +140,8 @@ void write_DPC_START_REG(u32 value) {
     // state.hwreg.DPC_STATUS_REG |= DPC_STATUS_START_VALID;
 }
 
-static bool DPC_hasNext(void) {
-    return state.hwreg.DPC_CURRENT_REG < state.hwreg.DPC_END_REG;
+static bool DPC_hasNext(unsigned count) {
+    return state.hwreg.DPC_CURRENT_REG + (count * 8) <= state.hwreg.DPC_END_REG;
 }
 
 static u64 DPC_peekNext(void) {
@@ -176,11 +176,45 @@ static u64 DPC_peekNext(void) {
  */
 void write_DPC_END_REG(u32 value) {
     state.hwreg.DPC_END_REG = value;
-    while (DPC_hasNext()) {
+    while (DPC_hasNext(1)) {
         u64 command = DPC_peekNext();
         u64 opcode = (command >> 56) & 0x3flu;
         std::cerr << std::hex << state.hwreg.DPC_CURRENT_REG << " ";
+        unsigned skip_dwords = 1;
         switch (opcode) {
+            case UINT64_C(0x08):
+                std::cerr << "DPC non-shaded triangle " << std::hex << command << std::endl;
+                skip_dwords = 4;
+                break;
+            case UINT64_C(0x0c):
+                std::cerr << "DPC shade triangle " << std::hex << command << std::endl;
+                skip_dwords = 8;
+                break;
+            case UINT64_C(0x0a):
+                std::cerr << "DPC texture triangle " << std::hex << command << std::endl;
+                skip_dwords = 8;
+                break;
+            case UINT64_C(0x0e):
+                std::cerr << "DPC shade texture triangle " << std::hex << command << std::endl;
+                skip_dwords = 12;
+                break;
+            case UINT64_C(0x09):
+                std::cerr << "DPC non-shaded Zbuff triangle " << std::hex << command << std::endl;
+                skip_dwords = 8;
+                break;
+            case UINT64_C(0x0d):
+                std::cerr << "DPC shade Zbuff triangle " << std::hex << command << std::endl;
+                skip_dwords = 12;
+                break;
+            case UINT64_C(0x0b):
+                std::cerr << "DPC texture Zbuff triangle " << std::hex << command << std::endl;
+                skip_dwords = 12;
+                break;
+            case UINT64_C(0x0f):
+                std::cerr << "DPC shade texture Zbuff triangle " << std::hex << command << std::endl;
+                skip_dwords = 16;
+                break;
+
             case UINT64_C(0x3f):
                 std::cerr << "DPC set color image " << std::hex << command << std::endl;
                 break;
@@ -205,19 +239,27 @@ void write_DPC_END_REG(u32 value) {
             case UINT64_C(0x34):
                 std::cerr << "DPC load tile " << std::hex << command << std::endl;
                 break;
+            case UINT64_C(0x30):
+                std::cerr << "DPC load tlut " << std::hex << command << std::endl;
+                break;
             case UINT64_C(0x37):
                 std::cerr << "DPC set fill color " << std::hex << command << std::endl;
+                break;
+            case UINT64_C(0x38):
+                std::cerr << "DPC set fog color " << std::hex << command << std::endl;
+                break;
+            case UINT64_C(0x39):
+                std::cerr << "DPC set blend color " << std::hex << command << std::endl;
+                break;
+            case UINT64_C(0x3a):
+                std::cerr << "DPC set prim color " << std::hex << command << std::endl;
                 break;
             case UINT64_C(0x36):
                 std::cerr << "DPC fill rectangle " << std::hex << command << std::endl;
                 break;
             case UINT64_C(0x24):
                 std::cerr << "DPC texture rectangle " << std::hex << command << std::endl;
-                if (DPC_hasNext()) {
-                    state.hwreg.DPC_CURRENT_REG += 8;
-                } else {
-                    std::cerr << "### incomplete command" << std::endl;
-                }
+                skip_dwords = 2;
                 break;
             case UINT64_C(0x31):
                 std::cerr << "DPC sync load " << std::hex << command << std::endl;
@@ -234,10 +276,16 @@ void write_DPC_END_REG(u32 value) {
                 // MI_INTR_VI
                 break;
             default:
-                std::cerr << "DPC unknown opcode " << std::hex << command << std::endl;
+                std::cerr << "DPC unknown opcode (" << std::hex << opcode;
+                std::cerr << "): " << command << std::endl;
                 break;
         }
-        state.hwreg.DPC_CURRENT_REG += 8;
+
+        if (!DPC_hasNext(skip_dwords)) {
+            std::cerr << "### incomplete command" << std::endl;
+        }
+
+        state.hwreg.DPC_CURRENT_REG += 8 * skip_dwords;
     }
 }
 

@@ -8,8 +8,6 @@
 namespace R4300 {
 
 typedef union {
-    u64 d[2];
-    u32 w[4];
     u16 h[8];
     u8  b[16];
 } vr_t;
@@ -30,6 +28,12 @@ struct rspreg {
     u16 vcc;
     u16 vco;
     u8 vce;
+
+    /** Registers for holding the inputs/results of VRCP, to be fetched
+     * by VRCPH, VRCPL in a second time. Because it is not otherwise
+     * accessible, the value is stored in host cpu format. */
+    u32 divin;
+    u32 divout;
 };
 
 namespace RSP {
