@@ -266,6 +266,7 @@ void eval_DMFC0(u32 instr) {
     u64 val = 0;
 
     switch (rd) {
+        /* 64bit registers */
         case EntryLo0:  val = state.cp0reg.entrylo0; break;
         case EntryLo1:  val = state.cp0reg.entrylo1; break;
         case Context:
@@ -280,6 +281,8 @@ void eval_DMFC0(u32 instr) {
             debugger.halt("DMFC0 xcontext");
             break;
         case ErrorEPC:  val = state.cp0reg.errorepc; break;
+        /* 32bit registers */
+        case Count:     val = zero_extend<u64, u32>(state.cp0reg.count); break;
         default:
             val = 0;
             std::string reason = "DMFC0 ";
