@@ -510,30 +510,60 @@ static bool eval(bool delaySlot)
                     state.reg.multHi = ac + (bc >> 32) + (ad >> 32) + (mid34 >> 32);
                     state.reg.multLo = (mid34 << 32) | (bd & 0xffffffffllu);
                 })
-                RType(DSLL, instr, { throw "Unsupported"; })
+                RType(DSLL, instr, {
+                    state.reg.gpr[rd] = state.reg.gpr[rt] << shamnt;
+                })
                 RType(DSLL32, instr, {
                     state.reg.gpr[rd] = state.reg.gpr[rt] << (shamnt + 32);
                 })
-                RType(DSLLV, instr, { throw "Unsupported"; })
-                RType(DSRA, instr, { throw "Unsupported"; })
-                RType(DSRA32, instr, {
-                    bool sign = (state.reg.gpr[rt] & (1lu << 63)) != 0;
-                    unsigned int sh = shamnt + 32;
+                RType(DSLLV, instr, {
+                    unsigned int shamnt = state.reg.gpr[rs] & 0x3flu;
+                    state.reg.gpr[rd] = state.reg.gpr[rt] << shamnt;
+                })
+                RType(DSRA, instr, {
+                    bool sign = (state.reg.gpr[rt] & (UINT64_C(1) << 63)) != 0;
                     // Right shift is logical for unsigned c types,
                     // we need to add the type manually.
-                    state.reg.gpr[rd] = state.reg.gpr[rt] >> sh;
+                    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
                     if (sign) {
-                        u64 mask = (1ul << sh) - 1u;
-                        state.reg.gpr[rd] |= mask << (64 - sh);
+                        u64 mask = (UINT64_C(1) << shamnt) - 1u;
+                        state.reg.gpr[rd] |= mask << (64 - shamnt);
                     }
                 })
-                RType(DSRAV, instr, { throw "Unsupported"; })
-                RType(DSRL, instr, { throw "Unsupported"; })
+                RType(DSRA32, instr, {
+                    bool sign = (state.reg.gpr[rt] & (UINT64_C(1) << 63)) != 0;
+                    shamnt += 32;
+                    // Right shift is logical for unsigned c types,
+                    // we need to add the type manually.
+                    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
+                    if (sign) {
+                        u64 mask = (UINT64_C(1) << shamnt) - 1u;
+                        state.reg.gpr[rd] |= mask << (64 - shamnt);
+                    }
+                })
+                RType(DSRAV, instr, {
+                    bool sign = (state.reg.gpr[rt] & (UINT64_C(1) << 63)) != 0;
+                    unsigned int shamnt = state.reg.gpr[rs] & 0x3flu;
+                    // Right shift is logical for unsigned c types,
+                    // we need to add the type manually.
+                    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
+                    if (sign) {
+                        u64 mask = (UINT64_C(1) << shamnt) - 1u;
+                        state.reg.gpr[rd] |= mask << (64 - shamnt);
+                    }
+                })
+                RType(DSRL, instr, {
+                    // Right shift is logical for unsigned c types.
+                    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
+                })
                 RType(DSRL32, instr, {
                     // Right shift is logical for unsigned c types.
                     state.reg.gpr[rd] = state.reg.gpr[rt] >> (shamnt + 32);
                 })
-                RType(DSRLV, instr, { throw "Unsupported"; })
+                RType(DSRLV, instr, {
+                    unsigned int shamnt = state.reg.gpr[rs] & 0x3flu;
+                    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
+                })
                 RType(DSUB, instr, { throw "Unsupported"; })
                 RType(DSUBU, instr, { throw "Unsupported"; })
                 RType(JALR, instr, {
@@ -618,7 +648,6 @@ static bool eval(bool delaySlot)
                         u64 mask = (1ul << (shamnt + 32)) - 1u;
                         state.reg.gpr[rd] |= mask << (32 - shamnt);
                     }
-                    debugger.halt("SRAV instruction");
                 })
                 RType(SRL, instr, {
                     u64 res = (state.reg.gpr[rt] & 0xffffffffllu) >> shamnt;
