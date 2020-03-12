@@ -469,28 +469,28 @@ static bool eval(bool delaySlot)
                     i64 num = (i32)state.reg.gpr[rs];
                     i64 denum = (i32)state.reg.gpr[rt];
                     if (denum != 0) {
-                        state.reg.multLo = (u64)(num / denum);
-                        state.reg.multHi = (u64)(num % denum);
+                        state.reg.multLo = sign_extend<u64, u32>((u64)(num / denum));
+                        state.reg.multHi = sign_extend<u64, u32>((u64)(num % denum));
                     } else {
                         debugger.undefined("Divide by 0 (DIV)");
                         // Undefined behaviour here according to the reference
                         // manual. The machine behaviour is as implemented.
-                        state.reg.multLo = num < 0 ? 1 : UINT32_C(-1);
-                        state.reg.multHi = num;
+                        state.reg.multLo = num < 0 ? 1 : UINT64_C(-1);
+                        state.reg.multHi = sign_extend<u64, u32>((u64)num);
                     }
                 })
                 RType(DIVU, instr, {
                     u32 num = state.reg.gpr[rs];
                     u32 denum = state.reg.gpr[rt];
                     if (denum != 0) {
-                        state.reg.multLo = num / denum;
-                        state.reg.multHi = num % denum;
+                        state.reg.multLo = sign_extend<u64, u32>(num / denum);
+                        state.reg.multHi = sign_extend<u64, u32>(num % denum);
                     } else {
                         debugger.undefined("Divide by 0 (DIVU)");
                         // Undefined behaviour here according to the reference
                         // manual. The machine behaviour is as implemented.
-                        state.reg.multLo = UINT32_C(-1);
-                        state.reg.multHi = num;
+                        state.reg.multLo = UINT64_C(-1);
+                        state.reg.multHi = sign_extend<u64, u32>(num);
                     }
                 })
                 RType(DMULT, instr, { throw "Unsupported"; })
@@ -596,16 +596,16 @@ static bool eval(bool delaySlot)
                     state.reg.multLo = state.reg.gpr[rs];
                 })
                 RType(MULT, instr, {
-                    // @todo instruction takes 3 cycles
-                    int32_t a = (int32_t)(uint32_t)state.reg.gpr[rs];
-                    int32_t b = (int32_t)(uint32_t)state.reg.gpr[rt];
-                    int64_t m = a * b;
-                    state.reg.multLo = sign_extend<u64, u32>((uint64_t)m);
-                    state.reg.multHi = sign_extend<u64, u32>((uint64_t)m >> 32);
+                    i32 a = (i32)(u32)state.reg.gpr[rs];
+                    i32 b = (i32)(u32)state.reg.gpr[rt];
+                    i64 m = (i64)a * (i64)b;
+                    state.reg.multLo = sign_extend<u64, u32>((u64)m);
+                    state.reg.multHi = sign_extend<u64, u32>((u64)m >> 32);
                 })
                 RType(MULTU, instr, {
-                    // @todo instruction takes 3 cycles
-                    u64 m = (uint32_t)state.reg.gpr[rs] * (uint32_t)state.reg.gpr[rt];
+                    u32 a = (u32)state.reg.gpr[rs];
+                    u32 b = (u32)state.reg.gpr[rt];
+                    u64 m = (u64)a * (u64)b;
                     state.reg.multLo = sign_extend<u64, u32>(m);
                     state.reg.multHi = sign_extend<u64, u32>(m >> 32);
                 })
