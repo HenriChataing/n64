@@ -891,7 +891,6 @@ static bool eval(bool delaySlot)
         IType(LWC2, instr, sign_extend, { throw "Unsupported"; })
         IType(LWC3, instr, sign_extend, { throw "Unsupported"; })
         IType(LWL, instr, sign_extend, {
-            // debugger.halt("LWL instruction");
             // @todo only BigEndianMem & !ReverseEndian for now
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;
@@ -903,7 +902,7 @@ static bool eval(bool delaySlot)
                 returnException(exn, vAddr, delaySlot, false, false);
 
             size_t count = 4 - (pAddr % 4);
-            unsigned int shift = 28;
+            unsigned int shift = 24;
             u64 mask = (1llu << (32 - 8 * count)) - 1u;
             u64 val = 0;
 
@@ -919,7 +918,6 @@ static bool eval(bool delaySlot)
             state.reg.gpr[rt] = sign_extend<u64, u32>(val);
         })
         IType(LWR, instr, sign_extend, {
-            // debugger.halt("LWR instruction");
             // @todo only BigEndianMem & !ReverseEndian for now
             u64 vAddr = state.reg.gpr[rs] + imm;
             u64 pAddr;
