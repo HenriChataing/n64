@@ -465,14 +465,33 @@ static bool eval(bool delaySlot)
                     state.reg.multHi = state.reg.gpr[rs] % state.reg.gpr[rt];
                 })
                 RType(DIV, instr, {
-                    // @todo both operands must be valid 32 bit signed values
-                    state.reg.multLo = sign_extend<u64, u32>(state.reg.gpr[rs] / state.reg.gpr[rt]);
-                    state.reg.multHi = sign_extend<u64, u32>(state.reg.gpr[rs] % state.reg.gpr[rt]);
+                    // Must use 64bit integers here to prevent signed overflow.
+                    i64 num = (i32)state.reg.gpr[rs];
+                    i64 denum = (i32)state.reg.gpr[rt];
+                    if (denum != 0) {
+                        state.reg.multLo = (u64)(num / denum);
+                        state.reg.multHi = (u64)(num % denum);
+                    } else {
+                        debugger.undefined("Divide by 0 (DIV)");
+                        // Undefined behaviour here according to the reference
+                        // manual. The machine behaviour is as implemented.
+                        state.reg.multLo = num < 0 ? 1 : UINT32_C(-1);
+                        state.reg.multHi = num;
+                    }
                 })
                 RType(DIVU, instr, {
-                    // @todo both operands must be valid 32 bit signed values
-                    state.reg.multLo = state.reg.gpr[rs] / state.reg.gpr[rt];
-                    state.reg.multHi = state.reg.gpr[rs] % state.reg.gpr[rt];
+                    u32 num = state.reg.gpr[rs];
+                    u32 denum = state.reg.gpr[rt];
+                    if (denum != 0) {
+                        state.reg.multLo = num / denum;
+                        state.reg.multHi = num % denum;
+                    } else {
+                        debugger.undefined("Divide by 0 (DIVU)");
+                        // Undefined behaviour here according to the reference
+                        // manual. The machine behaviour is as implemented.
+                        state.reg.multLo = UINT32_C(-1);
+                        state.reg.multHi = num;
+                    }
                 })
                 RType(DMULT, instr, { throw "Unsupported"; })
                 RType(DMULTU, instr, {
