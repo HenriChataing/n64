@@ -412,8 +412,7 @@ static bool eval(bool delaySlot)
 
     // CPU freq is 93.75 MHz, refresh frequency is assumed 60Hz.
     if (state.cycles++ == state.hwreg.vi_NextIntr) {
-        state.hwreg.vi_NextIntr += state.hwreg.vi_IntrInterval;
-        set_MI_INTR_REG(MI_INTR_VI);
+        raise_VI_INTR();
     }
     if (checkInterrupt(vAddr, delaySlot)) {
         return true;

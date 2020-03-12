@@ -42,6 +42,12 @@ void setVideoImage(size_t width, size_t height, size_t colorDepth, void *data)
     VideoImage::data = data;
 }
 
+/** Refresh the screen, called once during vertical blank. */
+void refreshVideoImage(void)
+{
+    VideoImage::dirty = true;
+}
+
 /** Return the ID of a texture copied from the current video image, or
  * 0 if no vido image is set. */
 bool getVideoImage(size_t *width, size_t *height, GLuint *id)
@@ -57,8 +63,8 @@ bool getVideoImage(size_t *width, size_t *height, GLuint *id)
         }
         if (VideoImage::data != NULL) {
             GLenum type = VideoImage::colorDepth == 32
-                        ? GL_UNSIGNED_INT_8_8_8_8
-                        : GL_UNSIGNED_SHORT_4_4_4_4;
+                        ? GL_UNSIGNED_INT_8_8_8_8_REV
+                        : GL_UNSIGNED_SHORT_4_4_4_4_REV;
 
             glGenTextures(1, &VideoImage::texture);
             glPrintError("glGenTextures");

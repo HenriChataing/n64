@@ -104,12 +104,15 @@ void write_SP_WR_LEN_REG(u32 value);
 void write_SP_STATUS_REG(u32 value);
 u32 read_SP_SEMAPHORE_REG();
 void write_DPC_STATUS_REG(u32 value);
+void raise_VI_INTR(void);
 
 #define RDRAM_DEVICE_TYPE_18M   (UINT32_C(0xb2190020))
 #define RDRAM_DEVICE_TYPE_64M   (UINT32_C(0xb02a0020))
 
 #define SP_MEM_ADDR_IMEM        (UINT32_C(1) << 12)
 #define SP_MEM_ADDR_MASK        (UINT32_C(0x1fff))
+
+#define SP_DRAM_ADDR_MASK       (UINT32_C(0xfffffff))
 
 #define SP_RD_LEN_SKIP_SHIFT    (20)
 #define SP_RD_LEN_SKIP_MASK     (UINT32_C(0xfff))

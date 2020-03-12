@@ -81,6 +81,17 @@ void clear_MI_INTR_REG(u32 bits) {
     }
 }
 
+/** @brief Called for VI interrupts. */
+void raise_VI_INTR(void) {
+    // Compute the next interrupt time.
+    state.hwreg.vi_NextIntr += state.hwreg.vi_IntrInterval;
+    // Set the pending interrupt bit.
+    set_MI_INTR_REG(MI_INTR_VI);
+    // Force a refresh of the screen, in case the framebuffer has not changed
+    // since the last frame.
+    refreshVideoImage();
+}
+
 /**
  * @brief Write the SP register SP_RD_LEN_REG.
  *  Writing the register starts a DMA tranfer from DRAM to DMEM/IMEM.
@@ -93,7 +104,7 @@ void write_SP_RD_LEN_REG(u32 value) {
     u32 skip = (value >> SP_RD_LEN_SKIP_SHIFT) & SP_RD_LEN_SKIP_MASK;
     u32 offset = state.hwreg.SP_MEM_ADDR_REG & SP_MEM_ADDR_MASK;
     u64 dst_base = 0x04000000llu + offset;
-    u64 src_base = state.hwreg.SP_DRAM_ADDR_REG;
+    u64 src_base = state.hwreg.SP_DRAM_ADDR_REG & SP_DRAM_ADDR_MASK;
     // @todo skip+len must be aligned to 8
     // @todo clear/set DMA busy+full bits.
     for (; count > 0; count--, src_base += len + skip, dst_base += len) {
@@ -115,7 +126,7 @@ void write_SP_WR_LEN_REG(u32 value) {
     u32 count = 1u + ((value >> SP_RD_LEN_COUNT_SHIFT) & SP_RD_LEN_COUNT_MASK);
     u32 skip = (value >> SP_RD_LEN_SKIP_SHIFT) & SP_RD_LEN_SKIP_MASK;
     u32 offset = state.hwreg.SP_MEM_ADDR_REG & SP_MEM_ADDR_MASK;
-    u64 dst_base = state.hwreg.SP_DRAM_ADDR_REG;
+    u64 dst_base = state.hwreg.SP_DRAM_ADDR_REG & SP_DRAM_ADDR_MASK;
     u64 src_base = 0x04000000llu + offset;
     // @todo skip+len must be aligned to 8
     // @todo clear/set DMA busy+full bits.
@@ -1239,9 +1250,14 @@ void updateCurrentFramebuffer(void) {
             break;
     }
 
-    u32 offset = state.hwreg.VI_DRAM_ADDR_REG;
     unsigned framebufferSize = width * height * (pixelSize / 8);
-    if (offset + framebufferSize <= sizeof(state.dram)) {
+    u64 addr = sign_extend<u64, u32>(state.hwreg.VI_DRAM_ADDR_REG);
+    u64 offset = 0;
+    Exception exn;
+
+    exn = translateAddress(addr, &offset, false);
+    if (exn == Exception::None &&
+        offset + framebufferSize <= sizeof(state.dram)) {
         start = &state.dram[offset];
     } else {
         std::cerr << "Invalid DRAM_ADDR config: " << std::hex;
