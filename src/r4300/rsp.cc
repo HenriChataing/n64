@@ -542,6 +542,26 @@ static inline unsigned selectElementIndex(unsigned i, u32 e) {
     return j;
 }
 
+static void eval_VABS(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j = selectElementIndex(i, e);
+
+        i16 svs = (i16)__builtin_bswap16(state.rspreg.vr[vs].h[i]);
+        i16 svt = (i16)__builtin_bswap16(state.rspreg.vr[vt].h[j]);
+        i16 res = svs > 0 ? svt :
+                  svs < 0 ? -svt : 0;
+
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= (u16)res;
+        state.rspreg.vr[vd].h[i] = __builtin_bswap16((u16)res);
+    }
+}
+
 static void eval_VADD(u32 instr) {
     u32 e = (instr >> 21) & UINT32_C(0xf);
     u32 vt = getVt(instr);
@@ -585,6 +605,21 @@ static void eval_VADDC(u32 instr) {
         state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
         state.rspreg.vacc[i] |= (u16)add;
         state.rspreg.vr[vd].h[i] = __builtin_bswap16((u16)add);
+    }
+}
+
+static void eval_VAND(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j = selectElementIndex(i, e);
+        u16 res = state.rspreg.vr[vs].h[i] & state.rspreg.vr[vt].h[j];
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= (u64)__builtin_bswap16(res);
+        state.rspreg.vr[vd].h[i] = res;
     }
 }
 
@@ -683,7 +718,7 @@ static void eval_VMOV(u32 instr) {
     u32 vd = getVd(instr);
 
     state.rspreg.vacc[de] &= ~UINT64_C(0xffff);
-    state.rspreg.vacc[de] |= state.rspreg.vr[vt].h[e];
+    state.rspreg.vacc[de] |= __builtin_bswap16(state.rspreg.vr[vt].h[e]);
     state.rspreg.vr[vd].h[de] = state.rspreg.vr[vt].h[e];
 }
 
@@ -798,6 +833,66 @@ static void eval_VMULF(u32 instr) {
     }
 }
 
+static void eval_VNAND(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j = selectElementIndex(i, e);
+        u16 res = ~(state.rspreg.vr[vs].h[i] & state.rspreg.vr[vt].h[j]);
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= (u64)__builtin_bswap16(res);
+        state.rspreg.vr[vd].h[i] = res;
+    }
+}
+
+static void eval_VNOR(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j = selectElementIndex(i, e);
+        u16 res = ~(state.rspreg.vr[vs].h[i] | state.rspreg.vr[vt].h[j]);
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= (u64)__builtin_bswap16(res);
+        state.rspreg.vr[vd].h[i] = res;
+    }
+}
+
+static void eval_VNXOR(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j = selectElementIndex(i, e);
+        u16 res = ~(state.rspreg.vr[vs].h[i] ^ state.rspreg.vr[vt].h[j]);
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= (u64)__builtin_bswap16(res);
+        state.rspreg.vr[vd].h[i] = res;
+    }
+}
+
+static void eval_VOR(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j = selectElementIndex(i, e);
+        u16 res = state.rspreg.vr[vs].h[i] | state.rspreg.vr[vt].h[j];
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= (u64)__builtin_bswap16(res);
+        state.rspreg.vr[vd].h[i] = res;
+    }
+}
+
 /**
  * @brief Implement the Reciprocal instruction.
  *  Inputs a signed i16 integer and outputs the reciprocal in 32bit fixed point
@@ -861,6 +956,34 @@ static void eval_VRCPL(u32 instr) {
     debugger.halt("VRCPL");
 }
 
+static void eval_VSAR(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0x7);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    for (unsigned i = 0; i < 8; i++) {
+        if (e == 0) {
+            state.rspreg.vr[vd].h[i] =
+                __builtin_bswap16(state.rspreg.vacc[i] >> 32);
+            state.rspreg.vacc[i] &= ~(UINT64_C(0xffff) << 32);
+            state.rspreg.vacc[i] |=
+                (u64)__builtin_bswap16(state.rspreg.vr[vs].h[i]) << 32;
+        } else if (e == 1) {
+            state.rspreg.vr[vd].h[i] =
+                __builtin_bswap16(state.rspreg.vacc[i] >> 16);
+            state.rspreg.vacc[i] &= ~(UINT64_C(0xffff) << 16);
+            state.rspreg.vacc[i] |=
+                (u64)__builtin_bswap16(state.rspreg.vr[vs].h[i]) << 16;
+        } else if (e == 2) {
+            state.rspreg.vr[vd].h[i] =
+                __builtin_bswap16(state.rspreg.vacc[i]);
+            state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+            state.rspreg.vacc[i] |=
+                (u64)__builtin_bswap16(state.rspreg.vr[vs].h[i]);
+        }
+    }
+}
+
 static void eval_VSUB(u32 instr) {
     u32 e = (instr >> 21) & UINT32_C(0xf);
     u32 vt = getVt(instr);
@@ -889,21 +1012,17 @@ static void eval_VXOR(u32 instr) {
         unsigned j = selectElementIndex(i, e);
         u16 res = state.rspreg.vr[vs].h[i] ^ state.rspreg.vr[vt].h[j];
         state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
-        state.rspreg.vacc[i] |= (u64)res;
+        state.rspreg.vacc[i] |= (u64)__builtin_bswap16(res);
         state.rspreg.vr[vd].h[i] = res;
     }
 }
 
 static void eval_COP2(u32 instr) {
     switch (instr & 0x3flu) {
-        case UINT32_C(0x13):
-            debugger.halt("RSP::VABS unsupported");
-            break;
+        case UINT32_C(0x13): eval_VABS(instr); break;
         case UINT32_C(0x10): eval_VADD(instr); break;
         case UINT32_C(0x14): eval_VADDC(instr); break;
-        case UINT32_C(0x28):
-            debugger.halt("RSP::VAND unsupported");
-            break;
+        case UINT32_C(0x28): eval_VAND(instr); break;
         case UINT32_C(0x25):
             debugger.halt("RSP::VCH unsupported");
             break;
@@ -950,24 +1069,16 @@ static void eval_COP2(u32 instr) {
         case UINT32_C(0x01):
             debugger.halt("RSP::VMULU unsupported");
             break;
-        case UINT32_C(0x29):
-            debugger.halt("RSP::VNAND unsupported");
-            break;
+        case UINT32_C(0x29): eval_VNAND(instr); break;
         case UINT32_C(0x22):
             debugger.halt("RSP::VNE unsupported");
             break;
         case UINT32_C(0x37):
             debugger.halt("RSP::VNOP unsupported");
             break;
-        case UINT32_C(0x2b):
-            debugger.halt("RSP::VNOR unsupported");
-            break;
-        case UINT32_C(0x2d):
-            debugger.halt("RSP::VNXOR unsupported");
-            break;
-        case UINT32_C(0x2a):
-            debugger.halt("RSP::VOR unsupported");
-            break;
+        case UINT32_C(0x2b): eval_VNOR(instr); break;
+        case UINT32_C(0x2d): eval_VNXOR(instr); break;
+        case UINT32_C(0x2a): eval_VOR(instr); break;
         case UINT32_C(0x30): eval_VRCP(instr); break;
         case UINT32_C(0x31): eval_VRCPL(instr); break;
         case UINT32_C(0x32): eval_VRCPH(instr); break;
@@ -986,9 +1097,7 @@ static void eval_COP2(u32 instr) {
         case UINT32_C(0x35):
             debugger.halt("RSP::VRSQL unsupported");
             break;
-        case UINT32_C(0x1d):
-            debugger.halt("RSP::VSAR unsupported");
-            break;
+        case UINT32_C(0x1d): eval_VSAR(instr); break;
         case UINT32_C(0x11): eval_VSUB(instr); break;
         case UINT32_C(0x15):
             debugger.halt("RSP::VSUBC unsupported");
@@ -1277,7 +1386,13 @@ static bool eval(bool delaySlot)
                     memcpy(&state.rspreg.vr[rd].b[e], &val, 2);
                 })
                 RType(CF, instr, {
-                    debugger.halt("RSP::CFC2 unsupported");
+                    u32 out = 0;
+                    switch (rd) {
+                        case 0: out = state.rspreg.vco; break;
+                        case 1: out = state.rspreg.vcc; break;
+                        case 2: out = state.rspreg.vce; break;
+                    }
+                    state.rspreg.gpr[rt] = out;
                 })
                 RType(CT, instr, {
                     debugger.halt("RSP::CTC2 unsupported");
