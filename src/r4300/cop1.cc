@@ -623,7 +623,6 @@ bool eval(u32 instr, bool delaySlot)
                     break;
                 }
                 case Mips::Copz::BCT: {
-                    debugger.halt("C1::BCT instruction");
                     u64 offset = sign_extend<u64, u16>(Mips::getImmediate(instr));
                     if ((state.cp1reg.fcr31 & FCR31_C) != 0) {
                         state.cpu.nextAction = State::Action::Delay;
@@ -632,7 +631,6 @@ bool eval(u32 instr, bool delaySlot)
                     break;
                 }
                 case Mips::Copz::BCTL: {
-                    debugger.halt("C1::BCTL instruction");
                     u64 offset = sign_extend<u64, u16>(Mips::getImmediate(instr));
                     if (((state.cp1reg.fcr31 & FCR31_C) != 0)) {
                         state.cpu.nextAction = State::Action::Delay;

@@ -623,6 +623,101 @@ static void eval_VAND(u32 instr) {
     }
 }
 
+static void eval_VEQ(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    state.rspreg.vcc = 0;
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j = selectElementIndex(i, e);
+
+        u16 svs = __builtin_bswap16(state.rspreg.vr[vs].h[i]);
+        u16 svt = __builtin_bswap16(state.rspreg.vr[vt].h[j]);
+        u16 res;
+
+        if (svs == svt) {
+            state.rspreg.vcc |= 1u << i;
+            res = svs;
+        } else {
+            res = svt;
+        }
+
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= res;
+        state.rspreg.vr[vd].h[i] = __builtin_bswap16(res);
+    }
+
+    state.rspreg.vco = 0;
+    state.rspreg.vce = 0;
+}
+
+static void eval_VGE(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    state.rspreg.vcc = 0;
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j = selectElementIndex(i, e);
+
+        i16 svs = (i16)__builtin_bswap16(state.rspreg.vr[vs].h[i]);
+        i16 svt = (i16)__builtin_bswap16(state.rspreg.vr[vt].h[j]);
+        unsigned vcoi = (state.rspreg.vco >> i) & 1u;
+        u16 res;
+
+        if (svs > svt || (svs == svt && !vcoi)) {
+            state.rspreg.vcc |= 1u << i;
+            res = (i16)svs;
+        } else {
+            res = (i16)svt;
+        }
+
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= res;
+        state.rspreg.vr[vd].h[i] = __builtin_bswap16(res);
+    }
+
+    state.rspreg.vco = 0;
+    state.rspreg.vce = 0;
+}
+
+static void eval_VLT(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    state.rspreg.vcc = 0;
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j = selectElementIndex(i, e);
+
+        i16 svs = (i16)__builtin_bswap16(state.rspreg.vr[vs].h[i]);
+        i16 svt = (i16)__builtin_bswap16(state.rspreg.vr[vt].h[j]);
+        unsigned vcoi = (state.rspreg.vco >> i) & 1u;
+        u16 res;
+
+        if (svs < svt || (svs == svt && vcoi)) {
+            state.rspreg.vcc |= 1u << i;
+            res = svs;
+        } else {
+            res = svt;
+        }
+
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= res;
+        state.rspreg.vr[vd].h[i] = __builtin_bswap16(res);
+    }
+
+    state.rspreg.vco = 0;
+    state.rspreg.vce = 0;
+}
+
 static void eval_VMACF(u32 instr) {
     u32 e = (instr >> 21) & UINT32_C(0xf);
     u32 vt = getVt(instr);
@@ -848,6 +943,37 @@ static void eval_VNAND(u32 instr) {
     }
 }
 
+static void eval_VNE(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    state.rspreg.vcc = 0;
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j = selectElementIndex(i, e);
+
+        u16 svs = __builtin_bswap16(state.rspreg.vr[vs].h[i]);
+        u16 svt = __builtin_bswap16(state.rspreg.vr[vt].h[j]);
+        u16 res;
+
+        if (svs != svt) {
+            state.rspreg.vcc |= 1u << i;
+            res = svs;
+        } else {
+            res = svt;
+        }
+
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= res;
+        state.rspreg.vr[vd].h[i] = __builtin_bswap16(res);
+    }
+
+    state.rspreg.vco = 0;
+    state.rspreg.vce = 0;
+}
+
 static void eval_VNOR(u32 instr) {
     u32 e = (instr >> 21) & UINT32_C(0xf);
     u32 vt = getVt(instr);
@@ -1061,15 +1187,9 @@ static void eval_COP2(u32 instr) {
         case UINT32_C(0x26):
             debugger.halt("RSP::VCR unsupported");
             break;
-        case UINT32_C(0x21):
-            debugger.halt("RSP::VEQ unsupported");
-            break;
-        case UINT32_C(0x23):
-            debugger.halt("RSP::VGE unsupported");
-            break;
-        case UINT32_C(0x20):
-            debugger.halt("RSP::VLT unsupported");
-            break;
+        case UINT32_C(0x21): eval_VEQ(instr); break;
+        case UINT32_C(0x23): eval_VGE(instr); break;
+        case UINT32_C(0x20): eval_VLT(instr); break;
         case UINT32_C(0x08): eval_VMACF(instr); break;
         case UINT32_C(0x0b):
             debugger.halt("RSP::VMACQ unsupported");
@@ -1099,9 +1219,7 @@ static void eval_COP2(u32 instr) {
             debugger.halt("RSP::VMULU unsupported");
             break;
         case UINT32_C(0x29): eval_VNAND(instr); break;
-        case UINT32_C(0x22):
-            debugger.halt("RSP::VNE unsupported");
-            break;
+        case UINT32_C(0x22): eval_VNE(instr); break;
         case UINT32_C(0x37):
             debugger.halt("RSP::VNOP unsupported");
             break;
@@ -1432,41 +1550,6 @@ static bool eval(bool delaySlot)
                     }
                     break;
             }
-
-#if 0
-            if (instr & Mips::COFUN) {
-                cop[opcode & 0x3]->cofun(instr);
-                break;
-            }
-            switch (Mips::getRs(instr)) {
-                RType(MF, instr, {
-                    state.rspreg.gpr[rt] = cop[opcode & 0x3]->read(4, rd, false);
-                })
-                /* DMFC2 not implemented */
-                RType(CF, instr, {
-                    state.rspreg.gpr[rt] = cop[opcode & 0x3]->read(4, rd, true);
-                })
-                RType(MT, instr, {
-                    cop[opcode & 0x3]->write(4, rd, state.rspreg.gpr[rt], false);
-                })
-                /* DMTC2 not implemented */
-                RType(CT, instr, {
-                    cop[opcode & 0x3]->write(4, rd, state.rspreg.gpr[rt], true);
-                })
-                case BC:
-                    switch (Mips::getRt(instr)) {
-                        IType(BCF, instr, sign_extend, { debugger.halt("Unsupported"); })
-                        IType(BCT, instr, sign_extend, { debugger.halt("Unsupported"); })
-                        IType(BCFL, instr, sign_extend, { debugger.halt("Unsupported"); })
-                        IType(BCTL, instr, sign_extend, { debugger.halt("Unsupported"); })
-                        default:
-                            debugger.halt("ReservedInstruction");
-                    }
-                    break;
-                default:
-                    debugger.halt("ReservedInstruction");
-            }
-#endif
             break;
         /* COP3 not implemented */
         /* DADDI not implemented */
