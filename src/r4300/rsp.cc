@@ -992,13 +992,42 @@ static void eval_VSUB(u32 instr) {
 
     for (unsigned i = 0; i < 8; i++) {
         unsigned j = selectElementIndex(i, e);
-        u32 res =
-            __builtin_bswap16(state.rspreg.vr[vs].h[i]) -
-            __builtin_bswap16(state.rspreg.vr[vt].h[j]) -
+        i32 sub =
+            (i16)__builtin_bswap16(state.rspreg.vr[vs].h[i]) -
+            (i16)__builtin_bswap16(state.rspreg.vr[vt].h[j]) -
             ((state.rspreg.vco >> i) & UINT16_C(1));
         state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
-        state.rspreg.vacc[i] |= (u64)(u16)res;
+        state.rspreg.vacc[i] |= (u16)(u32)sub;
+
+        i16 res = clamp<i16, i32>(sub);
+        state.rspreg.vr[vd].h[i] = __builtin_bswap16((u16)res);
+    }
+}
+
+static void eval_VSUBC(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    state.rspreg.vco = 0;
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j = selectElementIndex(i, e);
+        u16 svs = __builtin_bswap16(state.rspreg.vr[vs].h[i]);
+        u16 svt = __builtin_bswap16(state.rspreg.vr[vt].h[j]);
+        u32 res = (u32)svs - (u32)svt;
+
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= (u16)res;
         state.rspreg.vr[vd].h[i] = __builtin_bswap16(res);
+
+        if (res & (UINT32_C(1) << 16)) { /* res < 0 */
+            state.rspreg.vco |= UINT16_C(1) << i;
+            state.rspreg.vco |= UINT16_C(1) << (i + 8);
+        } else if (res) {
+            state.rspreg.vco |= UINT16_C(1) << (i + 8);
+        }
     }
 }
 
@@ -1099,9 +1128,7 @@ static void eval_COP2(u32 instr) {
             break;
         case UINT32_C(0x1d): eval_VSAR(instr); break;
         case UINT32_C(0x11): eval_VSUB(instr); break;
-        case UINT32_C(0x15):
-            debugger.halt("RSP::VSUBC unsupported");
-            break;
+        case UINT32_C(0x15): eval_VSUBC(instr); break;
         case UINT32_C(0x2c): eval_VXOR(instr); break;
         default:
             debugger.halt("RSP::COP2 invalid operation");
