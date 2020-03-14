@@ -286,7 +286,7 @@ bool eval(u32 instr, bool delaySlot)
                     state.cp1reg.fpr_s[fd]->w = out;
                 })
                 FRType(CVTS, instr, {
-                    debugger.halt("COP1::S::CVTS unsupported");
+                    state.cp1reg.fpr_s[fd]->s = state.cp1reg.fpr_s[fs]->s;
                 })
                 FRType(CVTD, instr, {
                     state.cp1reg.fpr_d[fd]->d = state.cp1reg.fpr_s[fs]->s;
@@ -295,7 +295,7 @@ bool eval(u32 instr, bool delaySlot)
                     state.cp1reg.fpr_s[fd]->w = state.cp1reg.fpr_s[fs]->s;
                 })
                 FRType(CVTL, instr, {
-                    debugger.halt("COP1::S::CVTL unsupported");
+                    state.cp1reg.fpr_d[fd]->l = state.cp1reg.fpr_s[fs]->s;
                 })
                 case Mips::Cop1::CF:
                 case CUN:
@@ -376,7 +376,9 @@ bool eval(u32 instr, bool delaySlot)
                         state.cp1reg.fpr_d[ft]->d;
                 })
                 FRType(SQRT, instr, {
-                    debugger.halt("COP1::D::SQRT unsupported");
+                    // TODO inexact
+                    state.cp1reg.fpr_d[fd]->d =
+                        sqrt(state.cp1reg.fpr_d[fs]->d);
                 })
                 FRType(ABS, instr, {
                     state.cp1reg.fpr_d[fd]->d = ::fabs(state.cp1reg.fpr_d[fs]->d);
@@ -499,14 +501,16 @@ bool eval(u32 instr, bool delaySlot)
                     state.cp1reg.fpr_s[fd]->s = state.cp1reg.fpr_d[fs]->d;
                 })
                 FRType(CVTD, instr, {
-                    debugger.halt("COP1::D::CVTD unsupported");
+                    // TODO Rounding occurs with specified rounding mode
+                    state.cp1reg.fpr_d[fd]->l = state.cp1reg.fpr_d[fs]->d;
                 })
                 FRType(CVTW, instr, {
                     // TODO Rounding occurs with specified rounding mode
                     state.cp1reg.fpr_s[fd]->w = state.cp1reg.fpr_d[fs]->d;
                 })
                 FRType(CVTL, instr, {
-                    debugger.halt("COP1::D::CVTL unsupported");
+                    // TODO Rounding occurs with specified rounding mode
+                    state.cp1reg.fpr_d[fd]->l = state.cp1reg.fpr_d[fs]->d;
                 })
                 case Mips::Cop1::CF:
                 case CUN:
@@ -564,16 +568,16 @@ bool eval(u32 instr, bool delaySlot)
             checkCop1Usable();
             switch (Mips::getFunct(instr)) {
                 FRType(CVTS, instr, {
-                    state.cp1reg.fpr_s[fd]->s = state.cp1reg.fpr_s[fs]->w;
+                    state.cp1reg.fpr_s[fd]->s = (i32)state.cp1reg.fpr_s[fs]->w;
                 })
                 FRType(CVTD, instr, {
-                    state.cp1reg.fpr_d[fd]->d = state.cp1reg.fpr_s[fs]->w;
+                    state.cp1reg.fpr_d[fd]->d = (i32)state.cp1reg.fpr_s[fs]->w;
                 })
                 FRType(CVTW, instr, {
-                    debugger.halt("COP1::W::CVTW unsupported");
+                    state.cp1reg.fpr_s[fd]->w = (i32)state.cp1reg.fpr_s[fs]->w;
                 })
                 FRType(CVTL, instr, {
-                    debugger.halt("COP1::W::CVTL unsupported");
+                    state.cp1reg.fpr_d[fd]->l = (i32)state.cp1reg.fpr_s[fs]->w;
                 })
                 default:
                     debugger.halt("COP1::W::* unsupported");
@@ -582,16 +586,16 @@ bool eval(u32 instr, bool delaySlot)
         case Mips::Cop1::L:
             switch (Mips::getFunct(instr)) {
                 FRType(CVTS, instr, {
-                    debugger.halt("COP1::L::CVTS unsupported");
+                    state.cp1reg.fpr_s[fd]->s = (i64)state.cp1reg.fpr_d[fs]->l;
                 })
                 FRType(CVTD, instr, {
-                    debugger.halt("COP1::L::CVTD unsupported");
+                    state.cp1reg.fpr_d[fd]->d = (i64)state.cp1reg.fpr_d[fs]->l;
                 })
                 FRType(CVTW, instr, {
-                    debugger.halt("COP1::L::CVTW unsupported");
+                    state.cp1reg.fpr_s[fd]->w = (i64)state.cp1reg.fpr_d[fs]->l;
                 })
                 FRType(CVTL, instr, {
-                    debugger.halt("COP1::L::CVTL unsupported");
+                    state.cp1reg.fpr_d[fd]->l = (i64)state.cp1reg.fpr_d[fs]->l;
                 })
                 default:
                     debugger.halt("COP1::L::* unsupported");
