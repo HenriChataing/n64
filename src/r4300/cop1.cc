@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cstring>
 #include <cmath>
+#include <cfenv>
 
 #include <debugger.h>
 #include <memory.h>
@@ -170,7 +171,7 @@ bool eval(u32 instr, bool delaySlot)
                         sqrt(state.cp1reg.fpr_s[fs]->s);
                 })
                 FRType(ABS, instr, {
-                    debugger.halt("COP1::S::ABS unsupported");
+                    state.cp1reg.fpr_s[fd]->s = ::fabs(state.cp1reg.fpr_s[fs]->s);
                 })
                 FRType(MOV, instr, {
                     state.cp1reg.fpr_s[fd]->s = state.cp1reg.fpr_s[fs]->s;
@@ -183,26 +184,76 @@ bool eval(u32 instr, bool delaySlot)
                     state.cp1reg.fpr_s[fd]->s = -state.cp1reg.fpr_s[fs]->s;
                 })
                 FRType(ROUNDL, instr, {
-                    debugger.halt("COP1::S::ROUNDL unsupported");
+                    int rmode = std::fegetround();
+                    std::fesetround(FE_TONEAREST);
+                    float in = ::nearbyint(state.cp1reg.fpr_s[fs]->s);
+                    std::fesetround(rmode);
+                    int64_t out;
+                    if (std::isnan(in) || std::isinf(in) ||
+                        in > INT64_MAX || in < INT64_MIN) {
+                        debugger.halt("COP1::S::ROUNDL invalid operation");
+                        out = INT64_MIN;
+                    } else {
+                        out = in;
+                    }
+                    state.cp1reg.fpr_d[fd]->l = out;
                 })
                 FRType(TRUNCL, instr, {
-                    debugger.halt("COP1::S::TRUNCL unsupported");
+                    float in = ::trunc(state.cp1reg.fpr_s[fs]->s);
+                    int64_t out;
+                    if (std::isnan(in) || std::isinf(in) ||
+                        in > INT64_MAX || in < INT64_MIN) {
+                        debugger.halt("COP1::S::TRUNCL invalid operation");
+                        out = INT64_MIN;
+                    } else {
+                        out = in;
+                    }
+                    state.cp1reg.fpr_d[fd]->l = out;
                 })
                 FRType(CEILL, instr, {
-                    debugger.halt("COP1::S::CEILL unsupported");
+                    float in = ::ceil(state.cp1reg.fpr_s[fs]->s);
+                    int64_t out;
+                    if (std::isnan(in) || std::isinf(in) ||
+                        in > INT64_MAX || in < INT64_MIN) {
+                        debugger.halt("COP1::S::CEILL invalid operation");
+                        out = INT64_MIN;
+                    } else {
+                        out = in;
+                    }
+                    state.cp1reg.fpr_d[fd]->l = out;
                 })
                 FRType(FLOORL, instr, {
-                    debugger.halt("COP1::S::FLOORL unsupported");
+                    float in = ::floor(state.cp1reg.fpr_s[fs]->s);
+                    int64_t out;
+                    if (std::isnan(in) || std::isinf(in) ||
+                        in > INT64_MAX || in < INT64_MIN) {
+                        debugger.halt("COP1::S::FLOORL invalid operation");
+                        out = INT64_MIN;
+                    } else {
+                        out = in;
+                    }
+                    state.cp1reg.fpr_d[fd]->l = out;
                 })
                 FRType(ROUNDW, instr, {
-                    debugger.halt("COP1::S::ROUNDW unsupported");
+                    int rmode = std::fegetround();
+                    std::fesetround(FE_TONEAREST);
+                    float in = ::nearbyint(state.cp1reg.fpr_s[fs]->s);
+                    std::fesetround(rmode);
+                    int32_t out;
+                    if (std::isnan(in) || std::isinf(in) ||
+                        in > INT32_MAX || in < INT32_MIN) {
+                        debugger.halt("COP1::S::ROUNDW invalid operation");
+                        out = INT32_MIN;
+                    } else {
+                        out = in;
+                    }
+                    state.cp1reg.fpr_s[fd]->w = out;
                 })
                 FRType(TRUNCW, instr, {
                     float in = ::trunc(state.cp1reg.fpr_s[fs]->s);
                     int32_t out;
                     if (std::isnan(in) || std::isinf(in) ||
                         in > INT32_MAX || in < INT32_MIN) {
-                        // TODO invalid operation exception if enabled
                         debugger.halt("COP1::S::TRUNCW invalid operation");
                         out = INT32_MIN;
                     } else {
@@ -211,10 +262,28 @@ bool eval(u32 instr, bool delaySlot)
                     state.cp1reg.fpr_s[fd]->w = out;
                 })
                 FRType(CEILW, instr, {
-                    debugger.halt("COP1::S::CEILW unsupported");
+                    float in = ::ceil(state.cp1reg.fpr_s[fs]->s);
+                    int32_t out;
+                    if (std::isnan(in) || std::isinf(in) ||
+                        in > INT32_MAX || in < INT32_MIN) {
+                        debugger.halt("COP1::S::CEILW invalid operation");
+                        out = INT32_MIN;
+                    } else {
+                        out = in;
+                    }
+                    state.cp1reg.fpr_s[fd]->w = out;
                 })
                 FRType(FLOORW, instr, {
-                    debugger.halt("COP1::S::FLOORW unsupported");
+                    float in = ::floor(state.cp1reg.fpr_s[fs]->s);
+                    int32_t out;
+                    if (std::isnan(in) || std::isinf(in) ||
+                        in > INT32_MAX || in < INT32_MIN) {
+                        debugger.halt("COP1::S::FLOORW invalid operation");
+                        out = INT32_MIN;
+                    } else {
+                        out = in;
+                    }
+                    state.cp1reg.fpr_s[fd]->w = out;
                 })
                 FRType(CVTS, instr, {
                     debugger.halt("COP1::S::CVTS unsupported");
@@ -310,7 +379,7 @@ bool eval(u32 instr, bool delaySlot)
                     debugger.halt("COP1::D::SQRT unsupported");
                 })
                 FRType(ABS, instr, {
-                    debugger.halt("COP1::D::ABS unsupported");
+                    state.cp1reg.fpr_d[fd]->d = ::fabs(state.cp1reg.fpr_d[fs]->d);
                 })
                 FRType(MOV, instr, {
                     state.cp1reg.fpr_d[fd]->d = state.cp1reg.fpr_d[fs]->d;
@@ -323,19 +392,70 @@ bool eval(u32 instr, bool delaySlot)
                     state.cp1reg.fpr_d[fd]->d = -state.cp1reg.fpr_d[fs]->d;
                 })
                 FRType(ROUNDL, instr, {
-                    debugger.halt("COP1::D::ROUNDL unsupported");
+                    int rmode = std::fegetround();
+                    std::fesetround(FE_TONEAREST);
+                    double in = ::nearbyint(state.cp1reg.fpr_d[fs]->d);
+                    std::fesetround(rmode);
+                    int64_t out;
+                    if (std::isnan(in) || std::isinf(in) ||
+                        in > INT64_MAX || in < INT64_MIN) {
+                        debugger.halt("COP1::D::ROUNDL invalid operation");
+                        out = INT64_MIN;
+                    } else {
+                        out = in;
+                    }
+                    state.cp1reg.fpr_d[fd]->l = out;
                 })
                 FRType(TRUNCL, instr, {
-                    debugger.halt("COP1::D::TRUNCL unsupported");
+                    double in = ::trunc(state.cp1reg.fpr_d[fs]->d);
+                    int64_t out;
+                    if (std::isnan(in) || std::isinf(in) ||
+                        in > INT64_MAX || in < INT64_MIN) {
+                        debugger.halt("COP1::D::TRUNCL invalid operation");
+                        out = INT64_MIN;
+                    } else {
+                        out = in;
+                    }
+                    state.cp1reg.fpr_d[fd]->l = out;
                 })
                 FRType(CEILL, instr, {
-                    debugger.halt("COP1::D::CEILL unsupported");
+                    double in = ::ceil(state.cp1reg.fpr_d[fs]->d);
+                    int64_t out;
+                    if (std::isnan(in) || std::isinf(in) ||
+                        in > INT64_MAX || in < INT64_MIN) {
+                        debugger.halt("COP1::D::CEILL invalid operation");
+                        out = INT64_MIN;
+                    } else {
+                        out = in;
+                    }
+                    state.cp1reg.fpr_d[fd]->l = out;
                 })
                 FRType(FLOORL, instr, {
-                    debugger.halt("COP1::D::FLOORL unsupported");
+                    double in = ::floor(state.cp1reg.fpr_d[fs]->d);
+                    int64_t out;
+                    if (std::isnan(in) || std::isinf(in) ||
+                        in > INT64_MAX || in < INT64_MIN) {
+                        debugger.halt("COP1::D::FLOORL invalid operation");
+                        out = INT64_MIN;
+                    } else {
+                        out = in;
+                    }
+                    state.cp1reg.fpr_d[fd]->l = out;
                 })
                 FRType(ROUNDW, instr, {
-                    debugger.halt("COP1::D::ROUNDW unsupported");
+                    int rmode = std::fegetround();
+                    std::fesetround(FE_TONEAREST);
+                    double in = ::nearbyint(state.cp1reg.fpr_d[fs]->d);
+                    std::fesetround(rmode);
+                    int32_t out;
+                    if (std::isnan(in) || std::isinf(in) ||
+                        in > INT32_MAX || in < INT32_MIN) {
+                        debugger.halt("COP1::D::ROUNDW invalid operation");
+                        out = INT32_MIN;
+                    } else {
+                        out = in;
+                    }
+                    state.cp1reg.fpr_s[fd]->w = out;
                 })
                 FRType(TRUNCW, instr, {
                     double in = ::trunc(state.cp1reg.fpr_d[fs]->d);
@@ -344,6 +464,30 @@ bool eval(u32 instr, bool delaySlot)
                         in > INT32_MAX || in < INT32_MIN) {
                         // TODO invalid operation exception if enabled
                         debugger.halt("COP1::D::TRUNCW invalid operation");
+                        out = INT32_MIN;
+                    } else {
+                        out = in;
+                    }
+                    state.cp1reg.fpr_s[fd]->w = out;
+                })
+                FRType(CEILW, instr, {
+                    double in = ::ceil(state.cp1reg.fpr_d[fs]->d);
+                    int32_t out;
+                    if (std::isnan(in) || std::isinf(in) ||
+                        in > INT32_MAX || in < INT32_MIN) {
+                        debugger.halt("COP1::D::CEILW invalid operation");
+                        out = INT32_MIN;
+                    } else {
+                        out = in;
+                    }
+                    state.cp1reg.fpr_s[fd]->w = out;
+                })
+                FRType(FLOORW, instr, {
+                    double in = ::floor(state.cp1reg.fpr_d[fs]->d);
+                    int32_t out;
+                    if (std::isnan(in) || std::isinf(in) ||
+                        in > INT32_MAX || in < INT32_MIN) {
+                        debugger.halt("COP1::D::FLOORW invalid operation");
                         out = INT32_MIN;
                     } else {
                         out = in;
