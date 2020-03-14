@@ -897,7 +897,11 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
         case SP_PC_REG:
             logWrite(debugger.verbose.SP, "SP_PC_REG", value);
+            // Note: not too preoccupied with the behaviour when the RSP
+            // is already running; it is probably not recommended to try that..
             state.rspreg.pc = value & 0xffflu;
+            state.rsp.nextPc = state.rspreg.pc;
+            state.rsp.nextAction = State::Action::Jump;
             return true;
         case SP_IBIST_REG:
             logWrite(debugger.verbose.SP, "SP_IBIST_REG", value);
