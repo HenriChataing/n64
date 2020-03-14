@@ -117,6 +117,25 @@ static void displayCpuCp1Registers(void) {
     }
 }
 
+static void displayRspCp2Registers(void) {
+    ImGui::Text("vco     %04" PRIx16, R4300::state.rspreg.vco);
+    ImGui::Text("vcc     %04" PRIx16, R4300::state.rspreg.vcc);
+    ImGui::Text("vce     %02" PRIx8,  R4300::state.rspreg.vce);
+    ImGui::Text("vacc   ");
+    for (unsigned e = 0; e < 8; e++) {
+        if (e == 4) ImGui::Text("       ");
+        ImGui::SameLine();
+        ImGui::Text("%012" PRIx64, R4300::state.rspreg.vacc[e]);
+    }
+    for (unsigned int nr = 0; nr < 32; nr++) {
+        ImGui::Text("vr%-2u   ", nr);
+        for (unsigned e = 0; e < 8; e++) {
+            ImGui::SameLine();
+            ImGui::Text("%04x", R4300::state.rspreg.vr[nr].h[e]);
+        }
+    }
+}
+
 static void displayHWRegisters(void) {
     if (ImGui::BeginTabBar("HWRegisters", 0))
     {
@@ -440,7 +459,8 @@ int startGui()
                     }
                     ImGui::EndTabItem();
                 }
-                if (ImGui::BeginTabItem("Rsp::Cp0")) {
+                if (ImGui::BeginTabItem("Rsp::Cp2")) {
+                    displayRspCp2Registers();
                     ImGui::EndTabItem();
                 }
                 if (ImGui::BeginTabItem("HW")) {
