@@ -28,6 +28,11 @@ public:
         (void)msg;
     }
 
+    /* Called for undefined behaviour, can be configured to hard fail the
+     * emulation. */
+    void undefined(std::string cause) {
+    }
+
     /* Symbols. */
     void addSymbol(u64 address, std::string name) {
         _symbols[address] = name;
