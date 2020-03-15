@@ -3,6 +3,7 @@
 #include <iostream>
 #include <iomanip>
 
+#include "debugger.h"
 #include "memory.h"
 
 using namespace Memory;
@@ -52,6 +53,7 @@ bool Region::load(uint bytes, u64 addr, u64 *value)
     }
 
     std::cerr << "InvalidAddress(" << std::hex << addr << ")" << std::endl;
+    debugger.halt("Load at invalid address");
     return false;
 }
 
@@ -69,6 +71,7 @@ bool Region::store(uint bytes, u64 addr, u64 value)
     }
 
     std::cerr << "InvalidAddress(" << std::hex << addr << ")" << std::endl;
+    debugger.halt("Store at invalid address");
     return false;
 }
 
