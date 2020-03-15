@@ -34,6 +34,7 @@ SRC       += \
     r4300/cop1.cc \
     r4300/hw.cc \
     r4300/rsp.cc \
+    r4300/dpc.cc \
     r4300/mmu.cc
 
 # GDB RSP server sources
