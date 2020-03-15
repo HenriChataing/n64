@@ -123,9 +123,21 @@ static void displayRspCp2Registers(void) {
     ImGui::Text("vce     %02" PRIx8,  R4300::state.rspreg.vce);
     ImGui::Text("vacc   ");
     for (unsigned e = 0; e < 8; e++) {
-        if (e == 4) ImGui::Text("       ");
         ImGui::SameLine();
-        ImGui::Text("%012" PRIx64, R4300::state.rspreg.vacc[e]);
+        ImGui::Text("%04" PRIx64,
+            (R4300::state.rspreg.vacc[e] >> 32) & UINT64_C(0xffff));
+    }
+    ImGui::Text("       ");
+    for (unsigned e = 0; e < 8; e++) {
+        ImGui::SameLine();
+        ImGui::Text("%04" PRIx64,
+            (R4300::state.rspreg.vacc[e] >> 16) & UINT64_C(0xffff));
+    }
+    ImGui::Text("       ");
+    for (unsigned e = 0; e < 8; e++) {
+        ImGui::SameLine();
+        ImGui::Text("%04" PRIx64,
+            R4300::state.rspreg.vacc[e] & UINT64_C(0xffff));
     }
     for (unsigned int nr = 0; nr < 32; nr++) {
         ImGui::Text("vr%-2u   ", nr);
