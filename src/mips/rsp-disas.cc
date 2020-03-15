@@ -284,6 +284,10 @@ static inline u32 getVd(u32 instr) {
     buffer << ", v" << vs; \
     buffer << ", v" << vt << "[" << e << "]";
 
+#define VRType_Vd_Vde_Vt(vd, vs, vt, e) \
+    buffer << "v" << std::dec << vd << "[" << vs << "]"; \
+    buffer << ", v" << vt << "[" << e << "]";
+
 static void disasCop0(std::ostringstream &buffer, u64 pc, u32 instr)
 {
     using namespace Mips::Opcode;
@@ -323,7 +327,7 @@ static void disasCop2(std::ostringstream &buffer, u64 pc, u32 instr)
             VRType(0x0c, "vmadl", instr, Vd_Vs_Vt)
             VRType(0x0d, "vmadm", instr, Vd_Vs_Vt)
             VRType(0x0e, "vmadn", instr, Vd_Vs_Vt)
-            VRType(0x33, "vmov", instr, Vd_Vs_Vt)
+            VRType(0x33, "vmov", instr, Vd_Vde_Vt)
             VRType(0x27, "vmrg", instr, Vd_Vs_Vt)
             VRType(0x07, "vmudh", instr, Vd_Vs_Vt)
             VRType(0x04, "vmudl", instr, Vd_Vs_Vt)
@@ -462,7 +466,8 @@ std::string disas(u64 pc, u32 instr)
                 VLSType(0x7, "luv", instr, 0)
                 VLSType(0x8, "lhv", instr, 0)
                 VLSType(0x9, "lfv", instr, 0)
-                VLSType(0xb, "ltv", instr, 0)
+                VLSType(0xa, "lwv", instr, 4)
+                VLSType(0xb, "ltv", instr, 4)
                 default:
                     Unknown(instr);
                     break;
@@ -486,7 +491,8 @@ std::string disas(u64 pc, u32 instr)
                 VLSType(0x7, "suv", instr, 0)
                 VLSType(0x8, "shv", instr, 0)
                 VLSType(0x9, "sfv", instr, 0)
-                VLSType(0xb, "stv", instr, 0)
+                VLSType(0xa, "swv", instr, 4)
+                VLSType(0xb, "stv", instr, 4)
                 default:
                     Unknown(instr);
                     break;
