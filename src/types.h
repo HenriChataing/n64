@@ -45,10 +45,12 @@ static inline T zero_extend(U x) {
 
 template<typename T, typename U>
 static inline T clamp(U x) {
-    static_assert(std::is_signed<T>::value == std::is_signed<U>::value,
-                  "clamp expects integral types, both signed or unsigned");
-    static_assert(sizeof (T) < sizeof (U),
-                  "clamp expects a smaller return type");
+    static_assert(std::numeric_limits<T>::max() <=
+                      std::numeric_limits<U>::max() &&
+                  std::numeric_limits<T>::min() >=
+                      std::numeric_limits<U>::min(),
+                  "clamp expects that the range of values of the return type"
+                  " be included in the range of values of the input type");
 
     return x > std::numeric_limits<T>::max() ? std::numeric_limits<T>::max() :
            x < std::numeric_limits<T>::min() ? std::numeric_limits<T>::min() :

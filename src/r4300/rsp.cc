@@ -733,17 +733,28 @@ static void eval_VMACF(u32 instr) {
     for (unsigned i = 0; i < 8; i++) {
         unsigned j = selectElementIndex(i, e);
 
-        i16 svs = (i16)state.rspreg.vr[vs].h[i];
-        i16 svt = (i16)state.rspreg.vr[vt].h[j];
-        i32 mul = (i32)svs * (i32)svt;
+        i32 res = (i16)state.rspreg.vr[vs].h[i] *
+                  (i16)state.rspreg.vr[vt].h[j];
 
-        u32 acc = state.rspreg.vacc[i] >> 16;
-        acc += (u32)mul << 1;
-        state.rspreg.vacc[i] &= UINT64_C(0xffff);
-        state.rspreg.vacc[i] |= (u64)acc << 16;
+        state.rspreg.vacc[i] += sign_extend<u64, u32>((u32)res << 1);
+        state.rspreg.vr[vd].h[i] = state.rspreg.vacc[i] >> 16;
+    }
+}
 
-        i16 res = clamp<i16, i32>((i32)acc);
-        state.rspreg.vr[vd].h[i] = (u16)res;
+static void eval_VMACU(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j = selectElementIndex(i, e);
+
+        i32 res = (i16)state.rspreg.vr[vs].h[i] *
+                  (i16)state.rspreg.vr[vt].h[j];
+
+        state.rspreg.vacc[i] += sign_extend<u64, u32>((u32)res << 1);
+        state.rspreg.vr[vd].h[i] = clamp<u16, i32>((i32)(state.rspreg.vacc[i] >> 16));
     }
 }
 
@@ -756,15 +767,29 @@ static void eval_VMADH(u32 instr) {
     for (unsigned i = 0; i < 8; i++) {
         unsigned j = selectElementIndex(i, e);
 
-        i16 svs = (i16)state.rspreg.vr[vs].h[i];
-        i16 svt = (i16)state.rspreg.vr[vt].h[j];
-        i32 mul = (i32)svs * (i32)svt;
+        i32 res = (i16)state.rspreg.vr[vs].h[i] *
+                  (i16)state.rspreg.vr[vt].h[j];
 
-        u32 acc = state.rspreg.vacc[i] & UINT64_C(0xffffffff);
-        acc += ((u32)mul & UINT32_C(0xffff)) << 16;
-        state.rspreg.vacc[i] &= ~UINT64_C(0xffffffff);
-        state.rspreg.vacc[i] |= acc;
-        state.rspreg.vr[vd].h[i] = acc >> 16;
+        state.rspreg.vacc[i] += (u64)(i64)res << 16;
+        state.rspreg.vr[vd].h[i] =
+            (u16)clamp<i16, i32>((u32)(state.rspreg.vacc[i] >> 16));
+    }
+}
+
+static void eval_VMADL(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j = selectElementIndex(i, e);
+
+        u32 res = (u32)state.rspreg.vr[vs].h[i] *
+                  (u32)state.rspreg.vr[vt].h[j];
+
+        state.rspreg.vacc[i] += sign_extend<u64, u32>(res >> 16);
+        state.rspreg.vr[vd].h[i] = state.rspreg.vacc[i];
     }
 }
 
@@ -777,15 +802,11 @@ static void eval_VMADM(u32 instr) {
     for (unsigned i = 0; i < 8; i++) {
         unsigned j = selectElementIndex(i, e);
 
-        i16 svs = (i16)state.rspreg.vr[vs].h[i];
-        i16 svt = (i16)state.rspreg.vr[vt].h[j];
-        i32 mul = (i32)svs * (i32)svt;
+        i32 res = (i16)state.rspreg.vr[vs].h[i] *
+                  (i32)state.rspreg.vr[vt].h[j];
 
-        u32 acc = state.rspreg.vacc[i] & UINT64_C(0xffffffff);
-        acc += (u32)mul;
-        state.rspreg.vacc[i] &= ~UINT64_C(0xffffffff);
-        state.rspreg.vacc[i] |= acc;
-        state.rspreg.vr[vd].h[i] = acc >> 16;
+        state.rspreg.vacc[i] += (u64)(i64)res;
+        state.rspreg.vr[vd].h[i] = state.rspreg.vacc[i] >> 16;
     }
 }
 
@@ -798,17 +819,11 @@ static void eval_VMADN(u32 instr) {
     for (unsigned i = 0; i < 8; i++) {
         unsigned j = selectElementIndex(i, e);
 
-        i16 svs = (i16)state.rspreg.vr[vs].h[i];
-        i16 svt = (i16)state.rspreg.vr[vt].h[j];
-        i32 mul = (i32)svs * (i32)svt;
+        i32 res = (i32)state.rspreg.vr[vs].h[i] *
+                  (i16)state.rspreg.vr[vt].h[j];
 
-        u32 acc = state.rspreg.vacc[i] & UINT64_C(0xffffffff);
-        acc += (u32)mul;
-        state.rspreg.vacc[i] &= ~UINT64_C(0xffffffff);
-        state.rspreg.vacc[i] |= acc;
-
-        i16 res = clamp<i16, i32>((i32)acc);
-        state.rspreg.vr[vd].h[i] = (u16)res;
+        state.rspreg.vacc[i] += (u64)(i64)res;
+        state.rspreg.vr[vd].h[i] = state.rspreg.vacc[i];
     }
 }
 
@@ -849,16 +864,11 @@ static void eval_VMUDL(u32 instr) {
     for (unsigned i = 0; i < 8; i++) {
         unsigned j = selectElementIndex(i, e);
 
-        i16 svs = (i16)state.rspreg.vr[vs].h[i];
-        i16 svt = (i16)state.rspreg.vr[vt].h[j];
-        i32 mul = (i32)svs * (i32)svt;
+        u32 res = (u32)state.rspreg.vr[vs].h[i] *
+                  (u32)state.rspreg.vr[vt].h[j];
 
-        i16 acc = (i16)(u16)((u32)mul >> 16);
-        state.rspreg.vacc[i] &= ~UINT64_C(0xffffffff);
-        state.rspreg.vacc[i] |= (u16)acc
-                             | (acc < 0 ? UINT64_C(0xffff0000) : 0);
-
-        state.rspreg.vr[vd].h[i] = (u16)acc;
+        state.rspreg.vacc[i] = sign_extend<u64, u32>(res >> 16);
+        state.rspreg.vr[vd].h[i] = res >> 16;
     }
 }
 
@@ -871,13 +881,11 @@ static void eval_VMUDM(u32 instr) {
     for (unsigned i = 0; i < 8; i++) {
         unsigned j = selectElementIndex(i, e);
 
-        i16 svs = (i16)state.rspreg.vr[vs].h[i];
-        i16 svt = (i16)state.rspreg.vr[vt].h[j];
-        i32 mul = (i32)svs * (i32)svt;
+        i32 res = (i16)state.rspreg.vr[vs].h[i] *
+                  (i32)state.rspreg.vr[vt].h[j];
 
-        state.rspreg.vacc[i] &= ~UINT64_C(0xffffffff);
-        state.rspreg.vacc[i] |= (u32)mul;
-        state.rspreg.vr[vd].h[i] = (u32)mul >> 16;
+        state.rspreg.vacc[i] = (u64)(i64)res;
+        state.rspreg.vr[vd].h[i] = (u32)res >> 16;
     }
 }
 
@@ -907,22 +915,28 @@ static void eval_VMULF(u32 instr) {
     for (unsigned i = 0; i < 8; i++) {
         unsigned j = selectElementIndex(i, e);
 
-        i16 svs = (i16)state.rspreg.vr[vs].h[i];
-        i16 svt = (i16)state.rspreg.vr[vt].h[j];
-        i32 mul = (i32)svs * (i32)svt;
+        i32 res = (i16)state.rspreg.vr[vs].h[i] *
+                  (i16)state.rspreg.vr[vt].h[j];
 
-        u64 acc = state.rspreg.vacc[i] & UINT64_C(0xffff);
-        acc |= (u64)(u32)mul << 17;
-        acc += UINT64_C(0x8000);
+        state.rspreg.vacc[i] = sign_extend<u64, u32>(((u32)res << 1) + 32768u);
+        state.rspreg.vr[vd].h[i] = state.rspreg.vacc[i] >> 16;
+    }
+}
 
-        i32 res = (i32)(u32)(acc >> 16);
-        if (res < INT32_C(-32768))
-            res = INT32_C(-32768);
-        if (res > INT32_C(+32767))
-            res = INT32_C(+32767);
+static void eval_VMULU(u32 instr) {
+    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
 
-        state.rspreg.vacc[i] = acc;
-        state.rspreg.vr[vd].h[i] = (u16)(i16)res;
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j = selectElementIndex(i, e);
+
+        i32 res = (i16)state.rspreg.vr[vs].h[i] *
+                  (i16)state.rspreg.vr[vt].h[j];
+
+        state.rspreg.vacc[i] = sign_extend<u64, u32>(((u32)res << 1) + 32768u);
+        state.rspreg.vr[vd].h[i] = clamp<u16, i32>((i32)(state.rspreg.vacc[i] >> 16));
     }
 }
 
@@ -1184,13 +1198,9 @@ static void eval_COP2(u32 instr) {
         case UINT32_C(0x0b):
             debugger.halt("RSP::VMACQ unsupported");
             break;
-        case UINT32_C(0x09):
-            debugger.halt("RSP::VMACU unsupported");
-            break;
+        case UINT32_C(0x09): eval_VMACU(instr); break;
         case UINT32_C(0x0f): eval_VMADH(instr); break;
-        case UINT32_C(0x0c):
-            debugger.halt("RSP::VMADL unsupported");
-            break;
+        case UINT32_C(0x0c): eval_VMADL(instr); break;
         case UINT32_C(0x0d): eval_VMADM(instr); break;
         case UINT32_C(0x0e): eval_VMADN(instr); break;
         case UINT32_C(0x33): eval_VMOV(instr); break;
@@ -1205,9 +1215,7 @@ static void eval_COP2(u32 instr) {
         case UINT32_C(0x03):
             debugger.halt("RSP::VMULQ unsupported");
             break;
-        case UINT32_C(0x01):
-            debugger.halt("RSP::VMULU unsupported");
-            break;
+        case UINT32_C(0x01): eval_VMULU(instr); break;
         case UINT32_C(0x29): eval_VNAND(instr); break;
         case UINT32_C(0x22): eval_VNE(instr); break;
         case UINT32_C(0x37):

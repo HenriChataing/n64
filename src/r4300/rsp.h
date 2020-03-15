@@ -21,12 +21,14 @@ struct rspreg {
     /* SP interface registers are accessed as registers of the Coprocessor 0
      * of the RSP, they are not reproduced here. */
 
+    /* Vector registers. Every 2-byte element of each vector is stored in
+     * the host cpu format to minimize byte-swapping. */
     vr_t vr[32];
     /* The accumulator is saved in host cpu format (typically little endian).
      * Technically, the accumulator is only 48-bits wide. */
     u64 vacc[8];
-    u16 vcc;
     u16 vco;
+    u16 vcc;
     u8 vce;
 
     /** Registers for holding the inputs/results of VRCP, to be fetched
