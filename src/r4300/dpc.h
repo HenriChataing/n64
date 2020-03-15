@@ -6,6 +6,7 @@
 
 namespace R4300 {
 
+void write_DPC_STATUS_REG(u32 value);
 void write_DPC_START_REG(u32 value);
 void write_DPC_END_REG(u32 value);
 

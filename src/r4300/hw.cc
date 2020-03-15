@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <cstring>
 
+#include <r4300/dpc.h>
 #include <r4300/hw.h>
 #include <r4300/state.h>
 
@@ -232,45 +233,6 @@ u32 read_SP_SEMAPHORE_REG() {
     u32 value = state.hwreg.SP_SEMAPHORE_REG;
     state.hwreg.SP_SEMAPHORE_REG = 1;
     return value;
-}
-
-/**
- * @brief Write the DP Command register DPC_STATUS_REG.
- *  This function is used for both the CPU (DPC_STATUS_REG) and
- *  RSP (Coprocessor 0 register 11) view of the register.
- */
-void write_DPC_STATUS_REG(u32 value) {
-    logWrite(debugger.verbose.DPCommand, "DPC_STATUS_REG", value);
-    if (value & DPC_STATUS_CLR_XBUS_DMEM_DMA) {
-        state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_XBUS_DMEM_DMA;
-    }
-    if (value & DPC_STATUS_SET_XBUS_DMEM_DMA) {
-        state.hwreg.DPC_STATUS_REG |= DPC_STATUS_XBUS_DMEM_DMA;
-    }
-    if (value & DPC_STATUS_CLR_FREEZE) {
-        state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_FREEZE;
-    }
-    if (value & DPC_STATUS_SET_FREEZE) {
-        state.hwreg.DPC_STATUS_REG |= DPC_STATUS_FREEZE;
-    }
-    if (value & DPC_STATUS_CLR_FLUSH) {
-        state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_FLUSH;
-    }
-    if (value & DPC_STATUS_SET_FLUSH) {
-        state.hwreg.DPC_STATUS_REG |= DPC_STATUS_FLUSH;
-    }
-    if (value & DPC_STATUS_CLR_TMEM_CTR) {
-        state.hwreg.DPC_TMEM_REG = 0;
-    }
-    if (value & DPC_STATUS_CLR_PIPE_CTR) {
-        state.hwreg.DPC_PIPE_BUSY_REG = 0;
-    }
-    if (value & DPC_STATUS_CLR_CMD_CTR) {
-        state.hwreg.DPC_BUF_BUSY_REG = 0;
-    }
-    if (value & DPC_STATUS_CLR_CLOCK_CTR) {
-        state.hwreg.DPC_CLOCK_REG = 0;
-    }
 }
 
 /**
@@ -956,8 +918,23 @@ bool read(uint bytes, u64 addr, u64 *value)
 
 bool write(uint bytes, u64 addr, u64 value)
 {
-    std::cerr << "DPCommand::write(" << std::hex << addr << ")" << std::endl;
-    throw "Unsupported13";
+    if (bytes != 4)
+        return false;
+
+    switch (addr) {
+        case DPC_START_REG:     write_DPC_START_REG(value); break;
+        case DPC_END_REG:       write_DPC_END_REG(value); break;
+        case DPC_STATUS_REG:    write_DPC_STATUS_REG(value); break;
+        case DPC_CURRENT_REG:
+        case DPC_CLOCK_REG:
+        case DPC_BUF_BUSY_REG:
+        case DPC_PIPE_BUSY_REG:
+        case DPC_TMEM_REG:
+            return true;
+        default:
+            debugger.halt("DPCommand::write invalid");
+            return false;
+    }
     return true;
 }
 

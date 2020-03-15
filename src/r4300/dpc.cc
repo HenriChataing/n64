@@ -1,5 +1,6 @@
 
 #include <cstring>
+#include <iomanip>
 #include <iostream>
 
 #include <debugger.h>
@@ -10,6 +11,52 @@
 namespace R4300 {
 
 using namespace R4300;
+
+static inline void logWrite(bool flag, const char *tag, u64 value) {
+    if (flag) {
+        std::cerr << std::left << std::setfill(' ') << std::setw(32);
+        std::cerr << tag << " <- " << std::hex << value << std::endl;
+    }
+}
+
+/**
+ * @brief Write the DP Command register DPC_STATUS_REG.
+ *  This function is used for both the CPU (DPC_STATUS_REG) and
+ *  RSP (Coprocessor 0 register 11) view of the register.
+ */
+void write_DPC_STATUS_REG(u32 value) {
+    logWrite(debugger.verbose.DPCommand, "DPC_STATUS_REG", value);
+    if (value & DPC_STATUS_CLR_XBUS_DMEM_DMA) {
+        state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_XBUS_DMEM_DMA;
+    }
+    if (value & DPC_STATUS_SET_XBUS_DMEM_DMA) {
+        state.hwreg.DPC_STATUS_REG |= DPC_STATUS_XBUS_DMEM_DMA;
+    }
+    if (value & DPC_STATUS_CLR_FREEZE) {
+        state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_FREEZE;
+    }
+    if (value & DPC_STATUS_SET_FREEZE) {
+        state.hwreg.DPC_STATUS_REG |= DPC_STATUS_FREEZE;
+    }
+    if (value & DPC_STATUS_CLR_FLUSH) {
+        state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_FLUSH;
+    }
+    if (value & DPC_STATUS_SET_FLUSH) {
+        state.hwreg.DPC_STATUS_REG |= DPC_STATUS_FLUSH;
+    }
+    if (value & DPC_STATUS_CLR_TMEM_CTR) {
+        state.hwreg.DPC_TMEM_REG = 0;
+    }
+    if (value & DPC_STATUS_CLR_PIPE_CTR) {
+        state.hwreg.DPC_PIPE_BUSY_REG = 0;
+    }
+    if (value & DPC_STATUS_CLR_CMD_CTR) {
+        state.hwreg.DPC_BUF_BUSY_REG = 0;
+    }
+    if (value & DPC_STATUS_CLR_CLOCK_CTR) {
+        state.hwreg.DPC_CLOCK_REG = 0;
+    }
+}
 
 /**
  * @brief Write the DPC_START_REG register.
@@ -36,7 +83,7 @@ static u64 DPC_peekNext(void) {
         // state.hwreg.DPC_CURRENT_REG contains a virtual memory address;
         // convert it first.
         R4300::Exception exn;
-        u64 vAddr = state.hwreg.DPC_CURRENT_REG;
+        u64 vAddr = sign_extend<u64, u32>(state.hwreg.DPC_CURRENT_REG);
         u64 pAddr;
         value = 0;
 
@@ -105,6 +152,10 @@ void write_DPC_END_REG(u32 value) {
                 break;
             case UINT64_C(0x3e):
                 std::cerr << "DPC set z image " << std::hex << command << std::endl;
+                break;
+            case UINT64_C(0x25):
+                std::cerr << "DPC texture rectangle flip " << std::hex << command << std::endl;
+                skip_dwords = 2;
                 break;
             case UINT64_C(0x2d):
                 std::cerr << "DPC set scissor " << std::hex << command << std::endl;

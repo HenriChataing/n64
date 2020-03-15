@@ -103,7 +103,6 @@ void write_SP_RD_LEN_REG(u32 value);
 void write_SP_WR_LEN_REG(u32 value);
 void write_SP_STATUS_REG(u32 value);
 u32 read_SP_SEMAPHORE_REG();
-void write_DPC_STATUS_REG(u32 value);
 void raise_VI_INTR(void);
 
 #define RDRAM_DEVICE_TYPE_18M   (UINT32_C(0xb2190020))
