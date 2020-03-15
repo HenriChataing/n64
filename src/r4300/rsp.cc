@@ -391,6 +391,10 @@ static inline unsigned selectElementIndex(unsigned i, u32 e) {
     return j;
 }
 
+static void eval_Reserved(u32 instr) {
+    debugger.halt("RSP reserved instruction");
+}
+
 static void eval_VABS(u32 instr) {
     u32 e = (instr >> 21) & UINT32_C(0xf);
     u32 vt = getVt(instr);
@@ -480,6 +484,18 @@ static void eval_VAND(u32 instr) {
     }
 
     state.rspreg.vr[vd] = out;
+}
+
+static void eval_VCH(u32 instr) {
+    debugger.halt("VCH unsupported");
+}
+
+static void eval_VCL(u32 instr) {
+    debugger.halt("VCL unsupported");
+}
+
+static void eval_VCR(u32 instr) {
+    debugger.halt("VCR unsupported");
 }
 
 static void eval_VEQ(u32 instr) {
@@ -603,6 +619,10 @@ static void eval_VMACF(u32 instr) {
     state.rspreg.vr[vd] = out;
 }
 
+static void eval_VMACQ(u32 instr) {
+    debugger.halt("VMACQ unsupported");
+}
+
 static void eval_VMACU(u32 instr) {
     u32 e = (instr >> 21) & UINT32_C(0xf);
     u32 vt = getVt(instr);
@@ -714,6 +734,10 @@ static void eval_VMOV(u32 instr) {
     state.rspreg.vr[vd].h[de] = state.rspreg.vr[vt].h[e];
 }
 
+static void eval_VMRG(u32 instr) {
+    debugger.halt("RSP::VMRG unsupported");
+}
+
 static void eval_VMUDH(u32 instr) {
     u32 e = (instr >> 21) & UINT32_C(0xf);
     u32 vt = getVt(instr);
@@ -814,6 +838,10 @@ static void eval_VMULF(u32 instr) {
     state.rspreg.vr[vd] = out;
 }
 
+static void eval_VMULQ(u32 instr) {
+    debugger.halt("RSP::VMULQ unsupported");
+}
+
 static void eval_VMULU(u32 instr) {
     u32 e = (instr >> 21) & UINT32_C(0xf);
     u32 vt = getVt(instr);
@@ -886,6 +914,10 @@ static void eval_VNE(u32 instr) {
     state.rspreg.vco = 0;
     state.rspreg.vce = 0;
     state.rspreg.vr[vd] = out;
+}
+
+static void eval_VNOP(u32 instr) {
+    (void)instr;
 }
 
 static void eval_VNOR(u32 instr) {
@@ -1011,7 +1043,27 @@ static void eval_VRCPH(u32 instr) {
 }
 
 static void eval_VRCPL(u32 instr) {
-    debugger.halt("VRCPL");
+    debugger.halt("RSP::VRCPL unsupported");
+}
+
+static void eval_VRNDN(u32 instr) {
+    debugger.halt("RSP::VRNDN unsupported");
+}
+
+static void eval_VRNDP(u32 instr) {
+    debugger.halt("RSP::VRNDP unsupported");
+}
+
+static void eval_VRSQ(u32 instr) {
+    debugger.halt("RSP::VRSQ unsupported");
+}
+
+static void eval_VRSQH(u32 instr) {
+    debugger.halt("RSP::VRSQH unsupported");
+}
+
+static void eval_VRSQL(u32 instr) {
+    debugger.halt("RSP::VRSQL unsupported");
 }
 
 static void eval_VSAR(u32 instr) {
@@ -1124,80 +1176,38 @@ static void eval_VXOR(u32 instr) {
     state.rspreg.vr[vd] = out;
 }
 
+static void (*COP2_callbacks[64])(u32) = {
+    /* Multiply group */
+    eval_VMULF,         eval_VMULU,         eval_VRNDP,         eval_VMULQ,
+    eval_VMUDL,         eval_VMUDM,         eval_VMUDN,         eval_VMUDH,
+    eval_VMACF,         eval_VMACU,         eval_VRNDN,         eval_VMACQ,
+    eval_VMADL,         eval_VMADM,         eval_VMADN,         eval_VMADH,
+
+    /* Add group */
+    eval_VADD,          eval_VSUB,          eval_Reserved,      eval_VABS,
+    eval_VADDC,         eval_VSUBC,         eval_Reserved,      eval_Reserved,
+    eval_Reserved,      eval_Reserved,      eval_Reserved,      eval_Reserved,
+    eval_Reserved,      eval_VSAR,          eval_Reserved,      eval_Reserved,
+
+    /* Select group */
+    eval_VLT,           eval_VEQ,           eval_VNE,           eval_VGE,
+    eval_VCL,           eval_VCH,           eval_VCR,           eval_VMRG,
+
+    /* Logical group */
+    eval_VAND,          eval_VNAND,         eval_VOR,           eval_VNOR,
+    eval_VXOR,          eval_VNXOR,         eval_Reserved,      eval_Reserved,
+
+    /* Divide group */
+    eval_VRCP,          eval_VRCPL,         eval_VRCPH,         eval_VMOV,
+    eval_VRSQ,          eval_VRSQL,         eval_VRSQH,         eval_VNOP,
+
+    /* Invalid group */
+    eval_Reserved,      eval_Reserved,      eval_Reserved,      eval_Reserved,
+    eval_Reserved,      eval_Reserved,      eval_Reserved,      eval_Reserved,
+};
+
 static void eval_COP2(u32 instr) {
-    switch (instr & 0x3flu) {
-        case UINT32_C(0x13): eval_VABS(instr); break;
-        case UINT32_C(0x10): eval_VADD(instr); break;
-        case UINT32_C(0x14): eval_VADDC(instr); break;
-        case UINT32_C(0x28): eval_VAND(instr); break;
-        case UINT32_C(0x25):
-            debugger.halt("RSP::VCH unsupported");
-            break;
-        case UINT32_C(0x24):
-            debugger.halt("RSP::VCL unsupported");
-            break;
-        case UINT32_C(0x26):
-            debugger.halt("RSP::VCR unsupported");
-            break;
-        case UINT32_C(0x21): eval_VEQ(instr); break;
-        case UINT32_C(0x23): eval_VGE(instr); break;
-        case UINT32_C(0x20): eval_VLT(instr); break;
-        case UINT32_C(0x08): eval_VMACF(instr); break;
-        case UINT32_C(0x0b):
-            debugger.halt("RSP::VMACQ unsupported");
-            break;
-        case UINT32_C(0x09): eval_VMACU(instr); break;
-        case UINT32_C(0x0f): eval_VMADH(instr); break;
-        case UINT32_C(0x0c): eval_VMADL(instr); break;
-        case UINT32_C(0x0d): eval_VMADM(instr); break;
-        case UINT32_C(0x0e): eval_VMADN(instr); break;
-        case UINT32_C(0x33): eval_VMOV(instr); break;
-        case UINT32_C(0x27):
-            debugger.halt("RSP::VMRG unsupported");
-            break;
-        case UINT32_C(0x07): eval_VMUDH(instr); break;
-        case UINT32_C(0x04): eval_VMUDL(instr); break;
-        case UINT32_C(0x05): eval_VMUDM(instr); break;
-        case UINT32_C(0x06): eval_VMUDN(instr); break;
-        case UINT32_C(0x00): eval_VMULF(instr); break;
-        case UINT32_C(0x03):
-            debugger.halt("RSP::VMULQ unsupported");
-            break;
-        case UINT32_C(0x01): eval_VMULU(instr); break;
-        case UINT32_C(0x29): eval_VNAND(instr); break;
-        case UINT32_C(0x22): eval_VNE(instr); break;
-        case UINT32_C(0x37):
-            debugger.halt("RSP::VNOP unsupported");
-            break;
-        case UINT32_C(0x2b): eval_VNOR(instr); break;
-        case UINT32_C(0x2d): eval_VNXOR(instr); break;
-        case UINT32_C(0x2a): eval_VOR(instr); break;
-        case UINT32_C(0x30): eval_VRCP(instr); break;
-        case UINT32_C(0x31): eval_VRCPL(instr); break;
-        case UINT32_C(0x32): eval_VRCPH(instr); break;
-        case UINT32_C(0x0a):
-            debugger.halt("RSP::VRNDN unsupported");
-            break;
-        case UINT32_C(0x02):
-            debugger.halt("RSP::VRNDP unsupported");
-            break;
-        case UINT32_C(0x34):
-            debugger.halt("RSP::VRSQ unsupported");
-            break;
-        case UINT32_C(0x36):
-            debugger.halt("RSP::VRSQH unsupported");
-            break;
-        case UINT32_C(0x35):
-            debugger.halt("RSP::VRSQL unsupported");
-            break;
-        case UINT32_C(0x1d): eval_VSAR(instr); break;
-        case UINT32_C(0x11): eval_VSUB(instr); break;
-        case UINT32_C(0x15): eval_VSUBC(instr); break;
-        case UINT32_C(0x2c): eval_VXOR(instr); break;
-        default:
-            debugger.halt("RSP::COP2 invalid operation");
-            break;
-    }
+    COP2_callbacks[instr & UINT32_C(0x3f)](instr);
 }
 
 /**
