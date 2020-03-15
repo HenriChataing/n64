@@ -12,13 +12,23 @@ void startGui();
 
 int main(int argc, char *argv[])
 {
-    char const *path = "SuperMario64_JA_A.z64";
+    char const *path = NULL;
+    bool gui = false;
+    argc--; argv++;
 
-    void (*start)() = startTerminal;
-    if (argc > 1 && strcmp(argv[1], "--gui") == 0)
-        start = startGui;
+    for (; argc > 0; argc--, argv++) {
+        if (strcmp(argv[0], "--gui") == 0)
+            gui = true;
+        else
+            path = argv[0];
+    }
+
+    if (path == NULL) {
+        std::cerr << "Missing path to .z64/.N64 ROM image" << std::endl;
+        return -1;
+    }
 
     R4300::state.init(path);
-    start();
+    gui ? startGui() : startTerminal();
     return 0;
 }
