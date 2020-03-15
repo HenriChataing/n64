@@ -245,6 +245,33 @@ static void loadVectorBytes(unsigned vr, unsigned element, unsigned addr,
     }
 }
 
+static void eval_LTV(u32 instr) {
+    u32 base = (instr >> 21) & 0x1flu;
+    u32 vt = (instr >> 16) & 0x1flu;
+    u32 element = (instr >> 7) & 0xflu;
+    u32 offset = i7_to_i32(instr & 0x7flu);
+    u32 addr = state.rspreg.gpr[base] + (offset << 4);
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned vs = (vt & 0x18u) | ((i + (element >> 1)) & 0x7u);
+        unsigned slice = (i + (element >> 1)) & 0x7u;
+        loadVectorBytes(vs, 2 * i, addr + 2 * slice, 2);
+    }
+}
+
+static void eval_LWV(u32 instr) {
+    u32 base = (instr >> 21) & 0x1flu;
+    u32 vt = (instr >> 16) & 0x1flu;
+    u32 element = (instr >> 7) & 0xflu;
+    u32 offset = i7_to_i32(instr & 0x7flu);
+    u32 addr = state.rspreg.gpr[base] + (offset << 4);
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned slice = (i + (element >> 1)) & 0x7u;
+        loadVectorBytes(vt, 2 * slice, addr + 2 * slice, 2);
+    }
+}
+
 static void eval_LWC2(u32 instr) {
     u32 base = (instr >> 21) & 0x1flu;
     u32 vt = (instr >> 16) & 0x1flu;
@@ -291,9 +318,8 @@ static void eval_LWC2(u32 instr) {
         case UINT32_C(0x9): /* LFV */
             debugger.halt("RSP::LFV not supported");
             break;
-        case UINT32_C(0xb): /* LTV */
-            debugger.halt("RSP::LTV not supported");
-            break;
+        case UINT32_C(0xa): eval_LWV(instr); break;
+        case UINT32_C(0xb): eval_LTV(instr); break;
         default:
             debugger.halt("RSP::LWC2 invalid operation");
             break;
@@ -319,6 +345,32 @@ static void storeVectorBytes(unsigned vr, unsigned element, unsigned addr,
 #else
         state.dmem[addr & 0xfffu] = state.rspreg.vr[vr].b[element ^ 1u];
 #endif
+    }
+}
+
+static void eval_STV(u32 instr) {
+    u32 base = (instr >> 21) & 0x1flu;
+    u32 vt = (instr >> 16) & 0x1flu;
+    u32 element = (instr >> 7) & 0xflu;
+    u32 offset = i7_to_i32(instr & 0x7flu);
+    u32 addr = state.rspreg.gpr[base] + (offset << 4);
+
+    for (unsigned i = 0; i < 8; i++, addr += 2) {
+        unsigned vs = (vt & 0x18u) | ((i + (element >> 1)) & 0x7u);
+        storeVectorBytes(vs, 2 * i, addr, 2);
+    }
+}
+
+static void eval_SWV(u32 instr) {
+    u32 base = (instr >> 21) & 0x1flu;
+    u32 vt = (instr >> 16) & 0x1flu;
+    u32 element = (instr >> 7) & 0xflu;
+    u32 offset = i7_to_i32(instr & 0x7flu);
+    u32 addr = state.rspreg.gpr[base] + (offset << 4);
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned slice = (i + 8u - (element >> 1)) & 0x7u;
+        storeVectorBytes(vt, 2 * i, addr + 2 * slice, 2);
     }
 }
 
@@ -368,9 +420,8 @@ static void eval_SWC2(u32 instr) {
         case UINT32_C(0x9): /* SFV */
             debugger.halt("RSP::SFV not supported");
             break;
-        case UINT32_C(0xb): /* STV */
-            debugger.halt("RSP::STV not supported");
-            break;
+        case UINT32_C(0xa): eval_SWV(instr); break;
+        case UINT32_C(0xb): eval_STV(instr); break;
         default:
             debugger.halt("RSP::SWC2 invalid operation");
             break;
@@ -724,9 +775,9 @@ static void eval_VMADN(u32 instr) {
 }
 
 static void eval_VMOV(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = (instr >> 21) & UINT32_C(0x7);
     u32 vt = getVt(instr);
-    u32 de = getVs(instr);
+    u32 de = getVs(instr) & 0x7;
     u32 vd = getVd(instr);
 
     state.rspreg.vacc[de] &= ~UINT64_C(0xffff);
