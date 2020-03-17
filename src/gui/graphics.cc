@@ -63,14 +63,14 @@ bool getVideoImage(size_t *width, size_t *height, GLuint *id)
         }
         if (VideoImage::data != NULL) {
             GLenum type = VideoImage::colorDepth == 32
-                        ? GL_UNSIGNED_INT_8_8_8_8_REV
-                        : GL_UNSIGNED_SHORT_4_4_4_4_REV;
+                        ? GL_UNSIGNED_INT_8_8_8_8
+                        : GL_UNSIGNED_SHORT_5_5_5_1;
 
             glGenTextures(1, &VideoImage::texture);
             glPrintError("glGenTextures");
             glBindTexture(GL_TEXTURE_2D, VideoImage::texture);
             glPrintError("glBindTextures");
-            glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_FALSE);
+            glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_TRUE);
             glPixelStorei(GL_UNPACK_LSB_FIRST,  GL_FALSE);
             glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
             glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
