@@ -1,6 +1,6 @@
 
-#ifndef _R4300_DPC_H_INCLUDED_
-#define _R4300_DPC_H_INCLUDED_
+#ifndef _R4300_RDP_H_INCLUDED_
+#define _R4300_RDP_H_INCLUDED_
 
 #include <types.h>
 
@@ -12,4 +12,4 @@ void write_DPC_END_REG(u32 value);
 
 };
 
-#endif /* _R4300_DPC_H_INCLUDED_ */
+#endif /* _R4300_RDP_H_INCLUDED_ */
