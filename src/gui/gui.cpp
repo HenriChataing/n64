@@ -117,6 +117,26 @@ static void displayCpuCp1Registers(void) {
     }
 }
 
+static void displayCpuTLB(void) {
+    for (unsigned int nr = 0; nr < R4300::tlbEntryCount; nr++) {
+        R4300::tlbEntry *entry = &R4300::state.tlb[nr];
+        u64 vpn2 = entry->entryHi & ~0x1fffflu;
+        unsigned asid = entry->entryHi & 0xff;
+        ImGui::Text("[%2.u]  VPN2:%016lx ASID:%u", nr, vpn2, asid);
+        u64 pfn = entry->entryLo0 & ~0x3fu;
+        unsigned c = (entry->entryLo0 >> 3) & 0x3u;
+        unsigned d = (entry->entryLo0 >> 2) & 0x1u;
+        unsigned v = (entry->entryLo0 >> 1) & 0x1u;
+        unsigned g = (entry->entryLo0 >> 0) & 0x1u;
+        ImGui::Text("      PFN:%06lx C:%x D:%u V:%u G:%u", pfn, c, d, v, g);
+        c = (entry->entryLo1 >> 3) & 0x3u;
+        d = (entry->entryLo1 >> 2) & 0x1u;
+        v = (entry->entryLo1 >> 1) & 0x1u;
+        g = (entry->entryLo1 >> 0) & 0x1u;
+        ImGui::Text("      PFN:%06lx C:%x D:%u V:%u G:%u", pfn, c, d, v, g);
+    }
+}
+
 static void displayRspCp2Registers(void) {
     ImGui::Text("vco     %04" PRIx16, R4300::state.rspreg.vco);
     ImGui::Text("vcc     %04" PRIx16, R4300::state.rspreg.vcc);
@@ -463,6 +483,10 @@ int startGui()
                 }
                 if (ImGui::BeginTabItem("Cpu::Cp1")) {
                     displayCpuCp1Registers();
+                    ImGui::EndTabItem();
+                }
+                if (ImGui::BeginTabItem("Cpu::TLB")) {
+                    displayCpuTLB();
                     ImGui::EndTabItem();
                 }
                 if (ImGui::BeginTabItem("Rsp")) {
