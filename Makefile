@@ -11,7 +11,7 @@ CFLAGS    := -Wall -Wno-unused-function -std=gnu11
 CXXFLAGS  := -Wall -Wno-unused-function -std=c++11
 CXXFLAGS  += -I$(SRCDIR) -I$(SRCDIR)/lib -DTARGET_BIGENDIAN
 LDFLAGS   :=
-LIBS      := -lpthread
+LIBS      := -lpthread -lpng
 
 ifneq ($(DEBUG),)
 CXXFLAGS  += -g -pg -DDEBUG=$(DEBUG)

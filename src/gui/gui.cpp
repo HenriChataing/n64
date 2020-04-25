@@ -438,6 +438,9 @@ int startGui()
                 if (ImGui::Button("Step")) {
                     evalStep();
                 }
+                if (ImGui::Button("Save Screen")) {
+                    exportAsPNG("screen.png");
+                }
             } else {
                 if (ImGui::Button("Halt")) {
                     debugger.halt("Interrupted by user");
