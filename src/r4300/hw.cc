@@ -3,7 +3,7 @@
 #include <iomanip>
 #include <cstring>
 
-#include <r4300/dpc.h>
+#include <r4300/rdp.h>
 #include <r4300/hw.h>
 #include <r4300/state.h>
 
@@ -905,14 +905,29 @@ const u32 DPC_BUF_BUSY_REG =        UINT32_C(0x04100014);
 // (R): [23:0] pipe busy counter
 const u32 DPC_PIPE_BUSY_REG =       UINT32_C(0x04100018);
 // (R): [23:0] tmem counter
-const u32 DPC_TMEM_REG =            UINT32_C(0x0404001c);
+const u32 DPC_TMEM_REG =            UINT32_C(0x0410001c);
 
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
-    std::cerr << "DPCommand::read(" << std::hex << addr << ")" << std::endl;
-    throw "Unsupported14";
-    *value = 0;
+    if (bytes != 4)
+        return false;
+
+    switch (addr) {
+        case DPC_START_REG:     *value = state.hwreg.DPC_START_REG; break;
+        case DPC_END_REG:       *value = state.hwreg.DPC_END_REG; break;
+        case DPC_STATUS_REG:    *value = state.hwreg.DPC_STATUS_REG; break;
+        case DPC_CURRENT_REG:   *value = state.hwreg.DPC_CURRENT_REG; break;
+        case DPC_CLOCK_REG:
+        case DPC_BUF_BUSY_REG:
+        case DPC_PIPE_BUSY_REG:
+        case DPC_TMEM_REG:
+            *value = 0;
+            return true;
+        default:
+            debugger.halt("DPCommand::read invalid");
+            return false;
+    }
     return true;
 }
 
@@ -1217,6 +1232,10 @@ void updateCurrentFramebuffer(void) {
             break;
     }
     switch (state.hwreg.VI_WIDTH_REG) {
+        case UINT32_C(0x100):
+            width = 256;
+            height = 200;
+            break;
         case UINT32_C(0x140):
             width = 320;
             height = 240;

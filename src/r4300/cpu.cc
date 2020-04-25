@@ -671,7 +671,7 @@ static bool eval(bool delaySlot)
                     state.reg.gpr[rd] = sign_extend<u64, u32>(
                         state.reg.gpr[rs] - state.reg.gpr[rt]);
                 })
-                RType(SYNC, instr, { debugger.halt("SYNC"); })
+                RType(SYNC, instr, { })
                 RType(SYSCALL, instr, {
                     returnException(SystemCall, 0, delaySlot, false, false, 0);
                 })
