@@ -352,7 +352,7 @@ static struct {
     enum z_source_sel z_source_sel;
     bool dither_alpha_en;
     bool alpha_compare_en;
-} otherModes;
+} other_modes;
 
 struct {
     unsigned sub_a_R_0;
@@ -377,6 +377,7 @@ struct {
 } combine_mode;
 
 static i32 prim_z;
+static i32 prim_deltaz;
 
 static u8 noise() {
     return 128;
@@ -510,7 +511,7 @@ static void pipeline_tx(pixel_t *px) {
 
     /* Perform perspective correction if enabled.
      * W is the normalized inverse depth. */
-    if (otherModes.persp_tex_en) {
+    if (other_modes.persp_tex_en) {
         debugger.halt("persp_tex_en not implemented");
     }
     /* Apply shifts for different LODs. */
@@ -576,7 +577,7 @@ static void pipeline_tx(pixel_t *px) {
         ((tile->tl >> 2) + t_tile) * (tile->line << 4) +
         (((tile->sl >> 2) + s_tile) << tile->size);
 
-    switch (otherModes.sample_type) {
+    switch (other_modes.sample_type) {
         case SAMPLE_TYPE_1X1:
             pipeline_tx_load(tile, addr, &px->texel_colors[0]);
             px->texel_colors[1] = px->texel_colors[0];
@@ -701,7 +702,7 @@ static void pipeline_tx_load(struct tile const *tile, unsigned addr, color_t *tx
         debugger.halt("pipeline_tx_load: unexpected image data type");
         break;
     }
-    // if (otherModes.tlut_en) {
+    // if (other_modes.tlut_en) {
     //     debugger.halt("tlut_en not implemented");
     // } else {
     //     debugger.halt("tlut_en not enabled");
@@ -880,25 +881,25 @@ static void pipeline_bl(pixel_t *px) {
     u8 a;
     u8 b;
 
-    switch (otherModes.b_m1a_0) {
+    switch (other_modes.b_m1a_0) {
     case BLENDER_SRC_SEL_IN_COLOR: p = px->combined_color; break; // blended color in second cycle
     case BLENDER_SRC_SEL_MEM_COLOR: p = px->mem_color; break;
     case BLENDER_SRC_SEL_BLEND_COLOR: p = rdp.blend_color; break;
     case BLENDER_SRC_SEL_FOG_COLOR: p = rdp.fog_color; break;
     }
-    switch (otherModes.b_m1b_0) {
+    switch (other_modes.b_m1b_0) {
     case BLENDER_SRC_SEL_IN_ALPHA: a = px->combined_color.a; break;
     case BLENDER_SRC_SEL_FOG_ALPHA: a = rdp.fog_color.a; break;
     case BLENDER_SRC_SEL_SHADE_ALPHA: a = px->shade_color.a; break;
     case BLENDER_SRC_SEL_0: a = 0; break;
     }
-    switch (otherModes.b_m2a_0) {
+    switch (other_modes.b_m2a_0) {
     case BLENDER_SRC_SEL_IN_COLOR: m = px->combined_color; break;  // blended color in second cycle
     case BLENDER_SRC_SEL_MEM_COLOR: m = px->mem_color; break;
     case BLENDER_SRC_SEL_BLEND_COLOR: m = rdp.blend_color; break;
     case BLENDER_SRC_SEL_FOG_COLOR: m = rdp.fog_color; break;
     }
-    switch (otherModes.b_m2b_0) {
+    switch (other_modes.b_m2b_0) {
     case BLENDER_SRC_SEL_1_AMUX: b = 255 - a; break;
     case BLENDER_SRC_SEL_MEM_ALPHA: b = px->mem_color.a; break;
     case BLENDER_SRC_SEL_1: b = 255; break;
@@ -910,7 +911,7 @@ static void pipeline_bl(pixel_t *px) {
     px->blended_color.b = ((p.b * a + m.b * b) / (a + b));
     px->blended_color.a = ((p.a * a + m.a * b) / (a + b));
 
-    if (otherModes.alpha_compare_en) {
+    if (other_modes.alpha_compare_en) {
         // dither_alpha_en
     }
     // print_pixel("BL", px);
@@ -997,9 +998,55 @@ static void pipeline_mi_store(pixel_t *px) {
     }
 }
 
+/** Clamp a S15.16 depth value to U14.2 */
+static u16 clamp_z(i32 z) {
+    i32 z_min = INT32_C(0); // INT32_C(0xe0000000);
+    i32 z_max = INT32_C(0x3fffc000); // INT32_C(0x1fffc000);
+    return (z <= z_min) ? z_min >> 14 :
+           (z >= z_max) ? z_max >> 14 :
+           z >> 14;
+}
+
+/** Optionally compare and update a z memory value with a computed stepped
+ * pixel z value. Returns true iff the pixel is nearer than the memory pixel. */
+static bool z_compare_update(pixel_t *px, u32 px_deltaz) {
+    if (other_modes.z_compare_en) {
+        return true;
+    }
+
+    i32 comp_z;
+    u32 comp_deltaz;
+
+    if (other_modes.z_source_sel) {
+        comp_z = clamp_z(prim_z);
+        comp_deltaz = clamp_z(prim_deltaz);
+    } else {
+        comp_z = clamp_z(px->zbuffer_coefs.z);
+        comp_deltaz = px_deltaz;
+    }
+
+    i32 mem_z;
+    u32 mem_deltaz;
+
+    mem_z = *(i16 *)&state.dram[px->mem_z_addr];
+
+    if (comp_z >= mem_z) {
+        return false;
+    }
+    if (other_modes.z_update_en) {
+        *(i16 *)&state.dram[px->mem_z_addr] = comp_z;
+    }
+    return true;
+}
+
 /** @brief Fills the line with coordinates (xs,y), (xe, y) with the
  * fill color. Input coordinates are in 10.2 fixedpoint format. */
-static void render_span(i32 y, i32 xs, i32 xe) {
+static void render_span(bool left, unsigned level, unsigned tile,
+                        i32 y, i32 xs, i32 xe,
+                        struct shade_coefs const *shade,
+                        struct texture_coefs const *texture,
+                        struct zbuffer_coefs const *zbuffer) {
+
     if (y < (i32)scissor.yh || y > (i32)scissor.yl || xe <= xs ||
         (scissor.skipOddLines && ((y >> 2) % 2)) ||
         (scissor.skipEvenLines && !((y >> 2) % 2)))
@@ -1008,13 +1055,13 @@ static void render_span(i32 y, i32 xs, i32 xe) {
     // Clip x coordinate and convert to integer values
     // from fixed point 10.2 format.
     y = y >> 2;
-    xs = std::max(xs, (i32)scissor.xh) >> 2;
-    xe = std::min(xe, (i32)scissor.xl) >> 2;
+    xs = std::max(xs >> 14, (i32)scissor.xh) >> 2;
+    xe = std::min(xe >> 14, (i32)scissor.xl) >> 2;
     xs = std::max(xs, 0);
     xe = std::min(xe, (i32)color_image.width);
 
-    unsigned offset = color_image.addr +
-                      ((xs + y * color_image.width) << (color_image.size - 1));
+    unsigned offset =
+        color_image.addr + ((xs + y * color_image.width) << (color_image.size - 1));
     unsigned length = (xe - xs) << (color_image.size - 1);
 
     if ((offset + length) > sizeof(state.dram)) {
@@ -1030,263 +1077,94 @@ static void render_span(i32 y, i32 xs, i32 xe) {
     px.shade_color.a = 255;
     px.texel0_color.a = 255;
     px.lod_frac = 255;
-    px.edge_coefs.x = xs;
     px.edge_coefs.y = y;
+    px.mem_color_addr = left ? offset : offset + length - px_size;
 
-    for (; px.edge_coefs.x < xe; px.edge_coefs.x++) {
-        pipeline_cc(&px);
-        pipeline_mi_load(&px);
-        pipeline_bl(&px);
-        pipeline_mi_store(&px);
+    u32 deltazpix = 0;
 
-        px.mem_color_addr += px_size;
+    if (shade) {
+        px.shade_color.r = shade->r;
+        px.shade_color.g = shade->g;
+        px.shade_color.b = shade->b;
+        px.shade_color.a = shade->a;
     }
-}
-
-/** @brief Fills the line with coordinates (xs,y), (xe, y) with the
- * fill color. Input coordinates are in 10.2 fixedpoint format. */
-static void render_shade_span(bool left, i32 y, i32 xs, i32 xe,
-                              struct shade_coefs const *shade) {
-
-    if (y < (i32)scissor.yh || y > (i32)scissor.yl || xe <= xs ||
-        (scissor.skipOddLines && ((y >> 2) % 2)) ||
-        (scissor.skipEvenLines && !((y >> 2) % 2)))
-        return;
-
-    // Clip x coordinate and convert to integer values
-    // from fixed point 10.2 format.
-    y = y >> 2;
-    xs = std::max(xs, (i32)scissor.xh) >> 2;
-    xe = std::min(xe, (i32)scissor.xl) >> 2;
-    xs = std::max(xs, 0);
-    xe = std::min(xe, (i32)color_image.width);
-
-    unsigned offset = color_image.addr +
-                      ((xs + y * color_image.width) << (color_image.size - 1));
-    unsigned px_size = 1 << (color_image.size - 1);
-    unsigned length = (xe - xs) * px_size;
-
-    if ((offset + length) > sizeof(state.dram)) {
-        debugger.halt("FillMode::renderLine out-of-bounds");
-        std::cerr << std::dec << "start offset:" << offset;
-        std::cerr << ", length:" << length << std::endl;
-        return;
+    if (texture) {
+        px.texture_coefs.s = texture->s;
+        px.texture_coefs.t = texture->t;
+        px.texture_coefs.w = texture->w;
+        px.tile = &tiles[tile];
     }
+    if (zbuffer) {
+        unsigned z_offset = z_image.addr + (xs + y * color_image.width) * 2;
+        unsigned z_length = (xe - xs) * 2;
 
-    i32 r = shade->r, g = shade->g, b = shade->b, a = shade->a;
-    pixel_t px = {};
-    px.edge_coefs.y = y;
+        if ((z_offset + z_length) > sizeof(state.dram)) {
+            debugger.halt("Cycle1Mode::render_span zbuffer out-of-bounds");
+            std::cerr << std::dec << "start offset:" << offset;
+            std::cerr << ", length:" << length << std::endl;
+            return;
+        }
+
+        deltazpix = abs(zbuffer->dzdx) + abs(zbuffer->dzdy);
+        px.mem_z_addr = left ? z_offset : z_offset + z_length - 2;
+        px.zbuffer_coefs.z = zbuffer->z;
+    }
 
     if (left) {
-        px.mem_color_addr = offset;
-        px.edge_coefs.x = xs;
-
-        for (; px.edge_coefs.x < xe; px.edge_coefs.x++) {
-            px.shade_color.r = clamp<u8,i16>(r >> 16);
-            px.shade_color.g = clamp<u8,i16>(g >> 16);
-            px.shade_color.b = clamp<u8,i16>(b >> 16);
-            px.shade_color.a = clamp<u8,i16>(a >> 16);
-
-            // pipeline_bl(&px);
-            pipeline_mi_store(&px);
-
-            px.mem_color_addr += px_size;
-            r += shade->drdx;
-            g += shade->dgdx;
-            b += shade->dbdx;
-            a += shade->dadx;
-        }
-    } else {
-        px.mem_color_addr = offset + length - px_size;
-        px.edge_coefs.x = xe;
-
-        for (; px.edge_coefs.x > xs; px.edge_coefs.x--) {
-            px.shade_color.r = clamp<u8,i16>(r >> 16);
-            px.shade_color.g = clamp<u8,i16>(g >> 16);
-            px.shade_color.b = clamp<u8,i16>(b >> 16);
-            px.shade_color.a = clamp<u8,i16>(a >> 16);
-
-            // pipeline_bl(&px);
-            pipeline_mi_store(&px);
-
-            px.mem_color_addr -= px_size;
-            r -= shade->drdx;
-            g -= shade->dgdx;
-            b -= shade->dbdx;
-            a -= shade->dadx;
-        }
-    }
-}
-
-/**
- * Clamp a S15.16 depth value to U14.2
- */
-static u16 clamp_z(i32 z) {
-    i32 z_min = INT32_C(0); // INT32_C(0xe0000000);
-    i32 z_max = INT32_C(0x3fffc000); // INT32_C(0x1fffc000);
-    return (z <= z_min) ? z_min >> 14 :
-           (z >= z_max) ? z_max >> 14 :
-           z >> 14;
-}
-
-/** @brief Fills the line with coordinates (xs,y), (xe, y) with the
- * fill color. Input coordinates are in 10.2 fixedpoint format. */
-static void render_zbuffer_span(bool left, i32 y, i32 xs, i32 xe,
-                                i32 z, i32 dzdx) {
-
-    if (y < (i32)scissor.yh || y > (i32)scissor.yl || xe <= xs ||
-        (scissor.skipOddLines && ((y >> 2) % 2)) ||
-        (scissor.skipEvenLines && !((y >> 2) % 2)))
-        return;
-
-    // Clip x coordinate and convert to integer values
-    // from fixed point 10.2 format.
-    y = y >> 2;
-    xs = std::max(xs, (i32)scissor.xh) >> 2;
-    xe = std::min(xe, (i32)scissor.xl) >> 2;
-    xs = std::max(xs, 0);
-    xe = std::min(xe, (i32)color_image.width);
-
-    unsigned offset = color_image.addr +
-                      ((xs + y * color_image.width) << (color_image.size - 1));
-    unsigned px_size = 1 << (color_image.size - 1);
-    unsigned length = (xe - xs) * px_size;
-
-    if ((offset + length) > sizeof(state.dram)) {
-        debugger.halt("Cycle1Mode::render_zbuffer_span color out-of-bounds");
-        std::cerr << std::dec << "start offset:" << offset;
-        std::cerr << ", length:" << length << std::endl;
-        return;
-    }
-
-    unsigned z_offset = z_image.addr + (xs + y * color_image.width) * 2;
-    unsigned z_length = (xe - xs) * 2;
-
-    if ((z_offset + z_length) > sizeof(state.dram)) {
-        debugger.halt("Cycle1Mode::render_zbuffer_span zbuffer out-of-bounds");
-        std::cerr << std::dec << "start offset:" << offset;
-        std::cerr << ", length:" << length << std::endl;
-        return;
-    }
-
-    pixel_t px = {};
-    px.edge_coefs.y = y;
-    px.zbuffer_coefs.z = z;
-
-    if (left) {
-        px.mem_color_addr = offset;
-        px.mem_z_addr = z_offset;
-        px.edge_coefs.x = xs;
-
-        for (; px.edge_coefs.x < xe; px.edge_coefs.x++) {
-            i32 comp_z = otherModes.z_source_sel ?
-                clamp_z(prim_z) : clamp_z(px.zbuffer_coefs.z);
-            if (!otherModes.z_compare_en ||
-                *(i16 *)&state.dram[px.mem_z_addr] > comp_z) {
-                if (otherModes.z_update_en)
-                    *(i16 *)&state.dram[px.mem_z_addr] = comp_z;
-                pipeline_bl(&px);
-                pipeline_mi_store(&px);
+        for (px.edge_coefs.x = xs; px.edge_coefs.x < xe; px.edge_coefs.x++) {
+            if (texture) {
+                pipeline_tx(&px);
+                pipeline_tf(&px);
             }
-
-            px.mem_color_addr += px_size;
-            px.mem_z_addr += 2;
-            px.zbuffer_coefs.z += dzdx;
-        }
-    } else {
-        px.mem_color_addr = offset + length - px_size;
-        px.mem_z_addr = z_offset + z_length - 2;
-        px.edge_coefs.x = xe;
-
-        for (; px.edge_coefs.x > xs; px.edge_coefs.x--) {
-            i32 comp_z = otherModes.z_source_sel ?
-                clamp_z(prim_z) : clamp_z(px.zbuffer_coefs.z);
-            if (!otherModes.z_compare_en ||
-                *(i16 *)&state.dram[px.mem_z_addr] > comp_z) {
-                if (otherModes.z_update_en)
-                    *(i16 *)&state.dram[px.mem_z_addr] = comp_z;
-                pipeline_bl(&px);
-                pipeline_mi_store(&px);
-            }
-
-            px.mem_color_addr -= px_size;
-            px.mem_z_addr -= 2;
-            px.zbuffer_coefs.z -= dzdx;
-        }
-    }
-}
-
-/** @brief Fills the line with coordinates (xs,y), (xe, y) with the
- * fill color. Input coordinates are in 10.2 fixedpoint format. */
-static void render_texture_span(bool left, unsigned tile, i32 y, i32 xs, i32 xe,
-                                struct texture_coefs const *texture) {
-
-    if (y < (i32)scissor.yh || y > (i32)scissor.yl || xe <= xs ||
-        (scissor.skipOddLines && ((y >> 2) % 2)) ||
-        (scissor.skipEvenLines && !((y >> 2) % 2)))
-        return;
-
-    // Clip x coordinate and convert to integer values
-    // from fixed point 10.2 format.
-    y = y >> 2;
-    xs = std::max(xs, (i32)scissor.xh) >> 2;
-    xe = std::min(xe, (i32)scissor.xl) >> 2;
-    xs = std::max(xs, 0);
-    xe = std::min(xe, (i32)color_image.width);
-
-    unsigned offset = color_image.addr +
-                      ((xs + y * color_image.width) << (color_image.size - 1));
-    unsigned px_size = 1 << (color_image.size - 1);
-    unsigned length = (xe - xs) * px_size;
-
-    if ((offset + length) > sizeof(state.dram)) {
-        debugger.halt("Cycle1Mode::render_texture_span color out-of-bounds");
-        std::cerr << std::dec << "start offset:" << offset;
-        std::cerr << ", length:" << length << std::endl;
-        return;
-    }
-
-    pixel_t px = {};
-
-    px.edge_coefs.y = y;
-    px.texture_coefs.s = texture->s;
-    px.texture_coefs.t = texture->t;
-    px.texture_coefs.w = texture->w;
-    px.tile = &tiles[tile];
-
-    if (left) {
-        px.mem_color_addr = offset;
-        px.edge_coefs.x = xs;
-        for (; px.edge_coefs.x < xe; px.edge_coefs.x++) {
-
-            pipeline_tx(&px);
-            pipeline_tf(&px);
             pipeline_cc(&px);
             pipeline_mi_load(&px);
             pipeline_bl(&px);
             pipeline_mi_store(&px);
 
-            px.mem_color_addr  += px_size;
-            px.texture_coefs.s += texture->dsdx;
-            px.texture_coefs.t += texture->dtdx;
-            px.texture_coefs.w += texture->dwdx;
+            px.mem_color_addr += px_size;
+            if (shade) {
+                px.shade_color.r += shade->drdx;
+                px.shade_color.g += shade->dgdx;
+                px.shade_color.b += shade->dbdx;
+                px.shade_color.a += shade->dadx;
+            }
+            if (texture) {
+                px.texture_coefs.s += texture->dsdx;
+                px.texture_coefs.t += texture->dtdx;
+                px.texture_coefs.w += texture->dwdx;
+            }
+            if (zbuffer) {
+                px.mem_z_addr += 2;
+                px.zbuffer_coefs.z += zbuffer->dzdx;
+            }
         }
     } else {
-        px.mem_color_addr = offset + length - px_size;
-        px.edge_coefs.x = xe;
-        for (; px.edge_coefs.x > xs; px.edge_coefs.x--) {
-
-            pipeline_tx(&px);
-            pipeline_tf(&px);
+        for (px.edge_coefs.x = xe; px.edge_coefs.x > xs; px.edge_coefs.x--) {
+            if (texture) {
+                pipeline_tx(&px);
+                pipeline_tf(&px);
+            }
             pipeline_cc(&px);
             pipeline_mi_load(&px);
             pipeline_bl(&px);
             pipeline_mi_store(&px);
 
-            px.mem_color_addr  -= px_size;
-            px.texture_coefs.s -= texture->dsdx;
-            px.texture_coefs.t -= texture->dtdx;
-            px.texture_coefs.w -= texture->dwdx;
+            px.mem_color_addr -= px_size;
+            if (shade) {
+                px.shade_color.r -= shade->drdx;
+                px.shade_color.g -= shade->dgdx;
+                px.shade_color.b -= shade->dbdx;
+                px.shade_color.a -= shade->dadx;
+            }
+            if (texture) {
+                px.texture_coefs.s -= texture->dsdx;
+                px.texture_coefs.t -= texture->dtdx;
+                px.texture_coefs.w -= texture->dwdx;
+            }
+            if (zbuffer) {
+                px.mem_z_addr -= 2;
+                px.zbuffer_coefs.z -= zbuffer->dzdx;
+            }
         }
     }
 }
@@ -1434,319 +1312,147 @@ static void print_zbuffer_coefs(struct zbuffer_coefs const *zbuffer) {
     std::cerr << "  dzdy: "; print_s15_16(zbuffer->dzdy); std::cerr << std::endl;
 }
 
-void nonShadedTriangle(u64 command, u64 const *params) {
-    std::cerr << "DPC non-shaded triangle " << std::hex << command << std::endl;
-    bool left           = ((command >> 55) & 0x1u);
-    unsigned level      = (command >> 51) & 0x7u;
-    unsigned tile       = (command >> 48) & 0x7u;
-    struct edge_coefs edge;
-
-    std::cerr << "  left: " << left << std::endl;
-    std::cerr << "  level: " << level << std::endl;
-    std::cerr << "  tile: " << tile << std::endl;
-    read_edge_coefs(command, params, &edge);
-    print_edge_coefs(&edge);
-
-#if 1
-    if (left) {
-        i32 y;
-        i32 xs = edge.xh;
-        i32 xe = edge.xm;
-
-        for (y = edge.yh & ~3; y < edge.ym; y+=4) {
-            Cycle1Mode::render_span(y, xs >> 14, xe >> 14);
-            xs += edge.dxhdy;
-            xe += edge.dxmdy;
-        }
-        xe = edge.xl;
-        for (           ; y < edge.yl; y+=4) {
-            Cycle1Mode::render_span(y, xs >> 14, xe >> 14);
-            xs += edge.dxhdy;
-            xe += edge.dxldy;
-        }
-    } else {
-        i32 y;
-        i32 xs = edge.xm;
-        i32 xe = edge.xh;
-        for (y = edge.yh & ~3; y < edge.ym; y+=4) {
-            Cycle1Mode::render_span(y, xs >> 14, xe >> 14);
-            xs += edge.dxmdy;
-            xe += edge.dxhdy;
-        }
-        xs = edge.xl;
-        for (           ; y < edge.yl; y+=4) {
-            Cycle1Mode::render_span(y, xs >> 14, xe >> 14);
-            xs += edge.dxldy;
-            xe += edge.dxhdy;
-        }
-    }
-
-#else
-    if (left) {
-        uint32_t y;
-        uint32_t xs = xh;
-        uint32_t xe = xm;
-        for (y = yh >> 2; y < (ym >> 2); y++) {
-            FillMode::renderLine(y << 2, xs >> 14, xe >> 14);
-            xs += dxhdy;
-            xe += dxmdy;
-        }
-        xe = xl;
-        for (           ; y <= (yl >> 2); y++) {
-            FillMode::renderLine(y << 2, xs >> 14, xe >> 14);
-            xs += dxhdy;
-            xe += dxldy;
-        }
-    } else {
-        uint32_t y;
-        uint32_t xs = xm;
-        uint32_t xe = xh;
-        for (y = yh >> 2; y <= (ym >> 2); y++) {
-            FillMode::renderLine(y << 2, xs >> 14, xe >> 14);
-            xs += dxmdy;
-            xe += dxhdy;
-        }
-        xs = xl;
-        for (           ; y <= (yl >> 2); y++) {
-            FillMode::renderLine(y << 2, xs >> 14, xe >> 14);
-            xs += dxldy;
-            xe += dxhdy;
-        }
-    }
-#endif
-}
-
-void shadeTriangle(u64 command, u64 const *params) {
-    std::cerr << "DPC shade triangle " << std::hex << command << std::endl;
+static void render_triangle(u64 command, u64 const *params,
+                            bool has_shade, bool has_texture, bool has_zbuffer) {
 
     bool left           = ((command >> 55) & 0x1u);
     unsigned level      = (command >> 51) & 0x7u;
     unsigned tile       = (command >> 48) & 0x7u;
+
     struct edge_coefs edge;
     struct shade_coefs shade;
-
-    std::cerr << "  left: " << left << std::endl;
-    std::cerr << "  level: " << level << std::endl;
-    std::cerr << "  tile: " << tile << std::endl;
-    read_edge_coefs(command, params, &edge);
-    read_shade_coefs(params + 3, &shade);
-    print_edge_coefs(&edge);
-    print_shade_coefs(&shade);
-    std::cerr << std::hex;
-
-    struct shade_coefs color;
-    color.r = shade.r;
-    color.g = shade.g;
-    color.b = shade.b;
-    color.a = shade.a;
-    color.drdx = shade.drdx;
-    color.dgdx = shade.dgdx;
-    color.dbdx = shade.dbdx;
-    color.dadx = shade.dadx;
-
-    if (left) {
-        i32 y;
-        i32 xs = edge.xh;
-        i32 xe = edge.xm;
-
-        for (y = edge.yh & ~3; y < edge.ym; y+=4) {
-            Cycle1Mode::render_shade_span(true, y, xs >> 14, xe >> 14, &color);
-            xs += edge.dxhdy;
-            xe += edge.dxmdy;
-            color.r += (i32)shade.drde;
-            color.g += (i32)shade.dgde;
-            color.b += (i32)shade.dbde;
-            color.a += (i32)shade.dade;
-        }
-        xe = edge.xl;
-        for (           ; y < edge.yl; y+=4) {
-            Cycle1Mode::render_shade_span(true, y, xs >> 14, xe >> 14, &color);
-            xs += edge.dxhdy;
-            xe += edge.dxldy;
-            color.r += (i32)shade.drde;
-            color.g += (i32)shade.dgde;
-            color.b += (i32)shade.dbde;
-            color.a += (i32)shade.dade;
-        }
-    } else {
-        i32 y;
-        i32 xs = edge.xm;
-        i32 xe = edge.xh;
-
-        for (y = edge.yh & ~3; y < edge.ym; y+=4) {
-            Cycle1Mode::render_shade_span(false, y, xs >> 14, xe >> 14, &color);
-            xs += edge.dxmdy;
-            xe += edge.dxhdy;
-            color.r += (i32)shade.drde;
-            color.g += (i32)shade.dgde;
-            color.b += (i32)shade.dbde;
-            color.a += (i32)shade.dade;
-        }
-        xs = edge.xl;
-        for (           ; y < edge.yl; y+=4) {
-            Cycle1Mode::render_shade_span(false, y, xs >> 14, xe >> 14, &color);
-            xs += edge.dxldy;
-            xe += edge.dxhdy;
-            color.r += (i32)shade.drde;
-            color.g += (i32)shade.dgde;
-            color.b += (i32)shade.dbde;
-            color.a += (i32)shade.dade;
-        }
-    }
-}
-
-void textureTriangle(u64 command, u64 const *params) {
-    std::cerr << "DPC texture triangle " << std::hex << command << std::endl;
-
-    bool left           = ((command >> 55) & 0x1u);
-    unsigned level      = (command >> 51) & 0x7u;
-    unsigned tile       = (command >> 48) & 0x7u;
-    struct edge_coefs edge;
     struct texture_coefs texture;
-
-    std::cerr << "  left: " << left << std::endl;
-    std::cerr << "  level: " << level << std::endl;
-    std::cerr << "  tile: " << tile << std::endl;
-    read_edge_coefs(command, params, &edge);
-    read_texture_coefs(params + 3, &texture);
-    print_edge_coefs(&edge);
-    print_texture_coefs(&texture);
-    std::cerr << std::hex;
-
-    std::cerr << "  tile->sl,tl,sh,th: " << std::dec;
-    std::cerr << tiles[tile].sl << "," << tiles[tile].tl << " ";
-    std::cerr << tiles[tile].sh << "," << tiles[tile].th << std::endl;
-    std::cerr << "  tile->shifts,shiftt: " << std::dec;
-    std::cerr << tiles[tile].shift_s << "," << tiles[tile].shift_t << std::endl;
-
-    if (left) {
-        i32 y;
-        i32 xs = edge.xh;
-        i32 xe = edge.xm;
-
-        for (y = edge.yh & ~3; y < edge.ym; y+=4) {
-            Cycle1Mode::render_texture_span(true, tile, y, xs >> 14, xe >> 14,
-                                            &texture);
-            xs += edge.dxhdy;
-            xe += edge.dxmdy;
-            texture.s += texture.dsde;
-            texture.t += texture.dtde;
-            texture.w += texture.dwde;
-        }
-        xe = edge.xl;
-        for (           ; y < edge.yl; y+=4) {
-            Cycle1Mode::render_texture_span(true, tile, y, xs >> 14, xe >> 14,
-                                            &texture);
-            xs += edge.dxhdy;
-            xe += edge.dxldy;
-            texture.s += texture.dsde;
-            texture.t += texture.dtde;
-            texture.w += texture.dwde;
-        }
-    } else {
-        i32 y;
-        i32 xs = edge.xm;
-        i32 xe = edge.xh;
-
-        for (y = edge.yh & ~3; y < edge.ym; y+=4) {
-            Cycle1Mode::render_texture_span(false, tile, y, xs >> 14, xe >> 14,
-                                            &texture);
-            xs += edge.dxmdy;
-            xe += edge.dxhdy;
-            texture.s += texture.dsde;
-            texture.t += texture.dtde;
-            texture.w += texture.dwde;
-        }
-        xs = edge.xl;
-        for (           ; y < edge.yl; y+=4) {
-            Cycle1Mode::render_texture_span(false, tile, y, xs >> 14, xe >> 14,
-                                            &texture);
-            xs += edge.dxldy;
-            xe += edge.dxhdy;
-            texture.s += texture.dsde;
-            texture.t += texture.dtde;
-            texture.w += texture.dwde;
-        }
-    }
-}
-
-void shadeTextureTriangle(u64 command, u64 const *params) {
-    std::cerr << "DPC shade texture triangle " << std::hex << command << std::endl;
-}
-
-void nonShadedZbuffTriangle(u64 command, u64 const *params) {
-    std::cerr << "DPC non-shaded zbuff triangle " << std::hex << command << std::endl;
-
-    bool left           = ((command >> 55) & 0x1u);
-    unsigned level      = (command >> 51) & 0x7u;
-    unsigned tile       = (command >> 48) & 0x7u;
-    struct edge_coefs edge;
     struct zbuffer_coefs zbuffer;
 
     std::cerr << "  left: " << left << std::endl;
     std::cerr << "  level: " << level << std::endl;
     std::cerr << "  tile: " << tile << std::endl;
+
     read_edge_coefs(command, params, &edge);
-    read_zbuffer_coefs(params + 3, &zbuffer);
     print_edge_coefs(&edge);
-    print_zbuffer_coefs(&zbuffer);
-    std::cerr << std::hex;
+    params += 3;
+
+    if (has_shade) {
+        read_shade_coefs(params, &shade);
+        print_shade_coefs(&shade);
+        params += 8;
+    }
+    if (has_texture) {
+        read_texture_coefs(params, &texture);
+        print_texture_coefs(&texture);
+        params += 8;
+    }
+    if (has_zbuffer) {
+        read_zbuffer_coefs(params, &zbuffer);
+        print_zbuffer_coefs(&zbuffer);
+    }
+
+    i32 y, xs, xe, dxsdy, dxedy;
+    if (left) {
+        xs = edge.xh; dxsdy = edge.dxhdy;
+        xe = edge.xm; dxedy = edge.dxmdy;
+    } else {
+        xs = edge.xm; dxsdy = edge.dxmdy;
+        xe = edge.xh; dxedy = edge.dxhdy;
+    }
+
+    for (y = edge.yh & ~3; y < edge.ym; y+=4) {
+        Cycle1Mode::render_span(left, level, tile, y, xs, xe,
+            has_shade ? &shade : NULL,
+            has_texture ? &texture : NULL,
+            has_zbuffer ? &zbuffer : NULL);
+
+        xs += dxsdy;
+        xe += dxedy;
+
+        if (has_shade) {
+            shade.r += shade.drde;
+            shade.g += shade.dgde;
+            shade.b += shade.dbde;
+            shade.a += shade.dade;
+        }
+        if (has_texture) {
+            texture.s += texture.dsde;
+            texture.t += texture.dtde;
+            texture.w += texture.dwde;
+        }
+        if (has_zbuffer) {
+            zbuffer.z += zbuffer.dzde;
+        }
+    }
 
     if (left) {
-        i32 y;
-        i32 xs = edge.xh;
-        i32 xe = edge.xm;
-        i32 z = zbuffer.z;
-
-        for (y = edge.yh & ~3; y < edge.ym; y+=4) {
-            Cycle1Mode::render_zbuffer_span(true, y, xs >> 14, xe >> 14,
-                                            z, zbuffer.dzdx);
-            xs += edge.dxhdy;
-            xe += edge.dxmdy;
-            z += zbuffer.dzde;
-        }
         xe = edge.xl;
-        for (           ; y < edge.yl; y+=4) {
-            Cycle1Mode::render_zbuffer_span(true, y, xs >> 14, xe >> 14,
-                                            z, zbuffer.dzdx);
-            xs += edge.dxhdy;
-            xe += edge.dxldy;
-            z += zbuffer.dzde;
-        }
+        dxedy = edge.dxldy;
     } else {
-        i32 y;
-        i32 xs = edge.xm;
-        i32 xe = edge.xh;
-        i32 z = zbuffer.z;
-
-        for (y = edge.yh & ~3; y < edge.ym; y+=4) {
-            Cycle1Mode::render_zbuffer_span(false, y, xs >> 14, xe >> 14,
-                                            z, zbuffer.dzdx);
-            xs += edge.dxmdy;
-            xe += edge.dxhdy;
-            z += zbuffer.dzde;
-        }
         xs = edge.xl;
-        for (           ; y < edge.yl; y+=4) {
-            Cycle1Mode::render_zbuffer_span(false, y, xs >> 14, xe >> 14,
-                                            z, zbuffer.dzdx);
-            xs += edge.dxldy;
-            xe += edge.dxhdy;
-            z += zbuffer.dzde;
+        dxsdy = edge.dxldy;
+    }
+
+    for (           ; y < edge.yl; y+=4) {
+        Cycle1Mode::render_span(left, level, tile, y, xs, xe,
+            has_shade ? &shade : NULL,
+            has_texture ? &texture : NULL,
+            has_zbuffer ? &zbuffer : NULL);
+
+        xs += dxsdy;
+        xe += dxedy;
+
+        if (has_shade) {
+            shade.r += shade.drde;
+            shade.g += shade.dgde;
+            shade.b += shade.dbde;
+            shade.a += shade.dade;
+        }
+        if (has_texture) {
+            texture.s += texture.dsde;
+            texture.t += texture.dtde;
+            texture.w += texture.dwde;
+        }
+        if (has_zbuffer) {
+            zbuffer.z += zbuffer.dzde;
         }
     }
 }
 
+void nonShadedTriangle(u64 command, u64 const *params) {
+    std::cerr << "DPC non-shaded triangle " << std::hex << command << std::endl;
+    render_triangle(command, params, false, false, false);
+}
+
+void shadeTriangle(u64 command, u64 const *params) {
+    std::cerr << "DPC shade triangle " << std::hex << command << std::endl;
+    render_triangle(command, params, true, false, false);
+}
+
+void textureTriangle(u64 command, u64 const *params) {
+    std::cerr << "DPC texture triangle " << std::hex << command << std::endl;
+    render_triangle(command, params, false, true, false);
+}
+
+void shadeTextureTriangle(u64 command, u64 const *params) {
+    std::cerr << "DPC shade texture triangle " << std::hex << command << std::endl;
+    render_triangle(command, params, true, true, false);
+}
+
+void nonShadedZbuffTriangle(u64 command, u64 const *params) {
+    std::cerr << "DPC non-shaded zbuff triangle " << std::hex << command << std::endl;
+    render_triangle(command, params, false, false, true);
+}
+
 void shadeZbuffTriangle(u64 command, u64 const *params) {
     std::cerr << "DPC shade zbuff triangle " << std::hex << command << std::endl;
+    render_triangle(command, params, true, false, true);
 }
 
 void textureZbuffTriangle(u64 command, u64 const *params) {
     std::cerr << "DPC texture zbuff triangle " << std::hex << command << std::endl;
+    render_triangle(command, params, false, true, true);
 }
 
 void shadeTextureZbuffTriangle(u64 command, u64 const *params) {
     std::cerr << "DPC shade texture zbuff triangle " << std::hex << command << std::endl;
+    render_triangle(command, params, true, true, true);
 }
 
 void textureRectangle(u64 command, u64 const *params) {
@@ -1808,90 +1514,92 @@ void setScissor(u64 command, u64 const *params) {
 
 void setPrimDepth(u64 command, u64 const *params) {
     std::cerr << "DPC set prim depth " << std::hex << command << std::endl;
-    prim_z = (u32)command;
+    prim_z      = (i16)((command >> 16) & 0xffffu);
+    prim_deltaz = (i16)((command >>  0) & 0xffffu);
     std::cerr << "  z: "; print_s15_16(prim_z); std::cerr << std::endl;
+    std::cerr << "  deltaz: "; print_s15_16(prim_deltaz); std::cerr << std::endl;
 }
 
 void setOtherModes(u64 command, u64 const *params) {
     std::cerr << "DPC set other modes " << std::hex << command << std::endl;
-    otherModes.atomic_prim = (command >> 55) & 0x1u;
-    otherModes.cycle_type = (enum cycle_type)((command >> 52) & 0x3u);
-    otherModes.persp_tex_en = (command >> 51) & 0x1u;
-    otherModes.detail_tex_en = (command >> 50) & 0x1u;
-    otherModes.sharpen_tex_en = (command >> 49) & 0x1u;
-    otherModes.tex_lod_en = (command >> 48) & 0x1u;
-    otherModes.tlut_en = (command >> 47) & 0x1u;
-    otherModes.tlut_type = (enum tlut_type)((command >> 46) & 0x1u);
-    otherModes.sample_type = (enum sample_type)((command >> 45) & 0x1u);
-    otherModes.mid_texel = (command >> 44) & 0x1u;
-    otherModes.bi_lerp_0 = (command >> 43) & 0x1u;
-    otherModes.bi_lerp_1 = (command >> 42) & 0x1u;
-    otherModes.convert_one = (command >> 41) & 0x1u;
-    otherModes.key_en = (command >> 40) & 0x1u;
-    otherModes.rgb_dither_sel = (enum rgb_dither_sel)((command >> 38) & 0x3u);
-    otherModes.alpha_dither_sel = (enum alpha_dither_sel)((command >> 36) & 0x3u);
-    otherModes.b_m1a_0 = (enum blender_src_sel)((command >> 30) & 0x3u);
-    otherModes.b_m1a_1 = (enum blender_src_sel)((command >> 28) & 0x3u);
-    otherModes.b_m1b_0 = (enum blender_src_sel)((command >> 26) & 0x3u);
-    otherModes.b_m1b_1 = (enum blender_src_sel)((command >> 24) & 0x3u);
-    otherModes.b_m2a_0 = (enum blender_src_sel)((command >> 22) & 0x3u);
-    otherModes.b_m2a_1 = (enum blender_src_sel)((command >> 20) & 0x3u);
-    otherModes.b_m2b_0 = (enum blender_src_sel)((command >> 18) & 0x3u);
-    otherModes.b_m2b_1 = (enum blender_src_sel)((command >> 16) & 0x3u);
-    otherModes.force_blend = (command >> 14) & 0x1u;
-    otherModes.alpha_cvg_select = (command >> 13) & 0x1u;
-    otherModes.cvg_times_alpha = (command >> 12) & 0x1u;
-    otherModes.z_mode = (enum z_mode)((command >> 10) & 0x3u);
-    otherModes.cvg_dest = (enum cvg_dest)((command >> 8) & 0x3u);
-    otherModes.color_on_cvg = (command >> 7) & 0x1u;
-    otherModes.image_read_en = (command >> 6) & 0x1u;
-    otherModes.z_update_en = (command >> 5) & 0x1u;
-    otherModes.z_compare_en = (command >> 4) & 0x1u;
-    otherModes.antialias_en = (command >> 3) & 0x1u;
-    otherModes.z_source_sel = (enum z_source_sel)((command >> 2) & 0x1u);
-    otherModes.dither_alpha_en = (command >> 1) & 0x1u;
-    otherModes.alpha_compare_en = (command >> 0) & 0x1u;
+    other_modes.atomic_prim = (command >> 55) & 0x1u;
+    other_modes.cycle_type = (enum cycle_type)((command >> 52) & 0x3u);
+    other_modes.persp_tex_en = (command >> 51) & 0x1u;
+    other_modes.detail_tex_en = (command >> 50) & 0x1u;
+    other_modes.sharpen_tex_en = (command >> 49) & 0x1u;
+    other_modes.tex_lod_en = (command >> 48) & 0x1u;
+    other_modes.tlut_en = (command >> 47) & 0x1u;
+    other_modes.tlut_type = (enum tlut_type)((command >> 46) & 0x1u);
+    other_modes.sample_type = (enum sample_type)((command >> 45) & 0x1u);
+    other_modes.mid_texel = (command >> 44) & 0x1u;
+    other_modes.bi_lerp_0 = (command >> 43) & 0x1u;
+    other_modes.bi_lerp_1 = (command >> 42) & 0x1u;
+    other_modes.convert_one = (command >> 41) & 0x1u;
+    other_modes.key_en = (command >> 40) & 0x1u;
+    other_modes.rgb_dither_sel = (enum rgb_dither_sel)((command >> 38) & 0x3u);
+    other_modes.alpha_dither_sel = (enum alpha_dither_sel)((command >> 36) & 0x3u);
+    other_modes.b_m1a_0 = (enum blender_src_sel)((command >> 30) & 0x3u);
+    other_modes.b_m1a_1 = (enum blender_src_sel)((command >> 28) & 0x3u);
+    other_modes.b_m1b_0 = (enum blender_src_sel)((command >> 26) & 0x3u);
+    other_modes.b_m1b_1 = (enum blender_src_sel)((command >> 24) & 0x3u);
+    other_modes.b_m2a_0 = (enum blender_src_sel)((command >> 22) & 0x3u);
+    other_modes.b_m2a_1 = (enum blender_src_sel)((command >> 20) & 0x3u);
+    other_modes.b_m2b_0 = (enum blender_src_sel)((command >> 18) & 0x3u);
+    other_modes.b_m2b_1 = (enum blender_src_sel)((command >> 16) & 0x3u);
+    other_modes.force_blend = (command >> 14) & 0x1u;
+    other_modes.alpha_cvg_select = (command >> 13) & 0x1u;
+    other_modes.cvg_times_alpha = (command >> 12) & 0x1u;
+    other_modes.z_mode = (enum z_mode)((command >> 10) & 0x3u);
+    other_modes.cvg_dest = (enum cvg_dest)((command >> 8) & 0x3u);
+    other_modes.color_on_cvg = (command >> 7) & 0x1u;
+    other_modes.image_read_en = (command >> 6) & 0x1u;
+    other_modes.z_update_en = (command >> 5) & 0x1u;
+    other_modes.z_compare_en = (command >> 4) & 0x1u;
+    other_modes.antialias_en = (command >> 3) & 0x1u;
+    other_modes.z_source_sel = (enum z_source_sel)((command >> 2) & 0x1u);
+    other_modes.dither_alpha_en = (command >> 1) & 0x1u;
+    other_modes.alpha_compare_en = (command >> 0) & 0x1u;
 
-    std::cerr << "  atomic_prim: " << otherModes.atomic_prim << std::endl;
-    std::cerr << "  cycle_type: " << otherModes.cycle_type << std::endl;
-    std::cerr << "  persp_tex_en: " << otherModes.persp_tex_en << std::endl;
-    std::cerr << "  detail_tex_en: " << otherModes.detail_tex_en << std::endl;
-    std::cerr << "  sharpen_tex_en: " << otherModes.sharpen_tex_en << std::endl;
-    std::cerr << "  tex_lod_en: " << otherModes.tex_lod_en << std::endl;
-    std::cerr << "  tlut_en: " << otherModes.tlut_en << std::endl;
-    std::cerr << "  tlut_type: " << otherModes.tlut_type << std::endl;
-    std::cerr << "  sample_type: " << otherModes.sample_type << std::endl;
-    std::cerr << "  mid_texel: " << otherModes.mid_texel << std::endl;
-    std::cerr << "  bi_lerp_0: " << otherModes.bi_lerp_0 << std::endl;
-    std::cerr << "  bi_lerp_1: " << otherModes.bi_lerp_1 << std::endl;
-    std::cerr << "  convert_one: " << otherModes.convert_one << std::endl;
-    std::cerr << "  key_en: " << otherModes.key_en << std::endl;
-    std::cerr << "  rgb_dither_sel: " << otherModes.rgb_dither_sel << std::endl;
-    std::cerr << "  alpha_dither_sel: " << otherModes.alpha_dither_sel << std::endl;
-    std::cerr << "  b_m1a_0: " << otherModes.b_m1a_0 << std::endl;
-    std::cerr << "  b_m1a_1: " << otherModes.b_m1a_1 << std::endl;
-    std::cerr << "  b_m1b_0: " << otherModes.b_m1b_0 << std::endl;
-    std::cerr << "  b_m1b_1: " << otherModes.b_m1b_1 << std::endl;
-    std::cerr << "  b_m2a_0: " << otherModes.b_m2a_0 << std::endl;
-    std::cerr << "  b_m2a_1: " << otherModes.b_m2a_1 << std::endl;
-    std::cerr << "  b_m2b_0: " << otherModes.b_m2b_0 << std::endl;
-    std::cerr << "  b_m2b_1: " << otherModes.b_m2b_1 << std::endl;
-    std::cerr << "  force_blend: " << otherModes.force_blend << std::endl;
-    std::cerr << "  alpha_cvg_select: " << otherModes.alpha_cvg_select << std::endl;
-    std::cerr << "  cvg_times_alpha: " << otherModes.cvg_times_alpha << std::endl;
-    std::cerr << "  z_mode: " << otherModes.z_mode << std::endl;
-    std::cerr << "  cvg_dest: " << otherModes.cvg_dest << std::endl;
-    std::cerr << "  color_on_cvg: " << otherModes.color_on_cvg << std::endl;
-    std::cerr << "  image_read_en: " << otherModes.image_read_en << std::endl;
-    std::cerr << "  z_update_en: " << otherModes.z_update_en << std::endl;
-    std::cerr << "  z_compare_en: " << otherModes.z_compare_en << std::endl;
-    std::cerr << "  antialias_en: " << otherModes.antialias_en << std::endl;
-    std::cerr << "  z_source_sel: " << otherModes.z_source_sel << std::endl;
-    std::cerr << "  dither_alpha_en: " << otherModes.dither_alpha_en << std::endl;
-    std::cerr << "  alpha_compare_en: " << otherModes.alpha_compare_en << std::endl;
+    std::cerr << "  atomic_prim: " << other_modes.atomic_prim << std::endl;
+    std::cerr << "  cycle_type: " << other_modes.cycle_type << std::endl;
+    std::cerr << "  persp_tex_en: " << other_modes.persp_tex_en << std::endl;
+    std::cerr << "  detail_tex_en: " << other_modes.detail_tex_en << std::endl;
+    std::cerr << "  sharpen_tex_en: " << other_modes.sharpen_tex_en << std::endl;
+    std::cerr << "  tex_lod_en: " << other_modes.tex_lod_en << std::endl;
+    std::cerr << "  tlut_en: " << other_modes.tlut_en << std::endl;
+    std::cerr << "  tlut_type: " << other_modes.tlut_type << std::endl;
+    std::cerr << "  sample_type: " << other_modes.sample_type << std::endl;
+    std::cerr << "  mid_texel: " << other_modes.mid_texel << std::endl;
+    std::cerr << "  bi_lerp_0: " << other_modes.bi_lerp_0 << std::endl;
+    std::cerr << "  bi_lerp_1: " << other_modes.bi_lerp_1 << std::endl;
+    std::cerr << "  convert_one: " << other_modes.convert_one << std::endl;
+    std::cerr << "  key_en: " << other_modes.key_en << std::endl;
+    std::cerr << "  rgb_dither_sel: " << other_modes.rgb_dither_sel << std::endl;
+    std::cerr << "  alpha_dither_sel: " << other_modes.alpha_dither_sel << std::endl;
+    std::cerr << "  b_m1a_0: " << other_modes.b_m1a_0 << std::endl;
+    std::cerr << "  b_m1a_1: " << other_modes.b_m1a_1 << std::endl;
+    std::cerr << "  b_m1b_0: " << other_modes.b_m1b_0 << std::endl;
+    std::cerr << "  b_m1b_1: " << other_modes.b_m1b_1 << std::endl;
+    std::cerr << "  b_m2a_0: " << other_modes.b_m2a_0 << std::endl;
+    std::cerr << "  b_m2a_1: " << other_modes.b_m2a_1 << std::endl;
+    std::cerr << "  b_m2b_0: " << other_modes.b_m2b_0 << std::endl;
+    std::cerr << "  b_m2b_1: " << other_modes.b_m2b_1 << std::endl;
+    std::cerr << "  force_blend: " << other_modes.force_blend << std::endl;
+    std::cerr << "  alpha_cvg_select: " << other_modes.alpha_cvg_select << std::endl;
+    std::cerr << "  cvg_times_alpha: " << other_modes.cvg_times_alpha << std::endl;
+    std::cerr << "  z_mode: " << other_modes.z_mode << std::endl;
+    std::cerr << "  cvg_dest: " << other_modes.cvg_dest << std::endl;
+    std::cerr << "  color_on_cvg: " << other_modes.color_on_cvg << std::endl;
+    std::cerr << "  image_read_en: " << other_modes.image_read_en << std::endl;
+    std::cerr << "  z_update_en: " << other_modes.z_update_en << std::endl;
+    std::cerr << "  z_compare_en: " << other_modes.z_compare_en << std::endl;
+    std::cerr << "  antialias_en: " << other_modes.antialias_en << std::endl;
+    std::cerr << "  z_source_sel: " << other_modes.z_source_sel << std::endl;
+    std::cerr << "  dither_alpha_en: " << other_modes.dither_alpha_en << std::endl;
+    std::cerr << "  alpha_compare_en: " << other_modes.alpha_compare_en << std::endl;
 
-    if (otherModes.cycle_type == CYCLE_TYPE_COPY)
-        otherModes.sample_type = SAMPLE_TYPE_4X1;
+    if (other_modes.cycle_type == CYCLE_TYPE_COPY)
+        other_modes.sample_type = SAMPLE_TYPE_4X1;
 }
 
 void loadTlut(u64 command, u64 const *params) {
@@ -2014,11 +1722,12 @@ void fillRectangle(u64 command, u64 const *params) {
     std::cerr << "  yh: " << (float)yh / 4. << std::endl;
 
     /* Expect rasterizer to be in Fill cycle type. */
-    if (otherModes.cycle_type != CYCLE_TYPE_FILL) {
+    if (other_modes.cycle_type != CYCLE_TYPE_FILL) {
         std::cerr << "FillRectangle() not in fill cycle type" << std::endl;
         debugger.halt("FillRectangle: bad cycle type");
         return;
     }
+
     if (xh > xl || yh > yl) {
         std::cerr << "FillRectangle() bad rectangle coordinates" << std::endl;
         std::cerr << std::dec << xh << "," << yh << "," << xl << "," << yl << std::endl;
@@ -2253,32 +1962,6 @@ void write_DPC_START_REG(u32 value) {
 static bool DPC_hasNext(unsigned count) {
     return state.hwreg.DPC_CURRENT_REG + (count * 8) <= state.hwreg.DPC_END_REG;
 }
-
-#if 0
-static u64 DPC_peekNext(void) {
-    u64 value;
-    if (state.hwreg.DPC_STATUS_REG & DPC_STATUS_XBUS_DMEM_DMA) {
-        u64 offset = state.hwreg.DPC_CURRENT_REG & UINT64_C(0xfff);
-        memcpy(&value, &state.dmem[offset], sizeof(value));
-        value = __builtin_bswap64(value);
-    } else {
-        // state.hwreg.DPC_CURRENT_REG contains a virtual memory address;
-        // convert it first.
-        R4300::Exception exn;
-        u64 vAddr = sign_extend<u64, u32>(state.hwreg.DPC_CURRENT_REG);
-        u64 pAddr;
-        value = 0;
-
-        exn = translateAddress(vAddr, &pAddr, false);
-        if (exn == R4300::None) {
-            state.physmem.load(8, pAddr, &value);
-        } else {
-            debugger.halt("DPC_CURRENT_REG invalid");
-        }
-    }
-    return value;
-}
-#endif
 
 static void DPC_read(u64 *dwords, unsigned nr_dwords) {
     u32 start = state.hwreg.DPC_CURRENT_REG;
