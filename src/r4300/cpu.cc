@@ -13,6 +13,80 @@
 namespace R4300 {
 namespace Eval {
 
+/** Load a byte from the provided physical address. */
+static Exception loadb(u64 addr, u8 *val) {
+    if (addr <  0x00400000lu) {
+        *val = state.dram[addr];
+        return Exception::None;
+    }
+    if (addr >= 0x04000000lu && addr < 0x04001000lu) {
+        *val = state.dmem[addr - 0x04000000lu];
+        return Exception::None;
+    }
+    if (addr >= 0x04001000lu && addr < 0x04002000lu) {
+        *val = state.imem[addr - 0x04001000lu];
+        return Exception::None;
+    }
+    u64 val64;
+    if (state.physmem.load(1, addr, &val64)) {
+        *val = val64;
+        return Exception::None;
+    }
+    return Exception::BusError;
+}
+
+/** Load a half-word from the provided physical address. */
+static Exception loadh(u64 addr, u16 *val) {
+    if ((addr & 0x1) != 0) {
+        return Exception::AddressError;
+    }
+    if (addr <  0x00400000lu) {
+        *val = __builtin_bswap16(*(u16 *)&state.dram[addr]);
+        return Exception::None;
+    }
+    if (addr >= 0x04000000lu && addr < 0x04001000lu) {
+        *val = __builtin_bswap16(*(u16 *)&state.dmem[addr - 0x04000000lu]);
+        return Exception::None;
+    }
+    if (addr >= 0x04001000lu && addr < 0x04002000lu) {
+        *val = __builtin_bswap16(*(u16 *)&state.imem[addr - 0x04001000lu]);
+        return Exception::None;
+    }
+    u64 val64;
+    if (state.physmem.load(2, addr, &val64)) {
+        *val = val64;
+        return Exception::None;
+    }
+
+    return Exception::BusError;
+}
+
+/** Load a word from the provided physical address. */
+static Exception loadw(u64 addr, u32 *val) {
+    if ((addr & 0x3) != 0) {
+        return Exception::AddressError;
+    }
+    if (addr <  0x00400000lu) {
+        *val = __builtin_bswap32(*(u32 *)&state.dram[addr]);
+        return Exception::None;
+    }
+    if (addr >= 0x04000000lu && addr < 0x04001000lu) {
+        *val = __builtin_bswap32(*(u32 *)&state.dmem[addr - 0x04000000lu]);
+        return Exception::None;
+    }
+    if (addr >= 0x04001000lu && addr < 0x04002000lu) {
+        *val = __builtin_bswap32(*(u32 *)&state.imem[addr - 0x04001000lu]);
+        return Exception::None;
+    }
+    u64 val64;
+    if (state.physmem.load(4, addr, &val64)) {
+        *val = val64;
+        return Exception::None;
+    }
+
+    return Exception::BusError;
+}
+
 /**
  * Check whether a virtual memory address is correctly aligned for a memory
  * access.
@@ -405,7 +479,7 @@ static bool eval(bool delaySlot)
 {
     u64 vAddr = state.reg.pc;
     u64 pAddr;
-    u64 instr;
+    u32 instr;
     u32 opcode;
     R4300::Exception exn;
 
@@ -420,10 +494,11 @@ static bool eval(bool delaySlot)
     }
 
     exn = translateAddress(vAddr, &pAddr, false);
-    if (exn != R4300::None)
+    if (exn != Exception::None)
         returnException(exn, vAddr, delaySlot, true, true);
-    if (!state.physmem.load(4, pAddr, &instr))
-        returnException(BusError, vAddr, delaySlot, true, true);
+    exn = loadw(pAddr, &instr);
+    if (exn != Exception::None)
+        returnException(exn, vAddr, delaySlot, true, true);
 
     debugger.cpuTrace.put(TraceEntry(vAddr, instr));
 
@@ -787,24 +862,28 @@ static bool eval(bool delaySlot)
         })
         IType(LB, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr, val;
+            u64 pAddr;
+            u8 val;
 
             exn = translateAddress(vAddr, &pAddr, false);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, true);
-            if (!state.physmem.load(1, pAddr, &val))
-                returnException(BusError, vAddr, delaySlot, false, true);
+            exn = loadb(pAddr, &val);
+            if (exn != None)
+                returnException(exn, vAddr, delaySlot, false, true);
             state.reg.gpr[rt] = sign_extend<u64, u8>(val);
         })
         IType(LBU, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr, val;
+            u64 pAddr;
+            u8 val;
 
             exn = translateAddress(vAddr, &pAddr, false);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, true);
-            if (!state.physmem.load(1, pAddr, &val))
-                returnException(BusError, vAddr, delaySlot, false, true);
+            exn = loadb(pAddr, &val);
+            if (exn != None)
+                returnException(exn, vAddr, delaySlot, false, true);
             state.reg.gpr[rt] = zero_extend<u64, u8>(val);
         })
         IType(LD, instr, sign_extend, {
@@ -837,26 +916,30 @@ static bool eval(bool delaySlot)
         IType(LDR, instr, sign_extend, { debugger.halt("LDR"); })
         IType(LH, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr, val;
+            u64 pAddr;
+            u16 val;
 
             checkAddressAlignment(vAddr, 2, delaySlot, false, true);
             exn = translateAddress(vAddr, &pAddr, false);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, true);
-            if (!state.physmem.load(2, pAddr, &val))
-                returnException(BusError, vAddr, delaySlot, false, true);
+            exn = loadh(pAddr, &val);
+            if (exn != None)
+                returnException(exn, vAddr, delaySlot, false, true);
             state.reg.gpr[rt] = sign_extend<u64, u16>(val);
         })
         IType(LHU, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr, val;
+            u64 pAddr;
+            u16 val;
 
             checkAddressAlignment(vAddr, 2, delaySlot, false, true);
             exn = translateAddress(vAddr, &pAddr, false);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, true);
-            if (!state.physmem.load(2, pAddr, &val))
-                returnException(BusError, vAddr, delaySlot, false, true);
+            exn = loadh(pAddr, &val);
+            if (exn != None)
+                returnException(exn, vAddr, delaySlot, false, true);
             state.reg.gpr[rt] = zero_extend<u64, u16>(val);
         })
         IType(LL, instr, sign_extend, { debugger.halt("LL"); })
@@ -866,27 +949,31 @@ static bool eval(bool delaySlot)
         })
         IType(LW, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr, val;
+            u64 pAddr;
+            u32 val;
 
             checkAddressAlignment(vAddr, 4, delaySlot, false, true);
             exn = translateAddress(vAddr, &pAddr, false);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, true);
-            if (!state.physmem.load(4, pAddr, &val))
-                returnException(BusError, vAddr, delaySlot, false, true);
+            exn = loadw(pAddr, &val);
+            if (exn != None)
+                returnException(exn, vAddr, delaySlot, false, true);
             state.reg.gpr[rt] = sign_extend<u64, u32>(val);
         })
         IType(LWC1, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr, val;
+            u64 pAddr;
+            u32 val;
 
             checkCop1Usable();
             checkAddressAlignment(vAddr, 4, delaySlot, false, true);
             exn = translateAddress(vAddr, &pAddr, false);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, true);
-            if (!state.physmem.load(4, pAddr, &val))
-                returnException(BusError, vAddr, delaySlot, false, true);
+            exn = loadw(pAddr, &val);
+            if (exn != None)
+                returnException(exn, vAddr, delaySlot, false, true);
             state.cp1reg.fpr_s[rt]->w = val;
         })
         IType(LWC2, instr, sign_extend, { debugger.halt("LWC2"); })
@@ -948,14 +1035,16 @@ static bool eval(bool delaySlot)
         })
         IType(LWU, instr, sign_extend, {
             u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr, val;
+            u64 pAddr;
+            u32 val;
 
             checkAddressAlignment(vAddr, 4, delaySlot, false, true);
             exn = translateAddress(vAddr, &pAddr, false);
             if (exn != None)
                 returnException(exn, vAddr, delaySlot, false, true);
-            if (!state.physmem.load(4, pAddr, &val))
-                returnException(BusError, vAddr, delaySlot, false, true);
+            exn = loadw(pAddr, &val);
+            if (exn != None)
+                returnException(exn, vAddr, delaySlot, false, true);
             state.reg.gpr[rt] = zero_extend<u64, u32>(val);
         })
         IType(ORI, instr, zero_extend, {
