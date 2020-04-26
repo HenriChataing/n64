@@ -618,5 +618,6 @@ int startGui()
     glfwDestroyWindow(window);
     glfwTerminate();
 
+    evalThread.detach();
     return 0;
 }

@@ -26,10 +26,10 @@ public:
     struct hwreg hwreg;
     struct tlbEntry tlb[tlbEntryCount];    /**< Translation look-aside buffer */
 
-    u8 dram[0x400000];
-    u8 dmem[0x1000];
-    u8 imem[0x1000];
-    u8 tmem[0x1000];
+    alignas(u64) u8 dram[0x400000];
+    alignas(u64) u8 dmem[0x1000];
+    alignas(u64) u8 imem[0x1000];
+    alignas(u64) u8 tmem[0x1000];
     u8 pifram[0x40];
     u8 rom[0xfc00000];
     Memory::AddressSpace physmem;
