@@ -94,14 +94,14 @@ static Exception loadw(u64 addr, u32 *val) {
 #define checkAddressAlignment(vAddr, bytes, delay, instr, load) \
     if (((vAddr) & ((bytes) - 1)) != 0) { \
         takeException(AddressError, (vAddr), (delay), (instr), (load)); \
-        return true; \
+        return; \
     }
 
 #define checkCop1Usable() \
     if (!CU1()) { \
         takeException(CoprocessorUnusable, 0, \
                       delaySlot, instr, false, 1u); \
-        return true; \
+        return; \
     }
 
 /**
@@ -116,34 +116,11 @@ static Exception loadw(u64 addr, u32 *val) {
  * @param extend            Extension method (sign or zero extend)
  * @param ...               Instruction implementation
  */
-#define IType(opcode, instr, extend, ...) \
-    case opcode: { \
-        u32 rs = Mips::getRs(instr); \
-        u32 rt = Mips::getRt(instr); \
-        u64 imm = extend<u64, u16>(Mips::getImmediate(instr)); \
-        (void)rs; (void)rt; (void)imm; \
-        __VA_ARGS__; \
-        break; \
-    }
-
-/**
- * @brief Preprocessor template for J-type instructions.
- *
- * The target is automatically extracted from the instruction and added as
- * tg in a new scope. The target is sign extended into a 64 bit unsigned
- * integer.
- *
- * @param opcode            Instruction opcode
- * @param instr             Original instruction
- * @param ...               Instruction implementation
- */
-#define JType(opcode, instr, ...) \
-    case opcode: { \
-        u64 tg = Mips::getTarget(instr); \
-        (void)tg; \
-        __VA_ARGS__; \
-        break; \
-    }
+#define IType(instr, extend) \
+    u32 rs = Mips::getRs(instr); \
+    u32 rt = Mips::getRt(instr); \
+    u64 imm = extend<u64, u16>(Mips::getImmediate(instr)); \
+    (void)rs; (void)rt; (void)imm;
 
 /**
  * @brief Preprocessor template for R-type instructions.
@@ -155,45 +132,12 @@ static Exception loadw(u64 addr, u32 *val) {
  * @param instr             Original instruction
  * @param ...               Instruction implementation
  */
-#define RType(opcode, instr, ...) \
-    case opcode: { \
-        u32 rd = Mips::getRd(instr); \
-        u32 rs = Mips::getRs(instr); \
-        u32 rt = Mips::getRt(instr); \
-        u32 shamnt = Mips::getShamnt(instr); \
-        (void)rd; (void)rs; (void)rt; (void)shamnt; \
-        __VA_ARGS__; \
-        break; \
-    }
-
-/**
- * @brief Preprocessor template for branching instructions.
- *
- * The macro generates the code for the "normal" and "branch likely"
- * instructions.
- *
- * The registers and immediate value are automatically extracted from the
- * instruction and added as rs, rt, imm in a new scope. The immediate value
- * is sign extended into a 64 bit unsigned integer.
- *
- * @param opcode            Instruction opcode
- * @param instr             Original instruction
- * @param ...               Test condition
- */
-#define BType(opcode, instr, ...) \
-    IType(opcode, instr, sign_extend, { \
-        if (__VA_ARGS__) { \
-            state.cpu.nextAction = State::Action::Delay; \
-            state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2); \
-        } \
-    }) \
-    IType(opcode##L, instr, sign_extend, { \
-        if (__VA_ARGS__) { \
-            state.cpu.nextAction = State::Action::Delay; \
-            state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2); \
-        } else \
-            state.reg.pc += 4; \
-    })
+#define RType(instr) \
+    u32 rd = Mips::getRd(instr); \
+    u32 rs = Mips::getRs(instr); \
+    u32 rt = Mips::getRt(instr); \
+    u32 shamnt = Mips::getShamnt(instr); \
+    (void)rd; (void)rs; (void)rt; (void)shamnt;
 
 /**
  * @brief Raise an exception and update the state of the processor.
@@ -395,7 +339,7 @@ void takeException(Exception exn, u64 vAddr,
 #define returnException(...) \
     { \
         takeException(__VA_ARGS__); \
-        return true; \
+        return; \
     }
 
 /**
@@ -439,35 +383,1155 @@ void clearInterruptPending(uint irq)
     state.cp0reg.cause &= ~CAUSE_IP(1lu << irq);
 }
 
-static bool eval(bool delaySlot);
 
-/**
- * @brief Fetch and interpret a single instruction from memory.
- * @return true if the instruction caused an exception
- */
-bool step()
-{
-    bool exn;
-    switch (state.cpu.nextAction) {
-        case State::Action::Continue:
-            state.reg.pc += 4;
-            exn = eval(false);
-            break;
-
-        case State::Action::Delay:
-            state.reg.pc += 4;
-            state.cpu.nextAction = State::Action::Jump;
-            exn = eval(true);
-            break;
-
-        case State::Action::Jump:
-            state.reg.pc = state.cpu.nextPc;
-            state.cpu.nextAction = State::Action::Continue;
-            exn = eval(false);
-            break;
-    }
-    return exn;
+void eval_Reserved(u32 instr, bool delaySlot) {
+    debugger.halt("CPU reserved instruction");
 }
+
+/* SPECIAL opcodes */
+
+void eval_ADD(u32 instr, bool delaySlot) {
+    RType(instr);
+    i32 res;
+    i32 a = (i32)(u32)state.reg.gpr[rs];
+    i32 b = (i32)(u32)state.reg.gpr[rt];
+    if (__builtin_add_overflow(a, b, &res)) {
+        debugger.halt("ADD IntegerOverflow");
+    }
+    state.reg.gpr[rd] = sign_extend<u64, u32>((u32)res);
+}
+
+void eval_ADDU(u32 instr, bool delaySlot) {
+    RType(instr);
+    u32 res = state.reg.gpr[rs] + state.reg.gpr[rt];
+    state.reg.gpr[rd] = sign_extend<u64, u32>(res);
+}
+
+void eval_AND(u32 instr, bool delaySlot) {
+    RType(instr);
+    state.reg.gpr[rd] = state.reg.gpr[rs] & state.reg.gpr[rt];
+}
+
+void eval_BREAK(u32 instr, bool delaySlot) {
+    RType(instr);
+    debugger.halt("BREAK");
+}
+
+void eval_DADD(u32 instr, bool delaySlot) {
+    RType(instr);
+    debugger.halt("DADD");
+}
+
+void eval_DADDU(u32 instr, bool delaySlot) {
+    RType(instr);
+    u64 res = state.reg.gpr[rs] + state.reg.gpr[rt];
+    state.reg.gpr[rd] = res;
+}
+
+void eval_DDIV(u32 instr, bool delaySlot) {
+    RType(instr);
+    debugger.halt("DDIV");
+}
+
+void eval_DDIVU(u32 instr, bool delaySlot) {
+    RType(instr);
+    state.reg.multLo = state.reg.gpr[rs] / state.reg.gpr[rt];
+    state.reg.multHi = state.reg.gpr[rs] % state.reg.gpr[rt];
+}
+
+void eval_DIV(u32 instr, bool delaySlot) {
+    RType(instr);
+    // Must use 64bit integers here to prevent signed overflow.
+    i64 num = (i32)state.reg.gpr[rs];
+    i64 denum = (i32)state.reg.gpr[rt];
+    if (denum != 0) {
+        state.reg.multLo = sign_extend<u64, u32>((u64)(num / denum));
+        state.reg.multHi = sign_extend<u64, u32>((u64)(num % denum));
+    } else {
+        debugger.undefined("Divide by 0 (DIV)");
+        // Undefined behaviour here according to the reference
+        // manual. The machine behaviour is as implemented.
+        state.reg.multLo = num < 0 ? 1 : UINT64_C(-1);
+        state.reg.multHi = sign_extend<u64, u32>((u64)num);
+    }
+}
+
+void eval_DIVU(u32 instr, bool delaySlot) {
+    RType(instr);
+    u32 num = state.reg.gpr[rs];
+    u32 denum = state.reg.gpr[rt];
+    if (denum != 0) {
+        state.reg.multLo = sign_extend<u64, u32>(num / denum);
+        state.reg.multHi = sign_extend<u64, u32>(num % denum);
+    } else {
+        debugger.undefined("Divide by 0 (DIVU)");
+        // Undefined behaviour here according to the reference
+        // manual. The machine behaviour is as implemented.
+        state.reg.multLo = UINT64_C(-1);
+        state.reg.multHi = sign_extend<u64, u32>(num);
+    }
+}
+
+void eval_DMULT(u32 instr, bool delaySlot) {
+    RType(instr);
+    debugger.halt("DMULT");
+}
+
+void eval_DMULTU(u32 instr, bool delaySlot) {
+    RType(instr);
+    u64 x = state.reg.gpr[rs];
+    u64 y = state.reg.gpr[rt];
+    u64 a = x >> 32, b = x & 0xffffffffllu;
+    u64 c = y >> 32, d = y & 0xffffffffllu;
+
+    u64 ac = a * c;
+    u64 bc = b * c;
+    u64 ad = a * d;
+    u64 bd = b * d;
+
+    u64 mid34 = (bd >> 32) + (bc & 0xffffffffllu) + (ad & 0xffffffffllu);
+
+    state.reg.multHi = ac + (bc >> 32) + (ad >> 32) + (mid34 >> 32);
+    state.reg.multLo = (mid34 << 32) | (bd & 0xffffffffllu);
+}
+
+void eval_DSLL(u32 instr, bool delaySlot) {
+    RType(instr);
+    state.reg.gpr[rd] = state.reg.gpr[rt] << shamnt;
+}
+
+void eval_DSLL32(u32 instr, bool delaySlot) {
+    RType(instr);
+    state.reg.gpr[rd] = state.reg.gpr[rt] << (shamnt + 32);
+}
+
+void eval_DSLLV(u32 instr, bool delaySlot) {
+    RType(instr);
+    shamnt = state.reg.gpr[rs] & 0x3flu;
+    state.reg.gpr[rd] = state.reg.gpr[rt] << shamnt;
+}
+
+void eval_DSRA(u32 instr, bool delaySlot) {
+    RType(instr);
+    bool sign = (state.reg.gpr[rt] & (UINT64_C(1) << 63)) != 0;
+    // Right shift is logical for unsigned c types,
+    // we need to add the type manually.
+    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
+    if (sign) {
+        u64 mask = (UINT64_C(1) << shamnt) - 1u;
+        state.reg.gpr[rd] |= mask << (64 - shamnt);
+    }
+}
+
+void eval_DSRA32(u32 instr, bool delaySlot) {
+    RType(instr);
+    bool sign = (state.reg.gpr[rt] & (UINT64_C(1) << 63)) != 0;
+    shamnt += 32;
+    // Right shift is logical for unsigned c types,
+    // we need to add the type manually.
+    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
+    if (sign) {
+        u64 mask = (UINT64_C(1) << shamnt) - 1u;
+        state.reg.gpr[rd] |= mask << (64 - shamnt);
+    }
+}
+
+void eval_DSRAV(u32 instr, bool delaySlot) {
+    RType(instr);
+    bool sign = (state.reg.gpr[rt] & (UINT64_C(1) << 63)) != 0;
+    shamnt = state.reg.gpr[rs] & 0x3flu;
+    // Right shift is logical for unsigned c types,
+    // we need to add the type manually.
+    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
+    if (sign) {
+        u64 mask = (UINT64_C(1) << shamnt) - 1u;
+        state.reg.gpr[rd] |= mask << (64 - shamnt);
+    }
+}
+
+void eval_DSRL(u32 instr, bool delaySlot) {
+    RType(instr);
+    // Right shift is logical for unsigned c types.
+    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
+}
+
+void eval_DSRL32(u32 instr, bool delaySlot) {
+    RType(instr);
+    // Right shift is logical for unsigned c types.
+    state.reg.gpr[rd] = state.reg.gpr[rt] >> (shamnt + 32);
+}
+
+void eval_DSRLV(u32 instr, bool delaySlot) {
+    RType(instr);
+    shamnt = state.reg.gpr[rs] & 0x3flu;
+    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
+}
+
+void eval_DSUB(u32 instr, bool delaySlot) {
+    RType(instr);
+    debugger.halt("DSUB");
+}
+
+void eval_DSUBU(u32 instr, bool delaySlot) {
+    RType(instr);
+    debugger.halt("DSUBU");
+}
+
+void eval_JALR(u32 instr, bool delaySlot) {
+    RType(instr);
+    u64 tg = state.reg.gpr[rs];
+    state.reg.gpr[rd] = state.reg.pc + 8;
+    state.cpu.nextAction = State::Action::Delay;
+    state.cpu.nextPc = tg;
+}
+
+void eval_JR(u32 instr, bool delaySlot) {
+    RType(instr);
+    u64 tg = state.reg.gpr[rs];
+    state.cpu.nextAction = State::Action::Delay;
+    state.cpu.nextPc = tg;
+}
+
+void eval_MFHI(u32 instr, bool delaySlot) {
+    RType(instr);
+    // undefined if an instruction that follows modify
+    // the special registers LO / HI
+    state.reg.gpr[rd] = state.reg.multHi;
+}
+
+void eval_MFLO(u32 instr, bool delaySlot) {
+    RType(instr);
+    // undefined if an instruction that follows modify
+    // the special registers LO / HI
+    state.reg.gpr[rd] = state.reg.multLo;
+}
+
+void eval_MOVN(u32 instr, bool delaySlot) {
+    RType(instr);
+    debugger.halt("MOVN");
+}
+
+void eval_MOVZ(u32 instr, bool delaySlot) {
+    RType(instr);
+    debugger.halt("MOVZ");
+}
+
+void eval_MTHI(u32 instr, bool delaySlot) {
+    RType(instr);
+    state.reg.multHi = state.reg.gpr[rs];
+}
+
+void eval_MTLO(u32 instr, bool delaySlot) {
+    RType(instr);
+    state.reg.multLo = state.reg.gpr[rs];
+}
+
+void eval_MULT(u32 instr, bool delaySlot) {
+    RType(instr);
+    i32 a = (i32)(u32)state.reg.gpr[rs];
+    i32 b = (i32)(u32)state.reg.gpr[rt];
+    i64 m = (i64)a * (i64)b;
+    state.reg.multLo = sign_extend<u64, u32>((u64)m);
+    state.reg.multHi = sign_extend<u64, u32>((u64)m >> 32);
+}
+
+void eval_MULTU(u32 instr, bool delaySlot) {
+    RType(instr);
+    u32 a = (u32)state.reg.gpr[rs];
+    u32 b = (u32)state.reg.gpr[rt];
+    u64 m = (u64)a * (u64)b;
+    state.reg.multLo = sign_extend<u64, u32>(m);
+    state.reg.multHi = sign_extend<u64, u32>(m >> 32);
+}
+
+void eval_NOR(u32 instr, bool delaySlot) {
+    RType(instr);
+    state.reg.gpr[rd] = ~(state.reg.gpr[rs] | state.reg.gpr[rt]);
+}
+
+void eval_OR(u32 instr, bool delaySlot) {
+    RType(instr);
+    state.reg.gpr[rd] = state.reg.gpr[rs] | state.reg.gpr[rt];
+}
+
+void eval_SLL(u32 instr, bool delaySlot) {
+    RType(instr);
+    state.reg.gpr[rd] = sign_extend<u64, u32>(state.reg.gpr[rt] << shamnt);
+}
+
+void eval_SLLV(u32 instr, bool delaySlot) {
+    RType(instr);
+    shamnt = state.reg.gpr[rs] & 0x1flu;
+    state.reg.gpr[rd] = sign_extend<u64, u32>(state.reg.gpr[rt] << shamnt);
+}
+
+void eval_SLT(u32 instr, bool delaySlot) {
+    RType(instr);
+    state.reg.gpr[rd] = (i64)state.reg.gpr[rs] < (i64)state.reg.gpr[rt];
+}
+
+void eval_SLTU(u32 instr, bool delaySlot) {
+    RType(instr);
+    state.reg.gpr[rd] = state.reg.gpr[rs] < state.reg.gpr[rt];
+}
+
+void eval_SRA(u32 instr, bool delaySlot) {
+    RType(instr);
+    bool sign = (state.reg.gpr[rt] & (1lu << 31)) != 0;
+    // Right shift is logical for unsigned c types,
+    // we need to add the type manually.
+    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
+    if (sign) {
+        u64 mask = (1ul << (shamnt + 32)) - 1u;
+        state.reg.gpr[rd] |= mask << (32 - shamnt);
+    }
+}
+
+void eval_SRAV(u32 instr, bool delaySlot) {
+    RType(instr);
+    bool sign = (state.reg.gpr[rt] & (1lu << 31)) != 0;
+    shamnt = state.reg.gpr[rs] & 0x1flu;
+    // Right shift is logical for unsigned c types,
+    // we need to add the type manually.
+    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
+    if (sign) {
+        u64 mask = (1ul << (shamnt + 32)) - 1u;
+        state.reg.gpr[rd] |= mask << (32 - shamnt);
+    }
+}
+
+void eval_SRL(u32 instr, bool delaySlot) {
+    RType(instr);
+    u64 res = (state.reg.gpr[rt] & 0xffffffffllu) >> shamnt;
+    state.reg.gpr[rd] = sign_extend<u64, u32>(res);
+}
+
+void eval_SRLV(u32 instr, bool delaySlot) {
+    RType(instr);
+    shamnt = state.reg.gpr[rs] & 0x1flu;
+    u64 res = (state.reg.gpr[rt] & 0xfffffffflu) >> shamnt;
+    state.reg.gpr[rd] = sign_extend<u64, u32>(res);
+}
+
+void eval_SUB(u32 instr, bool delaySlot) {
+    RType(instr);
+    int32_t res;
+    int32_t a = (int32_t)(uint32_t)state.reg.gpr[rs];
+    int32_t b = (int32_t)(uint32_t)state.reg.gpr[rt];
+    if (__builtin_sub_overflow(a, b, &res)) {
+        debugger.halt("SUB IntegerOverflow");
+    }
+    state.reg.gpr[rd] = sign_extend<u64, u32>((uint32_t)res);
+}
+
+void eval_SUBU(u32 instr, bool delaySlot) {
+    RType(instr);
+    state.reg.gpr[rd] = sign_extend<u64, u32>(
+        state.reg.gpr[rs] - state.reg.gpr[rt]);
+}
+
+void eval_SYNC(u32 instr, bool delaySlot) {
+    (void)instr; (void)delaySlot;
+}
+
+void eval_SYSCALL(u32 instr, bool delaySlot) {
+    RType(instr);
+    takeException(SystemCall, 0, delaySlot, false, false, 0);
+}
+
+void eval_TEQ(u32 instr, bool delaySlot) {
+    RType(instr);
+    debugger.halt("TEQ");
+}
+
+void eval_TGE(u32 instr, bool delaySlot) {
+    RType(instr);
+    debugger.halt("TGE");
+}
+
+void eval_TGEU(u32 instr, bool delaySlot) {
+    RType(instr);
+    debugger.halt("TGEU");
+}
+
+void eval_TLT(u32 instr, bool delaySlot) {
+    RType(instr);
+    debugger.halt("TLT");
+}
+
+void eval_TLTU(u32 instr, bool delaySlot) {
+    RType(instr);
+    debugger.halt("TLTU");
+}
+
+void eval_TNE(u32 instr, bool delaySlot) {
+    RType(instr);
+    debugger.halt("TNE");
+}
+
+void eval_XOR(u32 instr, bool delaySlot) {
+    RType(instr);
+    state.reg.gpr[rd] = state.reg.gpr[rs] ^ state.reg.gpr[rt];
+}
+
+/* REGIMM opcodes */
+
+void eval_BGEZ(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    if ((i64)state.reg.gpr[rs] >= 0) {
+        state.cpu.nextAction = State::Action::Delay;
+        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
+    }
+}
+
+void eval_BGEZL(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    if ((i64)state.reg.gpr[rs] >= 0) {
+        state.cpu.nextAction = State::Action::Delay;
+        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
+    } else {
+        state.reg.pc += 4;
+    }
+}
+
+void eval_BLTZ(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    if ((i64)state.reg.gpr[rs] < 0) {
+        state.cpu.nextAction = State::Action::Delay;
+        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
+    }
+}
+
+void eval_BLTZL(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    if ((i64)state.reg.gpr[rs] < 0) {
+        state.cpu.nextAction = State::Action::Delay;
+        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
+    } else {
+        state.reg.pc += 4;
+    }
+}
+
+void eval_BGEZAL(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    i64 r = state.reg.gpr[rs];
+    state.reg.gpr[31] = state.reg.pc + 8;
+    if (r >= 0) {
+        state.cpu.nextAction = State::Action::Delay;
+        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
+    }
+}
+
+void eval_BGEZALL(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    i64 r = state.reg.gpr[rs];
+    state.reg.gpr[31] = state.reg.pc + 8;
+    if (r >= 0) {
+        state.cpu.nextAction = State::Action::Delay;
+        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
+    } else {
+        state.reg.pc += 4;
+    }
+}
+
+void eval_BLTZAL(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    i64 r = state.reg.gpr[rs];
+    state.reg.gpr[31] = state.reg.pc + 8;
+    if (r < 0) {
+        state.cpu.nextAction = State::Action::Delay;
+        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
+    }
+}
+
+void eval_BLTZALL(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    i64 r = state.reg.gpr[rs];
+    state.reg.gpr[31] = state.reg.pc + 8;
+    if (r < 0) {
+        state.cpu.nextAction = State::Action::Delay;
+        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
+    } else {
+        state.reg.pc += 4;
+    }
+}
+
+void eval_TEQI(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    debugger.halt("TEQI");
+}
+
+void eval_TGEI(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    debugger.halt("TGEI");
+}
+
+void eval_TGEIU(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    debugger.halt("TGEIU");
+}
+
+void eval_TLTI(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    debugger.halt("TLTI");
+}
+
+void eval_TLTIU(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    debugger.halt("TLTIU");
+}
+
+void eval_TNEI(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    debugger.halt("TNEI");
+}
+
+/* Other opcodes */
+
+void eval_ADDI(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    i32 res;
+    i32 a = (i32)(u32)state.reg.gpr[rs];
+    i32 b = (i32)(u32)imm;
+    if (__builtin_add_overflow(a, b, &res)) {
+        debugger.halt("ADDI IntegerOverflow");
+    }
+    state.reg.gpr[rt] = sign_extend<u64, u32>((u32)res);
+}
+
+void eval_ADDIU(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    state.reg.gpr[rt] = sign_extend<u64, u32>(state.reg.gpr[rs] + imm);
+}
+
+void eval_ANDI(u32 instr, bool delaySlot) {
+    IType(instr, zero_extend);
+    state.reg.gpr[rt] = state.reg.gpr[rs] & imm;
+}
+
+void eval_BEQ(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    if (state.reg.gpr[rt] == state.reg.gpr[rs]) {
+        state.cpu.nextAction = State::Action::Delay;
+        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
+    }
+}
+
+void eval_BEQL(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    if (state.reg.gpr[rt] == state.reg.gpr[rs]) {
+        state.cpu.nextAction = State::Action::Delay;
+        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
+    } else {
+        state.reg.pc += 4;
+    }
+}
+
+void eval_BGTZ(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    if ((i64)state.reg.gpr[rs] > 0) {
+        state.cpu.nextAction = State::Action::Delay;
+        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
+    }
+}
+
+void eval_BGTZL(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    if ((i64)state.reg.gpr[rs] > 0) {
+        state.cpu.nextAction = State::Action::Delay;
+        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
+    } else {
+        state.reg.pc += 4;
+    }
+}
+
+void eval_BLEZ(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    if ((i64)state.reg.gpr[rs] <= 0) {
+        state.cpu.nextAction = State::Action::Delay;
+        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
+    }
+}
+
+void eval_BLEZL(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    if ((i64)state.reg.gpr[rs] <= 0) {
+        state.cpu.nextAction = State::Action::Delay;
+        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
+    } else {
+        state.reg.pc += 4;
+    }
+}
+
+void eval_BNE(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    if (state.reg.gpr[rt] != state.reg.gpr[rs]) {
+        state.cpu.nextAction = State::Action::Delay;
+        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
+    }
+}
+
+void eval_BNEL(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    if (state.reg.gpr[rt] != state.reg.gpr[rs]) {
+        state.cpu.nextAction = State::Action::Delay;
+        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
+    } else {
+        state.reg.pc += 4;
+    }
+}
+
+void eval_CACHE(u32 instr, bool delaySlot) {
+    (void)instr; (void)delaySlot;
+}
+
+void eval_COP2(u32 instr, bool delaySlot) {
+    takeException(CoprocessorUnusable, 0, delaySlot, instr, false, 2);
+}
+
+void eval_COP3(u32 instr, bool delaySlot) {
+    takeException(CoprocessorUnusable, 0, delaySlot, instr, false, 3);
+}
+
+void eval_DADDI(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    debugger.halt("DADDI");
+}
+
+void eval_DADDIU(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    state.reg.gpr[rt] = state.reg.gpr[rs] + imm;
+}
+
+void eval_J(u32 instr, bool delaySlot) {
+    u64 tg = Mips::getTarget(instr);
+    tg = (state.reg.pc & 0xfffffffff0000000llu) | (tg << 2);
+    state.cpu.nextAction = State::Action::Delay;
+    state.cpu.nextPc = tg;
+}
+
+void eval_JAL(u32 instr, bool delaySlot) {
+    u64 tg = Mips::getTarget(instr);
+    tg = (state.reg.pc & 0xfffffffff0000000llu) | (tg << 2);
+    state.reg.gpr[31] = state.reg.pc + 8;
+    state.cpu.nextAction = State::Action::Delay;
+    state.cpu.nextPc = tg;
+}
+
+void eval_LB(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+    u8 val;
+
+    exn = translateAddress(vAddr, &pAddr, false);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, true);
+    exn = loadb(pAddr, &val);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, true);
+    state.reg.gpr[rt] = sign_extend<u64, u8>(val);
+}
+
+void eval_LBU(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+    u8 val;
+
+    exn = translateAddress(vAddr, &pAddr, false);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, true);
+    exn = loadb(pAddr, &val);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, true);
+    state.reg.gpr[rt] = zero_extend<u64, u8>(val);
+}
+
+void eval_LD(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr, val;
+
+    checkAddressAlignment(vAddr, 8, delaySlot, false, true);
+    exn = translateAddress(vAddr, &pAddr, false);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, true);
+    if (!state.physmem.load(8, pAddr, &val))
+        returnException(BusError, vAddr, delaySlot, false, true);
+    state.reg.gpr[rt] = val;
+}
+
+void eval_LDC1(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr, val;
+
+    checkCop1Usable();
+    checkAddressAlignment(vAddr, 8, delaySlot, false, true);
+    exn = translateAddress(vAddr, &pAddr, false);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, true);
+    if (!state.physmem.load(8, pAddr, &val))
+        returnException(BusError, vAddr, delaySlot, false, true);
+    state.cp1reg.fpr_d[rt]->l = val;
+}
+
+void eval_LDC2(u32 instr, bool delaySlot) {
+    takeException(CoprocessorUnusable, 0, delaySlot, instr, false, 2);
+    debugger.halt("LDC2");
+}
+
+void eval_LDL(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    debugger.halt("LDL");
+}
+
+void eval_LDR(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    debugger.halt("LDR");
+}
+
+void eval_LH(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+    u16 val;
+
+    checkAddressAlignment(vAddr, 2, delaySlot, false, true);
+    exn = translateAddress(vAddr, &pAddr, false);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, true);
+    exn = loadh(pAddr, &val);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, true);
+    state.reg.gpr[rt] = sign_extend<u64, u16>(val);
+}
+
+void eval_LHU(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+    u16 val;
+
+    checkAddressAlignment(vAddr, 2, delaySlot, false, true);
+    exn = translateAddress(vAddr, &pAddr, false);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, true);
+    exn = loadh(pAddr, &val);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, true);
+    state.reg.gpr[rt] = zero_extend<u64, u16>(val);
+}
+
+void eval_LL(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    debugger.halt("LL");
+}
+
+void eval_LLD(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    debugger.halt("LLD");
+}
+
+void eval_LUI(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    state.reg.gpr[rt] = imm << 16;
+}
+
+void eval_LW(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+    u32 val;
+
+    checkAddressAlignment(vAddr, 4, delaySlot, false, true);
+    exn = translateAddress(vAddr, &pAddr, false);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, true);
+    exn = loadw(pAddr, &val);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, true);
+    state.reg.gpr[rt] = sign_extend<u64, u32>(val);
+}
+
+void eval_LWC1(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+    u32 val;
+
+    checkCop1Usable();
+    checkAddressAlignment(vAddr, 4, delaySlot, false, true);
+    exn = translateAddress(vAddr, &pAddr, false);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, true);
+    exn = loadw(pAddr, &val);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, true);
+    state.cp1reg.fpr_s[rt]->w = val;
+}
+
+void eval_LWC2(u32 instr, bool delaySlot) {
+    takeException(CoprocessorUnusable, 0, delaySlot, instr, false, 2);
+    debugger.halt("LWC2");
+}
+
+void eval_LWC3(u32 instr, bool delaySlot) {
+    takeException(CoprocessorUnusable, 0, delaySlot, instr, false, 3);
+    debugger.halt("LWC3");
+}
+
+void eval_LWL(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+
+    // @todo only BigEndianMem & !ReverseEndian for now
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+
+    // Not calling checkAddressAlignment:
+    // this instruction specifically ignores the alignment
+    exn = translateAddress(vAddr, &pAddr, true);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, false);
+
+    size_t count = 4 - (pAddr % 4);
+    unsigned int shift = 24;
+    u64 mask = (1llu << (32 - 8 * count)) - 1u;
+    u64 val = 0;
+
+    for (size_t nr = 0; nr < count; nr++, shift -= 8) {
+        u64 byte = 0;
+        if (!state.physmem.load(1, pAddr + nr, &byte)) {
+            returnException(BusError, vAddr, delaySlot, false, false);
+        }
+        val |= (byte << shift);
+    }
+
+    val = val | (state.reg.gpr[rt] & mask);
+    state.reg.gpr[rt] = sign_extend<u64, u32>(val);
+}
+
+void eval_LWR(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+
+    // @todo only BigEndianMem & !ReverseEndian for now
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+
+    // Not calling checkAddressAlignment:
+    // this instruction specifically ignores the alignment
+    exn = translateAddress(vAddr, &pAddr, true);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, false);
+
+    size_t count = 1 + (pAddr % 4);
+    unsigned int shift = 0;
+    u64 mask = (1llu << (32 - 8 * count)) - 1u;
+    mask <<= 8 * count;
+    u64 val = 0;
+
+    for (size_t nr = 0; nr < count; nr++, shift += 8) {
+        u64 byte = 0;
+        if (!state.physmem.load(1, pAddr - nr, &byte)) {
+            returnException(BusError, vAddr, delaySlot, false, false);
+        }
+        val |= (byte << shift);
+    }
+
+    val = val | (state.reg.gpr[rt] & mask);
+    state.reg.gpr[rt] = sign_extend<u64, u32>(val);
+}
+
+void eval_LWU(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+    u32 val;
+
+    checkAddressAlignment(vAddr, 4, delaySlot, false, true);
+    exn = translateAddress(vAddr, &pAddr, false);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, true);
+    exn = loadw(pAddr, &val);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, true);
+    state.reg.gpr[rt] = zero_extend<u64, u32>(val);
+}
+
+void eval_ORI(u32 instr, bool delaySlot) {
+    IType(instr, zero_extend);
+    state.reg.gpr[rt] = state.reg.gpr[rs] | imm;
+}
+
+void eval_SB(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+
+    exn = translateAddress(vAddr, &pAddr, true);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, false);
+    if (!state.physmem.store(1, pAddr, state.reg.gpr[rt]))
+        returnException(BusError, vAddr, delaySlot, false, false);
+}
+
+void eval_SC(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    debugger.halt("SC");
+}
+
+void eval_SCD(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    debugger.halt("SCD");
+}
+
+void eval_SD(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+
+    checkAddressAlignment(vAddr, 8, delaySlot, false, false);
+    exn = translateAddress(vAddr, &pAddr, true);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, false);
+    if (!state.physmem.store(8, pAddr, state.reg.gpr[rt]))
+        returnException(BusError, vAddr, delaySlot, false, false);
+}
+
+void eval_SDC1(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+
+    checkCop1Usable();
+    checkAddressAlignment(vAddr, 8, delaySlot, false, false);
+    exn = translateAddress(vAddr, &pAddr, true);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, false);
+    if (!state.physmem.store(8, pAddr, state.cp1reg.fpr_d[rt]->l))
+        returnException(BusError, vAddr, delaySlot, false, false);
+}
+
+void eval_SDC2(u32 instr, bool delaySlot) {
+    takeException(CoprocessorUnusable, 0, delaySlot, instr, false, 2);
+    debugger.halt("SDC2");
+}
+
+void eval_SDL(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    debugger.halt("SDL");
+}
+
+void eval_SDR(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    debugger.halt("SDR");
+}
+
+void eval_SH(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+
+    checkAddressAlignment(vAddr, 2, delaySlot, false, false);
+    exn = translateAddress(vAddr, &pAddr, true);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, false);
+    if (!state.physmem.store(2, pAddr, state.reg.gpr[rt]))
+        returnException(BusError, vAddr, delaySlot, false, false);
+}
+
+void eval_SLTI(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    state.reg.gpr[rt] = (i64)state.reg.gpr[rs] < (i64)imm;
+}
+
+void eval_SLTIU(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    state.reg.gpr[rt] = state.reg.gpr[rs] < imm;
+}
+
+void eval_SW(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+
+    checkAddressAlignment(vAddr, 4, delaySlot, false, false);
+    exn = translateAddress(vAddr, &pAddr, true);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, false);
+    if (!state.physmem.store(4, pAddr, state.reg.gpr[rt]))
+        returnException(BusError, vAddr, delaySlot, false, false);
+}
+
+void eval_SWC1(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+
+    checkCop1Usable();
+    checkAddressAlignment(vAddr, 4, delaySlot, false, false);
+    exn = translateAddress(vAddr, &pAddr, true);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, false);
+    if (!state.physmem.store(4, pAddr, state.cp1reg.fpr_s[rt]->w))
+        returnException(BusError, vAddr, delaySlot, false, false);
+}
+
+void eval_SWC2(u32 instr, bool delaySlot) {
+    takeException(CoprocessorUnusable, 0, delaySlot, instr, false, 2);
+    debugger.halt("SWC2");
+}
+
+void eval_SWC3(u32 instr, bool delaySlot) {
+    takeException(CoprocessorUnusable, 0, delaySlot, instr, false, 2);
+    debugger.halt("SWC3");
+}
+
+void eval_SWL(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    // debugger.halt("SWL instruction");
+    // @todo only BigEndianMem & !ReverseEndian for now
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+
+    // Not calling checkAddressAlignment:
+    // this instruction specifically ignores the alignment
+    exn = translateAddress(vAddr, &pAddr, true);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, false);
+
+    size_t count = 4 - (pAddr % 4);
+    u32 val = state.reg.gpr[rt];
+    unsigned int shift = 24;
+    for (size_t nr = 0; nr < count; nr++, shift -= 8) {
+        u64 byte = (val >> shift) & 0xfflu;
+        if (!state.physmem.store(1, pAddr + nr, byte)) {
+            returnException(BusError, vAddr, delaySlot, false, false);
+        }
+    }
+}
+
+void eval_SWR(u32 instr, bool delaySlot) {
+    IType(instr, sign_extend);
+    // debugger.halt("SWR instruction");
+    // @todo only BigEndianMem & !ReverseEndian for now
+    Exception exn;
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+
+    // Not calling checkAddressAlignment:
+    // this instruction specifically ignores the alignment
+    exn = translateAddress(vAddr, &pAddr, true);
+    if (exn != None)
+        returnException(exn, vAddr, delaySlot, false, false);
+
+    size_t count = 1 + (pAddr % 4);
+    u32 val = state.reg.gpr[rt];
+    unsigned int shift = 0;
+    for (size_t nr = 0; nr < count; nr++, shift += 8) {
+        u64 byte = (val >> shift) & 0xfflu;
+        if (!state.physmem.store(1, pAddr - nr, byte)) {
+            returnException(BusError, vAddr, delaySlot, false, false);
+        }
+    }
+}
+
+void eval_XORI(u32 instr, bool delaySlot) {
+    IType(instr, zero_extend);
+    state.reg.gpr[rt] = state.reg.gpr[rs] ^ imm;
+}
+
+
+void (*SPECIAL_callbacks[64])(u32, bool) = {
+    eval_SLL,       eval_Reserved,  eval_SRL,       eval_SRA,
+    eval_SLLV,      eval_Reserved,  eval_SRLV,      eval_SRAV,
+    eval_JR,        eval_JALR,      eval_MOVZ,      eval_MOVN,
+    eval_SYSCALL,   eval_BREAK,     eval_Reserved,  eval_SYNC,
+    eval_MFHI,      eval_MTHI,      eval_MFLO,      eval_MTLO,
+    eval_DSLLV,     eval_Reserved,  eval_DSRLV,     eval_DSRAV,
+    eval_MULT,      eval_MULTU,     eval_DIV,       eval_DIVU,
+    eval_DMULT,     eval_DMULTU,    eval_DDIV,      eval_DDIVU,
+    eval_ADD,       eval_ADDU,      eval_SUB,       eval_SUBU,
+    eval_AND,       eval_OR,        eval_XOR,       eval_NOR,
+    eval_Reserved,  eval_Reserved,  eval_SLT,       eval_SLTU,
+    eval_DADD,      eval_DADDU,     eval_DSUB,      eval_DSUBU,
+    eval_TGE,       eval_TGEU,      eval_TLT,       eval_TLTU,
+    eval_TEQ,       eval_Reserved,  eval_TNE,       eval_Reserved,
+    eval_DSLL,      eval_Reserved,  eval_DSRL,      eval_DSRA,
+    eval_DSLL32,    eval_Reserved,  eval_DSRL32,    eval_DSRA32,
+};
+
+void eval_SPECIAL(u32 instr, bool delaySlot) {
+    SPECIAL_callbacks[Mips::getFunct(instr)](instr, delaySlot);
+}
+
+void (*REGIMM_callbacks[32])(u32, bool) = {
+    eval_BLTZ,      eval_BGEZ,      eval_BLTZL,     eval_BGEZL,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_TGEI,      eval_TGEIU,     eval_TLTI,      eval_TLTIU,
+    eval_TEQI,      eval_Reserved,  eval_TNEI,      eval_Reserved,
+    eval_BLTZAL,    eval_BGEZAL,    eval_BLTZALL,   eval_BGEZALL,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+};
+
+void eval_REGIMM(u32 instr, bool delaySlot) {
+    REGIMM_callbacks[Mips::getRt(instr)](instr, delaySlot);
+}
+
+void (*CPU_callbacks[64])(u32, bool) = {
+    eval_SPECIAL,   eval_REGIMM,    eval_J,         eval_JAL,
+    eval_BEQ,       eval_BNE,       eval_BLEZ,      eval_BGTZ,
+    eval_ADDI,      eval_ADDIU,     eval_SLTI,      eval_SLTIU,
+    eval_ANDI,      eval_ORI,       eval_XORI,      eval_LUI,
+    Cop0::eval,     Cop1::eval,     eval_COP2,      eval_COP3,
+    eval_BEQL,      eval_BNEL,      eval_BLEZL,     eval_BGTZL,
+    eval_DADDI,     eval_DADDIU,    eval_LDL,       eval_LDR,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_LB,        eval_LH,        eval_LWL,       eval_LW,
+    eval_LBU,       eval_LHU,       eval_LWR,       eval_LWU,
+    eval_SB,        eval_SH,        eval_SWL,       eval_SW,
+    eval_SDL,       eval_SDR,       eval_SWR,       eval_CACHE,
+    eval_LL,        eval_LWC1,      eval_LWC2,      eval_LWC3,
+    eval_LLD,       eval_LDC1,      eval_LDC2,      eval_LD,
+    eval_SC,        eval_SWC1,      eval_SWC2,      eval_SWC3,
+    eval_SCD,       eval_SDC1,      eval_SDC2,      eval_SD,
+};
 
 /**
  * @brief Fetch and interpret a single instruction from the provided address.
@@ -475,7 +1539,7 @@ bool step()
  *                      branch delay slot.
  * @return true if the instruction caused an exception
  */
-static bool eval(bool delaySlot)
+static void eval(bool delaySlot)
 {
     u64 vAddr = state.reg.pc;
     u64 pAddr;
@@ -490,7 +1554,7 @@ static bool eval(bool delaySlot)
         raise_VI_INTR();
     }
     if (checkInterrupt(vAddr, delaySlot)) {
-        return true;
+        return;
     }
 
     exn = translateAddress(vAddr, &pAddr, false);
@@ -502,687 +1566,33 @@ static bool eval(bool delaySlot)
 
     debugger.cpuTrace.put(TraceEntry(vAddr, instr));
 
-    using namespace Mips::Opcode;
-    using namespace Mips::Special;
-    using namespace Mips::Regimm;
-    using namespace Mips::Cop0;
-    using namespace Mips::Copz;
-    using namespace R4300;
+    CPU_callbacks[Mips::getOpcode(instr)](instr, delaySlot);
+}
 
-    switch (opcode = Mips::getOpcode(instr)) {
-        case SPECIAL:
-            switch (Mips::getFunct(instr)) {
-                RType(ADD, instr, {
-                    int32_t res;
-                    int32_t a = (int32_t)(uint32_t)state.reg.gpr[rs];
-                    int32_t b = (int32_t)(uint32_t)state.reg.gpr[rt];
-                    if (__builtin_add_overflow(a, b, &res)) {
-                        debugger.halt("ADD IntegerOverflow");
-                    }
-                    state.reg.gpr[rd] = sign_extend<u64, u32>((uint32_t)res);
-                })
-                RType(ADDU, instr, {
-                    u64 res = state.reg.gpr[rs] + state.reg.gpr[rt];
-                    state.reg.gpr[rd] = sign_extend<u64, u32>(res);
-                })
-                RType(AND, instr, {
-                    state.reg.gpr[rd] = state.reg.gpr[rs] & state.reg.gpr[rt];
-                })
-                case BREAK: debugger.halt("BREAK"); break;
-                RType(DADD, instr, { debugger.halt("DADD"); })
-                RType(DADDU, instr, {
-                    u64 res = state.reg.gpr[rs] + state.reg.gpr[rt];
-                    state.reg.gpr[rd] = res;
-                })
-                RType(DDIV, instr, { debugger.halt("DDIV"); })
-                RType(DDIVU, instr, {
-                    state.reg.multLo = state.reg.gpr[rs] / state.reg.gpr[rt];
-                    state.reg.multHi = state.reg.gpr[rs] % state.reg.gpr[rt];
-                })
-                RType(DIV, instr, {
-                    // Must use 64bit integers here to prevent signed overflow.
-                    i64 num = (i32)state.reg.gpr[rs];
-                    i64 denum = (i32)state.reg.gpr[rt];
-                    if (denum != 0) {
-                        state.reg.multLo = sign_extend<u64, u32>((u64)(num / denum));
-                        state.reg.multHi = sign_extend<u64, u32>((u64)(num % denum));
-                    } else {
-                        debugger.undefined("Divide by 0 (DIV)");
-                        // Undefined behaviour here according to the reference
-                        // manual. The machine behaviour is as implemented.
-                        state.reg.multLo = num < 0 ? 1 : UINT64_C(-1);
-                        state.reg.multHi = sign_extend<u64, u32>((u64)num);
-                    }
-                })
-                RType(DIVU, instr, {
-                    u32 num = state.reg.gpr[rs];
-                    u32 denum = state.reg.gpr[rt];
-                    if (denum != 0) {
-                        state.reg.multLo = sign_extend<u64, u32>(num / denum);
-                        state.reg.multHi = sign_extend<u64, u32>(num % denum);
-                    } else {
-                        debugger.undefined("Divide by 0 (DIVU)");
-                        // Undefined behaviour here according to the reference
-                        // manual. The machine behaviour is as implemented.
-                        state.reg.multLo = UINT64_C(-1);
-                        state.reg.multHi = sign_extend<u64, u32>(num);
-                    }
-                })
-                RType(DMULT, instr, { debugger.halt("DMULT"); })
-                RType(DMULTU, instr, {
-                    u64 x = state.reg.gpr[rs];
-                    u64 y = state.reg.gpr[rt];
-                    u64 a = x >> 32, b = x & 0xffffffffllu;
-                    u64 c = y >> 32, d = y & 0xffffffffllu;
-
-                    u64 ac = a * c;
-                    u64 bc = b * c;
-                    u64 ad = a * d;
-                    u64 bd = b * d;
-
-                    u64 mid34 = (bd >> 32) + (bc & 0xffffffffllu) + (ad & 0xffffffffllu);
-
-                    state.reg.multHi = ac + (bc >> 32) + (ad >> 32) + (mid34 >> 32);
-                    state.reg.multLo = (mid34 << 32) | (bd & 0xffffffffllu);
-                })
-                RType(DSLL, instr, {
-                    state.reg.gpr[rd] = state.reg.gpr[rt] << shamnt;
-                })
-                RType(DSLL32, instr, {
-                    state.reg.gpr[rd] = state.reg.gpr[rt] << (shamnt + 32);
-                })
-                RType(DSLLV, instr, {
-                    unsigned int shamnt = state.reg.gpr[rs] & 0x3flu;
-                    state.reg.gpr[rd] = state.reg.gpr[rt] << shamnt;
-                })
-                RType(DSRA, instr, {
-                    bool sign = (state.reg.gpr[rt] & (UINT64_C(1) << 63)) != 0;
-                    // Right shift is logical for unsigned c types,
-                    // we need to add the type manually.
-                    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
-                    if (sign) {
-                        u64 mask = (UINT64_C(1) << shamnt) - 1u;
-                        state.reg.gpr[rd] |= mask << (64 - shamnt);
-                    }
-                })
-                RType(DSRA32, instr, {
-                    bool sign = (state.reg.gpr[rt] & (UINT64_C(1) << 63)) != 0;
-                    shamnt += 32;
-                    // Right shift is logical for unsigned c types,
-                    // we need to add the type manually.
-                    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
-                    if (sign) {
-                        u64 mask = (UINT64_C(1) << shamnt) - 1u;
-                        state.reg.gpr[rd] |= mask << (64 - shamnt);
-                    }
-                })
-                RType(DSRAV, instr, {
-                    bool sign = (state.reg.gpr[rt] & (UINT64_C(1) << 63)) != 0;
-                    unsigned int shamnt = state.reg.gpr[rs] & 0x3flu;
-                    // Right shift is logical for unsigned c types,
-                    // we need to add the type manually.
-                    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
-                    if (sign) {
-                        u64 mask = (UINT64_C(1) << shamnt) - 1u;
-                        state.reg.gpr[rd] |= mask << (64 - shamnt);
-                    }
-                })
-                RType(DSRL, instr, {
-                    // Right shift is logical for unsigned c types.
-                    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
-                })
-                RType(DSRL32, instr, {
-                    // Right shift is logical for unsigned c types.
-                    state.reg.gpr[rd] = state.reg.gpr[rt] >> (shamnt + 32);
-                })
-                RType(DSRLV, instr, {
-                    unsigned int shamnt = state.reg.gpr[rs] & 0x3flu;
-                    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
-                })
-                RType(DSUB, instr, { debugger.halt("DSUB"); })
-                RType(DSUBU, instr, { debugger.halt("DSUBU"); })
-                RType(JALR, instr, {
-                    u64 tg = state.reg.gpr[rs];
-                    state.reg.gpr[rd] = state.reg.pc + 8;
-                    state.cpu.nextAction = State::Action::Delay;
-                    state.cpu.nextPc = tg;
-                })
-                RType(JR, instr, {
-                    u64 tg = state.reg.gpr[rs];
-                    state.cpu.nextAction = State::Action::Delay;
-                    state.cpu.nextPc = tg;
-                })
-                RType(MFHI, instr, {
-                    // undefined if an instruction that follows modify
-                    // the special registers LO / HI
-                    state.reg.gpr[rd] = state.reg.multHi;
-                })
-                RType(MFLO, instr, {
-                    // undefined if an instruction that follows modify
-                    // the special registers LO / HI
-                    state.reg.gpr[rd] = state.reg.multLo;
-                })
-                RType(MOVN, instr, { debugger.halt("MOVN"); })
-                RType(MOVZ, instr, { debugger.halt("MOVZ"); })
-                RType(MTHI, instr, {
-                    state.reg.multHi = state.reg.gpr[rs];
-                })
-                RType(MTLO, instr, {
-                    state.reg.multLo = state.reg.gpr[rs];
-                })
-                RType(MULT, instr, {
-                    i32 a = (i32)(u32)state.reg.gpr[rs];
-                    i32 b = (i32)(u32)state.reg.gpr[rt];
-                    i64 m = (i64)a * (i64)b;
-                    state.reg.multLo = sign_extend<u64, u32>((u64)m);
-                    state.reg.multHi = sign_extend<u64, u32>((u64)m >> 32);
-                })
-                RType(MULTU, instr, {
-                    u32 a = (u32)state.reg.gpr[rs];
-                    u32 b = (u32)state.reg.gpr[rt];
-                    u64 m = (u64)a * (u64)b;
-                    state.reg.multLo = sign_extend<u64, u32>(m);
-                    state.reg.multHi = sign_extend<u64, u32>(m >> 32);
-                })
-                RType(NOR, instr, {
-                    state.reg.gpr[rd] = ~(state.reg.gpr[rs] | state.reg.gpr[rt]);
-                })
-                RType(OR, instr, {
-                    state.reg.gpr[rd] = state.reg.gpr[rs] | state.reg.gpr[rt];
-                })
-                RType(SLL, instr, {
-                    state.reg.gpr[rd] = sign_extend<u64, u32>(state.reg.gpr[rt] << shamnt);
-                })
-                RType(SLLV, instr, {
-                    unsigned int shamnt = state.reg.gpr[rs] & 0x1flu;
-                    state.reg.gpr[rd] = sign_extend<u64, u32>(state.reg.gpr[rt] << shamnt);
-                })
-                RType(SLT, instr, {
-                    state.reg.gpr[rd] = (i64)state.reg.gpr[rs] < (i64)state.reg.gpr[rt];
-                })
-                RType(SLTU, instr, {
-                    state.reg.gpr[rd] = state.reg.gpr[rs] < state.reg.gpr[rt];
-                })
-                RType(SRA, instr, {
-                    bool sign = (state.reg.gpr[rt] & (1lu << 31)) != 0;
-                    // Right shift is logical for unsigned c types,
-                    // we need to add the type manually.
-                    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
-                    if (sign) {
-                        u64 mask = (1ul << (shamnt + 32)) - 1u;
-                        state.reg.gpr[rd] |= mask << (32 - shamnt);
-                    }
-                })
-                RType(SRAV, instr, {
-                    bool sign = (state.reg.gpr[rt] & (1lu << 31)) != 0;
-                    unsigned int shamnt = state.reg.gpr[rs] & 0x1flu;
-                    // Right shift is logical for unsigned c types,
-                    // we need to add the type manually.
-                    state.reg.gpr[rd] = state.reg.gpr[rt] >> shamnt;
-                    if (sign) {
-                        u64 mask = (1ul << (shamnt + 32)) - 1u;
-                        state.reg.gpr[rd] |= mask << (32 - shamnt);
-                    }
-                })
-                RType(SRL, instr, {
-                    u64 res = (state.reg.gpr[rt] & 0xffffffffllu) >> shamnt;
-                    state.reg.gpr[rd] = sign_extend<u64, u32>(res);
-                })
-                RType(SRLV, instr, {
-                    unsigned int shamnt = state.reg.gpr[rs] & 0x1flu;
-                    u64 res = (state.reg.gpr[rt] & 0xfffffffflu) >> shamnt;
-                    state.reg.gpr[rd] = sign_extend<u64, u32>(res);
-                })
-                RType(SUB, instr, {
-                    int32_t res;
-                    int32_t a = (int32_t)(uint32_t)state.reg.gpr[rs];
-                    int32_t b = (int32_t)(uint32_t)state.reg.gpr[rt];
-                    if (__builtin_sub_overflow(a, b, &res)) {
-                        debugger.halt("SUB IntegerOverflow");
-                    }
-                    state.reg.gpr[rd] = sign_extend<u64, u32>((uint32_t)res);
-                })
-                RType(SUBU, instr, {
-                    state.reg.gpr[rd] = sign_extend<u64, u32>(
-                        state.reg.gpr[rs] - state.reg.gpr[rt]);
-                })
-                RType(SYNC, instr, { })
-                RType(SYSCALL, instr, {
-                    returnException(SystemCall, 0, delaySlot, false, false, 0);
-                })
-                RType(TEQ, instr, { debugger.halt("TEQ"); })
-                RType(TGE, instr, { debugger.halt("TGE"); })
-                RType(TGEU, instr, { debugger.halt("TGEU"); })
-                RType(TLT, instr, { debugger.halt("TLT"); })
-                RType(TLTU, instr, { debugger.halt("TLTU"); })
-                RType(TNE, instr, { debugger.halt("TNE"); })
-                RType(XOR, instr, {
-                    state.reg.gpr[rd] = state.reg.gpr[rs] ^ state.reg.gpr[rt];
-                })
-                default:
-                    debugger.halt("Unsupported Special");
-                    break;
-            }
+/**
+ * @brief Fetch and interpret a single instruction from memory.
+ * @return true if the instruction caused an exception
+ */
+void step()
+{
+    switch (state.cpu.nextAction) {
+        case State::Action::Continue:
+            state.reg.pc += 4;
+            eval(false);
             break;
 
-        case REGIMM:
-            switch (Mips::getRt(instr)) {
-                BType(BGEZ, instr, (i64)state.reg.gpr[rs] >= 0)
-                BType(BLTZ, instr, (i64)state.reg.gpr[rs] < 0)
-                IType(BGEZAL, instr, sign_extend, {
-                    i64 r = state.reg.gpr[rs];
-                    state.reg.gpr[31] = state.reg.pc + 8;
-                    if (r >= 0) {
-                        state.cpu.nextAction = State::Action::Delay;
-                        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-                    }
-                })
-                IType(BGEZALL, instr, sign_extend, {
-                    i64 r = state.reg.gpr[rs];
-                    state.reg.gpr[31] = state.reg.pc + 8;
-                    if (r >= 0) {
-                        state.cpu.nextAction = State::Action::Delay;
-                        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-                    } else
-                        state.reg.pc += 4;
-                })
-                IType(BLTZAL, instr, sign_extend, {
-                    i64 r = state.reg.gpr[rs];
-                    state.reg.gpr[31] = state.reg.pc + 8;
-                    if (r < 0) {
-                        state.cpu.nextAction = State::Action::Delay;
-                        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-                    }
-                })
-                IType(BLTZALL, instr, sign_extend, {
-                    i64 r = state.reg.gpr[rs];
-                    state.reg.gpr[31] = state.reg.pc + 8;
-                    if (r < 0) {
-                        state.cpu.nextAction = State::Action::Delay;
-                        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-                    } else
-                        state.reg.pc += 4;
-                })
-                IType(TEQI, instr, sign_extend, {})
-                IType(TGEI, instr, sign_extend, {})
-                IType(TGEIU, instr, sign_extend, {})
-                IType(TLTI, instr, sign_extend, {})
-                IType(TLTIU, instr, sign_extend, {})
-                IType(TNEI, instr, sign_extend, {})
-                default:
-                    debugger.halt("Unupported Regimm");
-                    break;
-            }
+        case State::Action::Delay:
+            state.reg.pc += 4;
+            state.cpu.nextAction = State::Action::Jump;
+            eval(true);
             break;
 
-        IType(ADDI, instr, sign_extend, {
-            int32_t res;
-            int32_t a = (int32_t)(uint32_t)state.reg.gpr[rs];
-            int32_t b = (int32_t)(uint32_t)imm;
-            if (__builtin_add_overflow(a, b, &res)) {
-                debugger.halt("ADDI IntegerOverflow");
-            }
-            state.reg.gpr[rt] = sign_extend<u64, u32>((uint32_t)res);
-        })
-        IType(ADDIU, instr, sign_extend, {
-            state.reg.gpr[rt] = sign_extend<u64, u32>(state.reg.gpr[rs] + imm);
-        })
-        IType(ANDI, instr, zero_extend, {
-            state.reg.gpr[rt] = state.reg.gpr[rs] & imm;
-        })
-        BType(BEQ, instr, state.reg.gpr[rt] == state.reg.gpr[rs])
-        BType(BGTZ, instr, (i64)state.reg.gpr[rs] > 0)
-        BType(BLEZ, instr, (i64)state.reg.gpr[rs] <= 0)
-        BType(BNE, instr, state.reg.gpr[rt] != state.reg.gpr[rs])
-        IType(CACHE, instr, sign_extend, {
-            // @todo
-        })
-        case COP0:  return Cop0::eval(instr, delaySlot);
-        case COP1:  return Cop1::eval(instr, delaySlot);
-        case COP2:
-        case COP3:
-            returnException(CoprocessorUnusable, 0, delaySlot, instr,
-                            false, opcode & 0x3);
-            break;
-
-        IType(DADDI, instr, sign_extend, { debugger.halt("DADDI"); })
-        IType(DADDIU, instr, sign_extend, {
-            state.reg.gpr[rt] = state.reg.gpr[rs] + imm;
-        })
-        JType(J, instr, {
-            tg = (state.reg.pc & 0xfffffffff0000000llu) | (tg << 2);
-            state.cpu.nextAction = State::Action::Delay;
-            state.cpu.nextPc = tg;
-        })
-        JType(JAL, instr, {
-            tg = (state.reg.pc & 0xfffffffff0000000llu) | (tg << 2);
-            state.reg.gpr[31] = state.reg.pc + 8;
-            state.cpu.nextAction = State::Action::Delay;
-            state.cpu.nextPc = tg;
-        })
-        IType(LB, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-            u8 val;
-
-            exn = translateAddress(vAddr, &pAddr, false);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, true);
-            exn = loadb(pAddr, &val);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, true);
-            state.reg.gpr[rt] = sign_extend<u64, u8>(val);
-        })
-        IType(LBU, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-            u8 val;
-
-            exn = translateAddress(vAddr, &pAddr, false);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, true);
-            exn = loadb(pAddr, &val);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, true);
-            state.reg.gpr[rt] = zero_extend<u64, u8>(val);
-        })
-        IType(LD, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr, val;
-
-            checkAddressAlignment(vAddr, 8, delaySlot, false, true);
-            exn = translateAddress(vAddr, &pAddr, false);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, true);
-            if (!state.physmem.load(8, pAddr, &val))
-                returnException(BusError, vAddr, delaySlot, false, true);
-            state.reg.gpr[rt] = val;
-        })
-        IType(LDC1, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr, val;
-
-            checkCop1Usable();
-            checkAddressAlignment(vAddr, 8, delaySlot, false, true);
-            exn = translateAddress(vAddr, &pAddr, false);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, true);
-            if (!state.physmem.load(8, pAddr, &val))
-                returnException(BusError, vAddr, delaySlot, false, true);
-            state.cp1reg.fpr_d[rt]->l = val;
-        })
-        IType(LDC2, instr, sign_extend, { debugger.halt("SDC2"); })
-        IType(LDL, instr, sign_extend, { debugger.halt("LDL"); })
-        IType(LDR, instr, sign_extend, { debugger.halt("LDR"); })
-        IType(LH, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-            u16 val;
-
-            checkAddressAlignment(vAddr, 2, delaySlot, false, true);
-            exn = translateAddress(vAddr, &pAddr, false);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, true);
-            exn = loadh(pAddr, &val);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, true);
-            state.reg.gpr[rt] = sign_extend<u64, u16>(val);
-        })
-        IType(LHU, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-            u16 val;
-
-            checkAddressAlignment(vAddr, 2, delaySlot, false, true);
-            exn = translateAddress(vAddr, &pAddr, false);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, true);
-            exn = loadh(pAddr, &val);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, true);
-            state.reg.gpr[rt] = zero_extend<u64, u16>(val);
-        })
-        IType(LL, instr, sign_extend, { debugger.halt("LL"); })
-        IType(LLD, instr, sign_extend, { debugger.halt("LLD"); })
-        IType(LUI, instr, sign_extend, {
-            state.reg.gpr[rt] = imm << 16;
-        })
-        IType(LW, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-            u32 val;
-
-            checkAddressAlignment(vAddr, 4, delaySlot, false, true);
-            exn = translateAddress(vAddr, &pAddr, false);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, true);
-            exn = loadw(pAddr, &val);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, true);
-            state.reg.gpr[rt] = sign_extend<u64, u32>(val);
-        })
-        IType(LWC1, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-            u32 val;
-
-            checkCop1Usable();
-            checkAddressAlignment(vAddr, 4, delaySlot, false, true);
-            exn = translateAddress(vAddr, &pAddr, false);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, true);
-            exn = loadw(pAddr, &val);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, true);
-            state.cp1reg.fpr_s[rt]->w = val;
-        })
-        IType(LWC2, instr, sign_extend, { debugger.halt("LWC2"); })
-        IType(LWC3, instr, sign_extend, { debugger.halt("LWC3"); })
-        IType(LWL, instr, sign_extend, {
-            // @todo only BigEndianMem & !ReverseEndian for now
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-
-            // Not calling checkAddressAlignment:
-            // this instruction specifically ignores the alignment
-            exn = translateAddress(vAddr, &pAddr, true);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, false);
-
-            size_t count = 4 - (pAddr % 4);
-            unsigned int shift = 24;
-            u64 mask = (1llu << (32 - 8 * count)) - 1u;
-            u64 val = 0;
-
-            for (size_t nr = 0; nr < count; nr++, shift -= 8) {
-                u64 byte = 0;
-                if (!state.physmem.load(1, pAddr + nr, &byte)) {
-                    returnException(BusError, vAddr, delaySlot, false, false);
-                }
-                val |= (byte << shift);
-            }
-
-            val = val | (state.reg.gpr[rt] & mask);
-            state.reg.gpr[rt] = sign_extend<u64, u32>(val);
-        })
-        IType(LWR, instr, sign_extend, {
-            // @todo only BigEndianMem & !ReverseEndian for now
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-
-            // Not calling checkAddressAlignment:
-            // this instruction specifically ignores the alignment
-            exn = translateAddress(vAddr, &pAddr, true);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, false);
-
-            size_t count = 1 + (pAddr % 4);
-            unsigned int shift = 0;
-            u64 mask = (1llu << (32 - 8 * count)) - 1u;
-            mask <<= 8 * count;
-            u64 val = 0;
-
-            for (size_t nr = 0; nr < count; nr++, shift += 8) {
-                u64 byte = 0;
-                if (!state.physmem.load(1, pAddr - nr, &byte)) {
-                    returnException(BusError, vAddr, delaySlot, false, false);
-                }
-                val |= (byte << shift);
-            }
-
-            val = val | (state.reg.gpr[rt] & mask);
-            state.reg.gpr[rt] = sign_extend<u64, u32>(val);
-        })
-        IType(LWU, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-            u32 val;
-
-            checkAddressAlignment(vAddr, 4, delaySlot, false, true);
-            exn = translateAddress(vAddr, &pAddr, false);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, true);
-            exn = loadw(pAddr, &val);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, true);
-            state.reg.gpr[rt] = zero_extend<u64, u32>(val);
-        })
-        IType(ORI, instr, zero_extend, {
-            state.reg.gpr[rt] = state.reg.gpr[rs] | imm;
-        })
-        IType(SB, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-
-            exn = translateAddress(vAddr, &pAddr, true);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, false);
-            if (!state.physmem.store(1, pAddr, state.reg.gpr[rt]))
-                returnException(BusError, vAddr, delaySlot, false, false);
-        })
-        IType(SC, instr, sign_extend, { debugger.halt("SC"); })
-        IType(SCD, instr, sign_extend, { debugger.halt("SCD"); })
-        IType(SD, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-
-            checkAddressAlignment(vAddr, 8, delaySlot, false, false);
-            exn = translateAddress(vAddr, &pAddr, true);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, false);
-            if (!state.physmem.store(8, pAddr, state.reg.gpr[rt]))
-                returnException(BusError, vAddr, delaySlot, false, false);
-        })
-        IType(SDC1, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-
-            checkCop1Usable();
-            checkAddressAlignment(vAddr, 8, delaySlot, false, false);
-            exn = translateAddress(vAddr, &pAddr, true);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, false);
-            if (!state.physmem.store(8, pAddr, state.cp1reg.fpr_d[rt]->l))
-                returnException(BusError, vAddr, delaySlot, false, false);
-        })
-        IType(SDC2, instr, sign_extend, { debugger.halt("SDC2"); })
-        IType(SDL, instr, sign_extend, { debugger.halt("SDL"); })
-        IType(SDR, instr, sign_extend, { debugger.halt("SDR"); })
-        IType(SH, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-
-            checkAddressAlignment(vAddr, 2, delaySlot, false, false);
-            exn = translateAddress(vAddr, &pAddr, true);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, false);
-            if (!state.physmem.store(2, pAddr, state.reg.gpr[rt]))
-                returnException(BusError, vAddr, delaySlot, false, false);
-        })
-        IType(SLTI, instr, sign_extend, {
-            state.reg.gpr[rt] = (i64)state.reg.gpr[rs] < (i64)imm;
-        })
-        IType(SLTIU, instr, sign_extend, {
-            state.reg.gpr[rt] = state.reg.gpr[rs] < imm;
-        })
-        IType(SW, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-
-            checkAddressAlignment(vAddr, 4, delaySlot, false, false);
-            exn = translateAddress(vAddr, &pAddr, true);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, false);
-            if (!state.physmem.store(4, pAddr, state.reg.gpr[rt]))
-                returnException(BusError, vAddr, delaySlot, false, false);
-        })
-        IType(SWC1, instr, sign_extend, {
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-
-            checkCop1Usable();
-            checkAddressAlignment(vAddr, 4, delaySlot, false, false);
-            exn = translateAddress(vAddr, &pAddr, true);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, false);
-            if (!state.physmem.store(4, pAddr, state.cp1reg.fpr_s[rt]->w))
-                returnException(BusError, vAddr, delaySlot, false, false);
-        })
-        IType(SWC2, instr, sign_extend, { debugger.halt("SWC2"); })
-        IType(SWC3, instr, sign_extend, { debugger.halt("SWC3"); })
-        IType(SWL, instr, sign_extend, {
-            // debugger.halt("SWL instruction");
-            // @todo only BigEndianMem & !ReverseEndian for now
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-
-            // Not calling checkAddressAlignment:
-            // this instruction specifically ignores the alignment
-            exn = translateAddress(vAddr, &pAddr, true);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, false);
-
-            size_t count = 4 - (pAddr % 4);
-            u32 val = state.reg.gpr[rt];
-            unsigned int shift = 24;
-            for (size_t nr = 0; nr < count; nr++, shift -= 8) {
-                u64 byte = (val >> shift) & 0xfflu;
-                if (!state.physmem.store(1, pAddr + nr, byte)) {
-                    returnException(BusError, vAddr, delaySlot, false, false);
-                }
-            }
-        })
-        IType(SWR, instr, sign_extend, {
-            // debugger.halt("SWR instruction");
-            // @todo only BigEndianMem & !ReverseEndian for now
-            u64 vAddr = state.reg.gpr[rs] + imm;
-            u64 pAddr;
-
-            // Not calling checkAddressAlignment:
-            // this instruction specifically ignores the alignment
-            exn = translateAddress(vAddr, &pAddr, true);
-            if (exn != None)
-                returnException(exn, vAddr, delaySlot, false, false);
-
-            size_t count = 1 + (pAddr % 4);
-            u32 val = state.reg.gpr[rt];
-            unsigned int shift = 0;
-            for (size_t nr = 0; nr < count; nr++, shift += 8) {
-                u64 byte = (val >> shift) & 0xfflu;
-                if (!state.physmem.store(1, pAddr - nr, byte)) {
-                    returnException(BusError, vAddr, delaySlot, false, false);
-                }
-            }
-        })
-        IType(XORI, instr, zero_extend, {
-            state.reg.gpr[rt] = state.reg.gpr[rs] ^ imm;
-        })
-
-        default:
-            debugger.halt("Unsupported Opcode");
+        case State::Action::Jump:
+            state.reg.pc = state.cpu.nextPc;
+            state.cpu.nextAction = State::Action::Continue;
+            eval(false);
             break;
     }
-    return false;
 }
 
 void run()

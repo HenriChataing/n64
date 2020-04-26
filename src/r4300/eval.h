@@ -10,14 +10,14 @@ namespace Cop0 {
 /**
  * @brief Interpret an instruction with the COP0 special opcode.
  */
-bool eval(u32 instr, bool delaySlot);
+void eval(u32 instr, bool delaySlot);
 }; /* namespace Cop0 */
 
 namespace Cop1 {
 /**
  * @brief Interpret an instruction with the COP1 special opcode.
  */
-bool eval(u32 instr, bool delaySlot);
+void eval(u32 instr, bool delaySlot);
 }; /* namespace Cop1 */
 
 namespace Eval {
@@ -31,7 +31,7 @@ void run();
  * @brief Execute exactly one instruction.
  * @return true if the instruction caused an exception
  */
-bool step();
+void step();
 
 /**
  * @brief Raise an exception and update the state of the processor.

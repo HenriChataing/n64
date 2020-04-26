@@ -61,7 +61,7 @@ using namespace R4300;
     if (!CU1()) { \
         Eval::takeException(CoprocessorUnusable, 0, \
                             delaySlot, instr, false, 1u); \
-        return true; \
+        return; \
     }
 
 namespace R4300 {
@@ -87,7 +87,7 @@ void cp1reg::setFprAliases(bool fr)
 
 namespace Cop1 {
 
-bool eval(u32 instr, bool delaySlot)
+void eval(u32 instr, bool delaySlot)
 {
     using namespace Mips::Copz;
     using namespace Mips::Cop1;
@@ -649,8 +649,8 @@ bool eval(u32 instr, bool delaySlot)
             std::cerr << "fmt is " << std::hex << Mips::getFmt(instr) << std::endl;
             std::cerr << "instr is " << std::hex << instr << std::endl;
             debugger.halt("COP1::* unsupported instruction");
+            break;
     }
-    return false;
 }
 
 }; /* Cop1 */

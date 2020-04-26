@@ -493,7 +493,7 @@ void eval_ERET(u32 instr) {
     }
 }
 
-bool eval(u32 instr, bool delaySlot)
+void eval(u32 instr, bool delaySlot)
 {
     (void)delaySlot;
     switch (Mips::getRs(instr)) {
@@ -512,14 +512,13 @@ bool eval(u32 instr, bool delaySlot)
                 case Mips::Cop0::ERET:  eval_ERET(instr); break;
                 default:
                     debugger.halt("COP0 unsupported COFUN instruction");
-                    return true;
+                    break;
             }
             break;
         default:
             debugger.halt("COP0 unsupported instruction");
-            return true;
+            break;
     }
-    return false;
 }
 
 }; /* namespace Cop0 */
