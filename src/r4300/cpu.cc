@@ -108,13 +108,10 @@ static Exception loadw(u64 addr, u32 *val) {
  * @brief Preprocessor template for I-type instructions.
  *
  * The registers and immediate value are automatically extracted from the
- * instruction and added as rs, rt, imm in a new scope. The immediate value
- * is sign extended into a 64 bit unsigned integer.
+ * instruction and added as rs, rt, imm in a new scope.
  *
- * @param opcode            Instruction opcode
  * @param instr             Original instruction
  * @param extend            Extension method (sign or zero extend)
- * @param ...               Instruction implementation
  */
 #define IType(instr, extend) \
     u32 rs = Mips::getRs(instr); \
@@ -128,9 +125,7 @@ static Exception loadw(u64 addr, u32 *val) {
  * The registers are automatically extracted from the instruction and added
  * as rd, rs, rt, shamnt in a new scope.
  *
- * @param opcode            Instruction opcode
  * @param instr             Original instruction
- * @param ...               Instruction implementation
  */
 #define RType(instr) \
     u32 rd = Mips::getRd(instr); \
@@ -142,20 +137,25 @@ static Exception loadw(u64 addr, u32 *val) {
 /**
  * @brief Raise an exception and update the state of the processor.
  *
- * @param vAddr         Virtual address being accessed.
- * @param delaySlot     Whether the exception occured in a branch delay
- *                      instruction.
- * @param instr         Whether the exception was triggered by an instruction
- *                      fetch.
- * @param load          Whether the exception was triggered by a load or store
- *                      operation.
+ * @param vAddr
+ *      Virtual address being accessed. Required for AddressError,
+ *      TLBRefill, XTLBRefill, TLBInvalid, TLBModified,
+ *      VirtualCoherency exceptions.
+ * @param delaySlot
+ *      Whether the exception occured in a branch delay instruction.
+ * @param instr
+ *      Whether the exception was triggered by an instruction fetch.
+ * @param load
+ *      Whether the exception was triggered by a load or store operation.
+ * @param ce
+ *      Index of the coprocessor for CoprocessorUnusable exceptions.
  */
 void takeException(Exception exn, u64 vAddr,
                    bool delaySlot, bool instr, bool load, u32 ce)
 {
-    u32 exccode = 0;
     // Default vector valid for all general exceptions.
-    u64 vector = 0x180llu;
+    u64 vector = 0x180u;
+    u32 exccode = 0;
 
     // Following the diagrams printed in the following section of the
     // reference manual:
@@ -182,7 +182,7 @@ void takeException(Exception exn, u64 vAddr,
         case TLBRefill:
         case XTLBRefill:
             vector = exn == XTLBRefill ? 0x080llu : 0x000llu;
-            /* fallthroug */
+            /* fallthrough */
         // TLB Invalid occurs when a virtual address reference matches a
         // TLB entry that is marked invalid.
         case TLBInvalid:
@@ -336,21 +336,27 @@ void takeException(Exception exn, u64 vAddr,
     state.cpu.nextPc = pc;
 }
 
-#define returnException(...) \
-    { \
-        takeException(__VA_ARGS__); \
-        return; \
-    }
+/**
+ * Take the exception \p exn and return from the current function
+ * if it is not None.
+ */
+#define checkException(exn, vAddr, delaySlot, instr, load, ce)                 \
+({                                                                             \
+    Exception __exn = (exn);                                                   \
+    if (__exn != Exception::None) {                                            \
+        takeException(__exn, (vAddr), (delaySlot), (instr), (load), (ce));     \
+        return;                                                                \
+    }                                                                          \
+})
 
 /**
  * @brief Check whether an interrupt exception is raised from the current state.
  *  Take the interrupt exception if this is the case.
  *
- * @param vAddr         Current value of the program counter
  * @param delaySlot     True iff \p vAddr points to a delay slot instruction
  * @return              True iff an Interrupt Exception is taken
  */
-bool checkInterrupt(u64 vAddr, bool delaySlot)
+bool checkInterrupt(bool delaySlot)
 {
     // For the interrupt to be taken, the interrupts must globally enabled
     // (IE = 1) and the particular interrupt must be unmasked (IM[irq] = 1).
@@ -359,7 +365,7 @@ bool checkInterrupt(u64 vAddr, bool delaySlot)
     if (EXL() || !IE() || (IM() & IP()) == 0) {
         return false;
     } else {
-        takeException(Interrupt, vAddr, delaySlot, false, false);
+        takeException(Interrupt, delaySlot, false, false, 0);
         return true;
     }
 }
@@ -986,11 +992,11 @@ void eval_CACHE(u32 instr, bool delaySlot) {
 }
 
 void eval_COP2(u32 instr, bool delaySlot) {
-    takeException(CoprocessorUnusable, 0, delaySlot, instr, false, 2);
+    takeException(CoprocessorUnusable, 0, delaySlot, false, false, 2);
 }
 
 void eval_COP3(u32 instr, bool delaySlot) {
-    takeException(CoprocessorUnusable, 0, delaySlot, instr, false, 3);
+    takeException(CoprocessorUnusable, 0, delaySlot, false, false, 3);
 }
 
 void eval_DADDI(u32 instr, bool delaySlot) {
@@ -1021,72 +1027,74 @@ void eval_JAL(u32 instr, bool delaySlot) {
 void eval_LB(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
 
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
     u8 val;
 
-    exn = translateAddress(vAddr, &pAddr, false);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, true);
-    exn = loadb(pAddr, &val);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, true);
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, delaySlot, false, true, 0);
+    checkException(
+        loadb(pAddr, &val),
+        vAddr, delaySlot, false, true, 0);
+
     state.reg.gpr[rt] = sign_extend<u64, u8>(val);
 }
 
 void eval_LBU(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
 
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
     u8 val;
 
-    exn = translateAddress(vAddr, &pAddr, false);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, true);
-    exn = loadb(pAddr, &val);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, true);
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, delaySlot, false, true, 0);
+    checkException(
+        loadb(pAddr, &val),
+        vAddr, delaySlot, false, true, 0);
+
     state.reg.gpr[rt] = zero_extend<u64, u8>(val);
 }
 
 void eval_LD(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
 
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr, val;
 
     checkAddressAlignment(vAddr, 8, delaySlot, false, true);
-    exn = translateAddress(vAddr, &pAddr, false);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, true);
-    if (!state.physmem.load(8, pAddr, &val))
-        returnException(BusError, vAddr, delaySlot, false, true);
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, delaySlot, false, true, 0);
+    checkException(
+        state.physmem.load(8, pAddr, &val) ? None : BusError,
+        vAddr, delaySlot, false, true, 0);
+
     state.reg.gpr[rt] = val;
 }
 
 void eval_LDC1(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
 
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr, val;
 
     checkCop1Usable();
     checkAddressAlignment(vAddr, 8, delaySlot, false, true);
-    exn = translateAddress(vAddr, &pAddr, false);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, true);
-    if (!state.physmem.load(8, pAddr, &val))
-        returnException(BusError, vAddr, delaySlot, false, true);
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, delaySlot, false, true, 0);
+    checkException(
+        state.physmem.load(8, pAddr, &val) ? None : BusError,
+        vAddr, delaySlot, false, true, 0);
+
     state.cp1reg.fpr_d[rt]->l = val;
 }
 
 void eval_LDC2(u32 instr, bool delaySlot) {
-    takeException(CoprocessorUnusable, 0, delaySlot, instr, false, 2);
+    takeException(CoprocessorUnusable, 0, delaySlot, false, true, 2);
     debugger.halt("LDC2");
 }
 
@@ -1103,36 +1111,36 @@ void eval_LDR(u32 instr, bool delaySlot) {
 void eval_LH(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
 
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
     u16 val;
 
     checkAddressAlignment(vAddr, 2, delaySlot, false, true);
-    exn = translateAddress(vAddr, &pAddr, false);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, true);
-    exn = loadh(pAddr, &val);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, true);
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, delaySlot, false, true, 0);
+    checkException(
+        loadh(pAddr, &val),
+        vAddr, delaySlot, false, true, 0);
+
     state.reg.gpr[rt] = sign_extend<u64, u16>(val);
 }
 
 void eval_LHU(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
 
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
     u16 val;
 
     checkAddressAlignment(vAddr, 2, delaySlot, false, true);
-    exn = translateAddress(vAddr, &pAddr, false);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, true);
-    exn = loadh(pAddr, &val);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, true);
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, delaySlot, false, true, 0);
+    checkException(
+        loadh(pAddr, &val),
+        vAddr, delaySlot, false, true, 0);
+
     state.reg.gpr[rt] = zero_extend<u64, u16>(val);
 }
 
@@ -1154,47 +1162,47 @@ void eval_LUI(u32 instr, bool delaySlot) {
 void eval_LW(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
 
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
     u32 val;
 
     checkAddressAlignment(vAddr, 4, delaySlot, false, true);
-    exn = translateAddress(vAddr, &pAddr, false);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, true);
-    exn = loadw(pAddr, &val);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, true);
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, delaySlot, false, true, 0);
+    checkException(
+        loadw(pAddr, &val),
+        vAddr, delaySlot, false, true, 0);
+
     state.reg.gpr[rt] = sign_extend<u64, u32>(val);
 }
 
 void eval_LWC1(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
 
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
     u32 val;
 
     checkCop1Usable();
     checkAddressAlignment(vAddr, 4, delaySlot, false, true);
-    exn = translateAddress(vAddr, &pAddr, false);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, true);
-    exn = loadw(pAddr, &val);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, true);
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, delaySlot, false, true, 0);
+    checkException(
+        loadw(pAddr, &val),
+        vAddr, delaySlot, false, true, 0);
+
     state.cp1reg.fpr_s[rt]->w = val;
 }
 
 void eval_LWC2(u32 instr, bool delaySlot) {
-    takeException(CoprocessorUnusable, 0, delaySlot, instr, false, 2);
+    takeException(CoprocessorUnusable, 0, delaySlot, false, true, 2);
     debugger.halt("LWC2");
 }
 
 void eval_LWC3(u32 instr, bool delaySlot) {
-    takeException(CoprocessorUnusable, 0, delaySlot, instr, false, 3);
+    takeException(CoprocessorUnusable, 0, delaySlot, false, true, 3);
     debugger.halt("LWC3");
 }
 
@@ -1202,15 +1210,14 @@ void eval_LWL(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
 
     // @todo only BigEndianMem & !ReverseEndian for now
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
 
     // Not calling checkAddressAlignment:
     // this instruction specifically ignores the alignment
-    exn = translateAddress(vAddr, &pAddr, true);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, false);
+    checkException(
+        translateAddress(vAddr, &pAddr, true),
+        vAddr, delaySlot, false, false, 0);
 
     size_t count = 4 - (pAddr % 4);
     unsigned int shift = 24;
@@ -1220,7 +1227,8 @@ void eval_LWL(u32 instr, bool delaySlot) {
     for (size_t nr = 0; nr < count; nr++, shift -= 8) {
         u64 byte = 0;
         if (!state.physmem.load(1, pAddr + nr, &byte)) {
-            returnException(BusError, vAddr, delaySlot, false, false);
+            takeException(BusError, vAddr, delaySlot, false, false, 0);
+            return;
         }
         val |= (byte << shift);
     }
@@ -1233,15 +1241,14 @@ void eval_LWR(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
 
     // @todo only BigEndianMem & !ReverseEndian for now
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
 
     // Not calling checkAddressAlignment:
     // this instruction specifically ignores the alignment
-    exn = translateAddress(vAddr, &pAddr, true);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, false);
+    checkException(
+        translateAddress(vAddr, &pAddr, true),
+        vAddr, delaySlot, false, false, 0);
 
     size_t count = 1 + (pAddr % 4);
     unsigned int shift = 0;
@@ -1252,7 +1259,8 @@ void eval_LWR(u32 instr, bool delaySlot) {
     for (size_t nr = 0; nr < count; nr++, shift += 8) {
         u64 byte = 0;
         if (!state.physmem.load(1, pAddr - nr, &byte)) {
-            returnException(BusError, vAddr, delaySlot, false, false);
+            takeException(BusError, vAddr, delaySlot, false, false);
+            return;
         }
         val |= (byte << shift);
     }
@@ -1264,18 +1272,18 @@ void eval_LWR(u32 instr, bool delaySlot) {
 void eval_LWU(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
 
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
     u32 val;
 
     checkAddressAlignment(vAddr, 4, delaySlot, false, true);
-    exn = translateAddress(vAddr, &pAddr, false);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, true);
-    exn = loadw(pAddr, &val);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, true);
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, delaySlot, false, true, 0);
+    checkException(
+        loadw(pAddr, &val),
+        vAddr, delaySlot, false, true, 0);
+
     state.reg.gpr[rt] = zero_extend<u64, u32>(val);
 }
 
@@ -1287,15 +1295,15 @@ void eval_ORI(u32 instr, bool delaySlot) {
 void eval_SB(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
 
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
 
-    exn = translateAddress(vAddr, &pAddr, true);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, false);
-    if (!state.physmem.store(1, pAddr, state.reg.gpr[rt]))
-        returnException(BusError, vAddr, delaySlot, false, false);
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, delaySlot, false, false, 0);
+    checkException(
+        state.physmem.store(1, pAddr, state.reg.gpr[rt]) ? None : BusError,
+        vAddr, delaySlot, false, false, 0);
 }
 
 void eval_SC(u32 instr, bool delaySlot) {
@@ -1311,36 +1319,36 @@ void eval_SCD(u32 instr, bool delaySlot) {
 void eval_SD(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
 
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
 
     checkAddressAlignment(vAddr, 8, delaySlot, false, false);
-    exn = translateAddress(vAddr, &pAddr, true);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, false);
-    if (!state.physmem.store(8, pAddr, state.reg.gpr[rt]))
-        returnException(BusError, vAddr, delaySlot, false, false);
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, delaySlot, false, false, 0);
+    checkException(
+        state.physmem.store(8, pAddr, state.reg.gpr[rt]) ? None : BusError,
+        vAddr, delaySlot, false, false, 0);
 }
 
 void eval_SDC1(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
 
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
 
     checkCop1Usable();
     checkAddressAlignment(vAddr, 8, delaySlot, false, false);
-    exn = translateAddress(vAddr, &pAddr, true);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, false);
-    if (!state.physmem.store(8, pAddr, state.cp1reg.fpr_d[rt]->l))
-        returnException(BusError, vAddr, delaySlot, false, false);
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, delaySlot, false, false, 0);
+    checkException(
+        state.physmem.store(8, pAddr, state.cp1reg.fpr_d[rt]->l) ? None : BusError,
+        vAddr, delaySlot, false, false, 0);
 }
 
 void eval_SDC2(u32 instr, bool delaySlot) {
-    takeException(CoprocessorUnusable, 0, delaySlot, instr, false, 2);
+    takeException(CoprocessorUnusable, 0, delaySlot, false, true, 2);
     debugger.halt("SDC2");
 }
 
@@ -1357,16 +1365,16 @@ void eval_SDR(u32 instr, bool delaySlot) {
 void eval_SH(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
 
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
 
     checkAddressAlignment(vAddr, 2, delaySlot, false, false);
-    exn = translateAddress(vAddr, &pAddr, true);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, false);
-    if (!state.physmem.store(2, pAddr, state.reg.gpr[rt]))
-        returnException(BusError, vAddr, delaySlot, false, false);
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, delaySlot, false, false, 0);
+    checkException(
+        state.physmem.store(2, pAddr, state.reg.gpr[rt]) ? None : BusError,
+        vAddr, delaySlot, false, false, 0);
 }
 
 void eval_SLTI(u32 instr, bool delaySlot) {
@@ -1382,41 +1390,41 @@ void eval_SLTIU(u32 instr, bool delaySlot) {
 void eval_SW(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
 
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
 
     checkAddressAlignment(vAddr, 4, delaySlot, false, false);
-    exn = translateAddress(vAddr, &pAddr, true);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, false);
-    if (!state.physmem.store(4, pAddr, state.reg.gpr[rt]))
-        returnException(BusError, vAddr, delaySlot, false, false);
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, delaySlot, false, false, 0);
+    checkException(
+        state.physmem.store(4, pAddr, state.reg.gpr[rt]) ? None : BusError,
+        vAddr, delaySlot, false, false, 0);
 }
 
 void eval_SWC1(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
 
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
 
     checkCop1Usable();
     checkAddressAlignment(vAddr, 4, delaySlot, false, false);
-    exn = translateAddress(vAddr, &pAddr, true);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, false);
-    if (!state.physmem.store(4, pAddr, state.cp1reg.fpr_s[rt]->w))
-        returnException(BusError, vAddr, delaySlot, false, false);
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, delaySlot, false, false, 0);
+    checkException(
+        state.physmem.store(4, pAddr, state.reg.gpr[rt]) ? None : BusError,
+        vAddr, delaySlot, false, false, 0);
 }
 
 void eval_SWC2(u32 instr, bool delaySlot) {
-    takeException(CoprocessorUnusable, 0, delaySlot, instr, false, 2);
+    takeException(CoprocessorUnusable, 0, delaySlot, false, false, 2);
     debugger.halt("SWC2");
 }
 
 void eval_SWC3(u32 instr, bool delaySlot) {
-    takeException(CoprocessorUnusable, 0, delaySlot, instr, false, 2);
+    takeException(CoprocessorUnusable, 0, delaySlot, false, false, 2);
     debugger.halt("SWC3");
 }
 
@@ -1424,15 +1432,14 @@ void eval_SWL(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
     // debugger.halt("SWL instruction");
     // @todo only BigEndianMem & !ReverseEndian for now
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
 
     // Not calling checkAddressAlignment:
     // this instruction specifically ignores the alignment
-    exn = translateAddress(vAddr, &pAddr, true);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, false);
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, delaySlot, false, false, 0);
 
     size_t count = 4 - (pAddr % 4);
     u32 val = state.reg.gpr[rt];
@@ -1440,7 +1447,8 @@ void eval_SWL(u32 instr, bool delaySlot) {
     for (size_t nr = 0; nr < count; nr++, shift -= 8) {
         u64 byte = (val >> shift) & 0xfflu;
         if (!state.physmem.store(1, pAddr + nr, byte)) {
-            returnException(BusError, vAddr, delaySlot, false, false);
+            takeException(BusError, vAddr, delaySlot, false, false, 0);
+            return;
         }
     }
 }
@@ -1449,15 +1457,14 @@ void eval_SWR(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
     // debugger.halt("SWR instruction");
     // @todo only BigEndianMem & !ReverseEndian for now
-    Exception exn;
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
 
     // Not calling checkAddressAlignment:
     // this instruction specifically ignores the alignment
-    exn = translateAddress(vAddr, &pAddr, true);
-    if (exn != None)
-        returnException(exn, vAddr, delaySlot, false, false);
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, delaySlot, false, false, 0);
 
     size_t count = 1 + (pAddr % 4);
     u32 val = state.reg.gpr[rt];
@@ -1465,7 +1472,8 @@ void eval_SWR(u32 instr, bool delaySlot) {
     for (size_t nr = 0; nr < count; nr++, shift += 8) {
         u64 byte = (val >> shift) & 0xfflu;
         if (!state.physmem.store(1, pAddr - nr, byte)) {
-            returnException(BusError, vAddr, delaySlot, false, false);
+            takeException(BusError, vAddr, delaySlot, false, false);
+            return;
         }
     }
 }
@@ -1544,8 +1552,6 @@ static void eval(bool delaySlot)
     u64 vAddr = state.reg.pc;
     u64 pAddr;
     u32 instr;
-    u32 opcode;
-    R4300::Exception exn;
 
     state.cp0reg.incrCount();
 
@@ -1553,16 +1559,16 @@ static void eval(bool delaySlot)
     if (state.cycles++ == state.hwreg.vi_NextIntr) {
         raise_VI_INTR();
     }
-    if (checkInterrupt(vAddr, delaySlot)) {
+    if (checkInterrupt(delaySlot)) {
         return;
     }
 
-    exn = translateAddress(vAddr, &pAddr, false);
-    if (exn != Exception::None)
-        returnException(exn, vAddr, delaySlot, true, true);
-    exn = loadw(pAddr, &instr);
-    if (exn != Exception::None)
-        returnException(exn, vAddr, delaySlot, true, true);
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, delaySlot, true, true, 0);
+    checkException(
+        loadw(pAddr, &instr),
+        vAddr, delaySlot, true, true, 0);
 
     debugger.cpuTrace.put(TraceEntry(vAddr, instr));
 
