@@ -383,9 +383,12 @@ static u8 noise() {
     return 128;
 }
 
-static void print_pixel(std::string label, pixel_t *px) {
+static void print_pixel(pixel_t *px) {
+    if (!debugger.verbose.RDP)
+        return;
+
     std::cerr << std::dec;
-    std::cerr << label << " x,y,z:" << px->edge_coefs.x;
+    std::cerr << "  x,y,z:" << px->edge_coefs.x;
     std::cerr << "," << px->edge_coefs.y << "," << px->zbuffer_coefs.z;
     std::cerr << " tex:" << (int)px->texture_coefs.s << "," << (int)px->texture_coefs.t;
     std::cerr << "," << (int)px->texture_coefs.w;
@@ -876,10 +879,10 @@ static void pipeline_cc(pixel_t *px) {
  * first cycle can be injected as input of the second cycle.
  */
 static void pipeline_bl(pixel_t *px) {
-    color_t p;
-    color_t m;
-    u8 a;
-    u8 b;
+    color_t p = { 0 };
+    color_t m = { 0 };
+    u8 a = 0;
+    u8 b = 0;
 
     switch (other_modes.b_m1a_0) {
     case BLENDER_SRC_SEL_IN_COLOR: p = px->combined_color; break; // blended color in second cycle
@@ -914,7 +917,6 @@ static void pipeline_bl(pixel_t *px) {
     if (other_modes.alpha_compare_en) {
         // dither_alpha_en
     }
-    // print_pixel("BL", px);
 }
 
 /**
@@ -1120,6 +1122,7 @@ static void render_span(bool left, unsigned level, unsigned tile,
             pipeline_mi_load(&px);
             pipeline_bl(&px);
             pipeline_mi_store(&px);
+            print_pixel(&px);
 
             px.mem_color_addr += px_size;
             if (shade) {
@@ -1148,6 +1151,7 @@ static void render_span(bool left, unsigned level, unsigned tile,
             pipeline_mi_load(&px);
             pipeline_bl(&px);
             pipeline_mi_store(&px);
+            print_pixel(&px);
 
             px.mem_color_addr -= px_size;
             if (shade) {
@@ -1260,6 +1264,8 @@ static void read_zbuffer_coefs(u64 const *params, struct zbuffer_coefs *zbuffer)
 }
 
 static void print_edge_coefs(struct edge_coefs const *edge) {
+    if (!debugger.verbose.RDP)
+        return;
     std::cerr << "  yl: "; print_s29_2(edge->yl); std::cerr << std::endl;
     std::cerr << "  ym: "; print_s29_2(edge->ym); std::cerr << std::endl;
     std::cerr << "  yh: "; print_s29_2(edge->yh); std::cerr << std::endl;
@@ -1272,6 +1278,8 @@ static void print_edge_coefs(struct edge_coefs const *edge) {
 }
 
 static void print_shade_coefs(struct shade_coefs const *shade) {
+    if (!debugger.verbose.RDP)
+        return;
     std::cerr << "  r: ";    print_s15_16(shade->r); std::cerr << std::endl;
     std::cerr << "  g: ";    print_s15_16(shade->g); std::cerr << std::endl;
     std::cerr << "  b: ";    print_s15_16(shade->b); std::cerr << std::endl;
@@ -1291,6 +1299,8 @@ static void print_shade_coefs(struct shade_coefs const *shade) {
 }
 
 static void print_texture_coefs(struct texture_coefs const *texture) {
+    if (!debugger.verbose.RDP)
+        return;
     std::cerr << "  s: ";    print_s15_16(texture->s); std::cerr << std::endl;
     std::cerr << "  t: ";    print_s15_16(texture->t); std::cerr << std::endl;
     std::cerr << "  w: ";    print_s15_16(texture->w); std::cerr << std::endl;
@@ -1306,6 +1316,8 @@ static void print_texture_coefs(struct texture_coefs const *texture) {
 }
 
 static void print_zbuffer_coefs(struct zbuffer_coefs const *zbuffer) {
+    if (!debugger.verbose.RDP)
+        return;
     std::cerr << "  z: "; print_s15_16(zbuffer->z); std::cerr << std::endl;
     std::cerr << "  dzdx: "; print_s15_16(zbuffer->dzdx); std::cerr << std::endl;
     std::cerr << "  dzde: "; print_s15_16(zbuffer->dzde); std::cerr << std::endl;
@@ -1324,9 +1336,11 @@ static void render_triangle(u64 command, u64 const *params,
     struct texture_coefs texture;
     struct zbuffer_coefs zbuffer;
 
-    std::cerr << "  left: " << left << std::endl;
-    std::cerr << "  level: " << level << std::endl;
-    std::cerr << "  tile: " << tile << std::endl;
+    if (debugger.verbose.RDP) {
+        std::cerr << "  left: " << left << std::endl;
+        std::cerr << "  level: " << level << std::endl;
+        std::cerr << "  tile: " << tile << std::endl;
+    }
 
     read_edge_coefs(command, params, &edge);
     print_edge_coefs(&edge);
@@ -1416,88 +1430,78 @@ static void render_triangle(u64 command, u64 const *params,
 }
 
 void nonShadedTriangle(u64 command, u64 const *params) {
-    std::cerr << "DPC non-shaded triangle " << std::hex << command << std::endl;
     render_triangle(command, params, false, false, false);
 }
 
 void shadeTriangle(u64 command, u64 const *params) {
-    std::cerr << "DPC shade triangle " << std::hex << command << std::endl;
     render_triangle(command, params, true, false, false);
 }
 
 void textureTriangle(u64 command, u64 const *params) {
-    std::cerr << "DPC texture triangle " << std::hex << command << std::endl;
     render_triangle(command, params, false, true, false);
 }
 
 void shadeTextureTriangle(u64 command, u64 const *params) {
-    std::cerr << "DPC shade texture triangle " << std::hex << command << std::endl;
     render_triangle(command, params, true, true, false);
 }
 
 void nonShadedZbuffTriangle(u64 command, u64 const *params) {
-    std::cerr << "DPC non-shaded zbuff triangle " << std::hex << command << std::endl;
     render_triangle(command, params, false, false, true);
 }
 
 void shadeZbuffTriangle(u64 command, u64 const *params) {
-    std::cerr << "DPC shade zbuff triangle " << std::hex << command << std::endl;
     render_triangle(command, params, true, false, true);
 }
 
 void textureZbuffTriangle(u64 command, u64 const *params) {
-    std::cerr << "DPC texture zbuff triangle " << std::hex << command << std::endl;
     render_triangle(command, params, false, true, true);
 }
 
 void shadeTextureZbuffTriangle(u64 command, u64 const *params) {
-    std::cerr << "DPC shade texture zbuff triangle " << std::hex << command << std::endl;
     render_triangle(command, params, true, true, true);
 }
 
 void textureRectangle(u64 command, u64 const *params) {
-    std::cerr << "DPC texture rectangle " << std::hex << command << std::endl;
+    debugger.halt("texture_rectangle");
 }
 
 void textureRectangleFlip(u64 command, u64 const *params) {
-    std::cerr << "DPC texture rectangle flip " << std::hex << command << std::endl;
+    debugger.halt("texture_rectangle_flip");
 }
 
 void syncPipe(u64 command, u64 const *params) {
-    std::cerr << "DPC sync pipe " << std::hex << command << std::endl;
 }
 
 void syncTile(u64 command, u64 const *params) {
-    std::cerr << "DPC sync tile " << std::hex << command << std::endl;
 }
 
 void syncFull(u64 command, u64 const *params) {
-    std::cerr << "DPC sync full " << std::hex << command << std::endl;
 }
 
 void setKeyGB(u64 command, u64 const *params) {
-    std::cerr << "DPC set key GB " << std::hex << command << std::endl;
+    debugger.halt("set_key_gb");
 }
 
 void setKeyR(u64 command, u64 const *params) {
-    std::cerr << "DPC set key R " << std::hex << command << std::endl;
+    debugger.halt("set_key_r");
 }
 
 void setConvert(u64 command, u64 const *params) {
-    std::cerr << "DPC set convert " << std::hex << command << std::endl;
+    debugger.halt("set_convert");
 }
 
 void setScissor(u64 command, u64 const *params) {
-    std::cerr << "DPC set scissor " << std::hex << command << std::endl;
     scissor.xh = (command >> 44) & 0xfffu;
     scissor.yh = (command >> 32) & 0xfffu;
     scissor.xl = (command >> 12) & 0xfffu;
     scissor.yl = (command >>  0) & 0xfffu;
 
-    std::cerr << "  xl: " << (float)scissor.xl / 4. << std::endl;
-    std::cerr << "  yl: " << (float)scissor.yl / 4. << std::endl;
-    std::cerr << "  xh: " << (float)scissor.xh / 4. << std::endl;
-    std::cerr << "  yh: " << (float)scissor.yh / 4. << std::endl;
+    if (debugger.verbose.RDP) {
+        std::cerr << "  xl: " << (float)scissor.xl / 4. << std::endl;
+        std::cerr << "  yl: " << (float)scissor.yl / 4. << std::endl;
+        std::cerr << "  xh: " << (float)scissor.xh / 4. << std::endl;
+        std::cerr << "  yh: " << (float)scissor.yh / 4. << std::endl;
+    }
 
     bool scissorField = (command & (1lu << 25)) != 0;
     bool oddEven = (command & (1lu << 25)) != 0;
@@ -1513,15 +1517,16 @@ void setScissor(u64 command, u64 const *params) {
 }
 
 void setPrimDepth(u64 command, u64 const *params) {
-    std::cerr << "DPC set prim depth " << std::hex << command << std::endl;
     prim_z      = (i16)((command >> 16) & 0xffffu);
     prim_deltaz = (i16)((command >>  0) & 0xffffu);
-    std::cerr << "  z: "; print_s15_16(prim_z); std::cerr << std::endl;
-    std::cerr << "  deltaz: "; print_s15_16(prim_deltaz); std::cerr << std::endl;
+
+    if (debugger.verbose.RDP) {
+        std::cerr << "  z: "; print_s15_16(prim_z); std::cerr << std::endl;
+        std::cerr << "  deltaz: "; print_s15_16(prim_deltaz); std::cerr << std::endl;
+    }
 }
 
 void setOtherModes(u64 command, u64 const *params) {
-    std::cerr << "DPC set other modes " << std::hex << command << std::endl;
     other_modes.atomic_prim = (command >> 55) & 0x1u;
     other_modes.cycle_type = (enum cycle_type)((command >> 52) & 0x3u);
     other_modes.persp_tex_en = (command >> 51) & 0x1u;
@@ -1560,63 +1565,62 @@ void setOtherModes(u64 command, u64 const *params) {
     other_modes.dither_alpha_en = (command >> 1) & 0x1u;
     other_modes.alpha_compare_en = (command >> 0) & 0x1u;
 
-    std::cerr << "  atomic_prim: " << other_modes.atomic_prim << std::endl;
-    std::cerr << "  cycle_type: " << other_modes.cycle_type << std::endl;
-    std::cerr << "  persp_tex_en: " << other_modes.persp_tex_en << std::endl;
-    std::cerr << "  detail_tex_en: " << other_modes.detail_tex_en << std::endl;
-    std::cerr << "  sharpen_tex_en: " << other_modes.sharpen_tex_en << std::endl;
-    std::cerr << "  tex_lod_en: " << other_modes.tex_lod_en << std::endl;
-    std::cerr << "  tlut_en: " << other_modes.tlut_en << std::endl;
-    std::cerr << "  tlut_type: " << other_modes.tlut_type << std::endl;
-    std::cerr << "  sample_type: " << other_modes.sample_type << std::endl;
-    std::cerr << "  mid_texel: " << other_modes.mid_texel << std::endl;
-    std::cerr << "  bi_lerp_0: " << other_modes.bi_lerp_0 << std::endl;
-    std::cerr << "  bi_lerp_1: " << other_modes.bi_lerp_1 << std::endl;
-    std::cerr << "  convert_one: " << other_modes.convert_one << std::endl;
-    std::cerr << "  key_en: " << other_modes.key_en << std::endl;
-    std::cerr << "  rgb_dither_sel: " << other_modes.rgb_dither_sel << std::endl;
-    std::cerr << "  alpha_dither_sel: " << other_modes.alpha_dither_sel << std::endl;
-    std::cerr << "  b_m1a_0: " << other_modes.b_m1a_0 << std::endl;
-    std::cerr << "  b_m1a_1: " << other_modes.b_m1a_1 << std::endl;
-    std::cerr << "  b_m1b_0: " << other_modes.b_m1b_0 << std::endl;
-    std::cerr << "  b_m1b_1: " << other_modes.b_m1b_1 << std::endl;
-    std::cerr << "  b_m2a_0: " << other_modes.b_m2a_0 << std::endl;
-    std::cerr << "  b_m2a_1: " << other_modes.b_m2a_1 << std::endl;
-    std::cerr << "  b_m2b_0: " << other_modes.b_m2b_0 << std::endl;
-    std::cerr << "  b_m2b_1: " << other_modes.b_m2b_1 << std::endl;
-    std::cerr << "  force_blend: " << other_modes.force_blend << std::endl;
-    std::cerr << "  alpha_cvg_select: " << other_modes.alpha_cvg_select << std::endl;
-    std::cerr << "  cvg_times_alpha: " << other_modes.cvg_times_alpha << std::endl;
-    std::cerr << "  z_mode: " << other_modes.z_mode << std::endl;
-    std::cerr << "  cvg_dest: " << other_modes.cvg_dest << std::endl;
-    std::cerr << "  color_on_cvg: " << other_modes.color_on_cvg << std::endl;
-    std::cerr << "  image_read_en: " << other_modes.image_read_en << std::endl;
-    std::cerr << "  z_update_en: " << other_modes.z_update_en << std::endl;
-    std::cerr << "  z_compare_en: " << other_modes.z_compare_en << std::endl;
-    std::cerr << "  antialias_en: " << other_modes.antialias_en << std::endl;
-    std::cerr << "  z_source_sel: " << other_modes.z_source_sel << std::endl;
-    std::cerr << "  dither_alpha_en: " << other_modes.dither_alpha_en << std::endl;
-    std::cerr << "  alpha_compare_en: " << other_modes.alpha_compare_en << std::endl;
+    if (debugger.verbose.RDP) {
+        std::cerr << "  atomic_prim: " << other_modes.atomic_prim << std::endl;
+        std::cerr << "  cycle_type: " << other_modes.cycle_type << std::endl;
+        std::cerr << "  persp_tex_en: " << other_modes.persp_tex_en << std::endl;
+        std::cerr << "  detail_tex_en: " << other_modes.detail_tex_en << std::endl;
+        std::cerr << "  sharpen_tex_en: " << other_modes.sharpen_tex_en << std::endl;
+        std::cerr << "  tex_lod_en: " << other_modes.tex_lod_en << std::endl;
+        std::cerr << "  tlut_en: " << other_modes.tlut_en << std::endl;
+        std::cerr << "  tlut_type: " << other_modes.tlut_type << std::endl;
+        std::cerr << "  sample_type: " << other_modes.sample_type << std::endl;
+        std::cerr << "  mid_texel: " << other_modes.mid_texel << std::endl;
+        std::cerr << "  bi_lerp_0: " << other_modes.bi_lerp_0 << std::endl;
+        std::cerr << "  bi_lerp_1: " << other_modes.bi_lerp_1 << std::endl;
+        std::cerr << "  convert_one: " << other_modes.convert_one << std::endl;
+        std::cerr << "  key_en: " << other_modes.key_en << std::endl;
+        std::cerr << "  rgb_dither_sel: " << other_modes.rgb_dither_sel << std::endl;
+        std::cerr << "  alpha_dither_sel: " << other_modes.alpha_dither_sel << std::endl;
+        std::cerr << "  b_m1a_0: " << other_modes.b_m1a_0 << std::endl;
+        std::cerr << "  b_m1a_1: " << other_modes.b_m1a_1 << std::endl;
+        std::cerr << "  b_m1b_0: " << other_modes.b_m1b_0 << std::endl;
+        std::cerr << "  b_m1b_1: " << other_modes.b_m1b_1 << std::endl;
+        std::cerr << "  b_m2a_0: " << other_modes.b_m2a_0 << std::endl;
+        std::cerr << "  b_m2a_1: " << other_modes.b_m2a_1 << std::endl;
+        std::cerr << "  b_m2b_0: " << other_modes.b_m2b_0 << std::endl;
+        std::cerr << "  b_m2b_1: " << other_modes.b_m2b_1 << std::endl;
+        std::cerr << "  force_blend: " << other_modes.force_blend << std::endl;
+        std::cerr << "  alpha_cvg_select: " << other_modes.alpha_cvg_select << std::endl;
+        std::cerr << "  cvg_times_alpha: " << other_modes.cvg_times_alpha << std::endl;
+        std::cerr << "  z_mode: " << other_modes.z_mode << std::endl;
+        std::cerr << "  cvg_dest: " << other_modes.cvg_dest << std::endl;
+        std::cerr << "  color_on_cvg: " << other_modes.color_on_cvg << std::endl;
+        std::cerr << "  image_read_en: " << other_modes.image_read_en << std::endl;
+        std::cerr << "  z_update_en: " << other_modes.z_update_en << std::endl;
+        std::cerr << "  z_compare_en: " << other_modes.z_compare_en << std::endl;
+        std::cerr << "  antialias_en: " << other_modes.antialias_en << std::endl;
+        std::cerr << "  z_source_sel: " << other_modes.z_source_sel << std::endl;
+        std::cerr << "  dither_alpha_en: " << other_modes.dither_alpha_en << std::endl;
+        std::cerr << "  alpha_compare_en: " << other_modes.alpha_compare_en << std::endl;
+    }
 
     if (other_modes.cycle_type == CYCLE_TYPE_COPY)
         other_modes.sample_type = SAMPLE_TYPE_4X1;
 }
 
 void loadTlut(u64 command, u64 const *params) {
-    std::cerr << "DPC load tlut " << std::hex << command << std::endl;
+    debugger.halt("load_tlut");
 }
 
 void syncLoad(u64 command, u64 const *params) {
-    std::cerr << "DPC sync load " << std::hex << command << std::endl;
 }
 
 void setTileSize(u64 command, u64 const *params) {
-    std::cerr << "DPC set tile size " << std::hex << command << std::endl;
+    debugger.halt("set_tile_size");
 }
 
 void loadTile(u64 command, u64 const *params) {
-    std::cerr << "DPC load tile " << std::hex << command << std::endl;
-
     unsigned sl = (command >> 44) & 0xfffu;
     unsigned tl = (command >> 32) & 0xfffu;
     unsigned tile = (command >> 24) & 0x7u;
@@ -1628,12 +1632,13 @@ void loadTile(u64 command, u64 const *params) {
     tiles[tile].sh = sh;
     tiles[tile].th = th;
 
-    std::cerr << std::dec;
-    std::cerr << "  sl: " << (float)tiles[tile].sl / 4. << std::endl;
-    std::cerr << "  tl: " << (float)tiles[tile].tl / 4. << std::endl;
-    std::cerr << "  tile: " << tile << std::endl;
-    std::cerr << "  sh: " << (float)tiles[tile].sh / 4. << std::endl;
-    std::cerr << "  th: " << (float)tiles[tile].th / 4. << std::endl;
+    if (debugger.verbose.RDP) {
+        std::cerr << "  sl: " << (float)tiles[tile].sl / 4. << std::endl;
+        std::cerr << "  tl: " << (float)tiles[tile].tl / 4. << std::endl;
+        std::cerr << "  tile: " << std::dec << tile << std::endl;
+        std::cerr << "  sh: " << (float)tiles[tile].sh / 4. << std::endl;
+        std::cerr << "  th: " << (float)tiles[tile].th / 4. << std::endl;
+    }
 
     unsigned src_size = texture_image.size;
     unsigned dst_size = tiles[tile].size;
@@ -1664,8 +1669,6 @@ void loadTile(u64 command, u64 const *params) {
 }
 
 void setTile(u64 command, u64 const *params) {
-    std::cerr << "DPC set tile " << std::hex << command << std::endl;
-
     unsigned tile = (command >> 24) & 0x7u;
     tiles[tile].format = (enum image_data_format)((command >> 53) & 0x7u);
     tiles[tile].size = (enum pixel_size)((command >> 51) & 0x3u);
@@ -1681,20 +1684,22 @@ void setTile(u64 command, u64 const *params) {
     tiles[tile].mask_s = (command >> 4) & 0xfu;
     tiles[tile].shift_s = (command >> 0) & 0xfu;
 
-    std::cerr << "  format: " << std::dec << tiles[tile].format << std::endl;
-    std::cerr << "  size: " << tiles[tile].size << std::endl;
-    std::cerr << "  line: " << std::hex << tiles[tile].line << std::endl;
-    std::cerr << "  tmem_addr: " << std::hex << tiles[tile].tmem_addr << std::endl;
-    std::cerr << "  tile: " << std::dec << tile << std::endl;
-    std::cerr << "  palette: " << tiles[tile].palette << std::endl;
-    std::cerr << "  clamp_t: " << tiles[tile].clamp_t << std::endl;
-    std::cerr << "  mirror_t: " << tiles[tile].mirror_t << std::endl;
-    std::cerr << "  mask_t: " << std::hex << tiles[tile].mask_t << std::endl;
-    std::cerr << "  shift_t: " << std::hex << tiles[tile].shift_t << std::endl;
-    std::cerr << "  clamp_s: " << tiles[tile].clamp_s << std::endl;
-    std::cerr << "  mirror_s: " << tiles[tile].mirror_s << std::endl;
-    std::cerr << "  mask_s: " << std::hex << tiles[tile].mask_s << std::endl;
-    std::cerr << "  shift_s: " << std::hex << tiles[tile].shift_s << std::endl;
+    if (debugger.verbose.RDP) {
+        std::cerr << "  format: " << std::dec << tiles[tile].format << std::endl;
+        std::cerr << "  size: " << tiles[tile].size << std::endl;
+        std::cerr << "  line: " << std::hex << tiles[tile].line << std::endl;
+        std::cerr << "  tmem_addr: " << std::hex << tiles[tile].tmem_addr << std::endl;
+        std::cerr << "  tile: " << std::dec << tile << std::endl;
+        std::cerr << "  palette: " << tiles[tile].palette << std::endl;
+        std::cerr << "  clamp_t: " << tiles[tile].clamp_t << std::endl;
+        std::cerr << "  mirror_t: " << tiles[tile].mirror_t << std::endl;
+        std::cerr << "  mask_t: " << std::hex << tiles[tile].mask_t << std::endl;
+        std::cerr << "  shift_t: " << std::hex << tiles[tile].shift_t << std::endl;
+        std::cerr << "  clamp_s: " << tiles[tile].clamp_s << std::endl;
+        std::cerr << "  mirror_s: " << tiles[tile].mirror_s << std::endl;
+        std::cerr << "  mask_s: " << std::hex << tiles[tile].mask_s << std::endl;
+        std::cerr << "  shift_s: " << std::hex << tiles[tile].shift_s << std::endl;
+    }
 
     tiles[tile].type = convert_image_data_format(tiles[tile].format, tiles[tile].size);
     if (tiles[tile].type == IMAGE_DATA_FORMAT_INVAL) {
@@ -1708,18 +1713,18 @@ void setTile(u64 command, u64 const *params) {
 
 /** @brief Implement the fill rectangle command. */
 void fillRectangle(u64 command, u64 const *params) {
-    std::cerr << "DPC fill rectangle " << std::hex << command << std::endl;
-
     /* Input coordinates are in the 10.2 fixed point format. */
     unsigned xl = (command >> 44) & 0xfffu;
     unsigned yl = (command >> 32) & 0xfffu;
     unsigned xh = (command >> 12) & 0xfffu;
     unsigned yh = (command >>  0) & 0xfffu;
 
-    std::cerr << "  xl: " << (float)xl / 4. << std::endl;
-    std::cerr << "  yl: " << (float)yl / 4. << std::endl;
-    std::cerr << "  xh: " << (float)xh / 4. << std::endl;
-    std::cerr << "  yh: " << (float)yh / 4. << std::endl;
+    if (debugger.verbose.RDP) {
+        std::cerr << "  xl: " << (float)xl / 4. << std::endl;
+        std::cerr << "  yl: " << (float)yl / 4. << std::endl;
+        std::cerr << "  xh: " << (float)xh / 4. << std::endl;
+        std::cerr << "  yh: " << (float)yh / 4. << std::endl;
+    }
 
     /* Expect rasterizer to be in Fill cycle type. */
     if (other_modes.cycle_type != CYCLE_TYPE_FILL) {
@@ -1751,12 +1756,10 @@ void fillRectangle(u64 command, u64 const *params) {
  * only a few bits are used repeatedly.
  */
 void setFillColor(u64 command, u64 const *params) {
-    std::cerr << "DPC set fill color " << std::hex << command << std::endl;
     rdp.fill_color = command;
 }
 
 void setFogColor(u64 command, u64 const *params) {
-    std::cerr << "DPC set fog color " << std::hex << command << std::endl;
     rdp.fog_color = {
         (u8)(command >> 24),
         (u8)(command >> 16),
@@ -1766,7 +1769,6 @@ void setFogColor(u64 command, u64 const *params) {
 }
 
 void setBlendColor(u64 command, u64 const *params) {
-    std::cerr << "DPC set blend color " << std::hex << command << std::endl;
     rdp.blend_color = {
         (u8)(command >> 24),
         (u8)(command >> 16),
@@ -1776,7 +1778,6 @@ void setBlendColor(u64 command, u64 const *params) {
 }
 
 void setPrimColor(u64 command, u64 const *params) {
-    std::cerr << "DPC set prim color " << std::hex << command << std::endl;
     rdp.prim_color = {
         (u8)(command >> 24),
         (u8)(command >> 16),
@@ -1786,7 +1787,6 @@ void setPrimColor(u64 command, u64 const *params) {
 }
 
 void setEnvColor(u64 command, u64 const *params) {
-    std::cerr << "DPC set env color " << std::hex << command << std::endl;
     rdp.env_color = {
         (u8)(command >> 24),
         (u8)(command >> 16),
@@ -1796,8 +1796,6 @@ void setEnvColor(u64 command, u64 const *params) {
 }
 
 void setCombineMode(u64 command, u64 const *params) {
-    std::cerr << "DPC set combine mode " << std::hex << command << std::endl;
-
     combine_mode.sub_a_R_0 = (command >> 52) & 0xfu;
     combine_mode.mul_R_0   = (command >> 47) & 0x1fu;
     combine_mode.sub_a_A_0 = (command >> 44) & 0x7u;
@@ -1815,37 +1813,39 @@ void setCombineMode(u64 command, u64 const *params) {
     combine_mode.sub_b_A_1 = (command >>  3) & 0x7u;
     combine_mode.add_A_1   = (command >>  0) & 0x7u;
 
-    std::cerr << std::dec;
-    std::cerr << "  sub_a_R_0: " << combine_mode.sub_a_R_0 << std::endl;
-    std::cerr << "  sub_b_R_0: " << combine_mode.sub_b_R_0 << std::endl;
-    std::cerr << "  mul_R_0: " << combine_mode.mul_R_0 << std::endl;
-    std::cerr << "  add_R_0: " << combine_mode.add_R_0 << std::endl;
-    std::cerr << "  sub_a_A_0: " << combine_mode.sub_a_A_0 << std::endl;
-    std::cerr << "  sub_b_A_0: " << combine_mode.sub_b_A_0 << std::endl;
-    std::cerr << "  mul_A_0: " << combine_mode.mul_A_0 << std::endl;
-    std::cerr << "  add_A_0: " << combine_mode.add_A_0 << std::endl;
-    std::cerr << "  sub_a_R_1: " << combine_mode.sub_a_R_1 << std::endl;
-    std::cerr << "  sub_b_R_1: " << combine_mode.sub_b_R_1 << std::endl;
-    std::cerr << "  mul_R_1: " << combine_mode.mul_R_1 << std::endl;
-    std::cerr << "  add_R_1: " << combine_mode.add_R_1 << std::endl;
-    std::cerr << "  sub_a_A_1: " << combine_mode.sub_a_A_1 << std::endl;
-    std::cerr << "  sub_b_A_1: " << combine_mode.sub_b_A_1 << std::endl;
-    std::cerr << "  mul_A_1: " << combine_mode.mul_A_1 << std::endl;
-    std::cerr << "  add_A_1: " << combine_mode.add_A_1 << std::endl;
+    if (debugger.verbose.RDP) {
+        std::cerr << std::dec;
+        std::cerr << "  sub_a_R_0: " << combine_mode.sub_a_R_0 << std::endl;
+        std::cerr << "  sub_b_R_0: " << combine_mode.sub_b_R_0 << std::endl;
+        std::cerr << "  mul_R_0: " << combine_mode.mul_R_0 << std::endl;
+        std::cerr << "  add_R_0: " << combine_mode.add_R_0 << std::endl;
+        std::cerr << "  sub_a_A_0: " << combine_mode.sub_a_A_0 << std::endl;
+        std::cerr << "  sub_b_A_0: " << combine_mode.sub_b_A_0 << std::endl;
+        std::cerr << "  mul_A_0: " << combine_mode.mul_A_0 << std::endl;
+        std::cerr << "  add_A_0: " << combine_mode.add_A_0 << std::endl;
+        std::cerr << "  sub_a_R_1: " << combine_mode.sub_a_R_1 << std::endl;
+        std::cerr << "  sub_b_R_1: " << combine_mode.sub_b_R_1 << std::endl;
+        std::cerr << "  mul_R_1: " << combine_mode.mul_R_1 << std::endl;
+        std::cerr << "  add_R_1: " << combine_mode.add_R_1 << std::endl;
+        std::cerr << "  sub_a_A_1: " << combine_mode.sub_a_A_1 << std::endl;
+        std::cerr << "  sub_b_A_1: " << combine_mode.sub_b_A_1 << std::endl;
+        std::cerr << "  mul_A_1: " << combine_mode.mul_A_1 << std::endl;
+        std::cerr << "  add_A_1: " << combine_mode.add_A_1 << std::endl;
+    }
 }
 
 void setTextureImage(u64 command, u64 const *params) {
-    std::cerr << "DPC set texture image " << std::hex << command << std::endl;
-
     texture_image.format = (enum image_data_format)((command >> 53) & 0x7u);
     texture_image.size = (enum pixel_size)((command >> 51) & 0x3u);
     texture_image.width = 1u + ((command >> 32) & 0x3ffu);
     texture_image.addr = command & 0x3fffffflu;
 
-    std::cerr << "  format: " << std::dec << texture_image.format << std::endl;
-    std::cerr << "  size: " << std::dec << texture_image.size << std::endl;
-    std::cerr << "  width: " << std::dec << texture_image.width << std::endl;
-    std::cerr << "  addr: 0x" << std::hex << texture_image.addr << std::endl;
+    if (debugger.verbose.RDP) {
+        std::cerr << "  format: " << std::dec << texture_image.format << std::endl;
+        std::cerr << "  size: " << std::dec << texture_image.size << std::endl;
+        std::cerr << "  width: " << std::dec << texture_image.width << std::endl;
+        std::cerr << "  addr: 0x" << std::hex << texture_image.addr << std::endl;
+    }
 
     if ((texture_image.addr % 8u) != 0) {
         std::cerr << "SetTextureImage() misaligned data address (";
@@ -1859,10 +1859,12 @@ void setTextureImage(u64 command, u64 const *params) {
 }
 
 void setZImage(u64 command, u64 const *params) {
-    std::cerr << "DPC set Z image " << std::hex << command << std::endl;
     z_image.addr = command & 0x3fffffflu;
 
-    std::cerr << "  addr: 0x" << std::hex << z_image.addr << std::endl;
+    if (debugger.verbose.RDP) {
+        std::cerr << "  addr: 0x" << std::hex << z_image.addr << std::endl;
+    }
+
     if ((z_image.addr % 8u) != 0) {
         std::cerr << "SetZImage() misaligned data address (";
         std::cerr << std::hex << z_image.addr << ")" << std::endl;
@@ -1872,16 +1874,17 @@ void setZImage(u64 command, u64 const *params) {
 }
 
 void setColorImage(u64 command, u64 const *params) {
-    std::cerr << "DPC color image " << std::hex << command << std::endl;
     color_image.format = (enum image_data_format)((command >> 53) & 0x7u);
     color_image.size = (enum pixel_size)((command >> 51) & 0x3u);
     color_image.width = 1u + ((command >> 32) & 0x3ffu);
     color_image.addr = command & 0x3fffffflu;
 
-    std::cerr << "  format: " << std::dec << color_image.format << std::endl;
-    std::cerr << "  size: " << std::dec << color_image.size << std::endl;
-    std::cerr << "  width: " << std::dec << color_image.width << std::endl;
-    std::cerr << "  addr: 0x" << std::hex << color_image.addr << std::endl;
+    if (debugger.verbose.RDP) {
+        std::cerr << "  format: " << std::dec << color_image.format << std::endl;
+        std::cerr << "  size: " << std::dec << color_image.size << std::endl;
+        std::cerr << "  width: " << std::dec << color_image.width << std::endl;
+        std::cerr << "  addr: 0x" << std::hex << color_image.addr << std::endl;
+    }
 
     if ((color_image.addr % 8u) != 0) {
         std::cerr << "SetColorImage() misaligned data address (";
@@ -1981,8 +1984,9 @@ static void DPC_read(u64 *dwords, unsigned nr_dwords) {
 
 typedef void (*RDPCommand)(u64, u64 const *);
 struct {
-    unsigned nrDoubleWords;  /** Number of double words composing the command */
-    RDPCommand command;      /** Pointer to the method implementing the command */
+    unsigned nrDoubleWords; /**< Number of double words composing the command */
+    RDPCommand command;     /**< Pointer to the method implementing the command */
+    std::string name;       /**< String command name */
 } RDPCommands[64] = {
     { 0,  NULL },
     { 0,  NULL },
@@ -1992,14 +1996,14 @@ struct {
     { 0,  NULL },
     { 0,  NULL },
     { 0,  NULL },
-    { 4,  nonShadedTriangle },
-    { 6,  nonShadedZbuffTriangle },
-    { 12, textureTriangle },
-    { 14, textureZbuffTriangle },
-    { 12, shadeTriangle },
-    { 14, shadeZbuffTriangle },
-    { 20, shadeTextureTriangle },
-    { 22, shadeTextureZbuffTriangle },
+    { 4,  nonShadedTriangle,            "non_shaded_triangle" },
+    { 6,  nonShadedZbuffTriangle,       "non_shaded_zbuff_triangle" },
+    { 12, textureTriangle,              "texture_triangle" },
+    { 14, textureZbuffTriangle,         "texture_zbuff_triangle" },
+    { 12, shadeTriangle,                "shade_triangle" },
+    { 14, shadeZbuffTriangle,           "shade_zbuff_triangle" },
+    { 20, shadeTextureTriangle,         "shade_texture_triangle" },
+    { 22, shadeTextureZbuffTriangle,    "shade_texture_zbuff_triangle" },
     { 0,  NULL },
     { 0,  NULL },
     { 0,  NULL },
@@ -2020,34 +2024,34 @@ struct {
     { 0,  NULL },
     { 0,  NULL },
     { 0,  NULL },
-    { 1,  textureRectangle },
-    { 2,  textureRectangleFlip },
+    { 1,  textureRectangle,             "texture_rectangle" },
+    { 2,  textureRectangleFlip,         "texture_rectangle_flip" },
     { 0,  NULL },
-    { 1,  syncPipe },
-    { 1,  syncTile },
-    { 1,  syncFull },
-    { 1,  setKeyGB },
-    { 1,  setKeyR },
-    { 1,  setConvert },
-    { 1,  setScissor },
-    { 1,  setPrimDepth },
-    { 1,  setOtherModes },
-    { 1,  loadTlut },
-    { 1,  syncLoad },
-    { 1,  setTileSize },
+    { 1,  syncPipe,                     "sync_pipe" },
+    { 1,  syncTile,                     "sync_tile" },
+    { 1,  syncFull,                     "sync_full" },
+    { 1,  setKeyGB,                     "set_key_gb" },
+    { 1,  setKeyR,                      "set_key_r" },
+    { 1,  setConvert,                   "set_convert" },
+    { 1,  setScissor,                   "set_scissor" },
+    { 1,  setPrimDepth,                 "set_prim_depth" },
+    { 1,  setOtherModes,                "set_other_modes" },
+    { 1,  loadTlut,                     "load_tlut" },
+    { 1,  syncLoad,                     "sync_load" },
+    { 1,  setTileSize,                  "set_tile_size" },
     { 0,  NULL },
-    { 1,  loadTile },
-    { 1,  setTile },
-    { 1,  fillRectangle },
-    { 1,  setFillColor },
-    { 1,  setFogColor },
-    { 1,  setBlendColor },
-    { 1,  setPrimColor },
-    { 1,  setEnvColor },
-    { 1,  setCombineMode },
-    { 1,  setTextureImage },
-    { 1,  setZImage },
-    { 1,  setColorImage },
+    { 1,  loadTile,                     "load_tile" },
+    { 1,  setTile,                      "set_tile" },
+    { 1,  fillRectangle,                "fill_rectangle" },
+    { 1,  setFillColor,                 "set_fill_color" },
+    { 1,  setFogColor,                  "set_fog_color" },
+    { 1,  setBlendColor,                "set_blend_color" },
+    { 1,  setPrimColor,                 "set_prim_color" },
+    { 1,  setEnvColor,                  "set_env_color" },
+    { 1,  setCombineMode,               "set_combine_mode" },
+    { 1,  setTextureImage,              "set_texture_image" },
+    { 1,  setZImage,                    "set_z_image" },
+    { 1,  setColorImage,                "set_color_image" },
 };
 
 /**
@@ -2062,7 +2066,6 @@ void write_DPC_END_REG(u32 value) {
         u64 command = 0;
         DPC_read(&command, 1);
         u64 opcode = (command >> 56) & 0x3flu;
-        std::cerr << std::hex << state.hwreg.DPC_CURRENT_REG << " ";
 
         if (RDPCommands[opcode].command == NULL) {
             std::cerr << "DPC: unknown command " << std::hex << opcode;
@@ -2082,6 +2085,12 @@ void write_DPC_END_REG(u32 value) {
         // Read the command parameters.
         u64 params[nr_dwords] = { 0 };
         DPC_read(params, nr_dwords);
+
+        if (debugger.verbose.RDP) {
+            std::cerr << "DPC: " << RDPCommands[opcode].name;
+            std::cerr << " " << std::hex << command << std::endl;
+        }
+
         RDPCommands[opcode].command(command, params + 1);
         state.hwreg.DPC_CURRENT_REG += 8 * nr_dwords;
     }

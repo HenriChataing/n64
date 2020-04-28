@@ -68,6 +68,7 @@ public:
         bool SI;
         bool PIF;
         bool cart_2_1;
+        bool RDP;
 
         bool thread;
     } verbose;
