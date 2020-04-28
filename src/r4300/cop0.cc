@@ -482,7 +482,7 @@ void eval_TLBP(u32 instr) {
 
 /** @brief Interpret the ERET instruction. */
 void eval_ERET(u32 instr) {
-    if (ERL()) {
+    if (state.cp0reg.ERL()) {
         state.cpu.nextAction = State::Action::Jump;
         state.cpu.nextPc = state.cp0reg.errorepc;
         state.cp0reg.sr &= ~STATUS_ERL;

@@ -21,7 +21,8 @@ void checkInterrupt(void) {
     // (IE = 1) and the particular interrupt must be unmasked (IM[irq] = 1).
     // Interrupt exceptions are also disabled during exception
     // handling (EXL = 1).
-    if (!EXL() && IE() && (IM() & IP())) {
+    if (!state.cp0reg.EXL() && state.cp0reg.IE() &&
+        (state.cp0reg.IM() & state.cp0reg.IP())) {
         switch (state.cpu.nextAction) {
             case State::Action::Jump: break;
             default:
@@ -333,7 +334,7 @@ void takeException(Exception exn, u64 vAddr,
     state.cp0reg.cause &= ~(CAUSE_EXCCODE_MASK | CAUSE_CE_MASK);
     state.cp0reg.cause |= CAUSE_EXCCODE(exccode) | CAUSE_CE(ce);
     // Check if exception within exception.
-    if (!EXL()) {
+    if (!state.cp0reg.EXL()) {
         // Check if the exception was caused by a delay slot instruction.
         // Set EPC and Cause:BD accordingly.
         if (delaySlot) {
@@ -353,7 +354,7 @@ void takeException(Exception exn, u64 vAddr,
     // Check if exceuting bootstrap code
     // and jump to the designated handler.
     u64 pc;
-    if (BEV()) {
+    if (state.cp0reg.BEV()) {
         pc = 0xffffffffbfc00200llu + vector;
     } else {
         pc = 0xffffffff80000000llu + vector;
@@ -378,7 +379,7 @@ void takeException(Exception exn, u64 vAddr,
  * raise CoprocessorUnusable otherwise.
  */
 #define checkCop1Usable()                                                      \
-    if (!CU1()) {                                                              \
+    if (!state.cp0reg.CU1()) {                                                 \
         takeException(CoprocessorUnusable, 0,                                  \
                       delaySlot, instr, false, 1u);                            \
         return;                                                                \

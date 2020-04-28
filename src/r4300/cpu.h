@@ -52,7 +52,6 @@ struct cp0reg {
     u32 c31;            /**< Unused */
 
     void incrCount();
-};
 
 #define INDEX_P                 (UINT32_C(0x80000000))
 
@@ -60,12 +59,34 @@ struct cp0reg {
 #define STATUS_CU2              (UINT32_C(1) << 30)
 #define STATUS_CU1              (UINT32_C(1) << 29)
 #define STATUS_CU0              (UINT32_C(1) << 28)
+#define STATUS_RP               (UINT32_C(1) << 27)
 #define STATUS_FR               (UINT32_C(1) << 26)
 #define STATUS_RE               (UINT32_C(1) << 25)
 #define STATUS_BEV              (UINT32_C(1) << 22)
+#define STATUS_KX               (UINT32_C(1) << 7)
+#define STATUS_SX               (UINT32_C(1) << 6)
+#define STATUS_UX               (UINT32_C(1) << 5)
 #define STATUS_ERL              (UINT32_C(1) << 2)
 #define STATUS_EXL              (UINT32_C(1) << 1)
 #define STATUS_IE               (UINT32_C(1) << 0)
+
+    inline bool CU3() { return (sr & STATUS_CU3) != 0; }
+    inline bool CU2() { return (sr & STATUS_CU2) != 0; }
+    inline bool CU1() { return (sr & STATUS_CU1) != 0; }
+    inline bool CU0() { return (sr & STATUS_CU0) != 0; }
+    inline bool RP()  { return (sr & STATUS_RP) != 0; }
+    inline bool FR()  { return (sr & STATUS_FR) != 0; }
+    inline bool RE()  { return (sr & STATUS_RE) != 0; }
+    inline bool BEV() { return (sr & STATUS_BEV) != 0; }
+    inline u32 DS()   { return (sr >> 16) & 0x1flu; }
+    inline u32 IM()   { return (sr >> 8) & 0xfflu; }
+    inline bool KX()  { return (sr & STATUS_KX) != 0; }
+    inline bool SX()  { return (sr & STATUS_SX) != 0; }
+    inline bool UX()  { return (sr & STATUS_UX) != 0; }
+    inline u32 KSU()  { return (sr >> 3) & 0x3lu; }
+    inline bool ERL() { return (sr & STATUS_ERL) != 0; }
+    inline bool EXL() { return (sr & STATUS_EXL) != 0; }
+    inline bool IE()  { return (sr & STATUS_IE) != 0; }
 
 #define CAUSE_BD                (UINT32_C(1) << 31)
 #define CAUSE_CE_MASK           (UINT32_C(0x3) << 28)
@@ -75,6 +96,9 @@ struct cp0reg {
 #define CAUSE_IP7               (UINT32_C(1) << 15)
 #define CAUSE_EXCCODE_MASK      (UINT32_C(0x1f) << 2)
 #define CAUSE_EXCCODE(exccode)  ((uint32_t)(exccode) << 2)
+
+    inline u32 IP()   { return (cause >> 8) & 0xfflu; }
+};
 
 typedef union {
     float s;

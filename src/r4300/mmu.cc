@@ -21,14 +21,15 @@ namespace R4300 {
 R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
 {
     bool extendedAddressing = false;
-    u8 ksu = R4300::KSU();
+    u8 ksu = R4300::state.cp0reg.KSU();
     // u64 region;
 
     // Step 1: check virtual address range.
-    if (ksu == 0x0 || R4300::ERL() || R4300::EXL()) {
+    if (ksu == 0x0 || R4300::state.cp0reg.ERL() ||
+        R4300::state.cp0reg.EXL()) {
         // Kernel mode
         // also entered when ERL=1 || EXL=1
-        if (R4300::KX()) {
+        if (R4300::state.cp0reg.KX()) {
             extendedAddressing = true;
             throw "ExtendedAddressingUnsupported";
         }
@@ -47,7 +48,7 @@ R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
     }
     else if (ksu == 0x2) {
         // User mode
-        if (R4300::UX()) {
+        if (R4300::state.cp0reg.UX()) {
             extendedAddressing = true;
             throw "ExtendedAddressingUnsupported";
         }

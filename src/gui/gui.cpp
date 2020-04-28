@@ -94,7 +94,7 @@ static void displayCpuCp1Registers(void) {
     ImGui::Text("fcr0     %08" PRIx32 "  fcr31    %08" PRIx32 "\n",
                 R4300::state.cp1reg.fcr0, R4300::state.cp1reg.fcr31);
 
-    if (R4300::FR()) {
+    if (R4300::state.cp0reg.FR()) {
         for (unsigned int nr = 0; nr < 32; nr+=2) {
             ImGui::Text("fgr%-2u    %016" PRIx64 "  fgr%-2u    %016" PRIx64 "\n",
                         nr, R4300::state.cp1reg.fpr_d[nr]->l,
