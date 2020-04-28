@@ -337,6 +337,7 @@ void eval_MTC0(u32 instr) {
             }
             // TODO check all config bits
             state.cp0reg.sr = val;
+            checkInterrupt();
             break;
         case Cause:
             state.cp0reg.cause =

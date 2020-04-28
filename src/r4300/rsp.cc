@@ -439,7 +439,7 @@ static void eval_SWC2(u32 instr) {
 }
 
 static inline unsigned selectElementIndex(unsigned i, u32 e) {
-    unsigned j;
+    unsigned j = 0;
     if (e == 0) {
         j = i;
     } else if ((e & 0b1110lu) == 0b0010lu) {
@@ -1687,6 +1687,11 @@ bool step()
             state.rspreg.pc = state.rsp.nextPc;
             state.rsp.nextAction = State::Action::Continue;
             exn = eval(false);
+            break;
+
+        case State::Action::Interrupt:
+            debugger.halt("Invalid RSP INTERRUPT state");
+            exn = false;
             break;
     }
     return exn;

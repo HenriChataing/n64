@@ -158,6 +158,10 @@ Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess);
  */
 bool probeTLB(u64 vAddr, uint *index);
 
+void setInterruptPending(uint irq);
+void clearInterruptPending(uint irq);
+void checkInterrupt(void);
+
 };
 
 #endif /* _CPU_H_INCLUDED_ */

@@ -33,9 +33,6 @@ void setVideoImage(size_t width, size_t height, size_t colorDepth, void *data)
 {
     std::lock_guard<std::mutex> lock(graphicsMutex);
 
-    std::cerr << "Video image : " << std::dec << width << " " << height;
-    std::cerr << " " << colorDepth << std::endl;
-
     VideoImage::dirty |=
         VideoImage::width != width ||
         VideoImage::height != height ||

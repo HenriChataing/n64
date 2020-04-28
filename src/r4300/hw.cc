@@ -46,16 +46,6 @@ static inline void logReadAtAddr(bool flag, const char *tag, u64 addr, u64 value
     }
 }
 
-namespace Eval {
-
-/*
- * Defined in eval.cc
- */
-void setInterruptPending(uint irq);
-void clearInterruptPending(uint irq);
-
-};
-
 /**
  * Set bits in the MI_INTR_REG register.
  * Reevaluate the value of the Interrupt 2 pending bit afterwards.
@@ -63,9 +53,9 @@ void clearInterruptPending(uint irq);
 void set_MI_INTR_REG(u32 bits) {
     state.hwreg.MI_INTR_REG |= bits;
     if (state.hwreg.MI_INTR_REG & state.hwreg.MI_INTR_MASK_REG) {
-        Eval::setInterruptPending(2);
+        setInterruptPending(2);
     } else {
-        Eval::clearInterruptPending(2);
+        clearInterruptPending(2);
     }
 }
 
@@ -76,9 +66,9 @@ void set_MI_INTR_REG(u32 bits) {
 void clear_MI_INTR_REG(u32 bits) {
     state.hwreg.MI_INTR_REG &= ~bits;
     if (state.hwreg.MI_INTR_REG & ~state.hwreg.MI_INTR_MASK_REG) {
-        Eval::setInterruptPending(2);
+        setInterruptPending(2);
     } else {
-        Eval::clearInterruptPending(2);
+        clearInterruptPending(2);
     }
 }
 

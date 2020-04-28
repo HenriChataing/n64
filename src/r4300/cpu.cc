@@ -11,7 +11,51 @@
 #include "eval.h"
 
 namespace R4300 {
+
+/**
+ * @brief Check whether an interrupt exception is raised from the current state.
+ *  Take the interrupt exception if this is the case.
+ */
+void checkInterrupt(void) {
+    // For the interrupt to be taken, the interrupts must globally enabled
+    // (IE = 1) and the particular interrupt must be unmasked (IM[irq] = 1).
+    // Interrupt exceptions are also disabled during exception
+    // handling (EXL = 1).
+    if (!EXL() && IE() && (IM() & IP())) {
+        switch (state.cpu.nextAction) {
+            case State::Action::Jump: break;
+            default:
+                debugger.halt("Unexpected action");
+                /* fallthrough */
+            case State::Action::Continue:
+                state.cpu.nextPc = state.reg.pc + 4;
+                break;
+        }
+        state.cpu.nextAction = State::Action::Interrupt;
+    }
+}
+
+/**
+ * @brief Set the selected interrupt pending bit in the Cause register.
+ *  The Interrupt exception will be taken just before executing the next
+ *  instruction if the conditions are met (see \ref checkInterrupt).
+ *
+ * @param irq           Interrupt number.
+ */
+void setInterruptPending(uint irq) {
+    // Update the pending bits in the Cause register.
+    state.cp0reg.cause |= CAUSE_IP(1lu << irq);
+    checkInterrupt();
+}
+
+void clearInterruptPending(uint irq) {
+    // Update the pending bits in the Cause register.
+    state.cp0reg.cause &= ~CAUSE_IP(1lu << irq);
+}
+
 namespace Eval {
+
+using namespace R4300::Eval;
 
 /** Load a byte from the provided physical address. */
 static Exception loadb(u64 addr, u8 *val) {
@@ -86,23 +130,6 @@ static Exception loadw(u64 addr, u32 *val) {
 
     return Exception::BusError;
 }
-
-/**
- * Check whether a virtual memory address is correctly aligned for a memory
- * access.
- */
-#define checkAddressAlignment(vAddr, bytes, delay, instr, load) \
-    if (((vAddr) & ((bytes) - 1)) != 0) { \
-        takeException(AddressError, (vAddr), (delay), (instr), (load)); \
-        return; \
-    }
-
-#define checkCop1Usable() \
-    if (!CU1()) { \
-        takeException(CoprocessorUnusable, 0, \
-                      delaySlot, instr, false, 1u); \
-        return; \
-    }
 
 /**
  * @brief Preprocessor template for I-type instructions.
@@ -337,6 +364,27 @@ void takeException(Exception exn, u64 vAddr,
 }
 
 /**
+ * Check whether a virtual memory address is correctly aligned
+ * for a memory access, raise AddressError otherwise.
+ */
+#define checkAddressAlignment(vAddr, bytes, delay, instr, load)                \
+    if (((vAddr) & ((bytes) - 1)) != 0) {                                      \
+        takeException(AddressError, (vAddr), (delay), (instr), (load));        \
+        return;                                                                \
+    }
+
+/**
+ * Check whether Cop1 is currently enabled in SR,
+ * raise CoprocessorUnusable otherwise.
+ */
+#define checkCop1Usable()                                                      \
+    if (!CU1()) {                                                              \
+        takeException(CoprocessorUnusable, 0,                                  \
+                      delaySlot, instr, false, 1u);                            \
+        return;                                                                \
+    }
+
+/**
  * Take the exception \p exn and return from the current function
  * if it is not None.
  */
@@ -348,46 +396,6 @@ void takeException(Exception exn, u64 vAddr,
         return;                                                                \
     }                                                                          \
 })
-
-/**
- * @brief Check whether an interrupt exception is raised from the current state.
- *  Take the interrupt exception if this is the case.
- *
- * @param delaySlot     True iff \p vAddr points to a delay slot instruction
- * @return              True iff an Interrupt Exception is taken
- */
-bool checkInterrupt(bool delaySlot)
-{
-    // For the interrupt to be taken, the interrupts must globally enabled
-    // (IE = 1) and the particular interrupt must be unmasked (IM[irq] = 1).
-    // Interrupt exceptions are also disabled during exception
-    // handling (EXL = 1).
-    if (EXL() || !IE() || (IM() & IP()) == 0) {
-        return false;
-    } else {
-        takeException(Interrupt, delaySlot, false, false, 0);
-        return true;
-    }
-}
-
-/**
- * @brief Set the selected interrupt pending bit in the Cause register.
- *  The Interrupt exception will be taken just before executing the next
- *  instruction if the conditions are met (see \ref checkInterrupt).
- *
- * @param irq           Interrupt number.
- */
-void setInterruptPending(uint irq)
-{
-    // Update the pending bits in the Cause register.
-    state.cp0reg.cause |= CAUSE_IP(1lu << irq);
-}
-
-void clearInterruptPending(uint irq)
-{
-    // Update the pending bits in the Cause register.
-    state.cp0reg.cause &= ~CAUSE_IP(1lu << irq);
-}
 
 
 void eval_Reserved(u32 instr, bool delaySlot) {
@@ -1559,9 +1567,6 @@ static void eval(bool delaySlot)
     if (state.cycles++ == state.hwreg.vi_NextIntr) {
         raise_VI_INTR();
     }
-    if (checkInterrupt(delaySlot)) {
-        return;
-    }
 
     checkException(
         translateAddress(vAddr, &pAddr, false),
@@ -1572,7 +1577,11 @@ static void eval(bool delaySlot)
 
     debugger.cpuTrace.put(TraceEntry(vAddr, instr));
 
-    CPU_callbacks[Mips::getOpcode(instr)](instr, delaySlot);
+    // The null instruction is 'sll r0, r0, 0', i.e. a NOP.
+    // It is one of the most used instructions (to fill in delay slots).
+    if (instr) {
+        CPU_callbacks[Mips::getOpcode(instr)](instr, delaySlot);
+    }
 }
 
 /**
@@ -1597,6 +1606,11 @@ void step()
             state.reg.pc = state.cpu.nextPc;
             state.cpu.nextAction = State::Action::Continue;
             eval(false);
+            break;
+
+        case State::Action::Interrupt:
+            state.reg.pc = state.cpu.nextPc;
+            takeException(Interrupt, 0, false, false, false, 0);
             break;
     }
 }
