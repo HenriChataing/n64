@@ -1535,7 +1535,7 @@ void (*CPU_callbacks[64])(u32, bool) = {
     eval_BEQ,       eval_BNE,       eval_BLEZ,      eval_BGTZ,
     eval_ADDI,      eval_ADDIU,     eval_SLTI,      eval_SLTIU,
     eval_ANDI,      eval_ORI,       eval_XORI,      eval_LUI,
-    Cop0::eval,     Cop1::eval,     eval_COP2,      eval_COP3,
+    eval_COP0,      eval_COP1,      eval_COP2,      eval_COP3,
     eval_BEQL,      eval_BNEL,      eval_BLEZL,     eval_BGTZL,
     eval_DADDI,     eval_DADDIU,    eval_LDL,       eval_LDR,
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,

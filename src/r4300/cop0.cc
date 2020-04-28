@@ -14,7 +14,6 @@
 using namespace R4300;
 
 namespace R4300 {
-
 /**
  * @brief Increment the count register by a half measure.
  *  If the value of the Count register equals that of the Compare register,
@@ -28,8 +27,6 @@ void cp0reg::incrCount()
     }
     odd ^= true;
 }
-
-namespace Cop0 {
 
 enum Register {
     /**
@@ -188,6 +185,8 @@ static inline void logWrite(u32 rd, u64 value) {
         std::cerr << "\x1b[0m" << std::endl;
     }
 }
+
+namespace Eval {
 
 /** @brief Interpret a MFC0 instruction. */
 void eval_MFC0(u32 instr) {
@@ -494,7 +493,7 @@ void eval_ERET(u32 instr) {
     }
 }
 
-void eval(u32 instr, bool delaySlot)
+void eval_COP0(u32 instr, bool delaySlot)
 {
     (void)delaySlot;
     switch (Mips::getRs(instr)) {
@@ -522,5 +521,5 @@ void eval(u32 instr, bool delaySlot)
     }
 }
 
-}; /* namespace Cop0 */
+}; /* namespace Eval */
 }; /* namespace R4300 */

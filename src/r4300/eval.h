@@ -5,22 +5,11 @@
 #include "types.h"
 
 namespace R4300 {
-
-namespace Cop0 {
-/**
- * @brief Interpret an instruction with the COP0 special opcode.
- */
-void eval(u32 instr, bool delaySlot);
-}; /* namespace Cop0 */
-
-namespace Cop1 {
-/**
- * @brief Interpret an instruction with the COP1 special opcode.
- */
-void eval(u32 instr, bool delaySlot);
-}; /* namespace Cop1 */
-
 namespace Eval {
+
+void eval_Reserved(u32 instr, bool delaySlot);
+void eval_COP0(u32 instr, bool delaySlot);
+void eval_COP1(u32 instr, bool delaySlot);
 
 /**
  * @brief Start the interpreter loop.
