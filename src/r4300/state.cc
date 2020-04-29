@@ -70,12 +70,56 @@ void State::boot() {
     hwreg.vi_IntrInterval = 1562500lu;
     hwreg.vi_LastCycleCount = 0;
     hwreg.vi_CyclesPerLine = 2971lu;
+    scheduleEvent(hwreg.vi_NextIntr, raise_VI_INTR);
+    scheduleEvent(std::numeric_limits<u32>::max() * 2, handleCounterEvent);
 
     // Setup initial action.
     cpu.nextAction = Action::Jump;
     cpu.nextPc = 0xffffffffa4000040llu;
+    cpu.nextEvent = -1lu;
     rsp.nextAction = Action::Jump;
     rsp.nextPc = 0x0;
+}
+
+void State::scheduleEvent(ulong timeout, void (*callback)()) {
+    State::Event *event = new Event(timeout, callback, NULL);
+    State::Event *pos = cpu.eventQueue, **prev = &cpu.eventQueue;
+    while (pos != NULL) {
+        ulong udiff = timeout - pos->timeout;
+        if (udiff > std::numeric_limits<long long>::max())
+            break;
+        prev = &pos->next;
+        pos = pos->next;
+    }
+    *prev = event;
+    event->next = pos;
+    cpu.nextEvent = cpu.eventQueue->timeout;
+}
+
+void State::cancelEvent(void (*callback)()) {
+    State::Event *pos = cpu.eventQueue, **prev = &cpu.eventQueue;
+    while (pos != NULL) {
+        if (pos->callback == callback) {
+            State::Event *tmp = pos;
+            *prev = pos->next;
+            pos = pos->next;
+            delete tmp;
+        } else {
+            prev = &pos->next;
+            pos = pos->next;
+        }
+    }
+}
+
+void State::handleEvent(void) {
+    if (cpu.eventQueue != NULL) {
+        Event *event = cpu.eventQueue;
+        cpu.eventQueue = event->next;
+        event->callback();
+        delete event;
+    }
+    cpu.nextEvent =
+        (cpu.eventQueue != NULL) ? cpu.eventQueue->timeout : cycles - 1;
 }
 
 std::ostream &operator<<(std::ostream &os, const State &state)

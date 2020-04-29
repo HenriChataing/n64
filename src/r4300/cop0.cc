@@ -14,19 +14,6 @@
 using namespace R4300;
 
 namespace R4300 {
-/**
- * @brief Increment the count register by a half measure.
- *  If the value of the Count register equals that of the Compare register,
- *  set the IP7 bit of the Cause register.
- */
-void cp0reg::incrCount()
-{
-    static bool odd = false;
-    if (odd && ++count == compare) {
-        cause |= CAUSE_IP7;
-    }
-    odd ^= true;
-}
 
 enum Register {
     /**
@@ -186,6 +173,42 @@ static inline void logWrite(u32 rd, u64 value) {
     }
 }
 
+/**
+ * @brief Update the count register.
+ *  The count register increments at half the CPU frequency.
+ *  If the value of the Count register equals that of the Compare
+ *  register, set the IP7 bit of the Cause register.
+ */
+void handleCounterEvent() {
+    // Note: the interpreter being far from cycle exact,
+    // the Count register value will necessary be inexact.
+
+    ulong diff = (state.cycles - state.cp0reg.lastCounterUpdate) / 2;
+    u32 untilCompare = state.cp0reg.compare - state.cp0reg.count;
+
+    if (diff > untilCompare) {
+        state.cp0reg.cause |= CAUSE_IP7;
+        checkInterrupt();
+    }
+
+    state.cp0reg.count = (u32)((ulong)state.cp0reg.count + diff);
+    state.cp0reg.lastCounterUpdate = state.cycles;
+    untilCompare = state.cp0reg.compare - state.cp0reg.count - 1;
+    state.scheduleEvent(2 * (ulong)untilCompare, handleCounterEvent);
+}
+
+/**
+ * Called to reconfigure the counter event in the case either the Compare
+ * of the Counter register is written.
+ */
+void scheduleCounterEvent() {
+    ulong diff = (state.cycles - state.cp0reg.lastCounterUpdate) / 2;
+    state.cp0reg.count = (u32)((ulong)state.cp0reg.count + diff);
+    u32 untilCompare = state.cp0reg.compare - state.cp0reg.count;
+    state.cancelEvent(handleCounterEvent);
+    state.scheduleEvent(2 * (ulong)untilCompare, handleCounterEvent);
+}
+
 namespace Eval {
 
 /** @brief Interpret a MFC0 instruction. */
@@ -206,7 +229,10 @@ void eval_MFC0(u32 instr) {
         case PageMask:  val = state.cp0reg.pagemask; break;
         case Wired:     val = state.cp0reg.wired; break;
         case BadVAddr:  val = state.cp0reg.badvaddr; break;
-        case Count:     val = state.cp0reg.count; break;
+        case Count:
+            val = state.cp0reg.count +
+                  (state.cycles - state.cp0reg.lastCounterUpdate) / 2;
+            break;
         case EntryHi:   val = state.cp0reg.entryhi; break;
         case Compare:   val = state.cp0reg.compare; break;
         case SR:        val = state.cp0reg.sr; break;
@@ -281,7 +307,11 @@ void eval_DMFC0(u32 instr) {
             break;
         case ErrorEPC:  val = state.cp0reg.errorepc; break;
         /* 32bit registers */
-        case Count:     val = zero_extend<u64, u32>(state.cp0reg.count); break;
+        case Count:
+            val = zero_extend<u64, u32>(
+                state.cp0reg.count +
+                (state.cycles - state.cp0reg.lastCounterUpdate) / 2);
+            break;
         default:
             val = 0;
             std::string reason = "DMFC0 ";
@@ -321,11 +351,16 @@ void eval_MTC0(u32 instr) {
             state.cp0reg.random = tlbEntryCount - 1;
             break;
         case BadVAddr:  state.cp0reg.badvaddr = sign_extend<u64, u32>(val); break;
-        case Count:     state.cp0reg.count = val; break;
+        case Count:
+            state.cp0reg.count = val;
+            state.cp0reg.lastCounterUpdate = state.cycles;
+            scheduleCounterEvent();
+            break;
         case EntryHi:   state.cp0reg.entryhi = sign_extend<u64, u32>(val); break;
         case Compare:
             state.cp0reg.compare = val;
             state.cp0reg.cause &= ~CAUSE_IP7;
+            scheduleCounterEvent();
             break;
         case SR:
             if ((val & STATUS_FR) != (state.cp0reg.sr & STATUS_FR)) {

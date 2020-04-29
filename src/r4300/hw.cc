@@ -78,9 +78,11 @@ void raise_VI_INTR(void) {
     state.hwreg.vi_NextIntr += state.hwreg.vi_IntrInterval;
     // Set the pending interrupt bit.
     set_MI_INTR_REG(MI_INTR_VI);
-    // Force a refresh of the screen, in case the framebuffer has not changed
-    // since the last frame.
+    // Force a refresh of the screen, in case the framebuffer config
+    // has not changed since the last frame.
     refreshVideoImage();
+    // Finally, schedule the next vertical blank interrupt.
+    state.scheduleEvent(state.hwreg.vi_NextIntr, raise_VI_INTR);
 }
 
 /**
@@ -1292,6 +1294,7 @@ u32 read_VI_CURRENT_REG(void) {
 
 /** @brief Write the value of the VI_V_SYNC_REG register. */
 void write_VI_V_SYNC_REG(u32 value) {
+    // CPU freq is 93.75 MHz, refresh frequency is assumed 60Hz.
     logWrite(debugger.verbose.VI, "VI_V_SYNC_REG", value);
     state.hwreg.VI_V_SYNC_REG = value;
     state.hwreg.vi_CyclesPerLine = 93750000lu / (60 * (value + 1));

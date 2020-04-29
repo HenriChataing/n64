@@ -51,7 +51,8 @@ struct cp0reg {
     u64 errorepc;       /**< Error exception program counter */
     u32 c31;            /**< Unused */
 
-    void incrCount();
+    /** Cycle count at the last Count register update. */
+    ulong lastCounterUpdate;
 
 #define INDEX_P                 (UINT32_C(0x80000000))
 
@@ -185,6 +186,7 @@ bool probeTLB(u64 vAddr, uint *index);
 void setInterruptPending(uint irq);
 void clearInterruptPending(uint irq);
 void checkInterrupt(void);
+void handleCounterEvent(void);
 
 };
 

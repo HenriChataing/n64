@@ -43,10 +43,25 @@ public:
         Interrupt,  /**< Take an interrupt at the next instruction. */
     };
 
+    struct Event {
+        ulong timeout;
+        void (*callback)();
+        struct Event *next;
+
+        Event(ulong timeout, void (*callback)(), Event *next)
+            : timeout(timeout), callback(callback), next(next) {};
+    };
+
     struct {
         Action nextAction;
         u64 nextPc;
+        Event *eventQueue;
+        ulong nextEvent;
     } cpu, rsp;
+
+    void scheduleEvent(ulong timeout, void (*callback)());
+    void cancelEvent(void (*callback)());
+    void handleEvent();
 };
 
 /** Current machine state. */

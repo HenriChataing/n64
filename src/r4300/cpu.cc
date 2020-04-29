@@ -1562,11 +1562,8 @@ static void eval(bool delaySlot)
     u64 pAddr;
     u32 instr;
 
-    state.cp0reg.incrCount();
-
-    // CPU freq is 93.75 MHz, refresh frequency is assumed 60Hz.
-    if (state.cycles++ == state.hwreg.vi_NextIntr) {
-        raise_VI_INTR();
+    if (state.cycles++ == state.cpu.nextEvent) {
+        state.handleEvent();
     }
 
     checkException(
