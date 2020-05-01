@@ -760,7 +760,7 @@ void (*COP1_callbacks[64])(u32, bool) = {
 };
 
 void eval_COP1(u32 instr, bool delaySlot) {
-    COP1_L_callbacks[Mips::getFmt(instr)](instr, delaySlot);
+    COP1_callbacks[Mips::getFmt(instr)](instr, delaySlot);
 }
 
 }; /* namespace Eval */

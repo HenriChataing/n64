@@ -1562,7 +1562,7 @@ static void eval(bool delaySlot)
     u64 pAddr;
     u32 instr;
 
-    if (state.cycles++ == state.cpu.nextEvent) {
+    if (state.cycles++ >= state.cpu.nextEvent) {
         state.handleEvent();
     }
 
