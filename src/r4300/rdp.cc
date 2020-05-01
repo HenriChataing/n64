@@ -390,8 +390,9 @@ static void print_pixel(pixel_t *px) {
     std::cerr << std::dec;
     std::cerr << "  x,y,z:" << px->edge_coefs.x;
     std::cerr << "," << px->edge_coefs.y << "," << px->zbuffer_coefs.z;
-    std::cerr << " tex:" << (int)px->texture_coefs.s << "," << (int)px->texture_coefs.t;
-    std::cerr << "," << (int)px->texture_coefs.w;
+    std::cerr << " tex:" << (float)px->texture_coefs.s / 65536.0;
+    std::cerr << "," << (float)px->texture_coefs.t / 65536.0;
+    std::cerr << "," << (float)px->texture_coefs.w / 65536.0;
     std::cerr << " shade:" << (int)px->shade_color.r << "," << (int)px->shade_color.g;
     std::cerr << "," << (int)px->shade_color.b << "," << (int)px->shade_color.a;
     std::cerr << " texel0:" << (int)px->texel0_color.r << "," << (int)px->texel0_color.g;
@@ -1462,11 +1463,93 @@ void shadeTextureZbuffTriangle(u64 command, u64 const *params) {
 }
 
 void textureRectangle(u64 command, u64 const *params) {
-    debugger.halt("texture_rectangle");
+    /* Input coordinates are in the 10.2 fixed point format. */
+    unsigned xl = (command >> 44) & 0xfffu;
+    unsigned yl = (command >> 32) & 0xfffu;
+    unsigned tile = (command >> 24) & 0x7u;
+    unsigned xh = (command >> 12) & 0xfffu;
+    unsigned yh = (command >>  0) & 0xffffu;
+
+    /* Texture coordinates are in the signed 5.10 fixed point format. */
+    i32 s    = (i16)(u16)((params[0] >> 48) & 0xffffu);
+    i32 t    = (i16)(u16)((params[0] >> 32) & 0xffffu);
+    i32 dsdx = (i16)(u16)((params[0] >> 16) & 0xffffu);
+    i32 dtdy = (i16)(u16)((params[0] >>  0) & 0xffffu);
+
+    if (debugger.verbose.RDP) {
+        std::cerr << "  xl: " << (float)xl / 4. << std::endl;
+        std::cerr << "  yl: " << (float)yl / 4. << std::endl;
+        std::cerr << "  tile: " << tile << std::endl;
+        std::cerr << "  xh: " << (float)xh / 4. << std::endl;
+        std::cerr << "  yh: " << (float)yh / 4. << std::endl;
+        std::cerr << "  s: " << (float)s / 1024. << std::endl;
+        std::cerr << "  t: " << (float)t / 1024. << std::endl;
+        std::cerr << "  dsdx: " << (float)dsdx / 1024. << std::endl;
+        std::cerr << "  dtdy: " << (float)dtdy / 1024. << std::endl;
+    }
+
+    /* Convert texture coefficients from s5.10 to s15.16 */
+    struct texture_coefs texture = {
+        s << 6,    t << 6,    0,
+        dsdx << 6, 0,         0,
+        0,         0,         0,
+        0,         dtdy << 6, 0,
+    };
+
+    /* Convert edge coefficients from 10.2 to s15.16 */
+    xh <<= 14;
+    xl <<= 14;
+
+    for (unsigned y = yh; y < yl; y += 4) {
+        Cycle1Mode::render_span(true, 0, tile, y, xh, xl, NULL, &texture, NULL);
+        texture.t += texture.dtdy;
+    }
 }
 
 void textureRectangleFlip(u64 command, u64 const *params) {
-    debugger.halt("texture_rectangle_flip");
+    /* Input coordinates are in the 10.2 fixed point format. */
+    unsigned xl = (command >> 44) & 0xfffu;
+    unsigned yl = (command >> 32) & 0xfffu;
+    unsigned tile = (command >> 24) & 0x7u;
+    unsigned xh = (command >> 12) & 0xfffu;
+    unsigned yh = (command >>  0) & 0xffffu;
+
+    /* Texture coordinates are in the signed 5.10 fixed point format. */
+    i32 s    = (i16)(u16)((params[0] >> 48) & 0xffffu);
+    i32 t    = (i16)(u16)((params[0] >> 32) & 0xffffu);
+    i32 dsdx = (i16)(u16)((params[0] >> 16) & 0xffffu);
+    i32 dtdy = (i16)(u16)((params[0] >>  0) & 0xffffu);
+
+    if (debugger.verbose.RDP) {
+        std::cerr << "  xl: " << (float)xl / 4. << std::endl;
+        std::cerr << "  yl: " << (float)yl / 4. << std::endl;
+        std::cerr << "  tile: " << tile << std::endl;
+        std::cerr << "  xh: " << (float)xh / 4. << std::endl;
+        std::cerr << "  yh: " << (float)yh / 4. << std::endl;
+        std::cerr << "  s: " << (float)s / 1024. << std::endl;
+        std::cerr << "  t: " << (float)t / 1024. << std::endl;
+        std::cerr << "  dsdx: " << (float)dsdx / 1024. << std::endl;
+        std::cerr << "  dtdy: " << (float)dtdy / 1024. << std::endl;
+    }
+
+    /* Convert texture coefficients from s5.10 to s15.16 */
+    struct texture_coefs texture = {
+        t << 6,    s << 6,    0,
+        dtdy << 6, 0,         0,
+        0,         0,         0,
+        0,         dsdx << 6, 0,
+    };
+
+    // TODO not working, not flipping correctly
+
+    /* Convert edge coefficients from 10.2 to s15.16 */
+    xh <<= 14;
+    xl <<= 14;
+
+    for (unsigned y = yh; y < yl; y += 4) {
+        Cycle1Mode::render_span(true, 0, tile, y, xh, xl, NULL, &texture, NULL);
+        texture.t += texture.dtdy;
+    }
 }
 
 void syncPipe(u64 command, u64 const *params) {
@@ -2024,7 +2107,7 @@ struct {
     { 0,  NULL },
     { 0,  NULL },
     { 0,  NULL },
-    { 1,  textureRectangle,             "texture_rectangle" },
+    { 2,  textureRectangle,             "texture_rectangle" },
     { 2,  textureRectangleFlip,         "texture_rectangle_flip" },
     { 0,  NULL },
     { 1,  syncPipe,                     "sync_pipe" },
