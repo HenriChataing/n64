@@ -18,6 +18,11 @@
  * - the RDP graphics pipeline performs most operations at 8 bits per component
  *   RGBA pixel. After searching the texels, the texture unit will convert them
  *   to 32bit RGBA format.
+ *
+ * - the RDP color palette uses the 4 upper banks of the texture memory.
+ *   The banks are loaded with identical values in order to be able to perform
+ *   up to 4 parallel accesses. In fine: the color palette is a quadricated
+ *   array of 256 16bit color values.
  */
 
 namespace R4300 {
@@ -608,6 +613,46 @@ static void pipeline_tx(pixel_t *px) {
 }
 
 /**
+ * Lookup a texel color from palette memory.
+ * Converts the color to 8-bit per component RGBA values according to the
+ * configured tlut_type.
+ *
+ * Note: the RDP performs parallel palette loads for different texel smaples,
+ * as a simplification the color is always loaded from the first palette.
+ * This can bring different results if the user overwrites a palette
+ * copy loading a tile.
+ */
+static void pipeline_palette_load(u8 ci, color_t *tx) {
+    u16 val = __builtin_bswap16(*(u16 *)&state.tmem[0x800 + (ci << 1)]);
+    switch (other_modes.tlut_type) {
+    /* I[15:8],A[7:0] =>
+     * R [15:8]
+     * G [15:8]
+     * B [15:8]
+     * A [7:0] */
+    case TLUT_TYPE_IA:
+        tx->r = tx->g = tx->b = val >> 8;
+        tx->a = val;
+        break;
+    /* R[15:11],G[10:6],G[5:1],A[0] =>
+     * R {[15:11],[15:13]}
+     * G {[10:6],[10:8]}
+     * B {[5:1],[5:3]}
+     * A 255*[0] */
+    case TLUT_TYPE_RGBA: {
+        u8 r = (val >> 11) & 0x1fu;
+        u8 g = (val >>  6) & 0x1fu;
+        u8 b = (val >>  1) & 0x1fu;
+        tx->r = (r << 3) | (r >> 2);
+        tx->g = (g << 3) | (g >> 2);
+        tx->b = (b << 3) | (b >> 2);
+        tx->a = (val & 1u) ? 255 : 0;
+        break;
+    }
+    }
+}
+
+/**
  * Load a texel from texture RAM.
  * Perform palette lookup if the tile format is color index.
  * The RDP graphics pipeline performs most operations at 8 bits per component
@@ -640,9 +685,14 @@ static void pipeline_tx_load(struct tile const *tile, unsigned addr, color_t *tx
         tx->a = (ia & 1u) ? 255 : 0;
         break;
     }
-    case IMAGE_DATA_FORMAT_CI_4:
-        debugger.halt("pipeline_tx_load: unsupported image data type CI_4");
+    /* CI[3:0] */
+    case IMAGE_DATA_FORMAT_CI_4: {
+        unsigned shift = (addr & 1u) ? 0 : 4;
+        u8 ci = (state.tmem[addr >> 1] >> shift) & 0xfu;
+        ci |= tile->palette << 4;
+        pipeline_palette_load(ci, tx);
         break;
+    }
     /* I[7:0] =>
      * R [7:0]
      * G [7:0]
@@ -664,8 +714,9 @@ static void pipeline_tx_load(struct tile const *tile, unsigned addr, color_t *tx
         tx->a = a | (a << 4);
         break;
     }
+    /* CI[7:0] */
     case IMAGE_DATA_FORMAT_CI_8:
-        debugger.halt("pipeline_tx_load: unsupported image data type CI_8");
+        pipeline_palette_load(state.tmem[addr >> 1], tx);
         break;
     /* R[15:11],G[10:6],G[5:1],A[0] =>
      * R {[15:11],[15:13]}
@@ -683,6 +734,11 @@ static void pipeline_tx_load(struct tile const *tile, unsigned addr, color_t *tx
         tx->a = (rgba & 1u) ? 255 : 0;
         break;
     }
+    /* I[15:8],A[7:0] =>
+     * R [15:8]
+     * G [15:8]
+     * B [15:8]
+     * A [7:0] */
     case IMAGE_DATA_FORMAT_IA_8_8:
         debugger.halt("pipeline_tx_load: unsupported image data type IA_8_8");
         break;
@@ -1693,7 +1749,47 @@ void setOtherModes(u64 command, u64 const *params) {
 }
 
 void loadTlut(u64 command, u64 const *params) {
-    debugger.halt("load_tlut");
+    unsigned sl = (command >> 44) & 0xfffu;
+    unsigned tl = (command >> 32) & 0xfffu;
+    unsigned tile = (command >> 24) & 0x7u;
+    unsigned sh = (command >> 12) & 0xfffu;
+    unsigned th = (command >>  0) & 0xfffu;
+
+    tiles[tile].sl = sl;
+    tiles[tile].tl = tl;
+    tiles[tile].sh = sh;
+    tiles[tile].th = th;
+
+    if (debugger.verbose.RDP) {
+        std::cerr << "  sl: " << (float)tiles[tile].sl / 4. << std::endl;
+        std::cerr << "  tl: " << (float)tiles[tile].tl / 4. << std::endl;
+        std::cerr << "  tile: " << std::dec << tile << std::endl;
+        std::cerr << "  sh: " << (float)tiles[tile].sh / 4. << std::endl;
+        std::cerr << "  th: " << (float)tiles[tile].th / 4. << std::endl;
+    }
+
+    if (texture_image.size != PIXEL_SIZE_16B) {
+        debugger.halt("load_tlut: invalid pixel size");
+        return;
+    }
+
+    /* sl, sh are in 10.2 fixpoint format. */
+    sl >>= 2;
+    sh >>= 2;
+
+    if (sl >= 256 || sh >= 256 || sl > sh) {
+        debugger.halt("load_tlut: out-of-bounds palette index");
+        return;
+    }
+
+    unsigned line_size = (sh - sl) << 1;
+    u8 *src = &state.dram[texture_image.addr];
+    u8 *dst = &state.tmem[0x800 + (sl << 1)];
+
+    memcpy(dst,         src, line_size);
+    memcpy(dst + 0x200, src, line_size);
+    memcpy(dst + 0x400, src, line_size);
+    memcpy(dst + 0x600, src, line_size);
 }
 
 void syncLoad(u64 command, u64 const *params) {
