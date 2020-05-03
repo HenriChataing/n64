@@ -359,6 +359,43 @@ static void displayHWRegisters(void) {
     }
 }
 
+/**
+ * Capture key callbacks, interpret them as game inputs.
+ */
+void joyKeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    unsigned keyval;
+    switch (action) {
+    case GLFW_PRESS: keyval = 1; break;
+    case GLFW_RELEASE: keyval = 0; break;
+    default: return;
+    }
+
+    std::cerr << "key: " << key;
+    std::cerr << (keyval ? " down" : " up") << std::endl;
+
+    switch (key) {
+    case GLFW_KEY_A:     R4300::state.hwreg.buttons.A       = keyval; break;
+    case GLFW_KEY_B:     R4300::state.hwreg.buttons.B       = keyval; break;
+    case GLFW_KEY_Z:     R4300::state.hwreg.buttons.Z       = keyval; break;
+    case GLFW_KEY_SPACE: R4300::state.hwreg.buttons.start   = keyval; break;
+    case GLFW_KEY_UP:    R4300::state.hwreg.buttons.up      = keyval; break;
+    case GLFW_KEY_DOWN:  R4300::state.hwreg.buttons.down    = keyval; break;
+    case GLFW_KEY_LEFT:  R4300::state.hwreg.buttons.left    = keyval; break;
+    case GLFW_KEY_RIGHT: R4300::state.hwreg.buttons.right   = keyval; break;
+    case GLFW_KEY_L:     R4300::state.hwreg.buttons.L       = keyval; break;
+    case GLFW_KEY_R:     R4300::state.hwreg.buttons.R       = keyval; break;
+    // case : R4300::state.hwreg.buttons.C_up    = keyval; break;
+    // case : R4300::state.hwreg.buttons.C_down  = keyval; break;
+    // case : R4300::state.hwreg.buttons.C_left  = keyval; break;
+    // case : R4300::state.hwreg.buttons.C_right = keyval; break;
+    default: break;
+    }
+
+    // R4300::state.hwreg.buttons.x = 0;
+    // R4300::state.hwreg.buttons.y = 0;
+}
+
 int startGui()
 {
     // Initialize the machine state.
@@ -390,6 +427,8 @@ int startGui()
         fprintf(stderr, "Failed to initialize OpenGL loader!\n");
         return 1;
     }
+
+    glfwSetKeyCallback(window, joyKeyCallback);
 
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();

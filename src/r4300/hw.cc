@@ -406,10 +406,25 @@ void eval_PIF_commands()
                         state.pifram[ir] |= 0x80u;
                         break;
                     }
-                    write_pifram_byte(0, 0x00);
-                    write_pifram_byte(1, 0x00);
-                    write_pifram_byte(2, 0x00);
-                    write_pifram_byte(3, 0x00);
+
+                    write_pifram_byte(0,
+                        (state.hwreg.buttons.A << 7) |
+                        (state.hwreg.buttons.B << 6) |
+                        (state.hwreg.buttons.Z << 5) |
+                        (state.hwreg.buttons.start << 4) |
+                        (state.hwreg.buttons.up << 3) |
+                        (state.hwreg.buttons.down << 2) |
+                        (state.hwreg.buttons.left << 1) |
+                        (state.hwreg.buttons.right << 0));
+                    write_pifram_byte(1,
+                        (state.hwreg.buttons.L << 5) |
+                        (state.hwreg.buttons.R << 4) |
+                        (state.hwreg.buttons.C_up << 3) |
+                        (state.hwreg.buttons.C_down << 2) |
+                        (state.hwreg.buttons.C_left << 1) |
+                        (state.hwreg.buttons.C_right << 0));
+                    write_pifram_byte(2, (unsigned)state.hwreg.buttons.x);
+                    write_pifram_byte(3, (unsigned)state.hwreg.buttons.y);
                     break;
 
                 default:
@@ -466,6 +481,10 @@ void write_SI_PIF_ADDR_RD64B_REG(u32 value)
         return;
     }
 
+    // Run the commands stored in the PIF ram.
+    eval_PIF_commands();
+
+    // Copy the result to the designated DRAM address.
     memcpy(state.dram + dst, state.pifram, 64);
     state.hwreg.SI_STATUS_REG = SI_STATUS_INTR;
     set_MI_INTR_REG(MI_INTR_SI);
@@ -516,9 +535,6 @@ void write_SI_PIF_ADDR_WR64B_REG(u32 value)
         }
         std::cerr << std::endl;
     }
-
-    // Run the commands encoded in the PIF ram.
-    eval_PIF_commands();
 }
 
 namespace RdRam {
