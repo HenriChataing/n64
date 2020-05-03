@@ -303,7 +303,7 @@ struct shade_coefs {
     i32 drdy, dgdy, dbdy, dady;
 };
 
-/** All coefficients are in signed S15.16 fixpoint format. */
+/** All coefficients are in signed S10.21 fixpoint format. */
 struct texture_coefs {
     i32 s, t, w;
     i32 dsdx, dtdx, dwdx;
@@ -388,6 +388,32 @@ static u8 noise() {
     return 128;
 }
 
+static void print_i32_fixpoint(i32 val, int radix) {
+    if (val < 0) {
+        std::cerr << "-";
+        val = -val;
+    }
+    unsigned long div = 1lu << radix;
+    std::cerr << (double)val / (float)div;
+}
+
+static void print_s29_2(i32 val) {
+    print_i32_fixpoint(val, 2);
+}
+
+static void print_s15_16(i32 val) {
+    print_i32_fixpoint(val, 16);
+}
+
+static void print_s10_21(i32 val) {
+    print_i32_fixpoint(val, 21);
+}
+
+static void print_u16_16(u32 val) {
+    std::cerr << (double)val / 65536.0;
+}
+
+
 static void print_pixel(pixel_t *px) {
     if (!debugger.verbose.RDP)
         return;
@@ -395,9 +421,9 @@ static void print_pixel(pixel_t *px) {
     std::cerr << std::dec;
     std::cerr << "  x,y,z:" << px->edge_coefs.x;
     std::cerr << "," << px->edge_coefs.y << "," << px->zbuffer_coefs.z;
-    std::cerr << " tex:" << (float)px->texture_coefs.s / 65536.0;
-    std::cerr << "," << (float)px->texture_coefs.t / 65536.0;
-    std::cerr << "," << (float)px->texture_coefs.w / 65536.0;
+    std::cerr << " tex:"; print_s10_21(px->texture_coefs.s);
+    std::cerr << ","; print_s10_21(px->texture_coefs.t);
+    std::cerr << ","; print_s10_21(px->texture_coefs.w);
     std::cerr << " shade:" << (int)px->shade_color.r << "," << (int)px->shade_color.g;
     std::cerr << "," << (int)px->shade_color.b << "," << (int)px->shade_color.a;
     std::cerr << " texel0:" << (int)px->texel0_color.r << "," << (int)px->texel0_color.g;
@@ -515,13 +541,14 @@ static void pipeline_mi_load(pixel_t *px);
 static void pipeline_tx(pixel_t *px) {
     i32 s = px->texture_coefs.s;
     i32 t = px->texture_coefs.t;
-    // i32 w = px->texture_coefs.w;
+    i32 w = px->texture_coefs.w;
     struct tile const *tile = px->tile;
 
     /* Perform perspective correction if enabled.
      * W is the normalized inverse depth. */
-    if (other_modes.persp_tex_en) {
-        debugger.halt("persp_tex_en not implemented");
+    if (other_modes.persp_tex_en && w != 0) {
+        s /= w;
+        t /= w;
     }
     /* Apply shifts for different LODs. */
     if (tile->shift_s < 11) {
@@ -535,15 +562,11 @@ static void pipeline_tx(pixel_t *px) {
         t <<= 16 - tile->shift_t;
     }
 
-    // But why ?
-    s >>= 5;
-    t >>= 5;
-
     /* Convert the texture coordinates to tile based coordinates
      * values, removing the fractional part.
      * Apply wrap, mirror and clamp processing. */
-    i32 s_tile = (i32)((s >> 14) - tile->sl) >> 2;
-    i32 t_tile = (i32)((t >> 14) - tile->tl) >> 2;
+    i32 s_tile = (i32)((s >> 19) - tile->sl) >> 2;
+    i32 t_tile = (i32)((t >> 19) - tile->tl) >> 2;
     // For texture filtering:
     // i32 s_frac = ;
     // i32 t_frac = ;
@@ -1238,26 +1261,6 @@ static i32 read_s15_16(u64 val, u64 frac, unsigned shift) {
     return (i32)(top | bottom);
 }
 
-static void print_s15_16(u32 val) {
-    if ((i32)val < 0) {
-        std::cerr << "-";
-        val = -val;
-    }
-    std::cerr << (double)val / 65536.0;
-}
-
-static void print_u16_16(u32 val) {
-    std::cerr << (double)val / 65536.0;
-}
-
-static void print_s29_2(u32 val) {
-    if ((i32)val < 0) {
-        std::cerr << "-";
-        val = -val;
-    }
-    std::cerr << (double)val / 4.0;
-}
-
 static void read_edge_coefs(u64 cmd, u64 const *params, struct edge_coefs *edge) {
     u32 yl      = (cmd >> 32) & 0x3fffu;
     if (yl & (UINT32_C(1) << 13))
@@ -1358,18 +1361,18 @@ static void print_shade_coefs(struct shade_coefs const *shade) {
 static void print_texture_coefs(struct texture_coefs const *texture) {
     if (!debugger.verbose.RDP)
         return;
-    std::cerr << "  s: ";    print_s15_16(texture->s); std::cerr << std::endl;
-    std::cerr << "  t: ";    print_s15_16(texture->t); std::cerr << std::endl;
-    std::cerr << "  w: ";    print_s15_16(texture->w); std::cerr << std::endl;
-    std::cerr << "  dsdx: "; print_s15_16(texture->dsdx); std::cerr << std::endl;
-    std::cerr << "  dtdx: "; print_s15_16(texture->dtdx); std::cerr << std::endl;
-    std::cerr << "  dwdx: "; print_s15_16(texture->dwdx); std::cerr << std::endl;
-    std::cerr << "  dsde: "; print_s15_16(texture->dsde); std::cerr << std::endl;
-    std::cerr << "  dtde: "; print_s15_16(texture->dtde); std::cerr << std::endl;
-    std::cerr << "  dwde: "; print_s15_16(texture->dwde); std::cerr << std::endl;
-    std::cerr << "  dsdy: "; print_s15_16(texture->dsdy); std::cerr << std::endl;
-    std::cerr << "  dtdy: "; print_s15_16(texture->dtdy); std::cerr << std::endl;
-    std::cerr << "  dwdy: "; print_s15_16(texture->dwdy); std::cerr << std::endl;
+    std::cerr << "  s: ";    print_s10_21(texture->s); std::cerr << std::endl;
+    std::cerr << "  t: ";    print_s10_21(texture->t); std::cerr << std::endl;
+    std::cerr << "  w: ";    print_s10_21(texture->w); std::cerr << std::endl;
+    std::cerr << "  dsdx: "; print_s10_21(texture->dsdx); std::cerr << std::endl;
+    std::cerr << "  dtdx: "; print_s10_21(texture->dtdx); std::cerr << std::endl;
+    std::cerr << "  dwdx: "; print_s10_21(texture->dwdx); std::cerr << std::endl;
+    std::cerr << "  dsde: "; print_s10_21(texture->dsde); std::cerr << std::endl;
+    std::cerr << "  dtde: "; print_s10_21(texture->dtde); std::cerr << std::endl;
+    std::cerr << "  dwde: "; print_s10_21(texture->dwde); std::cerr << std::endl;
+    std::cerr << "  dsdy: "; print_s10_21(texture->dsdy); std::cerr << std::endl;
+    std::cerr << "  dtdy: "; print_s10_21(texture->dtdy); std::cerr << std::endl;
+    std::cerr << "  dwdy: "; print_s10_21(texture->dwdy); std::cerr << std::endl;
 }
 
 static void print_zbuffer_coefs(struct zbuffer_coefs const *zbuffer) {
@@ -1526,7 +1529,7 @@ void textureRectangle(u64 command, u64 const *params) {
     unsigned xh = (command >> 12) & 0xfffu;
     unsigned yh = (command >>  0) & 0xffffu;
 
-    /* Texture coordinates are in the signed 5.10 fixed point format. */
+    /* Texture coordinates are in signed 5.10 fixed point format. */
     i32 s    = (i16)(u16)((params[0] >> 48) & 0xffffu);
     i32 t    = (i16)(u16)((params[0] >> 32) & 0xffffu);
     i32 dsdx = (i16)(u16)((params[0] >> 16) & 0xffffu);
@@ -1538,18 +1541,18 @@ void textureRectangle(u64 command, u64 const *params) {
         std::cerr << "  tile: " << tile << std::endl;
         std::cerr << "  xh: " << (float)xh / 4. << std::endl;
         std::cerr << "  yh: " << (float)yh / 4. << std::endl;
-        std::cerr << "  s: " << (float)s / 1024. << std::endl;
-        std::cerr << "  t: " << (float)t / 1024. << std::endl;
+        std::cerr << "  s: " << (float)s / 32. << std::endl;
+        std::cerr << "  t: " << (float)t / 32. << std::endl;
         std::cerr << "  dsdx: " << (float)dsdx / 1024. << std::endl;
         std::cerr << "  dtdy: " << (float)dtdy / 1024. << std::endl;
     }
 
-    /* Convert texture coefficients from s5.10 to s15.16 */
+    /* Convert texture coefficients from s10.5 or s5.10 to s10.21 */
     struct texture_coefs texture = {
-        s << 6,    t << 6,    0,
-        dsdx << 6, 0,         0,
-        0,         0,         0,
-        0,         dtdy << 6, 0,
+        s << 16,    t << 16,    0,
+        dsdx << 11, 0,          0,
+        0,          0,          0,
+        0,          dtdy << 11, 0,
     };
 
     /* Convert edge coefficients from 10.2 to s15.16 */
@@ -1582,21 +1585,18 @@ void textureRectangleFlip(u64 command, u64 const *params) {
         std::cerr << "  tile: " << tile << std::endl;
         std::cerr << "  xh: " << (float)xh / 4. << std::endl;
         std::cerr << "  yh: " << (float)yh / 4. << std::endl;
-        std::cerr << "  s: " << (float)s / 1024. << std::endl;
-        std::cerr << "  t: " << (float)t / 1024. << std::endl;
+        std::cerr << "  s: " << (float)s / 32. << std::endl;
+        std::cerr << "  t: " << (float)t / 32. << std::endl;
         std::cerr << "  dsdx: " << (float)dsdx / 1024. << std::endl;
         std::cerr << "  dtdy: " << (float)dtdy / 1024. << std::endl;
     }
 
-    /* Convert texture coefficients from s5.10 to s15.16 */
     struct texture_coefs texture = {
-        t << 6,    s << 6,    0,
-        dtdy << 6, 0,         0,
-        0,         0,         0,
-        0,         dsdx << 6, 0,
+        s << 16,    t << 16,    0,
+        0,          dtdy << 11, 0,
+        0,          0,          0,
+        dsdx << 11, 0, 0,
     };
-
-    // TODO not working, not flipping correctly
 
     /* Convert edge coefficients from 10.2 to s15.16 */
     xh <<= 14;
@@ -1605,6 +1605,7 @@ void textureRectangleFlip(u64 command, u64 const *params) {
     for (unsigned y = yh; y < yl; y += 4) {
         Cycle1Mode::render_span(true, 0, tile, y, xh, xl, NULL, &texture, NULL);
         texture.t += texture.dtdy;
+        texture.s += texture.dsdy;
     }
 }
 
@@ -1881,13 +1882,6 @@ void setTile(u64 command, u64 const *params) {
     }
 
     tiles[tile].type = convert_image_data_format(tiles[tile].format, tiles[tile].size);
-    if (tiles[tile].type == IMAGE_DATA_FORMAT_INVAL) {
-        std::cerr << "SetTile() invalid image data format (";
-        std::cerr << std::dec << tiles[tile].format << ", ";
-        std::cerr << tiles[tile].size << ")" << std::endl;
-        debugger.halt("SetTile: bad format");
-        return;
-    }
 }
 
 /** @brief Implement the fill rectangle command. */
