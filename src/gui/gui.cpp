@@ -283,6 +283,23 @@ static void displayHWRegisters(void) {
                 R4300::state.hwreg.vi_LastCycleCount);
             ImGui::Text("vi_CyclesPerLine       %lu\n",
                 R4300::state.hwreg.vi_CyclesPerLine);
+
+            ImGui::Text("lines per frame:  %" PRIu32 "\n",
+                R4300::state.hwreg.VI_V_SYNC_REG);
+            ImGui::Text("line duration:    %f\n",
+                (float)(R4300::state.hwreg.VI_H_SYNC_REG & 0xfffu) / 4.);
+            ImGui::Text("horizontal start: %" PRIu32 "\n",
+                (R4300::state.hwreg.VI_H_START_REG >> 16) & 0x3ffu);
+            ImGui::Text("horizontal end:   %" PRIu32 "\n",
+                R4300::state.hwreg.VI_H_START_REG & 0x3ffu);
+            ImGui::Text("vertical start:   %" PRIu32 "\n",
+                (R4300::state.hwreg.VI_V_START_REG >> 16) & 0x3ffu);
+            ImGui::Text("vertical end:     %" PRIu32 "\n",
+                R4300::state.hwreg.VI_V_START_REG & 0x3ffu);
+            ImGui::Text("horizontal scale: %f\n",
+                (float)(R4300::state.hwreg.VI_X_SCALE_REG & 0xfffu) / 1024.);
+            ImGui::Text("vertical scale:   %f\n",
+                (float)(R4300::state.hwreg.VI_Y_SCALE_REG & 0xfffu) / 1024.);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("AI")) {
