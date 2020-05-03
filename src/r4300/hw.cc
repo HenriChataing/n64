@@ -459,8 +459,8 @@ void write_SI_PIF_ADDR_RD64B_REG(u32 value)
     // particular does not overflow.
     if ((dst + 64) <= dst ||
         (dst + 64) > 0x400000llu) {
-        std::cerr << "write_SI_PIF_ADDR_RD64B_REG() destination range invalid";
-        std::cerr << std::endl;
+        std::cerr << "write_SI_PIF_ADDR_RD64B_REG() destination range invalid: ";
+        std::cerr << std::hex << dst << std::endl;
         state.hwreg.SI_STATUS_REG = SI_STATUS_INTR | SI_STATUS_DMA_ERROR;
         set_MI_INTR_REG(MI_INTR_SI);
         return;
@@ -470,14 +470,16 @@ void write_SI_PIF_ADDR_RD64B_REG(u32 value)
     state.hwreg.SI_STATUS_REG = SI_STATUS_INTR;
     set_MI_INTR_REG(MI_INTR_SI);
 
-    std::cerr << "PIF response buffer:" << std::endl;
-    for (size_t n = 0; n < 64; n++) {
-        if (n && !(n % 16))
-            std::cerr << std::endl;
-        std::cerr << std::hex << " ";
-        std::cerr << std::setw(2) << (unsigned)state.pifram[n];
+    if (debugger.verbose.SI) {
+        std::cerr << "PIF response buffer:" << std::endl;
+        for (size_t n = 0; n < 64; n++) {
+            if (n && !(n % 16))
+                std::cerr << std::endl;
+            std::cerr << std::hex << " ";
+            std::cerr << std::setw(2) << (unsigned)state.pifram[n];
+        }
+        std::cerr << std::endl;
     }
-    std::cerr << std::endl;
 }
 
 /**
@@ -504,14 +506,16 @@ void write_SI_PIF_ADDR_WR64B_REG(u32 value)
     state.hwreg.SI_STATUS_REG = SI_STATUS_INTR;
     set_MI_INTR_REG(MI_INTR_SI);
 
-    std::cerr << "PIF command buffer:" << std::endl;
-    for (size_t n = 0; n < 64; n++) {
-        if (n && !(n % 16))
-            std::cerr << std::endl;
-        std::cerr << std::hex << " ";
-        std::cerr << std::setw(2) << (unsigned)state.pifram[n];
+    if (debugger.verbose.SI) {
+        std::cerr << "PIF command buffer:" << std::endl;
+        for (size_t n = 0; n < 64; n++) {
+            if (n && !(n % 16))
+                std::cerr << std::endl;
+            std::cerr << std::hex << " ";
+            std::cerr << std::setw(2) << (unsigned)state.pifram[n];
+        }
+        std::cerr << std::endl;
     }
-    std::cerr << std::endl;
 
     // Run the commands encoded in the PIF ram.
     eval_PIF_commands();
@@ -1206,8 +1210,6 @@ const u32 VI_Y_SCALE_REG = UINT32_C(0x04400034);
 void updateCurrentFramebuffer(void) {
     bool valid = true;
     unsigned pixelSize = 0;
-    unsigned width = 0;
-    unsigned height = 0;
     void *start = NULL;
 
     u32 colorDepth =
@@ -1223,26 +1225,46 @@ void updateCurrentFramebuffer(void) {
             valid = false;
             break;
     }
-    switch (state.hwreg.VI_WIDTH_REG) {
-        case UINT32_C(0x100):
-            width = 256;
-            height = 200;
-            break;
-        case UINT32_C(0x140):
-            width = 320;
-            height = 240;
-            break;
-        case UINT32_C(0x280):
-            width = 640;
-            height = 480;
-            break;
-        default:
-            std::cerr << "Unsupported WIDTH config" << std::endl;
-            valid = false;
-            break;
+
+    /* PAL standard */
+    // float screenFrameRate = 25;
+    // float screenPixelAspectRatio = 1.09; /* Horizontally elongated */
+
+    /* NTSC standard */
+    // float screenFrameRate = 29.97;
+    // float screenPixelAspectRatio = 0.91; /* Vertically elongated */
+
+    /* Unless stated otherwise, all are integer values.
+     * lineDuration: 10.2
+     * horizontalScale: 2.10
+     * verticalScale: 2.10 */
+    u32 linesPerFrame = R4300::state.hwreg.VI_V_SYNC_REG;
+    u32 lineDuration = R4300::state.hwreg.VI_H_SYNC_REG & 0xfffu;
+    u32 horizontalStart = (R4300::state.hwreg.VI_H_START_REG >> 16) & 0x3ffu;
+    u32 horizontalEnd = R4300::state.hwreg.VI_H_START_REG & 0x3ffu;
+    u32 verticalStart = (R4300::state.hwreg.VI_V_START_REG >> 16) & 0x3ffu;
+    u32 verticalEnd = R4300::state.hwreg.VI_V_START_REG & 0x3ffu;
+    u32 horizontalScale = R4300::state.hwreg.VI_X_SCALE_REG & 0xfffu;
+    u32 verticalScale = R4300::state.hwreg.VI_Y_SCALE_REG & 0xfffu;
+
+    u32 framebufferWidth =
+        ((u64)(horizontalEnd - horizontalStart) * (u64)horizontalScale) / 1024;
+    u32 framebufferHeight =
+        ((u64)(verticalEnd - verticalStart) * (u64)verticalScale) / 1024 / 2;
+
+    if (debugger.verbose.VI) {
+        std::cerr << std::dec;
+        std::cerr << "horizontal start : " << horizontalStart << std::endl;
+        std::cerr << "horizontal end : " << horizontalEnd << std::endl;
+        std::cerr << "vertical start : " << verticalStart << std::endl;
+        std::cerr << "vertical end : " << verticalEnd << std::endl;
+        std::cerr << "framebuffer width : " << framebufferWidth << std::endl;
+        std::cerr << "framebuffer height : " << framebufferHeight << std::endl;
     }
 
-    unsigned framebufferSize = width * height * (pixelSize / 8);
+    framebufferWidth = state.hwreg.VI_WIDTH_REG;
+
+    unsigned framebufferSize = framebufferWidth * framebufferHeight * (pixelSize / 8);
     u64 addr = sign_extend<u64, u32>(state.hwreg.VI_DRAM_ADDR_REG);
     u64 offset = 0;
     Exception exn;
@@ -1253,11 +1275,11 @@ void updateCurrentFramebuffer(void) {
         start = &state.dram[offset];
     } else {
         std::cerr << "Invalid DRAM_ADDR config: " << std::hex;
-        std::cerr << offset << "," << framebufferSize << std::endl;
+        std::cerr << addr << "(" << offset << ")," << framebufferSize << std::endl;
         valid = false;
     }
 
-    setVideoImage(width, height, pixelSize, valid ? start : NULL);
+    setVideoImage(framebufferWidth, framebufferHeight, pixelSize, valid ? start : NULL);
 }
 
 /** @brief Write the value of the VI_INTR_REG register. */
@@ -1285,9 +1307,11 @@ u32 read_VI_CURRENT_REG(void) {
     state.hwreg.vi_LastCycleCount += diff - (diff % state.hwreg.vi_CyclesPerLine);
     state.hwreg.VI_CURRENT_REG = count;
 
-    /* Bit 0 always indicates the interlacing mode. */
-    count &= ~UINT32_C(1);
-    count |= (state.hwreg.VI_CONTROL_REG & VI_CONTROL_SERRATE) != 0;
+    /* Bit 0 always indicates the current field in interlaced mode. */
+    if (state.hwreg.VI_CONTROL_REG & VI_CONTROL_SERRATE) {
+        count &= ~UINT32_C(1);
+        count |= 0; // TODO track current field.
+    }
     logRead(debugger.verbose.VI, "VI_CURRENT_REG", count);
     return count;
 }
@@ -1416,10 +1440,12 @@ bool write(uint bytes, u64 addr, u64 value)
         case VI_H_START_REG:
             logWrite(debugger.verbose.VI, "VI_H_START_REG", value);
             state.hwreg.VI_H_START_REG = value;
+            updateCurrentFramebuffer();
             return true;
         case VI_V_START_REG:
             logWrite(debugger.verbose.VI, "VI_V_START_REG", value);
             state.hwreg.VI_V_START_REG = value;
+            updateCurrentFramebuffer();
             return true;
         case VI_V_BURST_REG:
             logWrite(debugger.verbose.VI, "VI_V_BURST_REG", value);
@@ -1428,10 +1454,12 @@ bool write(uint bytes, u64 addr, u64 value)
         case VI_X_SCALE_REG:
             logWrite(debugger.verbose.VI, "VI_X_SCALE_REG", value);
             state.hwreg.VI_X_SCALE_REG = value;
+            updateCurrentFramebuffer();
             return true;
         case VI_Y_SCALE_REG:
             logWrite(debugger.verbose.VI, "VI_Y_SCALE_REG", value);
             state.hwreg.VI_Y_SCALE_REG = value;
+            updateCurrentFramebuffer();
             return true;
         default:
             throw "VI Unsupported7";
@@ -1943,7 +1971,7 @@ bool write(uint bytes, u64 addr, u64 value)
     switch (addr) {
         case SI_DRAM_ADDR_REG:
             logWrite(debugger.verbose.SI, "SI_DRAM_ADDR_REG", value);
-            state.hwreg.SI_DRAM_ADDR_REG = value;
+            state.hwreg.SI_DRAM_ADDR_REG = value & 0xfffffflu;
             return true;
 
         case SI_PIF_ADDR_RD64B_REG:
