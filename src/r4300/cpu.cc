@@ -1423,7 +1423,7 @@ void eval_SWC1(u32 instr, bool delaySlot) {
         translateAddress(vAddr, &pAddr, false),
         vAddr, delaySlot, false, false, 0);
     checkException(
-        state.physmem.store(4, pAddr, state.reg.gpr[rt]) ? None : BusError,
+        state.physmem.store(4, pAddr, state.cp1reg.fpr_s[rt]->w) ? None : BusError,
         vAddr, delaySlot, false, false, 0);
 }
 

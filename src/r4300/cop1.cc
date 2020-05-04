@@ -58,8 +58,7 @@ namespace R4300 {
  * @brief Configure the memory aliases for single and double word access
  *  to the floating point registers.
  */
-void cp1reg::setFprAliases(bool fr)
-{
+void cp1reg::setFprAliases(bool fr) {
     if (fr) {
         for (unsigned int r = 0; r < 32; r++) {
             fpr_s[r] = (fpr_s_t *)&fpr[r];
@@ -355,6 +354,7 @@ void eval_CVT_W_S(u32 instr, bool delaySlot) {
 
 void eval_CVT_L_S(u32 instr, bool delaySlot) {
     FRType(instr);
+    state.cp1reg.fpr_d[fd]->l = state.cp1reg.fpr_s[fs]->s;
 }
 
 void eval_CMP_S(u32 instr, bool delaySlot) {
