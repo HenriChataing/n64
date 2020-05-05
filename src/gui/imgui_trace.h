@@ -10,13 +10,13 @@ struct Trace
 {
     /* Settings */
 
-    circular_buffer<TraceEntry> const *TraceBuffer;
+    circular_buffer<Debugger::TraceEntry> const *TraceBuffer;
     int             Cols;                                   // = 4      // number of columns to display.
     bool            OptUpperCaseHex;                        // = true   // display hexadecimal values as "FF" instead of "ff".
     int             OptAddrDigitsCount;                     // = 16     // number of addr digits to display (default calculated based on maximum displayed addr).
     int             ExportCounter;
 
-    Trace(circular_buffer<TraceEntry> const *trace) : TraceBuffer(trace)
+    Trace(circular_buffer<Debugger::TraceEntry> const *trace) : TraceBuffer(trace)
     {
         Cols = 4;
         OptUpperCaseHex = true;
@@ -88,7 +88,7 @@ struct Trace
         // Display visible lines
         for (int line_i = clipper.DisplayStart; line_i < clipper.DisplayEnd; line_i++)
         {
-            TraceEntry entry = TraceBuffer->peek_front(line_i);
+            Debugger::TraceEntry entry = TraceBuffer->peek_front(line_i);
             ImGui::Text(format_address, s.AddrDigitsCount, entry.first);
 
             // Draw Hexadecimal
@@ -123,7 +123,7 @@ struct Trace
             ExportCounter++;
             for (size_t i = 0; i < TraceBuffer->length(); i++)
             {
-                TraceEntry entry = TraceBuffer->peek_front(i);
+                Debugger::TraceEntry entry = TraceBuffer->peek_front(i);
                 os << std::hex << std::setfill(' ') << std::right;
                 os << std::setw(16) << entry.first << "    ";
                 os << std::hex << std::setfill('0');

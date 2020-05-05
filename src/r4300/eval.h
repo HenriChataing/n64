@@ -3,6 +3,7 @@
 #define _EVAL_H_INCLUDED_
 
 #include "types.h"
+#include "cpu.h"
 
 namespace R4300 {
 namespace Eval {
@@ -11,15 +12,7 @@ void eval_Reserved(u32 instr, bool delaySlot);
 void eval_COP0(u32 instr, bool delaySlot);
 void eval_COP1(u32 instr, bool delaySlot);
 
-/**
- * @brief Start the interpreter loop.
- */
-void run();
-
-/**
- * @brief Execute exactly one instruction.
- * @return true if the instruction caused an exception
- */
+/** @brief Execute exactly one instruction. */
 void step();
 
 /**
@@ -33,7 +26,7 @@ void step();
  * @param load          Whether the exception was triggered by a load or store
  *                      operation.
  */
-void takeException(Exception exn, u64 vAddr,
+void takeException(R4300::Exception exn, u64 vAddr,
                    bool delaySlot, bool instr, bool load, u32 ce = 0);
 
 /**

@@ -1288,7 +1288,7 @@ static bool eval(bool delaySlot)
     checkAddressAlignment(addr, 4);
     instr = __builtin_bswap32(*(u32 *)&state.imem[addr & 0xffflu]);
 
-    debugger.rspTrace.put(TraceEntry(addr, instr));
+    debugger.rspTrace.put(Debugger::TraceEntry(addr, instr));
 
     using namespace Mips::Opcode;
     using namespace Mips::Special;

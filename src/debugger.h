@@ -2,13 +2,18 @@
 #ifndef _DEBUGGER_H_INCLUDED_
 #define _DEBUGGER_H_INCLUDED_
 
-#include <circular_buffer.h>
+#include <atomic>
+#include <condition_variable>
 #include <map>
+#include <mutex>
+#include <thread>
 #include <vector>
-#include <types.h>
 
-/** @brief Type of an entry in the interpreter execution trace. */
-typedef std::pair<u64, u32> TraceEntry;
+#include <types.h>
+#include <circular_buffer.h>
+#include <r4300/eval.h>
+#include <r4300/rsp.h>
+
 
 class Debugger {
 public:
@@ -16,40 +21,32 @@ public:
     ~Debugger();
 
     /* Stop condition */
-    bool halted;
+    std::atomic_bool halted;
     std::string haltedReason;
 
-    void halt(std::string reason) {
-        haltedReason = reason;
-        halted = true;
-    }
+    /* Halt the machine execution, with the proivded reason. */
+    void halt(std::string reason);
 
-    void warn(std::string msg) {
-        (void)msg;
-    }
+    /* When the debugger is halted, advance the interpreter one step,
+     * or resume execution. */
+    void step();
+    void resume();
+
+    /* Start the interpreter in a separate thread.
+     * Destroy the interpreter thread. */
+    void startInterpreter();
+    void stopInterpreter();
 
     /* Called for undefined behaviour, can be configured to hard fail the
      * emulation. */
-    void undefined(std::string cause) {
-    }
+    void undefined(std::string cause) {}
 
-    /* Symbols. */
-    void addSymbol(u64 address, std::string name) {
-        _symbols[address] = name;
-    }
-
-    /* Event handlers for function calls and function returns. */
-    void newStackFrame(u64 functionAddr, u64 callerAddr, u64 stackPointer);
-    void editStackFrame(u64 functionAddr, u64 stackPointer);
-    void deleteStackFrame(u64 returnAdd, u64 callerAddr, u64 stackPointer);
-
-    /* Event handlers for thread context changes. */
-    void newThread(u64 ptr);
-    void deleteThread(u64 ptr);
-    void runThread(u64 ptr);
-
-    /* Request a backtrace of the current thread. */
-    void backtrace(u64 programCounter);
+    /** Create a new breakpoint.
+     * \p addr is the physical address of RAM memory location to set the
+     * breakpoint to. */
+    void setBreakpoint(u64 addr);
+    void unsetBreakpoint(u64 addr);
+    bool checkBreakpoint(u64 addr);
 
     struct {
         bool cop0;
@@ -73,24 +70,25 @@ public:
         bool thread;
     } verbose;
 
+    /** Type of execution trace entries. */
+    typedef std::pair<u64, u32> TraceEntry;
+
     circular_buffer<TraceEntry> cpuTrace;
     circular_buffer<TraceEntry> rspTrace;
 
-private:
-    struct StackFrame {
-        u64 functionAddr;   /**< Address of the function. */
-        u64 callerAddr;     /**< Address of the call point. */
-        u64 stackPointer;   /**< Value of the stack pointer on function entry. */
-    };
-    struct Thread {
-        Thread(u64 id) : id(id) {}
-        u64 id;
-        std::vector<StackFrame> backtrace;
+    struct Breakpoint {
+        u64 addr;   /* Virtual memory address of the breakpoint. */
+        Breakpoint(u64 addr) : addr(addr) {}
     };
 
-    std::map<u64, std::string> _symbols;
-    std::map<u64, Thread *> _threads;
-    Thread *_current;
+private:
+    std::thread *           _interpreterThread;
+    std::condition_variable _interpreterCondition;
+    std::mutex              _interpreterMutex;
+    std::atomic_bool        _interpreterStopped;
+    void interpreterRoutine();
+
+    std::map<u64, std::unique_ptr<Breakpoint>> _breakpoints;
 };
 
 extern Debugger debugger;

@@ -1573,7 +1573,7 @@ static void eval(bool delaySlot)
         loadw(pAddr, &instr),
         vAddr, delaySlot, true, true, 0);
 
-    debugger.cpuTrace.put(TraceEntry(vAddr, instr));
+    debugger.cpuTrace.put(Debugger::TraceEntry(vAddr, instr));
 
     // The null instruction is 'sll r0, r0, 0', i.e. a NOP.
     // It is one of the most used instructions (to fill in delay slots).
@@ -1611,13 +1611,6 @@ void step()
             takeException(Interrupt, 0, false, false, false, 0);
             break;
     }
-}
-
-void run()
-{
-    // while (1)
-    for (int i = 0; i < 1000; i++)
-        step();
 }
 
 }; /* namespace Eval */

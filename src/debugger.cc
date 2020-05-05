@@ -1,18 +1,19 @@
 
 #include <iomanip>
 #include <iostream>
+
 #include "debugger.h"
 
 /** @brief Global debugger. */
 Debugger debugger;
 
-/**
- * @brief Initialize the debugger with a default thread.
- */
-Debugger::Debugger() : halted(true), haltedReason("Reset"), cpuTrace(0x10000), rspTrace(0x10000)
+/* Class */
+
+Debugger::Debugger()
+    : halted(true), haltedReason("Reset"),
+      cpuTrace(0x10000), rspTrace(0x10000)
 {
-    _current = new Thread(0);
-    _threads[0] = _current;
+    _interpreterStopped = false;
 
     verbose.cop0 = false;
     verbose.cop1 = false;
@@ -30,159 +31,93 @@ Debugger::Debugger() : halted(true), haltedReason("Reset"), cpuTrace(0x10000), r
     verbose.SI = false;
     verbose.PIF = false;
     verbose.cart_2_1 = false;
+    verbose.RDP = true;
 
     verbose.thread = false;
 }
 
-/**
- * @brief Delete all thread contexts.
- */
-Debugger::~Debugger()
-{
-    _current = NULL;
-    for (auto it : _threads)
-        delete it.second;
+Debugger::~Debugger() {
 }
 
-/**
- * @brief Push a new stack frame to the backtrace.
- */
-void Debugger::newStackFrame(u64 functionAddr, u64 callerAddr, u64 stackPointer)
-{
-    StackFrame sf = { functionAddr, callerAddr, stackPointer };
-    _current->backtrace.push_back(sf);
+/* Interpreter */
+
+void Debugger::halt(std::string reason) {
+    if (!halted) {
+        haltedReason = reason;
+        halted = true;
+    }
 }
 
-/**
- * @brief Implement a tail call by editing the last stack frame.
- */
-void Debugger::editStackFrame(u64 functionAddr, u64 stackPointer)
-{
-    if (_current->backtrace.size() == 0) {
-        // std::cerr << "Thread " << std::hex << _current->id << ":";
-        // std::cerr << "EmptyBacktrace" << std::endl;
-        return;
+void Debugger::step() {
+    if (halted) {
+        R4300::Eval::step();
+        R4300::RSP::step();
     }
-    StackFrame &sf = _current->backtrace.back();
-    if (stackPointer != sf.stackPointer) {
-        // std::cerr << "Thread " << std::hex << _current->id << ":";
-        // std::cerr << "InvalidStackPointer " << std::hex << stackPointer << std::endl;
-    }
-    sf.functionAddr = functionAddr;
 }
 
-/**
- * @brief Delete the top stack frame(s).
- *
- * Check that the return address and stack pointer match the values recorded
- * in the stack frame.
- */
-void Debugger::deleteStackFrame(u64 returnAddr, u64 callerAddr, u64 stackPointer)
-{
-    uint i;
-
-    if (_current->backtrace.size() == 0) {
-        return;
+void Debugger::resume() {
+    if (_interpreterThread) {
+        halted = false;
+        _interpreterCondition.notify_one();
     }
-
-    for (i = _current->backtrace.size(); i > 0; i--) {
-        StackFrame &sf = _current->backtrace[i - 1];
-        if ((returnAddr == sf.callerAddr + 8) &&
-            (stackPointer == sf.stackPointer))
-            break;
-    }
-
-    if (i == 0) {
-        // std::cerr << "Thread " << std::hex << _current->id << ":";
-        // std::cerr << "UnknownStackFrame " << std::hex << returnAddr << std::endl;
-        return;
-    }
-
-    if (i != _current->backtrace.size()) {
-        // std::cerr << "Thread " << std::hex << _current->id << ":";
-        // std::cerr << "DiscardedStackFrames (" << std::dec << i << "/";
-        // std::cerr << _current->backtrace.size() << ") ";
-        // std::cerr << std::hex << returnAddr << " " << stackPointer << std::endl;
-        return;
-    }
-
-    _current->backtrace.resize(i - 1);
 }
 
-void Debugger::newThread(u64 ptr)
-{
-    if (_threads.find(ptr) != _threads.end()) {
-        std::cerr << "createThread: thread " << std::hex << ptr;
-        std::cerr << " already exists" << std::endl;
-        return;
-    }
+void Debugger::interpreterRoutine() {
+    try {
+        for (;;) {
+            {
+                std::unique_lock<std::mutex> lock(_interpreterMutex);
+                std::cout << "interpreter thread pending" << std::endl;
+                _interpreterCondition.wait(lock,
+                    [this] { return !halted || _interpreterStopped; });
+            }
 
-    _threads[ptr] = new Thread(ptr);
-}
+            while (!halted) {
+                R4300::Eval::step();
+                R4300::RSP::step();
+            }
 
-void Debugger::deleteThread(u64 ptr)
-{
-    if (_threads.find(ptr) == _threads.end()) {
-        std::cerr << "destroyThread: thread " << std::hex << ptr;
-        std::cerr << " does not exist" << std::endl;
-        return;
-    }
-
-    delete _threads[ptr];
-    _threads.erase(ptr);
-}
-
-void Debugger::runThread(u64 ptr)
-{
-    /*
-     * Assumes the calling function sets the context to jump to the return
-     * address on exception return.
-     */
-    if (_current->backtrace.size() != 0) {
-        StackFrame &sf = _current->backtrace.back();
-        deleteStackFrame(sf.callerAddr + 8, 0, sf.stackPointer);
-    }
-    if (_threads.find(ptr) == _threads.end()) {
-        std::cerr << "runThread: thread " << std::hex << ptr;
-        std::cerr << " does not exist" << std::endl;
-        _threads[ptr] = new Thread(ptr);
-    }
-    _current = _threads[ptr];
-}
-
-void Debugger::backtrace(u64 programCounter)
-{
-    std::cout << "Thread " << std::hex << _current->id << ":" << std::endl;
-    std::cout << std::hex << std::setfill(' ') << std::right;
-
-    if (_current->backtrace.size() == 0) {
-        std::cerr << "Thread " << std::hex << _current->id << ":";
-        std::cerr << "EmptyBacktrace" << std::endl;
-        return;
-    }
-
-    StackFrame &top = _current->backtrace.back();
-    std::cout << std::setw(16) << programCounter << " (";
-    if (_symbols.find(top.functionAddr) != _symbols.end())
-        std::cout << _symbols[top.functionAddr] << " + ";
-    else
-        std::cout << top.functionAddr << " + ";
-    std::cout << (programCounter - top.functionAddr) << " ; )" << std::endl;
-
-    for (uint i = _current->backtrace.size(); i > 0; i--) {
-        StackFrame &cur = _current->backtrace[i - 1];
-        if (i > 1) {
-            StackFrame &prev = _current->backtrace[i - 2];
-            std::cout << std::setw(16) << cur.callerAddr << " (";
-            if (_symbols.find(prev.functionAddr) != _symbols.end())
-                std::cout << _symbols[prev.functionAddr] << " + ";
-            else
-                std::cout << prev.functionAddr << " + ";
-            std::cout << (cur.callerAddr - prev.functionAddr) << " ; ";
-            std::cout << cur.stackPointer << ")" << std::endl;
-        } else {
-            std::cout << std::setw(16) << cur.callerAddr << " ( ; ";
-            std::cout << cur.stackPointer << ")" << std::endl;
+            if (_interpreterStopped) {
+                std::cout << "interpreter thread exiting" << std::endl;
+                return;
+            }
         }
+    } catch (const char *exn) {
+        std::cout << "caught exception '" << exn << "'" << std::endl;
+        std::cout << "interpreter thread exiting" << std::endl;
     }
+}
+
+void Debugger::startInterpreter() {
+    if (!_interpreterThread) {
+        _interpreterThread =
+            new std::thread(&Debugger::interpreterRoutine, this);
+    }
+}
+
+void Debugger::stopInterpreter() {
+    if (_interpreterThread) {
+        _interpreterStopped = true;
+        _interpreterCondition.notify_one();
+        _interpreterThread->join();
+        delete _interpreterThread;
+        _interpreterThread = NULL;
+    }
+}
+
+/* Breakpoints */
+
+void Debugger::setBreakpoint(u64 addr) {
+    if (_breakpoints.find(addr) == _breakpoints.end()) {
+        Breakpoint* bp = new Breakpoint(addr);
+        _breakpoints[addr] = std::unique_ptr<Breakpoint>(bp);
+    }
+}
+
+void Debugger::unsetBreakpoint(u64 addr) {
+    _breakpoints.erase(addr);
+}
+
+bool Debugger::checkBreakpoint(u64 addr) {
+    return _breakpoints.find(addr) != _breakpoints.end();
 }

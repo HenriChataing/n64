@@ -1,9 +1,6 @@
 
-#include <condition_variable>
 #include <cinttypes>
-#include <mutex>
-#include <stdio.h>
-#include <thread>
+#include <cstdio>
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -25,41 +22,6 @@ static Disassembler romDisassembler(12);
 static Trace cpuTrace(&debugger.cpuTrace);
 static Trace rspTrace(&debugger.rspTrace);
 
-static std::condition_variable evalCondition;
-static std::mutex evalMutex;
-
-static bool evalResumed()
-{
-    return !debugger.halted;
-}
-
-static void evalStep()
-{
-    R4300::Eval::step();
-    R4300::RSP::step();
-}
-
-/** Interpreter routine. */
-static void evalRoutine()
-{
-    try {
-        for (;;) {
-            {
-                // Wait for the interpreter to be resumed.
-                std::unique_lock<std::mutex> lock(evalMutex);
-                evalCondition.wait(lock, evalResumed);
-            }
-
-            while (!debugger.halted) {
-                // Advance one step.
-                evalStep();
-            }
-        }
-    } catch (const char *exn) {
-        std::cout << "caught exception '" << exn << "'" << std::endl;
-        std::cout << "eval thread exiting" << std::endl;
-    }
-}
 
 static void glfwErrorCallback(int error, const char* description) {
     fprintf(stderr, "Glfw Error %d: %s\n", error, description);
@@ -418,7 +380,7 @@ int startGui()
     // Initialize the machine state.
     R4300::state.boot();
     // Start interpreter thread.
-    std::thread evalThread(evalRoutine);
+    debugger.startInterpreter();
 
     // Setup window
     glfwSetErrorCallback(glfwErrorCallback);
@@ -432,7 +394,7 @@ int startGui()
 
     // Create window with graphics context
     GLFWwindow* window = glfwCreateWindow(
-        1280, 720, "Dear ImGui GLFW+OpenGL3 example", NULL, NULL);
+        1280, 720, "Nintendo 64 Emulation", NULL, NULL);
     if (window == NULL)
         return 1;
     glfwMakeContextCurrent(window);
@@ -506,13 +468,11 @@ int startGui()
                 ImGui::Text("Machine halt reason: '%s'\n",
                     debugger.haltedReason.c_str());
                 if (ImGui::Button("Continue")) {
-                    std::unique_lock<std::mutex> lock(evalMutex);
-                    debugger.halted = false;
-                    evalCondition.notify_one();
+                    debugger.resume();
                 }
                 ImGui::SameLine();
                 if (ImGui::Button("Step")) {
-                    evalStep();
+                    debugger.step();
                 }
                 if (ImGui::Button("Save Screen")) {
                     exportAsPNG("screen.png");
@@ -665,6 +625,7 @@ int startGui()
 
         glfwSwapBuffers(window);
     }
+    std::cout << "exiting main loop" << std::endl;
 
     // Cleanup
     ImGui_ImplOpenGL3_Shutdown();
@@ -674,6 +635,6 @@ int startGui()
     glfwDestroyWindow(window);
     glfwTerminate();
 
-    evalThread.detach();
+    debugger.stopInterpreter();
     return 0;
 }

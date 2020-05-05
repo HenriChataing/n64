@@ -4,10 +4,7 @@
 
 #include <r4300/state.h>
 #include <memory.h>
-#include <core.h>
-#include <rsp/server.h>
 
-void startTerminal();
 void startGui();
 
 int main(int argc, char *argv[])
@@ -29,6 +26,6 @@ int main(int argc, char *argv[])
     }
 
     R4300::state.init(path);
-    gui ? startGui() : startTerminal();
+    startGui();
     return 0;
 }

@@ -21,8 +21,6 @@ endif
 SRC       := \
     main.cc \
     memory.cc \
-    core.cc \
-    terminal.cc \
     debugger.cc
 
 SRC       += \
@@ -65,7 +63,7 @@ DEPS      := $(filter %.d, \
                  $(patsubst %.cc,$(OBJDIR)/%.d, $(SRC)) \
                  $(patsubst %.cpp,$(OBJDIR)/%.d, $(SRC)))
 
-Q = @
+Q ?= @
 
 
 all: $(EXE)
