@@ -47,12 +47,12 @@ void State::boot() {
     reg.gpr[29]   = 0xffffffffa4001ff0llu;
     memset(&cp0reg, 0, sizeof(cp0reg));
     cp0reg.random = 0x0000001f;
-    cp0reg.sr     = 0x70400004;
+    cp0reg.sr     = 0x74400004;
     cp0reg.prid   = 0x00000b00;
     cp0reg.config = 0x0006e463;
     memset(&cp1reg, 0, sizeof(cp1reg));
     memset(tlb, 0, sizeof(tlb));
-    cp1reg.setFprAliases(false);
+    cp1reg.setFprAliases(true);
 
     // Copy the cart boot code to the beginning of the physical RAM.
     physmem.copy(0x04000000llu, 0x10000000llu, 0x1000);
