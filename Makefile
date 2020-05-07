@@ -1,3 +1,4 @@
+
 CC        := gcc
 CXX       := g++
 LD        := g++
@@ -7,16 +8,29 @@ OBJDIR    := obj
 BINDIR    := bin
 EXE       := n64
 
-CFLAGS    := -Wall -Wno-unused-function -std=gnu11
-CXXFLAGS  := -Wall -Wno-unused-function -std=c++11
-CXXFLAGS  += -I$(SRCDIR) -I$(SRCDIR)/lib -DTARGET_BIGENDIAN
+# Select optimisation level.
+OPTIMISE  ?= 2
+
+INCLUDE   := $(SRCDIR) $(SRCDIR)/lib $(SRCDIR)/gui
+
+CFLAGS    := -Wall -Wno-unused-function -std=gnu11 -g
+CFLAGS    += -O$(OPTIMISE) $(addprefix -I,$(INCLUDE))
+
+CXXFLAGS  := -Wall -Wno-unused-function -std=c++11 -g
+CXXFLAGS  += -O$(OPTIMISE) $(addprefix -I,$(INCLUDE))
+
 LDFLAGS   :=
 LIBS      := -lpthread -lpng
 
-ifneq ($(DEBUG),)
-CXXFLAGS  += -g -pg -DDEBUG=$(DEBUG)
+# Enable gprof profiling.
+# Output file gmon.out can be formatted with make gprof2dot
+ifneq ($(PROFILE),)
+CXXFLAGS  += -pg
 LDFLAGS   += -pg
 endif
+
+.PHONY: all
+all: $(EXE)
 
 SRC       := \
     main.cc \
@@ -43,8 +57,8 @@ SRC       += \
 
 # Options for linking imgui with opengl3 and glfw3
 LIBS      += -lGL -lGLEW `pkg-config --static --libs glfw3`
-CFLAGS    += `pkg-config --cflags glfw3` -I$(SRCDIR)/gui
-CXXFLAGS  += `pkg-config --cflags glfw3` -I$(SRCDIR)/gui
+CFLAGS    += `pkg-config --cflags glfw3`
+CXXFLAGS  += `pkg-config --cflags glfw3`
 SRC       += \
     gui/imgui.cpp \
     gui/imgui_draw.cpp \
@@ -91,6 +105,10 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c
 $(EXE): $(OBJS)
 	@echo "  LD      $@"
 	$(Q)$(LD) -o $@ $(LDFLAGS) $(OBJS) $(LIBS)
+
+.PHONY: gprof2dot
+gprof2dot:
+	gprof $(EXE) | gprof2dot | dot -Tpng -o n64-prof.png
 
 clean:
 	@rm -rf $(OBJDIR) $(EXE)
