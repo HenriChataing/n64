@@ -243,7 +243,8 @@ void write_PI_RD_LEN_REG(u32 value) {
     if ((dst + len) <= dst ||
         dst < 0x10000000llu ||
         (dst + len) > 0x1fc00000llu) {
-        std::cerr << "write_PI_RD_LEN_REG() destination range invalid" << std::endl;
+        std::cerr << "write_PI_RD_LEN_REG() destination range invalid: 0x";
+        std::cerr << std::hex << dst << ",0x" << len << std::endl;
         return;
     }
 
@@ -251,7 +252,8 @@ void write_PI_RD_LEN_REG(u32 value) {
     // particular does not overflow.
     if ((src + len) <= src ||
         (src + len) > 0x400000llu) {
-        std::cerr << "write_PI_RD_LEN_REG() source range invalid" << std::endl;
+        std::cerr << "write_PI_RD_LEN_REG() source range invalid: 0x";
+        std::cerr << std::hex << src << ",0x" << len << std::endl;
         return;
     }
 
@@ -276,7 +278,8 @@ void write_PI_WR_LEN_REG(u32 value) {
     // particular does not overflow.
     if ((dst + len) <= dst ||
         (dst + len) > 0x400000llu) {
-        std::cerr << "write_PI_RD_LEN_REG() destination range invalid" << std::endl;
+        std::cerr << "write_PI_WR_LEN_REG() destination range invalid: 0x";
+        std::cerr << std::hex << dst << ",0x" << len << std::endl;
         return;
     }
 
@@ -285,7 +288,8 @@ void write_PI_WR_LEN_REG(u32 value) {
     if ((src + len) <= src ||
         src < 0x10000000llu ||
         (src + len) > 0x1fc00000llu) {
-        std::cerr << "write_PI_RD_LEN_REG() source range invalid" << std::endl;
+        std::cerr << "write_PI_WR_LEN_REG() source range invalid: 0x";
+        std::cerr << std::hex << dst << ",0x" << len << std::endl;
         return;
     }
 
@@ -1730,7 +1734,7 @@ bool write(uint bytes, u64 addr, u64 value)
     switch (addr) {
         case PI_DRAM_ADDR_REG:
             logWrite(debugger.verbose.PI, "PI_DRAM_ADDR_REG", value);
-            state.hwreg.PI_DRAM_ADDR_REG = value;
+            state.hwreg.PI_DRAM_ADDR_REG = value & 0xfffffflu;
             return true;
         case PI_CART_ADDR_REG:
             logWrite(debugger.verbose.PI, "PI_CART_ADDR_REG", value);
