@@ -31,7 +31,7 @@ Debugger::Debugger()
     verbose.SI = false;
     verbose.PIF = false;
     verbose.cart_2_1 = false;
-    verbose.RDP = true;
+    verbose.RDP = false;
 
     verbose.thread = false;
 }
