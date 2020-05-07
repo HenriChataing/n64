@@ -3,6 +3,8 @@ CC        := gcc
 CXX       := g++
 LD        := g++
 
+Q ?= @
+
 SRCDIR    := src
 OBJDIR    := obj
 BINDIR    := bin
@@ -11,13 +13,14 @@ EXE       := n64
 # Select optimisation level.
 OPTIMISE  ?= 2
 
-INCLUDE   := $(SRCDIR) $(SRCDIR)/lib $(SRCDIR)/gui
+INCLUDE   := $(SRCDIR) $(SRCDIR)/lib
+DEFINE    := TARGET_BIGENDIAN
 
 CFLAGS    := -Wall -Wno-unused-function -std=gnu11 -g
-CFLAGS    += -O$(OPTIMISE) $(addprefix -I,$(INCLUDE))
+CFLAGS    += -O$(OPTIMISE) $(addprefix -I,$(INCLUDE)) $(addprefix -D,$(DEFINE))
 
 CXXFLAGS  := -Wall -Wno-unused-function -std=c++11 -g
-CXXFLAGS  += -O$(OPTIMISE) $(addprefix -I,$(INCLUDE))
+CXXFLAGS  += -O$(OPTIMISE) $(addprefix -I,$(INCLUDE)) $(addprefix -D,$(DEFINE))
 
 LDFLAGS   :=
 LIBS      := -lpthread -lpng
@@ -57,8 +60,8 @@ SRC       += \
 
 # Options for linking imgui with opengl3 and glfw3
 LIBS      += -lGL -lGLEW `pkg-config --static --libs glfw3`
-CFLAGS    += `pkg-config --cflags glfw3`
-CXXFLAGS  += `pkg-config --cflags glfw3`
+CFLAGS    += `pkg-config --cflags glfw3` -I$(SRCDIR)/gui
+CXXFLAGS  += `pkg-config --cflags glfw3` -I$(SRCDIR)/gui
 SRC       += \
     gui/imgui.cpp \
     gui/imgui_draw.cpp \
@@ -72,13 +75,8 @@ OBJS      := $(filter %.o, \
                  $(patsubst %.c,$(OBJDIR)/%.o, $(SRC)) \
                  $(patsubst %.cc,$(OBJDIR)/%.o, $(SRC)) \
                  $(patsubst %.cpp,$(OBJDIR)/%.o, $(SRC)))
-DEPS      := $(filter %.d, \
-                 $(patsubst %.c,$(OBJDIR)/%.d, $(SRC)) \
-                 $(patsubst %.cc,$(OBJDIR)/%.d, $(SRC)) \
-                 $(patsubst %.cpp,$(OBJDIR)/%.d, $(SRC)))
 
-Q ?= @
-
+DEPS      := $(patsubst %.o,%.d,$(OBJS))
 
 all: $(EXE)
 
@@ -87,20 +85,17 @@ all: $(EXE)
 $(OBJDIR)/%.o: $(SRCDIR)/%.cc
 	@echo "  CXX     $*.cc"
 	@mkdir -p $(dir $@)
-	$(Q)$(CXX) $(CXXFLAGS) -c $< -o $@
-	$(Q)$(CXX) $(CXXFLAGS) -MT "$@" -MM $< > $(OBJDIR)/$*.d
+	$(Q)$(CXX) $(CXXFLAGS) -c $< -MMD -MF $(@:.o=.d) -o $@
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
 	@echo "  CXX     $*.cpp"
 	@mkdir -p $(dir $@)
-	$(Q)$(CXX) $(CXXFLAGS) -c $< -o $@
-	$(Q)$(CXX) $(CXXFLAGS) -MT "$@" -MM $< > $(OBJDIR)/$*.d
+	$(Q)$(CXX) $(CXXFLAGS) -c $< -MMD -MF $(@:.o=.d) -o $@
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	@echo "  CC      $*.c"
 	@mkdir -p $(dir $@)
-	$(Q)$(CC) $(CFLAGS) -c $< -o $@
-	$(Q)$(CC) $(CFLAGS) -MT "$@" -MM $< > $(OBJDIR)/$*.d
+	$(Q)$(CC) $(CFLAGS) -c $< -MMD -MF $(@:.o=.d) -o $@
 
 $(EXE): $(OBJS)
 	@echo "  LD      $@"
