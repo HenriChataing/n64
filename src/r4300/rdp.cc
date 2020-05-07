@@ -1527,7 +1527,7 @@ void textureRectangle(u64 command, u64 const *params) {
     unsigned yl = (command >> 32) & 0xfffu;
     unsigned tile = (command >> 24) & 0x7u;
     unsigned xh = (command >> 12) & 0xfffu;
-    unsigned yh = (command >>  0) & 0xffffu;
+    unsigned yh = (command >>  0) & 0xfffu;
 
     /* Texture coordinates are in signed 5.10 fixed point format. */
     i32 s    = (i16)(u16)((params[0] >> 48) & 0xffffu);
@@ -1571,7 +1571,7 @@ void textureRectangleFlip(u64 command, u64 const *params) {
     unsigned yl = (command >> 32) & 0xfffu;
     unsigned tile = (command >> 24) & 0x7u;
     unsigned xh = (command >> 12) & 0xfffu;
-    unsigned yh = (command >>  0) & 0xffffu;
+    unsigned yh = (command >>  0) & 0xfffu;
 
     /* Texture coordinates are in the signed 5.10 fixed point format. */
     i32 s    = (i16)(u16)((params[0] >> 48) & 0xffffu);
@@ -2199,10 +2199,10 @@ struct {
     { 0,  NULL },
     { 2,  textureRectangle,             "texture_rectangle" },
     { 2,  textureRectangleFlip,         "texture_rectangle_flip" },
-    { 0,  NULL },
+    { 1,  syncFull,                     "sync_full_1" },
     { 1,  syncPipe,                     "sync_pipe" },
     { 1,  syncTile,                     "sync_tile" },
-    { 1,  syncFull,                     "sync_full" },
+    { 1,  syncFull,                     "sync_full_2" },
     { 1,  setKeyGB,                     "set_key_gb" },
     { 1,  setKeyR,                      "set_key_r" },
     { 1,  setConvert,                   "set_convert" },
