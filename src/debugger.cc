@@ -57,8 +57,6 @@ Debugger::Debugger()
     for (int label = 0; label < Debugger::LabelCount; label++) {
         verbose[label] = Debugger::Verbosity::Error;
     }
-
-    verbose[Debugger::RDP] = Debugger::Info;
 }
 
 Debugger::~Debugger() {

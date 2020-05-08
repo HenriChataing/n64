@@ -13,7 +13,8 @@ EXE       := n64
 # Select optimisation level.
 OPTIMISE  ?= 2
 
-INCLUDE   := $(SRCDIR) $(SRCDIR)/lib $(SRCLIB) $(EXTDIR)/fmt/include
+INCLUDE   := $(SRCDIR) $(SRCDIR)/lib $(SRCDIR)/gui
+INCLUDE   += $(EXTDIR)/fmt/include $(EXTDIR)/imgui
 DEFINE    := TARGET_BIGENDIAN
 
 CFLAGS    := -Wall -Wno-unused-function -std=gnu11 -g
@@ -34,8 +35,8 @@ endif
 
 # Options for linking imgui with opengl3 and glfw3
 LIBS      += -lGL -lGLEW `pkg-config --static --libs glfw3`
-CFLAGS    += `pkg-config --cflags glfw3` -I$(SRCDIR)/gui
-CXXFLAGS  += `pkg-config --cflags glfw3` -I$(SRCDIR)/gui
+CFLAGS    += `pkg-config --cflags glfw3`
+CXXFLAGS  += `pkg-config --cflags glfw3`
 
 .PHONY: all
 all: $(EXE)
@@ -56,14 +57,14 @@ OBJS      := \
     src/r4300/mmu.o \
     src/gui/gui.o \
     src/gui/graphics.o \
-    src/gui/imgui.o \
-    src/gui/imgui_draw.o \
     src/gui/imgui_impl_glfw.o \
     src/gui/imgui_impl_opengl3.o \
-    src/gui/imgui_widgets.o
 
 OBJS      += \
-    external/fmt/src/format.o
+    external/fmt/src/format.o \
+    external/imgui/imgui.o \
+    external/imgui/imgui_draw.o \
+    external/imgui/imgui_widgets.o
 
 DEPS      := $(patsubst %.o,$(OBJDIR)/%.d,$(OBJS))
 
