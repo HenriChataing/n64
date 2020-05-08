@@ -11,11 +11,12 @@ char const *debugger::LabelName[Debugger::Label::LabelCount] = {
     "cpu",
     "cop0",
     "cop1",
+    "tlb",
     "rsp",
     "rdp",
     "RdRam",
     "SP",
-    "DPCommand",
+    "DPCmd",
     "DPSpan",
     "MI",
     "VI",
@@ -24,27 +25,15 @@ char const *debugger::LabelName[Debugger::Label::LabelCount] = {
     "RI",
     "SI",
     "PIF",
-    "Cart_2_1",
+    "Cart",
 };
 
-char const *debugger::LabelColor[Debugger::LabelCount] = {
-    "\x1b[34;1m",
-    "\x1b[34;1m",
-    "\x1b[34;1m",
-    "\x1b[34;1m",
-    "\x1b[93;1m",
-    "\x1b[0m",
-    "\x1b[0m",
-    "\x1b[0m",
-    "\x1b[0m",
-    "\x1b[0m",
-    "\x1b[0m",
-    "\x1b[0m",
-    "\x1b[0m",
-    "\x1b[0m",
-    "\x1b[0m",
-    "\x1b[0m",
-    "\x1b[0m",
+fmt::text_style debugger::VerbosityStyle[] = {
+    fmt::fg(fmt::color::black),
+    fmt::emphasis::italic | fmt::emphasis::bold | fmt::fg(fmt::color::orange_red),
+    fmt::emphasis::italic | fmt::emphasis::bold | fmt::fg(fmt::color::yellow),
+    fmt::fg(fmt::color::floral_white),
+    fmt::fg(fmt::color::dim_gray),
 };
 
 /* Class */
@@ -55,8 +44,27 @@ Debugger::Debugger()
 {
     _interpreterStopped = false;
     for (int label = 0; label < Debugger::LabelCount; label++) {
-        verbose[label] = Debugger::Verbosity::Error;
+        verbosity[label] = Debugger::Warn;
     }
+
+    color[Debugger::CPU] = fmt::color::cadet_blue;
+    color[Debugger::COP0] = fmt::color::aquamarine;
+    color[Debugger::COP1] = fmt::color::midnight_blue;
+    color[Debugger::TLB] = fmt::color::blue_violet;
+    color[Debugger::RSP] = fmt::color::chartreuse;
+    color[Debugger::RDP] = fmt::color::medium_sea_green;
+    color[Debugger::RdRam] = fmt::color::deep_pink;
+    color[Debugger::SP] = fmt::color::medium_orchid;
+    color[Debugger::DPCommand] = fmt::color::green_yellow;
+    color[Debugger::DPSpan] = fmt::color::dark_orange;
+    color[Debugger::MI] = fmt::color::golden_rod;
+    color[Debugger::VI] = fmt::color::medium_slate_blue;
+    color[Debugger::AI] = fmt::color::coral;
+    color[Debugger::PI] = fmt::color::lemon_chiffon;
+    color[Debugger::RI] = fmt::color::wheat;
+    color[Debugger::SI] = fmt::color::turquoise;
+    color[Debugger::PIF] = fmt::color::tomato;
+    color[Debugger::Cart_2_1] = fmt::color::indian_red;
 }
 
 Debugger::~Debugger() {
@@ -90,7 +98,6 @@ void Debugger::interpreterRoutine() {
         for (;;) {
             {
                 std::unique_lock<std::mutex> lock(_interpreterMutex);
-                std::cout << "interpreter thread pending" << std::endl;
                 _interpreterCondition.wait(lock,
                     [this] { return !halted || _interpreterStopped; });
             }

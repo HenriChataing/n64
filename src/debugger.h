@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <fmt/format.h>
+#include <fmt/color.h>
 
 #include <types.h>
 #include <circular_buffer.h>
@@ -62,9 +63,9 @@ public:
         CPU,
         COP0,
         COP1,
+        TLB,
         RSP,
         RDP,
-
         RdRam,
         SP,
         DPCommand,
@@ -81,7 +82,8 @@ public:
         LabelCount,
     };
 
-    Verbosity verbose[LabelCount];
+    Verbosity verbosity[LabelCount];
+    fmt::rgb color[LabelCount];
 
     /** Type of execution trace entries. */
     typedef std::pair<u64, u32> TraceEntry;
@@ -107,14 +109,14 @@ private:
 namespace debugger {
 
 extern Debugger debugger;
-extern const char *LabelName[Debugger::Label::LabelCount];
-extern const char *LabelColor[Debugger::Label::LabelCount];
+extern char const *LabelName[Debugger::Label::LabelCount];
+extern fmt::text_style VerbosityStyle[5];
 
 template <Debugger::Verbosity verb>
 static void vlog(Debugger::Label label, const char* format, fmt::format_args args) {
-    if (debugger.verbose[label] >= verb) {
-        fmt::print("[{}{:<10}\x1b[0m] ", LabelColor[label], LabelName[label]);
-        fmt::vprint(format, args);
+    if (debugger.verbosity[label] >= verb) {
+        fmt::print(fmt::fg(debugger.color[label]), "{:>7} | ", LabelName[label]);
+        fmt::vprint(::stdout, VerbosityStyle[verb], format, args);
         fmt::print("\n");
     }
 }

@@ -27,7 +27,16 @@ static void glfwErrorCallback(int error, const char* description) {
     fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
 
-static void displayCpuCp0Registers(void) {
+static void ShowCpuRegisters(void) {
+    ImGui::Text("pc       %016" PRIx64 "\n", R4300::state.reg.pc);
+    for (unsigned int i = 0; i < 32; i+=2) {
+        ImGui::Text("%-8.8s %016" PRIx64 "  %-8.8s %016" PRIx64 "\n",
+            Mips::CPU::getRegisterName(i), R4300::state.reg.gpr[i],
+            Mips::CPU::getRegisterName(i + 1), R4300::state.reg.gpr[i + 1]);
+    }
+}
+
+static void ShowCpuCop0Registers(void) {
     #define Print2Regs(fmt0, name0, fmt1, name1) \
         ImGui::Text("%-8.8s %016" fmt0 "  %-8.8s %016" fmt1 "\n", \
             #name0, R4300::state.cp0reg.name0, \
@@ -52,7 +61,7 @@ static void displayCpuCp0Registers(void) {
     #undef Print2Regs
 }
 
-static void displayCpuCp1Registers(void) {
+static void ShowCpuCop1Registers(void) {
     ImGui::Text("fcr0     %08" PRIx32 "  fcr31    %08" PRIx32 "\n",
                 R4300::state.cp1reg.fcr0, R4300::state.cp1reg.fcr31);
 
@@ -79,7 +88,7 @@ static void displayCpuCp1Registers(void) {
     }
 }
 
-static void displayCpuTLB(void) {
+static void ShowCpuTLB(void) {
     for (unsigned int nr = 0; nr < R4300::tlbEntryCount; nr++) {
         R4300::tlbEntry *entry = &R4300::state.tlb[nr];
         u64 vpn2 = entry->entryHi & ~0x1fffflu;
@@ -99,7 +108,17 @@ static void displayCpuTLB(void) {
     }
 }
 
-static void displayRspCp2Registers(void) {
+static void ShowRspRegisters(void) {
+    ImGui::Text("pc       %016" PRIx64 "\n", R4300::state.rspreg.pc);
+    for (unsigned int i = 0; i < 32; i+=2) {
+        ImGui::Text("%-8.8s %016" PRIx64 "  %-8.8s %016" PRIx64 "\n",
+            Mips::CPU::getRegisterName(i), R4300::state.rspreg.gpr[i],
+            Mips::CPU::getRegisterName(i + 1), R4300::state.rspreg.gpr[i + 1]);
+    }
+}
+
+
+static void ShowRspCop2Registers(void) {
     ImGui::Text("vco     %04" PRIx16, R4300::state.rspreg.vco);
     ImGui::Text("vcc     %04" PRIx16, R4300::state.rspreg.vcc);
     ImGui::Text("vce     %02" PRIx8,  R4300::state.rspreg.vce);
@@ -130,211 +149,351 @@ static void displayRspCp2Registers(void) {
     }
 }
 
-static void displayHWRegisters(void) {
-    if (ImGui::BeginTabBar("HWRegisters", 0))
-    {
-        if (ImGui::BeginTabItem("RdRam")) {
-            ImGui::Text("RDRAM_DEVICE_TYPE_REG  %08" PRIx32 "\n",
-                R4300::state.hwreg.RDRAM_DEVICE_TYPE_REG);
-            ImGui::Text("RDRAM_DEVICE_ID_REG    %08" PRIx32 "\n",
-                R4300::state.hwreg.RDRAM_DEVICE_ID_REG);
-            ImGui::Text("RDRAM_DELAY_REG        %08" PRIx32 "\n",
-                R4300::state.hwreg.RDRAM_DELAY_REG);
-            ImGui::Text("RDRAM_MODE_REG         %08" PRIx32 "\n",
-                R4300::state.hwreg.RDRAM_MODE_REG);
-            ImGui::Text("RDRAM_REF_INTERVAL_REG %08" PRIx32 "\n",
-                R4300::state.hwreg.RDRAM_REF_INTERVAL_REG);
-            ImGui::Text("RDRAM_REF_ROW_REG      %08" PRIx32 "\n",
-                R4300::state.hwreg.RDRAM_REF_ROW_REG);
-            ImGui::Text("RDRAM_RAS_INTERVAL_REG %08" PRIx32 "\n",
-                R4300::state.hwreg.RDRAM_RAS_INTERVAL_REG);
-            ImGui::Text("RDRAM_MIN_INTERVAL_REG %08" PRIx32 "\n",
-                R4300::state.hwreg.RDRAM_MIN_INTERVAL_REG);
-            ImGui::Text("RDRAM_ADDR_SELECT_REG  %08" PRIx32 "\n",
-                R4300::state.hwreg.RDRAM_ADDR_SELECT_REG);
-            ImGui::Text("RDRAM_DEVICE_MANUF_REG %08" PRIx32 "\n",
-                R4300::state.hwreg.RDRAM_DEVICE_MANUF_REG);
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("SP")) {
-            ImGui::Text("SP_MEM_ADDR_REG        %08" PRIx32 "\n",
-                R4300::state.hwreg.SP_MEM_ADDR_REG);
-            ImGui::Text("SP_DRAM_ADDR_REG       %08" PRIx32 "\n",
-                R4300::state.hwreg.SP_DRAM_ADDR_REG);
-            ImGui::Text("SP_RD_LEN_REG          %08" PRIx32 "\n",
-                R4300::state.hwreg.SP_RD_LEN_REG);
-            ImGui::Text("SP_WR_LEN_REG          %08" PRIx32 "\n",
-                R4300::state.hwreg.SP_WR_LEN_REG);
-            ImGui::Text("SP_STATUS_REG          %08" PRIx32 "\n",
-                R4300::state.hwreg.SP_STATUS_REG);
-            ImGui::Text("SP_SEMAPHORE_REG       %08" PRIx32 "\n",
-                R4300::state.hwreg.SP_SEMAPHORE_REG);
-            ImGui::Text("SP_PC_REG              %08" PRIx64 "\n",
-                R4300::state.rspreg.pc);
-            ImGui::Text("SP_IBIST_REG           %08" PRIx32 "\n",
-                R4300::state.hwreg.SP_IBIST_REG);
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("DPCommand")) {
-            ImGui::Text("DPC_START_REG          %08" PRIx32 "\n",
-                R4300::state.hwreg.DPC_START_REG);
-            ImGui::Text("DPC_END_REG            %08" PRIx32 "\n",
-                R4300::state.hwreg.DPC_END_REG);
-            ImGui::Text("DPC_CURRENT_REG        %08" PRIx32 "\n",
-                R4300::state.hwreg.DPC_CURRENT_REG);
-            ImGui::Text("DPC_STATUS_REG         %08" PRIx32 "\n",
-                R4300::state.hwreg.DPC_STATUS_REG);
-            ImGui::Text("DPC_CLOCK_REG          %08" PRIx32 "\n",
-                R4300::state.hwreg.DPC_CLOCK_REG);
-            ImGui::Text("DPC_BUF_BUSY_REG       %08" PRIx32 "\n",
-                R4300::state.hwreg.DPC_BUF_BUSY_REG);
-            ImGui::Text("DPC_PIPE_BUSY_REG      %08" PRIx32 "\n",
-                R4300::state.hwreg.DPC_PIPE_BUSY_REG);
-            ImGui::Text("DPC_TMEM_REG           %08" PRIx32 "\n",
-                R4300::state.hwreg.DPC_TMEM_REG);
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("DPSpan")) {
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("MI")) {
-            ImGui::Text("MI_MODE_REG            %08" PRIx32 "\n",
-                R4300::state.hwreg.MI_MODE_REG);
-            ImGui::Text("MI_VERSION_REG         %08" PRIx32 "\n",
-                R4300::state.hwreg.MI_VERSION_REG);
-            ImGui::Text("MI_INTR_REG            %08" PRIx32 "\n",
-                R4300::state.hwreg.MI_INTR_REG);
-            ImGui::Text("MI_INTR_MASK_REG       %08" PRIx32 "\n",
-                R4300::state.hwreg.MI_INTR_MASK_REG);
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("VI")) {
-            ImGui::Text("VI_CONTROL_REG         %08" PRIx32 "\n",
-                R4300::state.hwreg.VI_CONTROL_REG);
-            ImGui::Text("VI_DRAM_ADDR_REG       %08" PRIx32 "\n",
-                R4300::state.hwreg.VI_DRAM_ADDR_REG);
-            ImGui::Text("VI_WIDTH_REG           %08" PRIx32 "\n",
-                R4300::state.hwreg.VI_WIDTH_REG);
-            ImGui::Text("VI_INTR_REG            %08" PRIx32 "\n",
-                R4300::state.hwreg.VI_INTR_REG);
-            ImGui::Text("VI_CURRENT_REG         %08" PRIx32 "\n",
-                R4300::state.hwreg.VI_CURRENT_REG);
-            ImGui::Text("VI_BURST_REG           %08" PRIx32 "\n",
-                R4300::state.hwreg.VI_BURST_REG);
-            ImGui::Text("VI_V_SYNC_REG          %08" PRIx32 "\n",
-                R4300::state.hwreg.VI_V_SYNC_REG);
-            ImGui::Text("VI_H_SYNC_REG          %08" PRIx32 "\n",
-                R4300::state.hwreg.VI_H_SYNC_REG);
-            ImGui::Text("VI_LEAP_REG            %08" PRIx32 "\n",
-                R4300::state.hwreg.VI_LEAP_REG);
-            ImGui::Text("VI_H_START_REG         %08" PRIx32 "\n",
-                R4300::state.hwreg.VI_H_START_REG);
-            ImGui::Text("VI_V_START_REG         %08" PRIx32 "\n",
-                R4300::state.hwreg.VI_V_START_REG);
-            ImGui::Text("VI_V_BURST_REG         %08" PRIx32 "\n",
-                R4300::state.hwreg.VI_V_BURST_REG);
-            ImGui::Text("VI_X_SCALE_REG         %08" PRIx32 "\n",
-                R4300::state.hwreg.VI_X_SCALE_REG);
-            ImGui::Text("VI_Y_SCALE_REG         %08" PRIx32 "\n",
-                R4300::state.hwreg.VI_Y_SCALE_REG);
-            ImGui::Text("vi_NextIntr            %lu\n",
-                R4300::state.hwreg.vi_NextIntr);
-            ImGui::Text("vi_IntrInterval        %lu\n",
-                R4300::state.hwreg.vi_IntrInterval);
-            ImGui::Text("vi_LastCycleCount      %lu\n",
-                R4300::state.hwreg.vi_LastCycleCount);
-            ImGui::Text("vi_CyclesPerLine       %lu\n",
-                R4300::state.hwreg.vi_CyclesPerLine);
+static void ShowRdpInformation(void) {
+}
 
-            ImGui::Text("lines per frame:  %" PRIu32 "\n",
-                R4300::state.hwreg.VI_V_SYNC_REG);
-            ImGui::Text("line duration:    %f\n",
-                (float)(R4300::state.hwreg.VI_H_SYNC_REG & 0xfffu) / 4.);
-            ImGui::Text("horizontal start: %" PRIu32 "\n",
-                (R4300::state.hwreg.VI_H_START_REG >> 16) & 0x3ffu);
-            ImGui::Text("horizontal end:   %" PRIu32 "\n",
-                R4300::state.hwreg.VI_H_START_REG & 0x3ffu);
-            ImGui::Text("vertical start:   %" PRIu32 "\n",
-                (R4300::state.hwreg.VI_V_START_REG >> 16) & 0x3ffu);
-            ImGui::Text("vertical end:     %" PRIu32 "\n",
-                R4300::state.hwreg.VI_V_START_REG & 0x3ffu);
-            ImGui::Text("horizontal scale: %f\n",
-                (float)(R4300::state.hwreg.VI_X_SCALE_REG & 0xfffu) / 1024.);
-            ImGui::Text("vertical scale:   %f\n",
-                (float)(R4300::state.hwreg.VI_Y_SCALE_REG & 0xfffu) / 1024.);
-            ImGui::EndTabItem();
+static void ShowRdRamRegisters(void) {
+    ImGui::Text("RDRAM_DEVICE_TYPE_REG  %08" PRIx32 "\n",
+        R4300::state.hwreg.RDRAM_DEVICE_TYPE_REG);
+    ImGui::Text("RDRAM_DEVICE_ID_REG    %08" PRIx32 "\n",
+        R4300::state.hwreg.RDRAM_DEVICE_ID_REG);
+    ImGui::Text("RDRAM_DELAY_REG        %08" PRIx32 "\n",
+        R4300::state.hwreg.RDRAM_DELAY_REG);
+    ImGui::Text("RDRAM_MODE_REG         %08" PRIx32 "\n",
+        R4300::state.hwreg.RDRAM_MODE_REG);
+    ImGui::Text("RDRAM_REF_INTERVAL_REG %08" PRIx32 "\n",
+        R4300::state.hwreg.RDRAM_REF_INTERVAL_REG);
+    ImGui::Text("RDRAM_REF_ROW_REG      %08" PRIx32 "\n",
+        R4300::state.hwreg.RDRAM_REF_ROW_REG);
+    ImGui::Text("RDRAM_RAS_INTERVAL_REG %08" PRIx32 "\n",
+        R4300::state.hwreg.RDRAM_RAS_INTERVAL_REG);
+    ImGui::Text("RDRAM_MIN_INTERVAL_REG %08" PRIx32 "\n",
+        R4300::state.hwreg.RDRAM_MIN_INTERVAL_REG);
+    ImGui::Text("RDRAM_ADDR_SELECT_REG  %08" PRIx32 "\n",
+        R4300::state.hwreg.RDRAM_ADDR_SELECT_REG);
+    ImGui::Text("RDRAM_DEVICE_MANUF_REG %08" PRIx32 "\n",
+        R4300::state.hwreg.RDRAM_DEVICE_MANUF_REG);
+}
+
+static void ShowSPRegisters(void) {
+    ImGui::Text("SP_MEM_ADDR_REG        %08" PRIx32 "\n",
+        R4300::state.hwreg.SP_MEM_ADDR_REG);
+    ImGui::Text("SP_DRAM_ADDR_REG       %08" PRIx32 "\n",
+        R4300::state.hwreg.SP_DRAM_ADDR_REG);
+    ImGui::Text("SP_RD_LEN_REG          %08" PRIx32 "\n",
+        R4300::state.hwreg.SP_RD_LEN_REG);
+    ImGui::Text("SP_WR_LEN_REG          %08" PRIx32 "\n",
+        R4300::state.hwreg.SP_WR_LEN_REG);
+    ImGui::Text("SP_STATUS_REG          %08" PRIx32 "\n",
+        R4300::state.hwreg.SP_STATUS_REG);
+    ImGui::Text("SP_SEMAPHORE_REG       %08" PRIx32 "\n",
+        R4300::state.hwreg.SP_SEMAPHORE_REG);
+    ImGui::Text("SP_PC_REG              %08" PRIx64 "\n",
+        R4300::state.rspreg.pc);
+    ImGui::Text("SP_IBIST_REG           %08" PRIx32 "\n",
+        R4300::state.hwreg.SP_IBIST_REG);
+}
+
+static void ShowDPCommandRegisters(void) {
+    ImGui::Text("DPC_START_REG          %08" PRIx32 "\n",
+        R4300::state.hwreg.DPC_START_REG);
+    ImGui::Text("DPC_END_REG            %08" PRIx32 "\n",
+        R4300::state.hwreg.DPC_END_REG);
+    ImGui::Text("DPC_CURRENT_REG        %08" PRIx32 "\n",
+        R4300::state.hwreg.DPC_CURRENT_REG);
+    ImGui::Text("DPC_STATUS_REG         %08" PRIx32 "\n",
+        R4300::state.hwreg.DPC_STATUS_REG);
+    ImGui::Text("DPC_CLOCK_REG          %08" PRIx32 "\n",
+        R4300::state.hwreg.DPC_CLOCK_REG);
+    ImGui::Text("DPC_BUF_BUSY_REG       %08" PRIx32 "\n",
+        R4300::state.hwreg.DPC_BUF_BUSY_REG);
+    ImGui::Text("DPC_PIPE_BUSY_REG      %08" PRIx32 "\n",
+        R4300::state.hwreg.DPC_PIPE_BUSY_REG);
+    ImGui::Text("DPC_TMEM_REG           %08" PRIx32 "\n",
+        R4300::state.hwreg.DPC_TMEM_REG);
+}
+
+static void ShowDPSpanRegisters(void) {
+}
+
+static void ShowMIRegisters(void) {
+    ImGui::Text("MI_MODE_REG            %08" PRIx32 "\n",
+        R4300::state.hwreg.MI_MODE_REG);
+    ImGui::Text("MI_VERSION_REG         %08" PRIx32 "\n",
+        R4300::state.hwreg.MI_VERSION_REG);
+    ImGui::Text("MI_INTR_REG            %08" PRIx32 "\n",
+        R4300::state.hwreg.MI_INTR_REG);
+    ImGui::Text("MI_INTR_MASK_REG       %08" PRIx32 "\n",
+        R4300::state.hwreg.MI_INTR_MASK_REG);
+}
+
+static void ShowVIRegisters(void) {
+    ImGui::Text("VI_CONTROL_REG         %08" PRIx32 "\n",
+        R4300::state.hwreg.VI_CONTROL_REG);
+    ImGui::Text("VI_DRAM_ADDR_REG       %08" PRIx32 "\n",
+        R4300::state.hwreg.VI_DRAM_ADDR_REG);
+    ImGui::Text("VI_WIDTH_REG           %08" PRIx32 "\n",
+        R4300::state.hwreg.VI_WIDTH_REG);
+    ImGui::Text("VI_INTR_REG            %08" PRIx32 "\n",
+        R4300::state.hwreg.VI_INTR_REG);
+    ImGui::Text("VI_CURRENT_REG         %08" PRIx32 "\n",
+        R4300::state.hwreg.VI_CURRENT_REG);
+    ImGui::Text("VI_BURST_REG           %08" PRIx32 "\n",
+        R4300::state.hwreg.VI_BURST_REG);
+    ImGui::Text("VI_V_SYNC_REG          %08" PRIx32 "\n",
+        R4300::state.hwreg.VI_V_SYNC_REG);
+    ImGui::Text("VI_H_SYNC_REG          %08" PRIx32 "\n",
+        R4300::state.hwreg.VI_H_SYNC_REG);
+    ImGui::Text("VI_LEAP_REG            %08" PRIx32 "\n",
+        R4300::state.hwreg.VI_LEAP_REG);
+    ImGui::Text("VI_H_START_REG         %08" PRIx32 "\n",
+        R4300::state.hwreg.VI_H_START_REG);
+    ImGui::Text("VI_V_START_REG         %08" PRIx32 "\n",
+        R4300::state.hwreg.VI_V_START_REG);
+    ImGui::Text("VI_V_BURST_REG         %08" PRIx32 "\n",
+        R4300::state.hwreg.VI_V_BURST_REG);
+    ImGui::Text("VI_X_SCALE_REG         %08" PRIx32 "\n",
+        R4300::state.hwreg.VI_X_SCALE_REG);
+    ImGui::Text("VI_Y_SCALE_REG         %08" PRIx32 "\n",
+        R4300::state.hwreg.VI_Y_SCALE_REG);
+    ImGui::Text("vi_NextIntr            %lu\n",
+        R4300::state.hwreg.vi_NextIntr);
+    ImGui::Text("vi_IntrInterval        %lu\n",
+        R4300::state.hwreg.vi_IntrInterval);
+    ImGui::Text("vi_LastCycleCount      %lu\n",
+        R4300::state.hwreg.vi_LastCycleCount);
+    ImGui::Text("vi_CyclesPerLine       %lu\n",
+        R4300::state.hwreg.vi_CyclesPerLine);
+
+    ImGui::Text("lines per frame:  %" PRIu32 "\n",
+        R4300::state.hwreg.VI_V_SYNC_REG);
+    ImGui::Text("line duration:    %f\n",
+        (float)(R4300::state.hwreg.VI_H_SYNC_REG & 0xfffu) / 4.);
+    ImGui::Text("horizontal start: %" PRIu32 "\n",
+        (R4300::state.hwreg.VI_H_START_REG >> 16) & 0x3ffu);
+    ImGui::Text("horizontal end:   %" PRIu32 "\n",
+        R4300::state.hwreg.VI_H_START_REG & 0x3ffu);
+    ImGui::Text("vertical start:   %" PRIu32 "\n",
+        (R4300::state.hwreg.VI_V_START_REG >> 16) & 0x3ffu);
+    ImGui::Text("vertical end:     %" PRIu32 "\n",
+        R4300::state.hwreg.VI_V_START_REG & 0x3ffu);
+    ImGui::Text("horizontal scale: %f\n",
+        (float)(R4300::state.hwreg.VI_X_SCALE_REG & 0xfffu) / 1024.);
+    ImGui::Text("vertical scale:   %f\n",
+        (float)(R4300::state.hwreg.VI_Y_SCALE_REG & 0xfffu) / 1024.);
+}
+
+static void ShowAIRegisters(void) {
+    ImGui::Text("AI_DRAM_ADDR_REG       %08" PRIx32 "\n",
+        R4300::state.hwreg.AI_DRAM_ADDR_REG);
+    ImGui::Text("AI_LEN_REG             %08" PRIx32 "\n",
+        R4300::state.hwreg.AI_LEN_REG);
+    ImGui::Text("AI_CONTROL_REG         %08" PRIx32 "\n",
+        R4300::state.hwreg.AI_CONTROL_REG);
+    ImGui::Text("AI_STATUS_REG          %08" PRIx32 "\n",
+        R4300::state.hwreg.AI_STATUS_REG);
+    ImGui::Text("AI_DACRATE_REG         %08" PRIx32 "\n",
+        R4300::state.hwreg.AI_DACRATE_REG);
+    ImGui::Text("AI_BITRATE_REG         %08" PRIx32 "\n",
+        R4300::state.hwreg.AI_BITRATE_REG);
+}
+
+static void ShowPIRegisters(void) {
+    ImGui::Text("PI_DRAM_ADDR_REG       %08" PRIx32 "\n",
+        R4300::state.hwreg.PI_DRAM_ADDR_REG);
+    ImGui::Text("PI_CART_ADDR_REG       %08" PRIx32 "\n",
+        R4300::state.hwreg.PI_CART_ADDR_REG);
+    ImGui::Text("PI_RD_LEN_REG          %08" PRIx32 "\n",
+        R4300::state.hwreg.PI_RD_LEN_REG);
+    ImGui::Text("PI_WR_LEN_REG          %08" PRIx32 "\n",
+        R4300::state.hwreg.PI_WR_LEN_REG);
+    ImGui::Text("PI_STATUS_REG          %08" PRIx32 "\n",
+        R4300::state.hwreg.PI_STATUS_REG);
+    ImGui::Text("PI_BSD_DOM1_LAT_REG    %08" PRIx32 "\n",
+        R4300::state.hwreg.PI_BSD_DOM1_LAT_REG);
+    ImGui::Text("PI_BSD_DOM1_PWD_REG    %08" PRIx32 "\n",
+        R4300::state.hwreg.PI_BSD_DOM1_PWD_REG);
+    ImGui::Text("PI_BSD_DOM1_PGS_REG    %08" PRIx32 "\n",
+        R4300::state.hwreg.PI_BSD_DOM1_PGS_REG);
+    ImGui::Text("PI_BSD_DOM1_RLS_REG    %08" PRIx32 "\n",
+        R4300::state.hwreg.PI_BSD_DOM1_RLS_REG);
+    ImGui::Text("PI_BSD_DOM2_LAT_REG    %08" PRIx32 "\n",
+        R4300::state.hwreg.PI_BSD_DOM2_LAT_REG);
+    ImGui::Text("PI_BSD_DOM2_PWD_REG    %08" PRIx32 "\n",
+        R4300::state.hwreg.PI_BSD_DOM2_PWD_REG);
+    ImGui::Text("PI_BSD_DOM2_PGS_REG    %08" PRIx32 "\n",
+        R4300::state.hwreg.PI_BSD_DOM2_PGS_REG);
+    ImGui::Text("PI_BSD_DOM2_RLS_REG    %08" PRIx32 "\n",
+        R4300::state.hwreg.PI_BSD_DOM2_RLS_REG);
+}
+
+static void ShowRIRegisters(void) {
+    ImGui::Text("RI_MODE_REG            %08" PRIx32 "\n",
+        R4300::state.hwreg.RI_MODE_REG);
+    ImGui::Text("RI_CONFIG_REG          %08" PRIx32 "\n",
+        R4300::state.hwreg.RI_CONFIG_REG);
+    ImGui::Text("RI_CURRENT_LOAD_REG    %08" PRIx32 "\n",
+        R4300::state.hwreg.RI_CURRENT_LOAD_REG);
+    ImGui::Text("RI_SELECT_REG          %08" PRIx32 "\n",
+        R4300::state.hwreg.RI_SELECT_REG);
+    ImGui::Text("RI_REFRESH_REG         %08" PRIx32 "\n",
+        R4300::state.hwreg.RI_REFRESH_REG);
+    ImGui::Text("RI_LATENCY_REG         %08" PRIx32 "\n",
+        R4300::state.hwreg.RI_LATENCY_REG);
+    ImGui::Text("RI_RERROR_REG          %08" PRIx32 "\n",
+        R4300::state.hwreg.RI_RERROR_REG);
+    ImGui::Text("RI_WERROR_REG          %08" PRIx32 "\n",
+        R4300::state.hwreg.RI_WERROR_REG);
+}
+
+static void ShowSIRegisters(void) {
+    ImGui::Text("SI_DRAM_ADDR_REG       %08" PRIx32 "\n",
+        R4300::state.hwreg.SI_DRAM_ADDR_REG);
+    ImGui::Text("SI_STATUS_REG          %08" PRIx32 "\n",
+        R4300::state.hwreg.SI_STATUS_REG);
+}
+
+static void ShowPIFInformation(void) {
+}
+
+static void ShowCart_2_1Information(void) {
+}
+
+struct Module {
+    char const *Name;
+    Debugger::Label Label;
+    void (*ShowInformation)();
+};
+
+static Module Modules[] = {
+    { "CPU",            Debugger::CPU,          ShowCpuRegisters },
+    { "CPU::COP0",      Debugger::COP0,         ShowCpuCop0Registers },
+    { "CPU::COP1",      Debugger::COP1,         ShowCpuCop1Registers },
+    { "CPU::TLB",       Debugger::TLB,          ShowCpuTLB },
+    { "RSP",            Debugger::RSP,          ShowRspRegisters },
+    { "RSP::COP2",      Debugger::RSP,          ShowRspCop2Registers },
+    { "RDP",            Debugger::RDP,          ShowRdpInformation },
+    { "HW::RdRam",      Debugger::RdRam,        ShowRdRamRegisters },
+    { "HW::SP",         Debugger::SP,           ShowSPRegisters },
+    { "HW::DPCommand",  Debugger::DPCommand,    ShowDPCommandRegisters },
+    { "HW::DPSpan",     Debugger::DPSpan,       ShowDPSpanRegisters },
+    { "HW::MI",         Debugger::MI,           ShowMIRegisters },
+    { "HW::VI",         Debugger::VI,           ShowVIRegisters },
+    { "HW::AI",         Debugger::AI,           ShowAIRegisters },
+    { "HW::PI",         Debugger::PI,           ShowPIRegisters },
+    { "HW::RI",         Debugger::RI,           ShowRIRegisters },
+    { "HW::SI",         Debugger::SI,           ShowSIRegisters },
+    { "HW::PIF",        Debugger::PIF,          ShowPIFInformation },
+    { "HW::Cart_2_1",   Debugger::Cart_2_1,     ShowCart_2_1Information },
+};
+
+static void ShowLogConfig(bool *show_log_config) {
+    ImGui::Begin("Log Config", show_log_config);
+    for (int label = 0; label < Debugger::LabelCount; label++) {
+        int verb = debugger::debugger.verbosity[label];
+        float col[3] = {
+            (float)debugger::debugger.color[label].r / 256.f,
+            (float)debugger::debugger.color[label].g / 256.f,
+            (float)debugger::debugger.color[label].b / 256.f, };
+        ImGui::ColorEdit3("Log color", col,
+            ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100);
+        ImGui::Combo(debugger::LabelName[label],
+            &verb, "none\0error\0warn\0info\0debug\0\0");
+        debugger::debugger.verbosity[label] = (Debugger::Verbosity)verb;
+        debugger::debugger.color[label].r = (u8)(col[0] * 256.f);
+        debugger::debugger.color[label].g = (u8)(col[1] * 256.f);
+        debugger::debugger.color[label].b = (u8)(col[2] * 256.f);
+    }
+    ImGui::End();
+}
+
+static void ShowDebuggerWindow(void) {
+    static bool show_log_config = false;
+
+    if (show_log_config) ShowLogConfig(&show_log_config);
+
+    if (ImGui::Begin("Debugger", NULL, ImGuiWindowFlags_MenuBar)) {
+        if (ImGui::BeginMenuBar()) {
+            if (ImGui::BeginMenu("File")) {
+                if (ImGui::BeginMenu("Export")) {
+                    if (ImGui::MenuItem("cpu trace")) {}
+                    if (ImGui::MenuItem("rsp trace")) {}
+                    if (ImGui::MenuItem("dram disassembly")) {}
+                    if (ImGui::MenuItem("imem disassembly")) {}
+                    ImGui::EndMenu();
+                }
+                if (ImGui::MenuItem("Save screen")) {
+                    exportAsPNG("screen.png");
+                }
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("Options")) {
+                if (ImGui::MenuItem("Log", NULL, &show_log_config)) {}
+                ImGui::EndMenu();
+            }
+            ImGui::EndMenuBar();
         }
-        if (ImGui::BeginTabItem("AI")) {
-            ImGui::Text("AI_DRAM_ADDR_REG       %08" PRIx32 "\n",
-                R4300::state.hwreg.AI_DRAM_ADDR_REG);
-            ImGui::Text("AI_LEN_REG             %08" PRIx32 "\n",
-                R4300::state.hwreg.AI_LEN_REG);
-            ImGui::Text("AI_CONTROL_REG         %08" PRIx32 "\n",
-                R4300::state.hwreg.AI_CONTROL_REG);
-            ImGui::Text("AI_STATUS_REG          %08" PRIx32 "\n",
-                R4300::state.hwreg.AI_STATUS_REG);
-            ImGui::Text("AI_DACRATE_REG         %08" PRIx32 "\n",
-                R4300::state.hwreg.AI_DACRATE_REG);
-            ImGui::Text("AI_BITRATE_REG         %08" PRIx32 "\n",
-                R4300::state.hwreg.AI_BITRATE_REG);
-            ImGui::EndTabItem();
+
+        // CPU freq is 93.75 MHz
+        ImGui::Text("Real time: %lums\n", R4300::state.cycles / 93750lu);
+        if (debugger::debugger.halted) {
+            ImGui::Text("Machine halt reason: '%s'\n",
+                debugger::debugger.haltedReason.c_str());
+            if (ImGui::Button("Continue")) {
+                debugger::debugger.resume();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Step")) {
+                debugger::debugger.step();
+            }
+        } else {
+            if (ImGui::Button("Halt")) {
+                debugger::halt("Interrupted by user");
+            }
         }
-        if (ImGui::BeginTabItem("PI")) {
-            ImGui::Text("PI_DRAM_ADDR_REG       %08" PRIx32 "\n",
-                R4300::state.hwreg.PI_DRAM_ADDR_REG);
-            ImGui::Text("PI_CART_ADDR_REG       %08" PRIx32 "\n",
-                R4300::state.hwreg.PI_CART_ADDR_REG);
-            ImGui::Text("PI_RD_LEN_REG          %08" PRIx32 "\n",
-                R4300::state.hwreg.PI_RD_LEN_REG);
-            ImGui::Text("PI_WR_LEN_REG          %08" PRIx32 "\n",
-                R4300::state.hwreg.PI_WR_LEN_REG);
-            ImGui::Text("PI_STATUS_REG          %08" PRIx32 "\n",
-                R4300::state.hwreg.PI_STATUS_REG);
-            ImGui::Text("PI_BSD_DOM1_LAT_REG    %08" PRIx32 "\n",
-                R4300::state.hwreg.PI_BSD_DOM1_LAT_REG);
-            ImGui::Text("PI_BSD_DOM1_PWD_REG    %08" PRIx32 "\n",
-                R4300::state.hwreg.PI_BSD_DOM1_PWD_REG);
-            ImGui::Text("PI_BSD_DOM1_PGS_REG    %08" PRIx32 "\n",
-                R4300::state.hwreg.PI_BSD_DOM1_PGS_REG);
-            ImGui::Text("PI_BSD_DOM1_RLS_REG    %08" PRIx32 "\n",
-                R4300::state.hwreg.PI_BSD_DOM1_RLS_REG);
-            ImGui::Text("PI_BSD_DOM2_LAT_REG    %08" PRIx32 "\n",
-                R4300::state.hwreg.PI_BSD_DOM2_LAT_REG);
-            ImGui::Text("PI_BSD_DOM2_PWD_REG    %08" PRIx32 "\n",
-                R4300::state.hwreg.PI_BSD_DOM2_PWD_REG);
-            ImGui::Text("PI_BSD_DOM2_PGS_REG    %08" PRIx32 "\n",
-                R4300::state.hwreg.PI_BSD_DOM2_PGS_REG);
-            ImGui::Text("PI_BSD_DOM2_RLS_REG    %08" PRIx32 "\n",
-                R4300::state.hwreg.PI_BSD_DOM2_RLS_REG);
-            ImGui::EndTabItem();
+
+        static int selected = 0;
+        ImGui::Separator();
+        ImGui::BeginChild("module select", ImVec2(150, 0), true);
+        for (int i = 0; i < IM_ARRAYSIZE(Modules); i++) {
+            if (ImGui::Selectable(Modules[i].Name, selected == i)) {
+                selected = i;
+            }
         }
-        if (ImGui::BeginTabItem("RI")) {
-            ImGui::Text("RI_MODE_REG            %08" PRIx32 "\n",
-                R4300::state.hwreg.RI_MODE_REG);
-            ImGui::Text("RI_CONFIG_REG          %08" PRIx32 "\n",
-                R4300::state.hwreg.RI_CONFIG_REG);
-            ImGui::Text("RI_CURRENT_LOAD_REG    %08" PRIx32 "\n",
-                R4300::state.hwreg.RI_CURRENT_LOAD_REG);
-            ImGui::Text("RI_SELECT_REG          %08" PRIx32 "\n",
-                R4300::state.hwreg.RI_SELECT_REG);
-            ImGui::Text("RI_REFRESH_REG         %08" PRIx32 "\n",
-                R4300::state.hwreg.RI_REFRESH_REG);
-            ImGui::Text("RI_LATENCY_REG         %08" PRIx32 "\n",
-                R4300::state.hwreg.RI_LATENCY_REG);
-            ImGui::Text("RI_RERROR_REG          %08" PRIx32 "\n",
-                R4300::state.hwreg.RI_RERROR_REG);
-            ImGui::Text("RI_WERROR_REG          %08" PRIx32 "\n",
-                R4300::state.hwreg.RI_WERROR_REG);
-            ImGui::EndTabItem();
+        ImGui::EndChild();
+        ImGui::SameLine();
+
+        // Right
+        ImGui::BeginChild("module view",
+            ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
+        ImGui::Text("%s", Modules[selected].Name);
+        if (Modules[selected].Label < Debugger::LabelCount) {
+            Debugger::Label label = Modules[selected].Label;
+            int verb = debugger::debugger.verbosity[label];
+            float col[3] = {
+                (float)debugger::debugger.color[label].r / 256.f,
+                (float)debugger::debugger.color[label].g / 256.f,
+                (float)debugger::debugger.color[label].b / 256.f, };
+            ImGui::SameLine(ImGui::GetContentRegionAvail().x - 20);
+            ImGui::ColorEdit3("Log color", col,
+                ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+            ImGui::SameLine(ImGui::GetContentRegionAvail().x - 125);
+            ImGui::SetNextItemWidth(100);
+            ImGui::Combo("", &verb, "none\0error\0warn\0info\0debug\0\0");
+            debugger::debugger.verbosity[label] = (Debugger::Verbosity)verb;
+            debugger::debugger.color[label].r = (u8)(col[0] * 256.f);
+            debugger::debugger.color[label].g = (u8)(col[1] * 256.f);
+            debugger::debugger.color[label].b = (u8)(col[2] * 256.f);
         }
-        if (ImGui::BeginTabItem("SI")) {
-            ImGui::Text("SI_DRAM_ADDR_REG       %08" PRIx32 "\n",
-                R4300::state.hwreg.SI_DRAM_ADDR_REG);
-            ImGui::Text("SI_STATUS_REG          %08" PRIx32 "\n",
-                R4300::state.hwreg.SI_STATUS_REG);
-            ImGui::EndTabItem();
-        }
-        ImGui::EndTabBar();
+        ImGui::Separator();
+        ImGui::BeginChild("module info");
+        Modules[selected].ShowInformation();
+        ImGui::EndChild();
+        ImGui::EndChild();
+
+        ImGui::End();
     }
 }
 
@@ -460,75 +619,7 @@ int startGui()
 
         // Show the main debugger control window.
         // Displays Continue, Halt commands and register values.
-        {
-            ImGui::Begin("Debugger");
-            // CPU freq is 93.75 MHz
-            ImGui::Text("Real time: %lums\n", R4300::state.cycles / 93750lu);
-            if (debugger::debugger.halted) {
-                ImGui::Text("Machine halt reason: '%s'\n",
-                    debugger::debugger.haltedReason.c_str());
-                if (ImGui::Button("Continue")) {
-                    debugger::debugger.resume();
-                }
-                ImGui::SameLine();
-                if (ImGui::Button("Step")) {
-                    debugger::debugger.step();
-                }
-                if (ImGui::Button("Save Screen")) {
-                    exportAsPNG("screen.png");
-                }
-            } else {
-                if (ImGui::Button("Halt")) {
-                    debugger::halt("Interrupted by user");
-                }
-            }
-            if (ImGui::BeginTabBar("Registers", 0))
-            {
-                if (ImGui::BeginTabItem("Cpu")) {
-                    ImGui::Text("pc       %016" PRIx64 "\n", R4300::state.reg.pc);
-                    for (unsigned int i = 0; i < 32; i+=2) {
-                        ImGui::Text("%-8.8s %016" PRIx64 "  %-8.8s %016" PRIx64 "\n",
-                            Mips::CPU::getRegisterName(i), R4300::state.reg.gpr[i],
-                            Mips::CPU::getRegisterName(i + 1), R4300::state.reg.gpr[i + 1]);
-                    }
-                    ImGui::EndTabItem();
-                }
-                if (ImGui::BeginTabItem("Cpu::Cp0")) {
-                    displayCpuCp0Registers();
-                    ImGui::EndTabItem();
-                }
-                if (ImGui::BeginTabItem("Cpu::Cp1")) {
-                    displayCpuCp1Registers();
-                    ImGui::EndTabItem();
-                }
-                if (ImGui::BeginTabItem("Cpu::TLB")) {
-                    displayCpuTLB();
-                    ImGui::EndTabItem();
-                }
-                if (ImGui::BeginTabItem("Rsp")) {
-                    ImGui::Text("pc       %016" PRIx64 "\n", R4300::state.rspreg.pc);
-                    for (unsigned int i = 0; i < 32; i+=2) {
-                        ImGui::Text("%-8.8s %016" PRIx64 "  %-8.8s %016" PRIx64 "\n",
-                            Mips::CPU::getRegisterName(i), R4300::state.rspreg.gpr[i],
-                            Mips::CPU::getRegisterName(i + 1), R4300::state.rspreg.gpr[i + 1]);
-                    }
-                    ImGui::EndTabItem();
-                }
-                if (ImGui::BeginTabItem("Rsp::Cp2")) {
-                    displayRspCp2Registers();
-                    ImGui::EndTabItem();
-                }
-                if (ImGui::BeginTabItem("HW")) {
-                    displayHWRegisters();
-                    ImGui::EndTabItem();
-                }
-                ImGui::EndTabBar();
-            }
-
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-                1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-            ImGui::End();
-        }
+        ShowDebuggerWindow();
 
         // Show the screen rendering.
         // ImGuiCond_FirstUseEver
@@ -625,7 +716,6 @@ int startGui()
 
         glfwSwapBuffers(window);
     }
-    std::cout << "exiting main loop" << std::endl;
 
     // Cleanup
     ImGui_ImplOpenGL3_Shutdown();

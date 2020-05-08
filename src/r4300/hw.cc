@@ -1320,7 +1320,7 @@ u32 read_VI_CURRENT_REG(void) {
         count |= 0; // TODO track current field.
     }
 
-    debugger::info(Debugger::VI, "VI_CURRENT_REG -> {:08x}", count);
+    debugger::debug(Debugger::VI, "VI_CURRENT_REG -> {:08x}", count);
     return count;
 }
 
