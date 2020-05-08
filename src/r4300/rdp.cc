@@ -388,53 +388,48 @@ static u8 noise() {
     return 128;
 }
 
-static void print_i32_fixpoint(i32 val, int radix) {
-    if (val < 0) {
-        std::cerr << "-";
-        val = -val;
-    }
+static float i32_fixpoint_to_float(i32 val, int radix) {
     unsigned long div = 1lu << radix;
-    std::cerr << (double)val / (float)div;
+    double fval = val < 0 ? -(i64)val : (i64)val;
+    return fval / (float)div;
 }
 
-static void print_s29_2(i32 val) {
-    print_i32_fixpoint(val, 2);
+static float s29_2_to_float(i32 val) {
+    return i32_fixpoint_to_float(val, 2);
 }
 
-static void print_s15_16(i32 val) {
-    print_i32_fixpoint(val, 16);
+static float s15_16_to_float(i32 val) {
+    return i32_fixpoint_to_float(val, 16);
 }
 
-static void print_s10_21(i32 val) {
-    print_i32_fixpoint(val, 21);
-}
-
-static void print_u16_16(u32 val) {
-    std::cerr << (double)val / 65536.0;
+static float s10_21_to_float(i32 val) {
+    return i32_fixpoint_to_float(val, 21);
 }
 
 
 static void print_pixel(pixel_t *px) {
-    if (!debugger.verbose.RDP)
-        return;
-
-    std::cerr << std::dec;
-    std::cerr << "  x,y,z:" << px->edge_coefs.x;
-    std::cerr << "," << px->edge_coefs.y << "," << px->zbuffer_coefs.z;
-    std::cerr << " tex:"; print_s10_21(px->texture_coefs.s);
-    std::cerr << ","; print_s10_21(px->texture_coefs.t);
-    std::cerr << ","; print_s10_21(px->texture_coefs.w);
-    std::cerr << " shade:" << (int)px->shade_color.r << "," << (int)px->shade_color.g;
-    std::cerr << "," << (int)px->shade_color.b << "," << (int)px->shade_color.a;
-    std::cerr << " texel0:" << (int)px->texel0_color.r << "," << (int)px->texel0_color.g;
-    std::cerr << "," << (int)px->texel0_color.b << "," << (int)px->texel0_color.a;
-    std::cerr << " combined:" << (int)px->combined_color.r << "," << (int)px->combined_color.g;
-    std::cerr << "," << (int)px->combined_color.b << "," << (int)px->combined_color.a;
-    std::cerr << " blended:" << (int)px->blended_color.r << "," << (int)px->blended_color.g;
-    std::cerr << "," << (int)px->blended_color.b << "," << (int)px->blended_color.a;
-    std::cerr << " mem:" << (int)px->mem_color.r << "," << (int)px->mem_color.g;
-    std::cerr << "," << (int)px->mem_color.b << "," << (int)px->mem_color.a;
-    std::cerr << std::endl;
+    debugger::debug(Debugger::RDP,
+        "  x,y,z:{},{},{}"
+        "  tex:{},{},{}"
+        "  shade:{},{},{},{}"
+        "  texel0:{},{},{},{}"
+        "  combined:{},{},{},{}"
+        "  blended:{},{},{},{}"
+        "  mem:{},{},{},{}",
+        px->edge_coefs.x, px->edge_coefs.y, px->zbuffer_coefs.z,
+        s10_21_to_float(px->texture_coefs.s),
+        s10_21_to_float(px->texture_coefs.t),
+        s10_21_to_float(px->texture_coefs.w),
+        (int)px->shade_color.r, (int)px->shade_color.g,
+        (int)px->shade_color.b, (int)px->shade_color.a,
+        (int)px->texel0_color.r, (int)px->texel0_color.g,
+        (int)px->texel0_color.b, (int)px->texel0_color.a,
+        (int)px->combined_color.r, (int)px->combined_color.g,
+        (int)px->combined_color.b, (int)px->combined_color.a,
+        (int)px->blended_color.r, (int)px->blended_color.g,
+        (int)px->blended_color.b, (int)px->blended_color.a,
+        (int)px->mem_color.r, (int)px->mem_color.g,
+        (int)px->mem_color.b, (int)px->mem_color.a);
 }
 
 namespace FillMode {
@@ -463,9 +458,10 @@ static void renderLine(unsigned y, unsigned xs, unsigned xe) {
     unsigned length = (xe - xs) << (color_image.size - 1);
 
     if ((offset + length) > sizeof(state.dram)) {
-        debugger.halt("FillMode::renderLine out-of-bounds");
-        std::cerr << std::dec << "start offset:" << offset;
-        std::cerr << ", length:" << length << std::endl;
+        debugger::warn(Debugger::RDP,
+            "(fill) renderLine out-of-bounds, start:{}, length:{}",
+            offset, length);
+        debugger::halt("FillMode::renderLine out-of-bounds");
         return;
     }
 
@@ -494,7 +490,7 @@ static void renderLine(unsigned y, unsigned xs, unsigned xe) {
         }
     }
     else {
-        debugger.halt("FillMode::renderLine unsupported image data format");
+        debugger::halt("FillMode::renderLine unsupported image data format");
     }
 }
 
@@ -763,10 +759,10 @@ static void pipeline_tx_load(struct tile const *tile, unsigned addr, color_t *tx
      * B [15:8]
      * A [7:0] */
     case IMAGE_DATA_FORMAT_IA_8_8:
-        debugger.halt("pipeline_tx_load: unsupported image data type IA_8_8");
+        debugger::halt("pipeline_tx_load: unsupported image data type IA_8_8");
         break;
     case IMAGE_DATA_FORMAT_YUV_16:
-        debugger.halt("pipeline_tx_load: unsupported image data type YUV_16");
+        debugger::halt("pipeline_tx_load: unsupported image data type YUV_16");
         break;
     /* R[31:24],G[23:16],G[15:8],A[7:0] =>
      * R [31:24]
@@ -782,13 +778,13 @@ static void pipeline_tx_load(struct tile const *tile, unsigned addr, color_t *tx
         break;
     }
     default:
-        debugger.halt("pipeline_tx_load: unexpected image data type");
+        debugger::halt("pipeline_tx_load: unexpected image data type");
         break;
     }
     // if (other_modes.tlut_en) {
-    //     debugger.halt("tlut_en not implemented");
+    //     debugger::halt("tlut_en not implemented");
     // } else {
-    //     debugger.halt("tlut_en not enabled");
+    //     debugger::halt("tlut_en not enabled");
     //     tx->r = tx->g = tx->b = tx->a = 0;
     // }
 }
@@ -1008,7 +1004,7 @@ static void pipeline_mi_load(pixel_t *px) {
     u8 *addr = &state.dram[px->mem_color_addr];
     switch (color_image.type) {
     case IMAGE_DATA_FORMAT_I_8:
-        debugger.halt("pipeline_mi_load: unsupported image data type I_8");
+        debugger::halt("pipeline_mi_load: unsupported image data type I_8");
         break;
     /* R[15:11],G[10:6],G[5:1],A[0] =>
      * R {[15:11],[15:13]}
@@ -1040,7 +1036,7 @@ static void pipeline_mi_load(pixel_t *px) {
         break;
     }
     default:
-        debugger.halt("pipeline_mi_store: unexpected image data type");
+        debugger::halt("pipeline_mi_store: unexpected image data type");
         break;
     }
 }
@@ -1054,7 +1050,7 @@ static void pipeline_mi_store(pixel_t *px) {
     u8 *addr = &state.dram[px->mem_color_addr];
     switch (color_image.type) {
     case IMAGE_DATA_FORMAT_I_8:
-        debugger.halt("pipeline_mi_store: unsupported image data type I_8");
+        debugger::halt("pipeline_mi_store: unsupported image data type I_8");
         break;
     case IMAGE_DATA_FORMAT_RGBA_5_5_5_1: {
         u16 r = px->blended_color.r >> 3;
@@ -1075,7 +1071,7 @@ static void pipeline_mi_store(pixel_t *px) {
         break;
     }
     default:
-        debugger.halt("pipeline_mi_store: unexpected image data type");
+        debugger::halt("pipeline_mi_store: unexpected image data type");
         break;
     }
 }
@@ -1089,6 +1085,7 @@ static u16 clamp_z(i32 z) {
            z >> 14;
 }
 
+#if 0
 /** Optionally compare and update a z memory value with a computed stepped
  * pixel z value. Returns true iff the pixel is nearer than the memory pixel. */
 static bool z_compare_update(pixel_t *px, u32 px_deltaz) {
@@ -1120,6 +1117,7 @@ static bool z_compare_update(pixel_t *px, u32 px_deltaz) {
     }
     return true;
 }
+#endif
 
 /** @brief Fills the line with coordinates (xs,y), (xe, y) with the
  * fill color. Input coordinates are in 10.2 fixedpoint format. */
@@ -1147,9 +1145,10 @@ static void render_span(bool left, unsigned level, unsigned tile,
     unsigned length = (xe - xs) << (color_image.size - 1);
 
     if ((offset + length) > sizeof(state.dram)) {
-        debugger.halt("Cycl1Mode::render_span out-of-bounds");
-        std::cerr << std::dec << "start offset:" << offset;
-        std::cerr << ", length:" << length << std::endl;
+        debugger::warn(Debugger::RDP,
+            "(cycle1) render_span out-of-bounds, start:{}, length:{}",
+            offset, length);
+        debugger::halt("Cycle1Mode::render_span out-of-bounds");
         return;
     }
 
@@ -1161,8 +1160,6 @@ static void render_span(bool left, unsigned level, unsigned tile,
     px.lod_frac = 255;
     px.edge_coefs.y = y;
     px.mem_color_addr = left ? offset : offset + length - px_size;
-
-    u32 deltazpix = 0;
 
     if (shade) {
         px.shade_color.r = shade->r;
@@ -1181,13 +1178,13 @@ static void render_span(bool left, unsigned level, unsigned tile,
         unsigned z_length = (xe - xs) * 2;
 
         if ((z_offset + z_length) > sizeof(state.dram)) {
-            debugger.halt("Cycle1Mode::render_span zbuffer out-of-bounds");
-            std::cerr << std::dec << "start offset:" << offset;
-            std::cerr << ", length:" << length << std::endl;
+            debugger::warn(Debugger::RDP,
+                "(cycle1) render_span zbuffer out-of-bounds, start:{}, length:{}",
+                offset, length);
+            debugger::halt("Cycle1Mode::render_span zbuffer out-of-bounds");
             return;
         }
 
-        deltazpix = abs(zbuffer->dzdx) + abs(zbuffer->dzdy);
         px.mem_z_addr = left ? z_offset : z_offset + z_length - 2;
         px.zbuffer_coefs.z = zbuffer->z;
     }
@@ -1324,64 +1321,56 @@ static void read_zbuffer_coefs(u64 const *params, struct zbuffer_coefs *zbuffer)
 }
 
 static void print_edge_coefs(struct edge_coefs const *edge) {
-    if (!debugger.verbose.RDP)
-        return;
-    std::cerr << "  yl: "; print_s29_2(edge->yl); std::cerr << std::endl;
-    std::cerr << "  ym: "; print_s29_2(edge->ym); std::cerr << std::endl;
-    std::cerr << "  yh: "; print_s29_2(edge->yh); std::cerr << std::endl;
-    std::cerr << "  xl: "; print_s15_16(edge->xl); std::cerr << std::endl;
-    std::cerr << "  xm: "; print_s15_16(edge->xm); std::cerr << std::endl;
-    std::cerr << "  xh: "; print_s15_16(edge->xh); std::cerr << std::endl;
-    std::cerr << "  dxldy: "; print_s15_16(edge->dxldy); std::cerr << std::endl;
-    std::cerr << "  dxmdy: "; print_s15_16(edge->dxmdy); std::cerr << std::endl;
-    std::cerr << "  dxhdy: "; print_s15_16(edge->dxhdy); std::cerr << std::endl;
+    debugger::info(Debugger::RDP, "  yl: {}", s29_2_to_float(edge->yl));
+    debugger::info(Debugger::RDP, "  ym: {}", s29_2_to_float(edge->ym));
+    debugger::info(Debugger::RDP, "  yh: {}", s29_2_to_float(edge->yh));
+    debugger::info(Debugger::RDP, "  xl: {}", s15_16_to_float(edge->xl));
+    debugger::info(Debugger::RDP, "  xm: {}", s15_16_to_float(edge->xm));
+    debugger::info(Debugger::RDP, "  xh: {}", s15_16_to_float(edge->xh));
+    debugger::info(Debugger::RDP, "  dxldy: {}", s15_16_to_float(edge->dxldy));
+    debugger::info(Debugger::RDP, "  dxmdy: {}", s15_16_to_float(edge->dxmdy));
+    debugger::info(Debugger::RDP, "  dxhdy: {}", s15_16_to_float(edge->dxhdy));
 }
 
 static void print_shade_coefs(struct shade_coefs const *shade) {
-    if (!debugger.verbose.RDP)
-        return;
-    std::cerr << "  r: ";    print_s15_16(shade->r); std::cerr << std::endl;
-    std::cerr << "  g: ";    print_s15_16(shade->g); std::cerr << std::endl;
-    std::cerr << "  b: ";    print_s15_16(shade->b); std::cerr << std::endl;
-    std::cerr << "  a: ";    print_s15_16(shade->a); std::cerr << std::endl;
-    std::cerr << "  drdx: "; print_s15_16(shade->drdx); std::cerr << std::endl;
-    std::cerr << "  dgdx: "; print_s15_16(shade->dgdx); std::cerr << std::endl;
-    std::cerr << "  dbdx: "; print_s15_16(shade->dbdx); std::cerr << std::endl;
-    std::cerr << "  dadx: "; print_s15_16(shade->dadx); std::cerr << std::endl;
-    std::cerr << "  drde: "; print_s15_16(shade->drde); std::cerr << std::endl;
-    std::cerr << "  dgde: "; print_s15_16(shade->dgde); std::cerr << std::endl;
-    std::cerr << "  dbde: "; print_s15_16(shade->dbde); std::cerr << std::endl;
-    std::cerr << "  dade: "; print_s15_16(shade->dade); std::cerr << std::endl;
-    std::cerr << "  drdy: "; print_s15_16(shade->drdy); std::cerr << std::endl;
-    std::cerr << "  dgdy: "; print_s15_16(shade->dgdy); std::cerr << std::endl;
-    std::cerr << "  dbdy: "; print_s15_16(shade->dbdy); std::cerr << std::endl;
-    std::cerr << "  dady: "; print_s15_16(shade->dady); std::cerr << std::endl;
+    debugger::info(Debugger::RDP, "  r: {}", s15_16_to_float(shade->r));
+    debugger::info(Debugger::RDP, "  g: {}", s15_16_to_float(shade->g));
+    debugger::info(Debugger::RDP, "  b: {}", s15_16_to_float(shade->b));
+    debugger::info(Debugger::RDP, "  a: {}", s15_16_to_float(shade->a));
+    debugger::info(Debugger::RDP, "  drdx: {}", s15_16_to_float(shade->drdx));
+    debugger::info(Debugger::RDP, "  dgdx: {}", s15_16_to_float(shade->dgdx));
+    debugger::info(Debugger::RDP, "  dbdx: {}", s15_16_to_float(shade->dbdx));
+    debugger::info(Debugger::RDP, "  dadx: {}", s15_16_to_float(shade->dadx));
+    debugger::info(Debugger::RDP, "  drde: {}", s15_16_to_float(shade->drde));
+    debugger::info(Debugger::RDP, "  dgde: {}", s15_16_to_float(shade->dgde));
+    debugger::info(Debugger::RDP, "  dbde: {}", s15_16_to_float(shade->dbde));
+    debugger::info(Debugger::RDP, "  dade: {}", s15_16_to_float(shade->dade));
+    debugger::info(Debugger::RDP, "  drdy: {}", s15_16_to_float(shade->drdy));
+    debugger::info(Debugger::RDP, "  dgdy: {}", s15_16_to_float(shade->dgdy));
+    debugger::info(Debugger::RDP, "  dbdy: {}", s15_16_to_float(shade->dbdy));
+    debugger::info(Debugger::RDP, "  dady: {}", s15_16_to_float(shade->dady));
 }
 
 static void print_texture_coefs(struct texture_coefs const *texture) {
-    if (!debugger.verbose.RDP)
-        return;
-    std::cerr << "  s: ";    print_s10_21(texture->s); std::cerr << std::endl;
-    std::cerr << "  t: ";    print_s10_21(texture->t); std::cerr << std::endl;
-    std::cerr << "  w: ";    print_s10_21(texture->w); std::cerr << std::endl;
-    std::cerr << "  dsdx: "; print_s10_21(texture->dsdx); std::cerr << std::endl;
-    std::cerr << "  dtdx: "; print_s10_21(texture->dtdx); std::cerr << std::endl;
-    std::cerr << "  dwdx: "; print_s10_21(texture->dwdx); std::cerr << std::endl;
-    std::cerr << "  dsde: "; print_s10_21(texture->dsde); std::cerr << std::endl;
-    std::cerr << "  dtde: "; print_s10_21(texture->dtde); std::cerr << std::endl;
-    std::cerr << "  dwde: "; print_s10_21(texture->dwde); std::cerr << std::endl;
-    std::cerr << "  dsdy: "; print_s10_21(texture->dsdy); std::cerr << std::endl;
-    std::cerr << "  dtdy: "; print_s10_21(texture->dtdy); std::cerr << std::endl;
-    std::cerr << "  dwdy: "; print_s10_21(texture->dwdy); std::cerr << std::endl;
+    debugger::info(Debugger::RDP, "  s: {}", s10_21_to_float(texture->s));
+    debugger::info(Debugger::RDP, "  t: {}", s10_21_to_float(texture->t));
+    debugger::info(Debugger::RDP, "  w: {}", s10_21_to_float(texture->w));
+    debugger::info(Debugger::RDP, "  dsdx: {}", s10_21_to_float(texture->dsdx));
+    debugger::info(Debugger::RDP, "  dtdx: {}", s10_21_to_float(texture->dtdx));
+    debugger::info(Debugger::RDP, "  dwdx: {}", s10_21_to_float(texture->dwdx));
+    debugger::info(Debugger::RDP, "  dsde: {}", s10_21_to_float(texture->dsde));
+    debugger::info(Debugger::RDP, "  dtde: {}", s10_21_to_float(texture->dtde));
+    debugger::info(Debugger::RDP, "  dwde: {}", s10_21_to_float(texture->dwde));
+    debugger::info(Debugger::RDP, "  dsdy: {}", s10_21_to_float(texture->dsdy));
+    debugger::info(Debugger::RDP, "  dtdy: {}", s10_21_to_float(texture->dtdy));
+    debugger::info(Debugger::RDP, "  dwdy: {}", s10_21_to_float(texture->dwdy));
 }
 
 static void print_zbuffer_coefs(struct zbuffer_coefs const *zbuffer) {
-    if (!debugger.verbose.RDP)
-        return;
-    std::cerr << "  z: "; print_s15_16(zbuffer->z); std::cerr << std::endl;
-    std::cerr << "  dzdx: "; print_s15_16(zbuffer->dzdx); std::cerr << std::endl;
-    std::cerr << "  dzde: "; print_s15_16(zbuffer->dzde); std::cerr << std::endl;
-    std::cerr << "  dzdy: "; print_s15_16(zbuffer->dzdy); std::cerr << std::endl;
+    debugger::info(Debugger::RDP, "  z: {}", s15_16_to_float(zbuffer->z));
+    debugger::info(Debugger::RDP, "  dzdx: {}", s15_16_to_float(zbuffer->dzdx));
+    debugger::info(Debugger::RDP, "  dzde: {}", s15_16_to_float(zbuffer->dzde));
+    debugger::info(Debugger::RDP, "  dzdy: {}", s15_16_to_float(zbuffer->dzdy));
 }
 
 static void render_triangle(u64 command, u64 const *params,
@@ -1396,11 +1385,9 @@ static void render_triangle(u64 command, u64 const *params,
     struct texture_coefs texture;
     struct zbuffer_coefs zbuffer;
 
-    if (debugger.verbose.RDP) {
-        std::cerr << "  left: " << left << std::endl;
-        std::cerr << "  level: " << level << std::endl;
-        std::cerr << "  tile: " << tile << std::endl;
-    }
+    debugger::info(Debugger::RDP, "  left: {}", left);
+    debugger::info(Debugger::RDP, "  level: {}", level);
+    debugger::info(Debugger::RDP, "  tile: {}", tile);
 
     read_edge_coefs(command, params, &edge);
     print_edge_coefs(&edge);
@@ -1535,17 +1522,15 @@ void textureRectangle(u64 command, u64 const *params) {
     i32 dsdx = (i16)(u16)((params[0] >> 16) & 0xffffu);
     i32 dtdy = (i16)(u16)((params[0] >>  0) & 0xffffu);
 
-    if (debugger.verbose.RDP) {
-        std::cerr << "  xl: " << (float)xl / 4. << std::endl;
-        std::cerr << "  yl: " << (float)yl / 4. << std::endl;
-        std::cerr << "  tile: " << tile << std::endl;
-        std::cerr << "  xh: " << (float)xh / 4. << std::endl;
-        std::cerr << "  yh: " << (float)yh / 4. << std::endl;
-        std::cerr << "  s: " << (float)s / 32. << std::endl;
-        std::cerr << "  t: " << (float)t / 32. << std::endl;
-        std::cerr << "  dsdx: " << (float)dsdx / 1024. << std::endl;
-        std::cerr << "  dtdy: " << (float)dtdy / 1024. << std::endl;
-    }
+    debugger::info(Debugger::RDP, "  xl: {}", (float)xl / 4.);
+    debugger::info(Debugger::RDP, "  yl: {}", (float)yl / 4.);
+    debugger::info(Debugger::RDP, "  tile: {}", tile);
+    debugger::info(Debugger::RDP, "  xh: {}", (float)xh / 4.);
+    debugger::info(Debugger::RDP, "  yh: {}", (float)yh / 4.);
+    debugger::info(Debugger::RDP, "  s: {}", (float)s / 32.);
+    debugger::info(Debugger::RDP, "  t: {}", (float)t / 32.);
+    debugger::info(Debugger::RDP, "  dsdx: {}", (float)dsdx / 1024.);
+    debugger::info(Debugger::RDP, "  dtdy: {}", (float)dtdy / 1024.);
 
     /* Convert texture coefficients from s10.5 or s5.10 to s10.21 */
     struct texture_coefs texture = {
@@ -1579,17 +1564,15 @@ void textureRectangleFlip(u64 command, u64 const *params) {
     i32 dsdx = (i16)(u16)((params[0] >> 16) & 0xffffu);
     i32 dtdy = (i16)(u16)((params[0] >>  0) & 0xffffu);
 
-    if (debugger.verbose.RDP) {
-        std::cerr << "  xl: " << (float)xl / 4. << std::endl;
-        std::cerr << "  yl: " << (float)yl / 4. << std::endl;
-        std::cerr << "  tile: " << tile << std::endl;
-        std::cerr << "  xh: " << (float)xh / 4. << std::endl;
-        std::cerr << "  yh: " << (float)yh / 4. << std::endl;
-        std::cerr << "  s: " << (float)s / 32. << std::endl;
-        std::cerr << "  t: " << (float)t / 32. << std::endl;
-        std::cerr << "  dsdx: " << (float)dsdx / 1024. << std::endl;
-        std::cerr << "  dtdy: " << (float)dtdy / 1024. << std::endl;
-    }
+    debugger::info(Debugger::RDP, "  xl: {}", (float)xl / 4.);
+    debugger::info(Debugger::RDP, "  yl: {}", (float)yl / 4.);
+    debugger::info(Debugger::RDP, "  tile: {}", tile);
+    debugger::info(Debugger::RDP, "  xh: {}", (float)xh / 4.);
+    debugger::info(Debugger::RDP, "  yh: {}", (float)yh / 4.);
+    debugger::info(Debugger::RDP, "  s: {}", (float)s / 32.);
+    debugger::info(Debugger::RDP, "  t: {}", (float)t / 32.);
+    debugger::info(Debugger::RDP, "  dsdx: {}", (float)dsdx / 1024.);
+    debugger::info(Debugger::RDP, "  dtdy: {}", (float)dtdy / 1024.);
 
     struct texture_coefs texture = {
         s << 16,    t << 16,    0,
@@ -1619,15 +1602,15 @@ void syncFull(u64 command, u64 const *params) {
 }
 
 void setKeyGB(u64 command, u64 const *params) {
-    debugger.halt("set_key_gb");
+    debugger::halt("set_key_gb");
 }
 
 void setKeyR(u64 command, u64 const *params) {
-    debugger.halt("set_key_r");
+    debugger::halt("set_key_r");
 }
 
 void setConvert(u64 command, u64 const *params) {
-    debugger.halt("set_convert");
+    debugger::halt("set_convert");
 }
 
 void setScissor(u64 command, u64 const *params) {
@@ -1636,12 +1619,10 @@ void setScissor(u64 command, u64 const *params) {
     scissor.xl = (command >> 12) & 0xfffu;
     scissor.yl = (command >>  0) & 0xfffu;
 
-    if (debugger.verbose.RDP) {
-        std::cerr << "  xl: " << (float)scissor.xl / 4. << std::endl;
-        std::cerr << "  yl: " << (float)scissor.yl / 4. << std::endl;
-        std::cerr << "  xh: " << (float)scissor.xh / 4. << std::endl;
-        std::cerr << "  yh: " << (float)scissor.yh / 4. << std::endl;
-    }
+    debugger::info(Debugger::RDP, "  xl: {}", (float)scissor.xl / 4.);
+    debugger::info(Debugger::RDP, "  yl: {}", (float)scissor.yl / 4.);
+    debugger::info(Debugger::RDP, "  xh: {}", (float)scissor.xh / 4.);
+    debugger::info(Debugger::RDP, "  yh: {}", (float)scissor.yh / 4.);
 
     bool scissorField = (command & (1lu << 25)) != 0;
     bool oddEven = (command & (1lu << 25)) != 0;
@@ -1651,8 +1632,8 @@ void setScissor(u64 command, u64 const *params) {
 
     if (scissor.xh > scissor.xl ||
         scissor.yh > scissor.yl) {
-        std::cerr << "SetScissor() invalid scissor coordinates" << std::endl;
-        debugger.halt("SetScissor: bad coordinates");
+        debugger::warn(Debugger::RDP, "invalid scissor coordinates");
+        debugger::halt("set_scissor: invalid coordinates");
     }
 }
 
@@ -1660,10 +1641,8 @@ void setPrimDepth(u64 command, u64 const *params) {
     prim_z      = (i16)((command >> 16) & 0xffffu);
     prim_deltaz = (i16)((command >>  0) & 0xffffu);
 
-    if (debugger.verbose.RDP) {
-        std::cerr << "  z: "; print_s15_16(prim_z); std::cerr << std::endl;
-        std::cerr << "  deltaz: "; print_s15_16(prim_deltaz); std::cerr << std::endl;
-    }
+    debugger::info(Debugger::RDP, "  z: {}", s15_16_to_float(prim_z));
+    debugger::info(Debugger::RDP, "  deltaz: {}", s15_16_to_float(prim_deltaz));
 }
 
 void setOtherModes(u64 command, u64 const *params) {
@@ -1705,45 +1684,43 @@ void setOtherModes(u64 command, u64 const *params) {
     other_modes.dither_alpha_en = (command >> 1) & 0x1u;
     other_modes.alpha_compare_en = (command >> 0) & 0x1u;
 
-    if (debugger.verbose.RDP) {
-        std::cerr << "  atomic_prim: " << other_modes.atomic_prim << std::endl;
-        std::cerr << "  cycle_type: " << other_modes.cycle_type << std::endl;
-        std::cerr << "  persp_tex_en: " << other_modes.persp_tex_en << std::endl;
-        std::cerr << "  detail_tex_en: " << other_modes.detail_tex_en << std::endl;
-        std::cerr << "  sharpen_tex_en: " << other_modes.sharpen_tex_en << std::endl;
-        std::cerr << "  tex_lod_en: " << other_modes.tex_lod_en << std::endl;
-        std::cerr << "  tlut_en: " << other_modes.tlut_en << std::endl;
-        std::cerr << "  tlut_type: " << other_modes.tlut_type << std::endl;
-        std::cerr << "  sample_type: " << other_modes.sample_type << std::endl;
-        std::cerr << "  mid_texel: " << other_modes.mid_texel << std::endl;
-        std::cerr << "  bi_lerp_0: " << other_modes.bi_lerp_0 << std::endl;
-        std::cerr << "  bi_lerp_1: " << other_modes.bi_lerp_1 << std::endl;
-        std::cerr << "  convert_one: " << other_modes.convert_one << std::endl;
-        std::cerr << "  key_en: " << other_modes.key_en << std::endl;
-        std::cerr << "  rgb_dither_sel: " << other_modes.rgb_dither_sel << std::endl;
-        std::cerr << "  alpha_dither_sel: " << other_modes.alpha_dither_sel << std::endl;
-        std::cerr << "  b_m1a_0: " << other_modes.b_m1a_0 << std::endl;
-        std::cerr << "  b_m1a_1: " << other_modes.b_m1a_1 << std::endl;
-        std::cerr << "  b_m1b_0: " << other_modes.b_m1b_0 << std::endl;
-        std::cerr << "  b_m1b_1: " << other_modes.b_m1b_1 << std::endl;
-        std::cerr << "  b_m2a_0: " << other_modes.b_m2a_0 << std::endl;
-        std::cerr << "  b_m2a_1: " << other_modes.b_m2a_1 << std::endl;
-        std::cerr << "  b_m2b_0: " << other_modes.b_m2b_0 << std::endl;
-        std::cerr << "  b_m2b_1: " << other_modes.b_m2b_1 << std::endl;
-        std::cerr << "  force_blend: " << other_modes.force_blend << std::endl;
-        std::cerr << "  alpha_cvg_select: " << other_modes.alpha_cvg_select << std::endl;
-        std::cerr << "  cvg_times_alpha: " << other_modes.cvg_times_alpha << std::endl;
-        std::cerr << "  z_mode: " << other_modes.z_mode << std::endl;
-        std::cerr << "  cvg_dest: " << other_modes.cvg_dest << std::endl;
-        std::cerr << "  color_on_cvg: " << other_modes.color_on_cvg << std::endl;
-        std::cerr << "  image_read_en: " << other_modes.image_read_en << std::endl;
-        std::cerr << "  z_update_en: " << other_modes.z_update_en << std::endl;
-        std::cerr << "  z_compare_en: " << other_modes.z_compare_en << std::endl;
-        std::cerr << "  antialias_en: " << other_modes.antialias_en << std::endl;
-        std::cerr << "  z_source_sel: " << other_modes.z_source_sel << std::endl;
-        std::cerr << "  dither_alpha_en: " << other_modes.dither_alpha_en << std::endl;
-        std::cerr << "  alpha_compare_en: " << other_modes.alpha_compare_en << std::endl;
-    }
+    debugger::info(Debugger::RDP, "  atomic_prim: {}", other_modes.atomic_prim);
+    debugger::info(Debugger::RDP, "  cycle_type: {}", other_modes.cycle_type);
+    debugger::info(Debugger::RDP, "  persp_tex_en: {}", other_modes.persp_tex_en);
+    debugger::info(Debugger::RDP, "  detail_tex_en: {}", other_modes.detail_tex_en);
+    debugger::info(Debugger::RDP, "  sharpen_tex_en: {}", other_modes.sharpen_tex_en);
+    debugger::info(Debugger::RDP, "  tex_lod_en: {}", other_modes.tex_lod_en);
+    debugger::info(Debugger::RDP, "  tlut_en: {}", other_modes.tlut_en);
+    debugger::info(Debugger::RDP, "  tlut_type: {}", other_modes.tlut_type);
+    debugger::info(Debugger::RDP, "  sample_type: {}", other_modes.sample_type);
+    debugger::info(Debugger::RDP, "  mid_texel: {}", other_modes.mid_texel);
+    debugger::info(Debugger::RDP, "  bi_lerp_0: {}", other_modes.bi_lerp_0);
+    debugger::info(Debugger::RDP, "  bi_lerp_1: {}", other_modes.bi_lerp_1);
+    debugger::info(Debugger::RDP, "  convert_one: {}", other_modes.convert_one);
+    debugger::info(Debugger::RDP, "  key_en: {}", other_modes.key_en);
+    debugger::info(Debugger::RDP, "  rgb_dither_sel: {}", other_modes.rgb_dither_sel);
+    debugger::info(Debugger::RDP, "  alpha_dither_sel: {}", other_modes.alpha_dither_sel);
+    debugger::info(Debugger::RDP, "  b_m1a_0: {}", other_modes.b_m1a_0);
+    debugger::info(Debugger::RDP, "  b_m1a_1: {}", other_modes.b_m1a_1);
+    debugger::info(Debugger::RDP, "  b_m1b_0: {}", other_modes.b_m1b_0);
+    debugger::info(Debugger::RDP, "  b_m1b_1: {}", other_modes.b_m1b_1);
+    debugger::info(Debugger::RDP, "  b_m2a_0: {}", other_modes.b_m2a_0);
+    debugger::info(Debugger::RDP, "  b_m2a_1: {}", other_modes.b_m2a_1);
+    debugger::info(Debugger::RDP, "  b_m2b_0: {}", other_modes.b_m2b_0);
+    debugger::info(Debugger::RDP, "  b_m2b_1: {}", other_modes.b_m2b_1);
+    debugger::info(Debugger::RDP, "  force_blend: {}", other_modes.force_blend);
+    debugger::info(Debugger::RDP, "  alpha_cvg_select: {}", other_modes.alpha_cvg_select);
+    debugger::info(Debugger::RDP, "  cvg_times_alpha: {}", other_modes.cvg_times_alpha);
+    debugger::info(Debugger::RDP, "  z_mode: {}", other_modes.z_mode);
+    debugger::info(Debugger::RDP, "  cvg_dest: {}", other_modes.cvg_dest);
+    debugger::info(Debugger::RDP, "  color_on_cvg: {}", other_modes.color_on_cvg);
+    debugger::info(Debugger::RDP, "  image_read_en: {}", other_modes.image_read_en);
+    debugger::info(Debugger::RDP, "  z_update_en: {}", other_modes.z_update_en);
+    debugger::info(Debugger::RDP, "  z_compare_en: {}", other_modes.z_compare_en);
+    debugger::info(Debugger::RDP, "  antialias_en: {}", other_modes.antialias_en);
+    debugger::info(Debugger::RDP, "  z_source_sel: {}", other_modes.z_source_sel);
+    debugger::info(Debugger::RDP, "  dither_alpha_en: {}", other_modes.dither_alpha_en);
+    debugger::info(Debugger::RDP, "  alpha_compare_en: {}", other_modes.alpha_compare_en);
 
     if (other_modes.cycle_type == CYCLE_TYPE_COPY)
         other_modes.sample_type = SAMPLE_TYPE_4X1;
@@ -1761,16 +1738,14 @@ void loadTlut(u64 command, u64 const *params) {
     tiles[tile].sh = sh;
     tiles[tile].th = th;
 
-    if (debugger.verbose.RDP) {
-        std::cerr << "  sl: " << (float)tiles[tile].sl / 4. << std::endl;
-        std::cerr << "  tl: " << (float)tiles[tile].tl / 4. << std::endl;
-        std::cerr << "  tile: " << std::dec << tile << std::endl;
-        std::cerr << "  sh: " << (float)tiles[tile].sh / 4. << std::endl;
-        std::cerr << "  th: " << (float)tiles[tile].th / 4. << std::endl;
-    }
+    debugger::info(Debugger::RDP, "  sl: {}", (float)tiles[tile].sl / 4.);
+    debugger::info(Debugger::RDP, "  tl: {}", (float)tiles[tile].tl / 4.);
+    debugger::info(Debugger::RDP, "  tile: {}", tile);
+    debugger::info(Debugger::RDP, "  sh: {}", (float)tiles[tile].sh / 4.);
+    debugger::info(Debugger::RDP, "  th: {}", (float)tiles[tile].th / 4.);
 
     if (texture_image.size != PIXEL_SIZE_16B) {
-        debugger.halt("load_tlut: invalid pixel size");
+        debugger::halt("load_tlut: invalid pixel size");
         return;
     }
 
@@ -1779,7 +1754,7 @@ void loadTlut(u64 command, u64 const *params) {
     sh >>= 2;
 
     if (sl >= 256 || sh >= 256 || sl > sh) {
-        debugger.halt("load_tlut: out-of-bounds palette index");
+        debugger::halt("load_tlut: out-of-bounds palette index");
         return;
     }
 
@@ -1797,7 +1772,7 @@ void syncLoad(u64 command, u64 const *params) {
 }
 
 void setTileSize(u64 command, u64 const *params) {
-    debugger.halt("set_tile_size");
+    debugger::halt("set_tile_size");
 }
 
 void loadTile(u64 command, u64 const *params) {
@@ -1812,22 +1787,20 @@ void loadTile(u64 command, u64 const *params) {
     tiles[tile].sh = sh;
     tiles[tile].th = th;
 
-    if (debugger.verbose.RDP) {
-        std::cerr << "  sl: " << (float)tiles[tile].sl / 4. << std::endl;
-        std::cerr << "  tl: " << (float)tiles[tile].tl / 4. << std::endl;
-        std::cerr << "  tile: " << std::dec << tile << std::endl;
-        std::cerr << "  sh: " << (float)tiles[tile].sh / 4. << std::endl;
-        std::cerr << "  th: " << (float)tiles[tile].th / 4. << std::endl;
-    }
+    debugger::info(Debugger::RDP, "  sl: {}", (float)tiles[tile].sl / 4.);
+    debugger::info(Debugger::RDP, "  tl: {}", (float)tiles[tile].tl / 4.);
+    debugger::info(Debugger::RDP, "  tile: {}", tile);
+    debugger::info(Debugger::RDP, "  sh: {}", (float)tiles[tile].sh / 4.);
+    debugger::info(Debugger::RDP, "  th: {}", (float)tiles[tile].th / 4.);
 
     unsigned src_size = texture_image.size;
     unsigned dst_size = tiles[tile].size;
 
     if (src_size != dst_size) {
-        debugger.halt("Incompatible texture formats");
+        debugger::halt("Incompatible texture formats");
     }
     if (src_size == PIXEL_SIZE_4B) {
-        debugger.halt("Invalid texture format for loadTile");
+        debugger::halt("Invalid texture format for loadTile");
     }
 
     /* sl, tl, sh, th are in 10.2 fixpoint format. */
@@ -1864,22 +1837,20 @@ void setTile(u64 command, u64 const *params) {
     tiles[tile].mask_s = (command >> 4) & 0xfu;
     tiles[tile].shift_s = (command >> 0) & 0xfu;
 
-    if (debugger.verbose.RDP) {
-        std::cerr << "  format: " << std::dec << tiles[tile].format << std::endl;
-        std::cerr << "  size: " << tiles[tile].size << std::endl;
-        std::cerr << "  line: " << std::hex << tiles[tile].line << std::endl;
-        std::cerr << "  tmem_addr: " << std::hex << tiles[tile].tmem_addr << std::endl;
-        std::cerr << "  tile: " << std::dec << tile << std::endl;
-        std::cerr << "  palette: " << tiles[tile].palette << std::endl;
-        std::cerr << "  clamp_t: " << tiles[tile].clamp_t << std::endl;
-        std::cerr << "  mirror_t: " << tiles[tile].mirror_t << std::endl;
-        std::cerr << "  mask_t: " << std::hex << tiles[tile].mask_t << std::endl;
-        std::cerr << "  shift_t: " << std::hex << tiles[tile].shift_t << std::endl;
-        std::cerr << "  clamp_s: " << tiles[tile].clamp_s << std::endl;
-        std::cerr << "  mirror_s: " << tiles[tile].mirror_s << std::endl;
-        std::cerr << "  mask_s: " << std::hex << tiles[tile].mask_s << std::endl;
-        std::cerr << "  shift_s: " << std::hex << tiles[tile].shift_s << std::endl;
-    }
+    debugger::info(Debugger::RDP, "  format: {}", tiles[tile].format);
+    debugger::info(Debugger::RDP, "  size: {}", tiles[tile].size);
+    debugger::info(Debugger::RDP, "  line: {}", tiles[tile].line);
+    debugger::info(Debugger::RDP, "  tmem_addr: {:x}", tiles[tile].tmem_addr);
+    debugger::info(Debugger::RDP, "  tile: {}", tile);
+    debugger::info(Debugger::RDP, "  palette: {}", tiles[tile].palette);
+    debugger::info(Debugger::RDP, "  clamp_t: {}", tiles[tile].clamp_t);
+    debugger::info(Debugger::RDP, "  mirror_t: {}", tiles[tile].mirror_t);
+    debugger::info(Debugger::RDP, "  mask_t: {}", tiles[tile].mask_t);
+    debugger::info(Debugger::RDP, "  shift_t: {}", tiles[tile].shift_t);
+    debugger::info(Debugger::RDP, "  clamp_s: {}", tiles[tile].clamp_s);
+    debugger::info(Debugger::RDP, "  mirror_s: {}", tiles[tile].mirror_s);
+    debugger::info(Debugger::RDP, "  mask_s: {}", tiles[tile].mask_s);
+    debugger::info(Debugger::RDP, "  shift_s: {}", tiles[tile].shift_s);
 
     tiles[tile].type = convert_image_data_format(tiles[tile].format, tiles[tile].size);
 }
@@ -1892,24 +1863,21 @@ void fillRectangle(u64 command, u64 const *params) {
     unsigned xh = (command >> 12) & 0xfffu;
     unsigned yh = (command >>  0) & 0xfffu;
 
-    if (debugger.verbose.RDP) {
-        std::cerr << "  xl: " << (float)xl / 4. << std::endl;
-        std::cerr << "  yl: " << (float)yl / 4. << std::endl;
-        std::cerr << "  xh: " << (float)xh / 4. << std::endl;
-        std::cerr << "  yh: " << (float)yh / 4. << std::endl;
-    }
+    debugger::info(Debugger::RDP, "  xl: {}", (float)xl / 4.);
+    debugger::info(Debugger::RDP, "  yl: {}", (float)yl / 4.);
+    debugger::info(Debugger::RDP, "  xh: {}", (float)xh / 4.);
+    debugger::info(Debugger::RDP, "  yh: {}", (float)yh / 4.);
 
     /* Expect rasterizer to be in Fill cycle type. */
     if (other_modes.cycle_type != CYCLE_TYPE_FILL) {
-        std::cerr << "FillRectangle() not in fill cycle type" << std::endl;
-        debugger.halt("FillRectangle: bad cycle type");
+        debugger::warn(Debugger::RDP, "fill_rectangle not in fill cycle type");
+        debugger::halt("fill_rectangle: invalid cycle type");
         return;
     }
 
     if (xh > xl || yh > yl) {
-        std::cerr << "FillRectangle() bad rectangle coordinates" << std::endl;
-        std::cerr << std::dec << xh << "," << yh << "," << xl << "," << yl << std::endl;
-        debugger.halt("FillRectangle: bad coordinates");
+        debugger::warn(Debugger::RDP, "invalid fill_rcetangle coordinates");
+        debugger::halt("fill_rectangle: invalid coordinates");
         return;
     }
 
@@ -1986,25 +1954,22 @@ void setCombineMode(u64 command, u64 const *params) {
     combine_mode.sub_b_A_1 = (command >>  3) & 0x7u;
     combine_mode.add_A_1   = (command >>  0) & 0x7u;
 
-    if (debugger.verbose.RDP) {
-        std::cerr << std::dec;
-        std::cerr << "  sub_a_R_0: " << combine_mode.sub_a_R_0 << std::endl;
-        std::cerr << "  sub_b_R_0: " << combine_mode.sub_b_R_0 << std::endl;
-        std::cerr << "  mul_R_0: " << combine_mode.mul_R_0 << std::endl;
-        std::cerr << "  add_R_0: " << combine_mode.add_R_0 << std::endl;
-        std::cerr << "  sub_a_A_0: " << combine_mode.sub_a_A_0 << std::endl;
-        std::cerr << "  sub_b_A_0: " << combine_mode.sub_b_A_0 << std::endl;
-        std::cerr << "  mul_A_0: " << combine_mode.mul_A_0 << std::endl;
-        std::cerr << "  add_A_0: " << combine_mode.add_A_0 << std::endl;
-        std::cerr << "  sub_a_R_1: " << combine_mode.sub_a_R_1 << std::endl;
-        std::cerr << "  sub_b_R_1: " << combine_mode.sub_b_R_1 << std::endl;
-        std::cerr << "  mul_R_1: " << combine_mode.mul_R_1 << std::endl;
-        std::cerr << "  add_R_1: " << combine_mode.add_R_1 << std::endl;
-        std::cerr << "  sub_a_A_1: " << combine_mode.sub_a_A_1 << std::endl;
-        std::cerr << "  sub_b_A_1: " << combine_mode.sub_b_A_1 << std::endl;
-        std::cerr << "  mul_A_1: " << combine_mode.mul_A_1 << std::endl;
-        std::cerr << "  add_A_1: " << combine_mode.add_A_1 << std::endl;
-    }
+    debugger::info(Debugger::RDP, "  sub_a_R_0: {}", combine_mode.sub_a_R_0);
+    debugger::info(Debugger::RDP, "  sub_b_R_0: {}", combine_mode.sub_b_R_0);
+    debugger::info(Debugger::RDP, "  mul_R_0: {}", combine_mode.mul_R_0);
+    debugger::info(Debugger::RDP, "  add_R_0: {}", combine_mode.add_R_0);
+    debugger::info(Debugger::RDP, "  sub_a_A_0: {}", combine_mode.sub_a_A_0);
+    debugger::info(Debugger::RDP, "  sub_b_A_0: {}", combine_mode.sub_b_A_0);
+    debugger::info(Debugger::RDP, "  mul_A_0: {}", combine_mode.mul_A_0);
+    debugger::info(Debugger::RDP, "  add_A_0: {}", combine_mode.add_A_0);
+    debugger::info(Debugger::RDP, "  sub_a_R_1: {}", combine_mode.sub_a_R_1);
+    debugger::info(Debugger::RDP, "  sub_b_R_1: {}", combine_mode.sub_b_R_1);
+    debugger::info(Debugger::RDP, "  mul_R_1: {}", combine_mode.mul_R_1);
+    debugger::info(Debugger::RDP, "  add_R_1: {}", combine_mode.add_R_1);
+    debugger::info(Debugger::RDP, "  sub_a_A_1: {}", combine_mode.sub_a_A_1);
+    debugger::info(Debugger::RDP, "  sub_b_A_1: {}", combine_mode.sub_b_A_1);
+    debugger::info(Debugger::RDP, "  mul_A_1: {}", combine_mode.mul_A_1);
+    debugger::info(Debugger::RDP, "  add_A_1: {}", combine_mode.add_A_1);
 }
 
 void setTextureImage(u64 command, u64 const *params) {
@@ -2013,17 +1978,14 @@ void setTextureImage(u64 command, u64 const *params) {
     texture_image.width = 1u + ((command >> 32) & 0x3ffu);
     texture_image.addr = command & 0x3fffffflu;
 
-    if (debugger.verbose.RDP) {
-        std::cerr << "  format: " << std::dec << texture_image.format << std::endl;
-        std::cerr << "  size: " << std::dec << texture_image.size << std::endl;
-        std::cerr << "  width: " << std::dec << texture_image.width << std::endl;
-        std::cerr << "  addr: 0x" << std::hex << texture_image.addr << std::endl;
-    }
+    debugger::info(Debugger::RDP, "  format: {}", texture_image.format);
+    debugger::info(Debugger::RDP, "  size: {}", texture_image.size);
+    debugger::info(Debugger::RDP, "  width: {}", texture_image.width);
+    debugger::info(Debugger::RDP, "  addr: {:#x}", texture_image.addr);
 
     if ((texture_image.addr % 8u) != 0) {
-        std::cerr << "SetTextureImage() misaligned data address (";
-        std::cerr << std::hex << texture_image.addr << ")" << std::endl;
-        debugger.halt("SetTextureImage: bad address");
+        debugger::warn(Debugger::RDP, "set_texture_image: misaligned data address");
+        debugger::halt("set_texture_image: invalid address");
         return;
     }
 
@@ -2034,14 +1996,11 @@ void setTextureImage(u64 command, u64 const *params) {
 void setZImage(u64 command, u64 const *params) {
     z_image.addr = command & 0x3fffffflu;
 
-    if (debugger.verbose.RDP) {
-        std::cerr << "  addr: 0x" << std::hex << z_image.addr << std::endl;
-    }
+    debugger::info(Debugger::RDP, "  addr: {:#x}", z_image.addr);
 
     if ((z_image.addr % 8u) != 0) {
-        std::cerr << "SetZImage() misaligned data address (";
-        std::cerr << std::hex << z_image.addr << ")" << std::endl;
-        debugger.halt("SetZImage: bad address");
+        debugger::warn(Debugger::RDP, "set_z_image: misaligned data address");
+        debugger::halt("set_z_image: invalid address");
         return;
     }
 }
@@ -2052,17 +2011,14 @@ void setColorImage(u64 command, u64 const *params) {
     color_image.width = 1u + ((command >> 32) & 0x3ffu);
     color_image.addr = command & 0x3fffffflu;
 
-    if (debugger.verbose.RDP) {
-        std::cerr << "  format: " << std::dec << color_image.format << std::endl;
-        std::cerr << "  size: " << std::dec << color_image.size << std::endl;
-        std::cerr << "  width: " << std::dec << color_image.width << std::endl;
-        std::cerr << "  addr: 0x" << std::hex << color_image.addr << std::endl;
-    }
+    debugger::info(Debugger::RDP, "  format: {}", color_image.format);
+    debugger::info(Debugger::RDP, "  size: {}", color_image.size);
+    debugger::info(Debugger::RDP, "  width: {}", color_image.width);
+    debugger::info(Debugger::RDP, "  addr: {:#x}", color_image.addr);
 
     if ((color_image.addr % 8u) != 0) {
-        std::cerr << "SetColorImage() misaligned data address (";
-        std::cerr << std::hex << color_image.addr << ")" << std::endl;
-        debugger.halt("SetColorImage: bad address");
+        debugger::warn(Debugger::RDP, "set_color_image: misaligned data address");
+        debugger::halt("set_color_image: invalid address");
         return;
     }
 
@@ -2070,18 +2026,11 @@ void setColorImage(u64 command, u64 const *params) {
     if (color_image.type != IMAGE_DATA_FORMAT_RGBA_5_5_5_1 &&
         color_image.type != IMAGE_DATA_FORMAT_RGBA_8_8_8_8 &&
         color_image.type != IMAGE_DATA_FORMAT_CI_8) {
-        std::cerr << "SetColorImage() invalid image data format (";
-        std::cerr << std::dec << color_image.format << ", ";
-        std::cerr << color_image.size << ")" << std::endl;
-        debugger.halt("SetColorImage: bad format");
+        debugger::warn(Debugger::RDP,
+            "set_color_image: invalid image data format: {},{}",
+            color_image.format, color_image.size);
+        debugger::halt("set_color_image: invalid format");
         return;
-    }
-}
-
-static inline void logWrite(bool flag, const char *tag, u64 value) {
-    if (flag) {
-        std::cerr << std::left << std::setfill(' ') << std::setw(32);
-        std::cerr << tag << " <- " << std::hex << value << std::endl;
     }
 }
 
@@ -2091,7 +2040,7 @@ static inline void logWrite(bool flag, const char *tag, u64 value) {
  *  RSP (Coprocessor 0 register 11) view of the register.
  */
 void write_DPC_STATUS_REG(u32 value) {
-    logWrite(debugger.verbose.DPCommand, "DPC_STATUS_REG", value);
+    debugger::info(Debugger::DPCommand, "DPC_STATUS_REG <- {:08x}", value);
     if (value & DPC_STATUS_CLR_XBUS_DMEM_DMA) {
         state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_XBUS_DMEM_DMA;
     }
@@ -2241,17 +2190,15 @@ void write_DPC_END_REG(u32 value) {
         u64 opcode = (command >> 56) & 0x3flu;
 
         if (RDPCommands[opcode].command == NULL) {
-            std::cerr << "DPC: unknown command " << std::hex << opcode;
-            std::cerr << ": " << command << std::endl;
-            debugger.halt("DPC unknown command");
+            debugger::warn(Debugger::RDP, "unknown command {:02x}", opcode);
+            debugger::halt("DPC unknown command");
             break;
         }
 
         unsigned nr_dwords = RDPCommands[opcode].nrDoubleWords;
         if (!DPC_hasNext(nr_dwords)) {
-            std::cerr << "DPC: incomplete command " << std::hex;
-            std::cerr << opcode << std::endl;
-            debugger.halt("DPC incomplete command");
+            debugger::warn(Debugger::RDP, "incomplete command {:02x}", opcode);
+            debugger::halt("DPC incomplete command");
             break;
         }
 
@@ -2259,10 +2206,8 @@ void write_DPC_END_REG(u32 value) {
         u64 params[nr_dwords] = { 0 };
         DPC_read(params, nr_dwords);
 
-        if (debugger.verbose.RDP) {
-            std::cerr << "DPC: " << RDPCommands[opcode].name;
-            std::cerr << " " << std::hex << command << std::endl;
-        }
+        debugger::info(Debugger::RDP, "{} []",
+            RDPCommands[opcode].name, command);
 
         RDPCommands[opcode].command(command, params + 1);
         state.hwreg.DPC_CURRENT_REG += 8 * nr_dwords;

@@ -180,8 +180,8 @@ struct Disassembler
 
         const int line_total_count = (int)((mem_size + Cols - 1) / Cols);
         ImGuiListClipper clipper(line_total_count, s.LineHeight);
-        const size_t visible_start_addr = clipper.DisplayStart * Cols;
-        const size_t visible_end_addr = clipper.DisplayEnd * Cols;
+        // const size_t visible_start_addr = clipper.DisplayStart * Cols;
+        // const size_t visible_end_addr = clipper.DisplayEnd * Cols;
 
         // Key navigation.
         size_t next_highlight_min = HighlightMin;
@@ -200,14 +200,12 @@ struct Disassembler
                            ImGui::GetColorU32(ImGuiCol_Border));
 
         const char* format_address = OptUpperCaseHex ? "%0*" _PRISizeT "X " : "%0*" _PRISizeT "x ";
-        const char* format_data = OptUpperCaseHex ? "%0*" _PRISizeT "X" : "%0*" _PRISizeT "x";
         const char* format_range = OptUpperCaseHex ? "Range %0*" _PRISizeT "X..%0*" _PRISizeT "X" : "Range %0*" _PRISizeT "x..%0*" _PRISizeT "x";
-        const char* format_byte = OptUpperCaseHex ? "%02X" : "%02x";
         const char* format_byte_space = OptUpperCaseHex ? "%02X " : "%02x ";
 
         for (int line_i = clipper.DisplayStart; line_i < clipper.DisplayEnd; line_i++) // display only visible lines
         {
-            ImVec2 pos = ImGui::GetCursorScreenPos();
+            // ImVec2 pos = ImGui::GetCursorScreenPos();
             size_t addr = (size_t)(line_i * Cols);
 
             // New highlight if line clicked.

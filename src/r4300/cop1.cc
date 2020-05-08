@@ -86,7 +86,7 @@ void eval_DMFC1(u32 instr, bool delaySlot) {
     // returns the value as if read from the register rd - 1.
     // See \ref cp1reg::setFprAliases for details.
     state.reg.gpr[rt] = state.cp1reg.fpr_d[rd]->l;
-    debugger.halt("DMFC1 instruction");
+    debugger::halt("DMFC1 instruction");
 }
 
 void eval_CFC1(u32 instr, bool delaySlot) {
@@ -95,7 +95,7 @@ void eval_CFC1(u32 instr, bool delaySlot) {
         case 0:  state.reg.gpr[rt] = state.cp1reg.fcr0; break;
         case 31: state.reg.gpr[rt] = state.cp1reg.fcr31; break;
         default:
-            debugger.halt("COP1::CF Unimplemented control register");
+            debugger::halt("COP1::CF Unimplemented control register");
     }
 }
 
@@ -111,7 +111,7 @@ void eval_DMTC1(u32 instr, bool delaySlot) {
     // has for side effect to write as if the register index
     // were rt - 1. See \ref cp1reg::setFprAliases for details.
     state.cp1reg.fpr_d[rd]->l = state.reg.gpr[rt];
-    debugger.halt("DMTC1 instruction");
+    debugger::halt("DMTC1 instruction");
 }
 
 void eval_CTC1(u32 instr, bool delaySlot) {
@@ -120,7 +120,7 @@ void eval_CTC1(u32 instr, bool delaySlot) {
         case 0:  state.cp1reg.fcr0  = state.reg.gpr[rt]; break;
         case 31: state.cp1reg.fcr31 = state.reg.gpr[rt]; break;
         default:
-            debugger.halt("COP1::CT Unimplemented control register");
+            debugger::halt("COP1::CT Unimplemented control register");
     }
 }
 
@@ -146,7 +146,7 @@ void eval_BC1(u32 instr, bool delaySlot) {
         likely = true;
         break;
     default:
-        debugger.halt("COP1::BC::* invalid instruction");
+        debugger::halt("COP1::BC::* invalid instruction");
         break;
     }
 
@@ -211,7 +211,7 @@ void eval_NEG_S(u32 instr, bool delaySlot) {
     FRType(instr);
     if (std::isnan(state.cp1reg.fpr_s[fs]->s)) {
         // TODO invalid operation exception is NaN
-        debugger.halt("COP1::S::NEG invalid operation");
+        debugger::halt("COP1::S::NEG invalid operation");
     }
     state.cp1reg.fpr_s[fd]->s = -state.cp1reg.fpr_s[fs]->s;
 }
@@ -226,7 +226,7 @@ void eval_ROUND_L_S(u32 instr, bool delaySlot) {
     int64_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT64_MAX || in < INT64_MIN) {
-        debugger.halt("COP1::S::ROUNDL invalid operation");
+        debugger::halt("COP1::S::ROUNDL invalid operation");
         out = INT64_MIN;
     } else {
         out = in;
@@ -241,7 +241,7 @@ void eval_TRUNC_L_S(u32 instr, bool delaySlot) {
     int64_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT64_MAX || in < INT64_MIN) {
-        debugger.halt("COP1::S::TRUNCL invalid operation");
+        debugger::halt("COP1::S::TRUNCL invalid operation");
         out = INT64_MIN;
     } else {
         out = in;
@@ -256,7 +256,7 @@ void eval_CEIL_L_S(u32 instr, bool delaySlot) {
     int64_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT64_MAX || in < INT64_MIN) {
-        debugger.halt("COP1::S::CEILL invalid operation");
+        debugger::halt("COP1::S::CEILL invalid operation");
         out = INT64_MIN;
     } else {
         out = in;
@@ -271,7 +271,7 @@ void eval_FLOOR_L_S(u32 instr, bool delaySlot) {
     int64_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT64_MAX || in < INT64_MIN) {
-        debugger.halt("COP1::S::FLOORL invalid operation");
+        debugger::halt("COP1::S::FLOORL invalid operation");
         out = INT64_MIN;
     } else {
         out = in;
@@ -289,7 +289,7 @@ void eval_ROUND_W_S(u32 instr, bool delaySlot) {
     int32_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT32_MAX || in < INT32_MIN) {
-        debugger.halt("COP1::S::ROUNDW invalid operation");
+        debugger::halt("COP1::S::ROUNDW invalid operation");
         out = INT32_MIN;
     } else {
         out = in;
@@ -304,7 +304,7 @@ void eval_TRUNC_W_S(u32 instr, bool delaySlot) {
     int32_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT32_MAX || in < INT32_MIN) {
-        debugger.halt("COP1::S::TRUNCW invalid operation");
+        debugger::halt("COP1::S::TRUNCW invalid operation");
         out = INT32_MIN;
     } else {
         out = in;
@@ -319,7 +319,7 @@ void eval_CEIL_W_S(u32 instr, bool delaySlot) {
     int32_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT32_MAX || in < INT32_MIN) {
-        debugger.halt("COP1::S::CEILW invalid operation");
+        debugger::halt("COP1::S::CEILW invalid operation");
         out = INT32_MIN;
     } else {
         out = in;
@@ -334,7 +334,7 @@ void eval_FLOOR_W_S(u32 instr, bool delaySlot) {
     int32_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT32_MAX || in < INT32_MIN) {
-        debugger.halt("COP1::S::FLOORW invalid operation");
+        debugger::halt("COP1::S::FLOORW invalid operation");
         out = INT32_MIN;
     } else {
         out = in;
@@ -372,7 +372,7 @@ void eval_CMP_S(u32 instr, bool delaySlot) {
         equal = false;
         unordered = true;
         if (funct & 0x8lu) {
-            debugger.halt("COP1::S::COMP invalid operation");
+            debugger::halt("COP1::S::COMP invalid operation");
         }
     } else {
         less = s < t;
@@ -446,7 +446,7 @@ void eval_NEG_D(u32 instr, bool delaySlot) {
     FRType(instr);
     if (std::isnan(state.cp1reg.fpr_d[fs]->d)) {
         // TODO invalid operation exception is NaN
-        debugger.halt("COP1::D::NEG invalid operation");
+        debugger::halt("COP1::D::NEG invalid operation");
     }
     state.cp1reg.fpr_d[fd]->d = -state.cp1reg.fpr_d[fs]->d;
 }
@@ -461,7 +461,7 @@ void eval_ROUND_L_D(u32 instr, bool delaySlot) {
     int64_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT64_MAX || in < INT64_MIN) {
-        debugger.halt("COP1::D::ROUNDL invalid operation");
+        debugger::halt("COP1::D::ROUNDL invalid operation");
         out = INT64_MIN;
     } else {
         out = in;
@@ -476,7 +476,7 @@ void eval_TRUNC_L_D(u32 instr, bool delaySlot) {
     int64_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT64_MAX || in < INT64_MIN) {
-        debugger.halt("COP1::D::TRUNCL invalid operation");
+        debugger::halt("COP1::D::TRUNCL invalid operation");
         out = INT64_MIN;
     } else {
         out = in;
@@ -491,7 +491,7 @@ void eval_CEIL_L_D(u32 instr, bool delaySlot) {
     int64_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT64_MAX || in < INT64_MIN) {
-        debugger.halt("COP1::D::CEILL invalid operation");
+        debugger::halt("COP1::D::CEILL invalid operation");
         out = INT64_MIN;
     } else {
         out = in;
@@ -506,7 +506,7 @@ void eval_FLOOR_L_D(u32 instr, bool delaySlot) {
     int64_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT64_MAX || in < INT64_MIN) {
-        debugger.halt("COP1::D::FLOORL invalid operation");
+        debugger::halt("COP1::D::FLOORL invalid operation");
         out = INT64_MIN;
     } else {
         out = in;
@@ -524,7 +524,7 @@ void eval_ROUND_W_D(u32 instr, bool delaySlot) {
     int32_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT32_MAX || in < INT32_MIN) {
-        debugger.halt("COP1::D::ROUNDW invalid operation");
+        debugger::halt("COP1::D::ROUNDW invalid operation");
         out = INT32_MIN;
     } else {
         out = in;
@@ -540,7 +540,7 @@ void eval_TRUNC_W_D(u32 instr, bool delaySlot) {
     if (std::isnan(in) || std::isinf(in) ||
         in > INT32_MAX || in < INT32_MIN) {
         // TODO invalid operation exception if enabled
-        debugger.halt("COP1::D::TRUNCW invalid operation");
+        debugger::halt("COP1::D::TRUNCW invalid operation");
         out = INT32_MIN;
     } else {
         out = in;
@@ -555,7 +555,7 @@ void eval_CEIL_W_D(u32 instr, bool delaySlot) {
     int32_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT32_MAX || in < INT32_MIN) {
-        debugger.halt("COP1::D::CEILW invalid operation");
+        debugger::halt("COP1::D::CEILW invalid operation");
         out = INT32_MIN;
     } else {
         out = in;
@@ -570,7 +570,7 @@ void eval_FLOOR_W_D(u32 instr, bool delaySlot) {
     int32_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT32_MAX || in < INT32_MIN) {
-        debugger.halt("COP1::D::FLOORW invalid operation");
+        debugger::halt("COP1::D::FLOORW invalid operation");
         out = INT32_MIN;
     } else {
         out = in;
@@ -611,7 +611,7 @@ void eval_CMP_D(u32 instr, bool delaySlot) {
         equal = false;
         unordered = true;
         if (funct & 0x8lu) {
-            debugger.halt("COP1::D::COMP invalid operation");
+            debugger::halt("COP1::D::COMP invalid operation");
         }
     } else {
         less = s < t;

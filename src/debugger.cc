@@ -5,7 +5,47 @@
 #include "debugger.h"
 
 /** @brief Global debugger. */
-Debugger debugger;
+Debugger debugger::debugger;
+
+char const *debugger::LabelName[Debugger::Label::LabelCount] = {
+    "cpu",
+    "cop0",
+    "cop1",
+    "rsp",
+    "rdp",
+    "RdRam",
+    "SP",
+    "DPCommand",
+    "DPSpan",
+    "MI",
+    "VI",
+    "AI",
+    "PI",
+    "RI",
+    "SI",
+    "PIF",
+    "Cart_2_1",
+};
+
+char const *debugger::LabelColor[Debugger::LabelCount] = {
+    "\x1b[34;1m",
+    "\x1b[34;1m",
+    "\x1b[34;1m",
+    "\x1b[34;1m",
+    "\x1b[93;1m",
+    "\x1b[0m",
+    "\x1b[0m",
+    "\x1b[0m",
+    "\x1b[0m",
+    "\x1b[0m",
+    "\x1b[0m",
+    "\x1b[0m",
+    "\x1b[0m",
+    "\x1b[0m",
+    "\x1b[0m",
+    "\x1b[0m",
+    "\x1b[0m",
+};
 
 /* Class */
 
@@ -14,26 +54,11 @@ Debugger::Debugger()
       cpuTrace(0x10000), rspTrace(0x10000)
 {
     _interpreterStopped = false;
+    for (int label = 0; label < Debugger::LabelCount; label++) {
+        verbose[label] = Debugger::Verbosity::Error;
+    }
 
-    verbose.cop0 = false;
-    verbose.cop1 = false;
-    verbose.memory = false;
-
-    verbose.rdram = false;
-    verbose.SP = false;
-    verbose.DPCommand = false;
-    verbose.DPSpan = false;
-    verbose.MI = false;
-    verbose.VI = false;
-    verbose.AI = false;
-    verbose.PI = false;
-    verbose.RI = false;
-    verbose.SI = false;
-    verbose.PIF = false;
-    verbose.cart_2_1 = false;
-    verbose.RDP = false;
-
-    verbose.thread = false;
+    verbose[Debugger::RDP] = Debugger::Info;
 }
 
 Debugger::~Debugger() {

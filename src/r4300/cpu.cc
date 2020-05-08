@@ -26,7 +26,7 @@ void checkInterrupt(void) {
         switch (state.cpu.nextAction) {
             case State::Action::Jump: break;
             default:
-                debugger.halt("Unexpected action");
+                debugger::halt("Unexpected action");
                 /* fallthrough */
             case State::Action::Continue:
                 state.cpu.nextPc = state.reg.pc + 4;
@@ -203,7 +203,7 @@ void takeException(Exception exn, u64 vAddr,
         case AddressError:
             exccode = load ? 4 : 5; // AdEL : AdES
             state.cp0reg.badvaddr = vAddr;
-            debugger.halt("AddressError");
+            debugger::halt("AddressError");
             break;
         // TLB Refill occurs when there is no TLB entry that matches an
         // attempted reference to a mapped address space.
@@ -218,7 +218,7 @@ void takeException(Exception exn, u64 vAddr,
             state.cp0reg.badvaddr = vAddr;
             state.cp0reg.entryhi &= ~0xffffffe000llu;
             state.cp0reg.entryhi |= (vAddr & 0xffffffe000llu);
-            // debugger.halt("TLBInvalid / TLBRefill");
+            // debugger::halt("TLBInvalid / TLBRefill");
             // TODO : Context, XContext, EntryHi
             break;
         // TLB Modified occurs when a store operation virtual address
@@ -227,7 +227,7 @@ void takeException(Exception exn, u64 vAddr,
         case TLBModified:
             exccode = 1; // Mod
             state.cp0reg.badvaddr = vAddr;
-            debugger.halt("TLBModified");
+            debugger::halt("TLBModified");
             // TODO : Context, XContext, EntryHi
             break;
         // The Cache Error exception occurs when either a secondary cache ECC
@@ -235,7 +235,7 @@ void takeException(Exception exn, u64 vAddr,
         // condition occurs and error detection is enabled.
         case CacheError:
             // vector = 0x100llu;
-            debugger.halt("CacheError");
+            debugger::halt("CacheError");
             break;
         // A Virtual Coherency exception occurs when all of the following
         // conditions are true:
@@ -248,27 +248,27 @@ void takeException(Exception exn, u64 vAddr,
         case VirtualCoherency:
             exccode = instr ? 14 : 31; // VCEI : VCED
             state.cp0reg.badvaddr = vAddr;
-            debugger.halt("VirtualCoherency");
+            debugger::halt("VirtualCoherency");
             break;
         // A Bus Error exception is raised by board-level circuitry for events
         // such as bus time-out, backplane bus parity errors, and invalid
         // physical memory addresses or access types.
         case BusError:
             exccode = instr ? 6 : 7; // IBE : DBE
-            debugger.halt("BusError");
+            debugger::halt("BusError");
             break;
         // An Integer Overflow exception occurs when an ADD, ADDI, SUB, DADD,
         // DADDI or DSUB instruction results in a 2’s complement overflow
         case IntegerOverflow:
             exccode = 12; // Ov
-            debugger.halt("IntegerOverflow");
+            debugger::halt("IntegerOverflow");
             break;
         // The Trap exception occurs when a TGE, TGEU, TLT, TLTU, TEQ, TNE,
         // TGEI, TGEUI, TLTI, TLTUI, TEQI, or TNEI instruction results in a TRUE
         // condition.
         case Trap:
             exccode = 13; // Tr
-            debugger.halt("Trap");
+            debugger::halt("Trap");
             break;
         // A System Call exception occurs during an attempt to execute the
         // SYSCALL instruction.
@@ -279,7 +279,7 @@ void takeException(Exception exn, u64 vAddr,
         // BREAK instruction.
         case Breakpoint:
             exccode = 9; // Bp
-            debugger.halt("Breakpoint");
+            debugger::halt("Breakpoint");
             break;
         // The Reserved Instruction exception occurs when one of the following
         // conditions occurs:
@@ -293,7 +293,7 @@ void takeException(Exception exn, u64 vAddr,
         //        when in User or Supervisor mode
         case ReservedInstruction:
             exccode = 10; // RI
-            debugger.halt("ReservedInstruction");
+            debugger::halt("ReservedInstruction");
             break;
         // The Coprocessor Unusable exception occurs when an attempt is made to
         // execute a coprocessor instruction for either:
@@ -308,7 +308,7 @@ void takeException(Exception exn, u64 vAddr,
         // coprocessor.
         case FloatingPoint:
             exccode = 15; // FPEEXL
-            debugger.halt("FloatingPoint");
+            debugger::halt("FloatingPoint");
             // TODO: Set FP Control Status Register
             break;
         // A Watch exception occurs when a load or store instruction references
@@ -317,7 +317,7 @@ void takeException(Exception exn, u64 vAddr,
         // load or store initiated this exception.
         case Watch:
             exccode = 23; // WATCH
-            debugger.halt("Watch");
+            debugger::halt("Watch");
             // TODO: Set Watch register
             break;
         // The Interrupt exception occurs when one of the eight interrupt conditions
@@ -326,7 +326,7 @@ void takeException(Exception exn, u64 vAddr,
             exccode = 0;
             break;
         default:
-            debugger.halt("UndefinedException");
+            debugger::halt("UndefinedException");
             break;
     }
 
@@ -400,7 +400,7 @@ void takeException(Exception exn, u64 vAddr,
 
 
 void eval_Reserved(u32 instr, bool delaySlot) {
-    debugger.halt("CPU reserved instruction");
+    debugger::halt("CPU reserved instruction");
 }
 
 /* SPECIAL opcodes */
@@ -411,7 +411,7 @@ void eval_ADD(u32 instr, bool delaySlot) {
     i32 a = (i32)(u32)state.reg.gpr[rs];
     i32 b = (i32)(u32)state.reg.gpr[rt];
     if (__builtin_add_overflow(a, b, &res)) {
-        debugger.halt("ADD IntegerOverflow");
+        debugger::halt("ADD IntegerOverflow");
     }
     state.reg.gpr[rd] = sign_extend<u64, u32>((u32)res);
 }
@@ -429,12 +429,12 @@ void eval_AND(u32 instr, bool delaySlot) {
 
 void eval_BREAK(u32 instr, bool delaySlot) {
     RType(instr);
-    debugger.halt("BREAK");
+    debugger::halt("BREAK");
 }
 
 void eval_DADD(u32 instr, bool delaySlot) {
     RType(instr);
-    debugger.halt("DADD");
+    debugger::halt("DADD");
 }
 
 void eval_DADDU(u32 instr, bool delaySlot) {
@@ -445,7 +445,7 @@ void eval_DADDU(u32 instr, bool delaySlot) {
 
 void eval_DDIV(u32 instr, bool delaySlot) {
     RType(instr);
-    debugger.halt("DDIV");
+    debugger::halt("DDIV");
 }
 
 void eval_DDIVU(u32 instr, bool delaySlot) {
@@ -463,7 +463,7 @@ void eval_DIV(u32 instr, bool delaySlot) {
         state.reg.multLo = sign_extend<u64, u32>((u64)(num / denum));
         state.reg.multHi = sign_extend<u64, u32>((u64)(num % denum));
     } else {
-        debugger.undefined("Divide by 0 (DIV)");
+        debugger::undefined("Divide by 0 (DIV)");
         // Undefined behaviour here according to the reference
         // manual. The machine behaviour is as implemented.
         state.reg.multLo = num < 0 ? 1 : UINT64_C(-1);
@@ -479,7 +479,7 @@ void eval_DIVU(u32 instr, bool delaySlot) {
         state.reg.multLo = sign_extend<u64, u32>(num / denum);
         state.reg.multHi = sign_extend<u64, u32>(num % denum);
     } else {
-        debugger.undefined("Divide by 0 (DIVU)");
+        debugger::undefined("Divide by 0 (DIVU)");
         // Undefined behaviour here according to the reference
         // manual. The machine behaviour is as implemented.
         state.reg.multLo = UINT64_C(-1);
@@ -489,7 +489,7 @@ void eval_DIVU(u32 instr, bool delaySlot) {
 
 void eval_DMULT(u32 instr, bool delaySlot) {
     RType(instr);
-    debugger.halt("DMULT");
+    debugger::halt("DMULT");
 }
 
 void eval_DMULTU(u32 instr, bool delaySlot) {
@@ -584,12 +584,12 @@ void eval_DSRLV(u32 instr, bool delaySlot) {
 
 void eval_DSUB(u32 instr, bool delaySlot) {
     RType(instr);
-    debugger.halt("DSUB");
+    debugger::halt("DSUB");
 }
 
 void eval_DSUBU(u32 instr, bool delaySlot) {
     RType(instr);
-    debugger.halt("DSUBU");
+    debugger::halt("DSUBU");
 }
 
 void eval_JALR(u32 instr, bool delaySlot) {
@@ -623,12 +623,12 @@ void eval_MFLO(u32 instr, bool delaySlot) {
 
 void eval_MOVN(u32 instr, bool delaySlot) {
     RType(instr);
-    debugger.halt("MOVN");
+    debugger::halt("MOVN");
 }
 
 void eval_MOVZ(u32 instr, bool delaySlot) {
     RType(instr);
-    debugger.halt("MOVZ");
+    debugger::halt("MOVZ");
 }
 
 void eval_MTHI(u32 instr, bool delaySlot) {
@@ -734,7 +734,7 @@ void eval_SUB(u32 instr, bool delaySlot) {
     int32_t a = (int32_t)(uint32_t)state.reg.gpr[rs];
     int32_t b = (int32_t)(uint32_t)state.reg.gpr[rt];
     if (__builtin_sub_overflow(a, b, &res)) {
-        debugger.halt("SUB IntegerOverflow");
+        debugger::halt("SUB IntegerOverflow");
     }
     state.reg.gpr[rd] = sign_extend<u64, u32>((uint32_t)res);
 }
@@ -756,32 +756,32 @@ void eval_SYSCALL(u32 instr, bool delaySlot) {
 
 void eval_TEQ(u32 instr, bool delaySlot) {
     RType(instr);
-    debugger.halt("TEQ");
+    debugger::halt("TEQ");
 }
 
 void eval_TGE(u32 instr, bool delaySlot) {
     RType(instr);
-    debugger.halt("TGE");
+    debugger::halt("TGE");
 }
 
 void eval_TGEU(u32 instr, bool delaySlot) {
     RType(instr);
-    debugger.halt("TGEU");
+    debugger::halt("TGEU");
 }
 
 void eval_TLT(u32 instr, bool delaySlot) {
     RType(instr);
-    debugger.halt("TLT");
+    debugger::halt("TLT");
 }
 
 void eval_TLTU(u32 instr, bool delaySlot) {
     RType(instr);
-    debugger.halt("TLTU");
+    debugger::halt("TLTU");
 }
 
 void eval_TNE(u32 instr, bool delaySlot) {
     RType(instr);
-    debugger.halt("TNE");
+    debugger::halt("TNE");
 }
 
 void eval_XOR(u32 instr, bool delaySlot) {
@@ -873,32 +873,32 @@ void eval_BLTZALL(u32 instr, bool delaySlot) {
 
 void eval_TEQI(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
-    debugger.halt("TEQI");
+    debugger::halt("TEQI");
 }
 
 void eval_TGEI(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
-    debugger.halt("TGEI");
+    debugger::halt("TGEI");
 }
 
 void eval_TGEIU(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
-    debugger.halt("TGEIU");
+    debugger::halt("TGEIU");
 }
 
 void eval_TLTI(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
-    debugger.halt("TLTI");
+    debugger::halt("TLTI");
 }
 
 void eval_TLTIU(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
-    debugger.halt("TLTIU");
+    debugger::halt("TLTIU");
 }
 
 void eval_TNEI(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
-    debugger.halt("TNEI");
+    debugger::halt("TNEI");
 }
 
 /* Other opcodes */
@@ -909,7 +909,7 @@ void eval_ADDI(u32 instr, bool delaySlot) {
     i32 a = (i32)(u32)state.reg.gpr[rs];
     i32 b = (i32)(u32)imm;
     if (__builtin_add_overflow(a, b, &res)) {
-        debugger.halt("ADDI IntegerOverflow");
+        debugger::halt("ADDI IntegerOverflow");
     }
     state.reg.gpr[rt] = sign_extend<u64, u32>((u32)res);
 }
@@ -1010,7 +1010,7 @@ void eval_COP3(u32 instr, bool delaySlot) {
 
 void eval_DADDI(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
-    debugger.halt("DADDI");
+    debugger::halt("DADDI");
 }
 
 void eval_DADDIU(u32 instr, bool delaySlot) {
@@ -1104,17 +1104,17 @@ void eval_LDC1(u32 instr, bool delaySlot) {
 
 void eval_LDC2(u32 instr, bool delaySlot) {
     takeException(CoprocessorUnusable, 0, delaySlot, false, true, 2);
-    debugger.halt("LDC2");
+    debugger::halt("LDC2");
 }
 
 void eval_LDL(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
-    debugger.halt("LDL");
+    debugger::halt("LDL");
 }
 
 void eval_LDR(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
-    debugger.halt("LDR");
+    debugger::halt("LDR");
 }
 
 void eval_LH(u32 instr, bool delaySlot) {
@@ -1155,12 +1155,12 @@ void eval_LHU(u32 instr, bool delaySlot) {
 
 void eval_LL(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
-    debugger.halt("LL");
+    debugger::halt("LL");
 }
 
 void eval_LLD(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
-    debugger.halt("LLD");
+    debugger::halt("LLD");
 }
 
 void eval_LUI(u32 instr, bool delaySlot) {
@@ -1207,12 +1207,12 @@ void eval_LWC1(u32 instr, bool delaySlot) {
 
 void eval_LWC2(u32 instr, bool delaySlot) {
     takeException(CoprocessorUnusable, 0, delaySlot, false, true, 2);
-    debugger.halt("LWC2");
+    debugger::halt("LWC2");
 }
 
 void eval_LWC3(u32 instr, bool delaySlot) {
     takeException(CoprocessorUnusable, 0, delaySlot, false, true, 3);
-    debugger.halt("LWC3");
+    debugger::halt("LWC3");
 }
 
 void eval_LWL(u32 instr, bool delaySlot) {
@@ -1317,12 +1317,12 @@ void eval_SB(u32 instr, bool delaySlot) {
 
 void eval_SC(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
-    debugger.halt("SC");
+    debugger::halt("SC");
 }
 
 void eval_SCD(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
-    debugger.halt("SCD");
+    debugger::halt("SCD");
 }
 
 void eval_SD(u32 instr, bool delaySlot) {
@@ -1358,17 +1358,17 @@ void eval_SDC1(u32 instr, bool delaySlot) {
 
 void eval_SDC2(u32 instr, bool delaySlot) {
     takeException(CoprocessorUnusable, 0, delaySlot, false, true, 2);
-    debugger.halt("SDC2");
+    debugger::halt("SDC2");
 }
 
 void eval_SDL(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
-    debugger.halt("SDL");
+    debugger::halt("SDL");
 }
 
 void eval_SDR(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
-    debugger.halt("SDR");
+    debugger::halt("SDR");
 }
 
 void eval_SH(u32 instr, bool delaySlot) {
@@ -1429,17 +1429,17 @@ void eval_SWC1(u32 instr, bool delaySlot) {
 
 void eval_SWC2(u32 instr, bool delaySlot) {
     takeException(CoprocessorUnusable, 0, delaySlot, false, false, 2);
-    debugger.halt("SWC2");
+    debugger::halt("SWC2");
 }
 
 void eval_SWC3(u32 instr, bool delaySlot) {
     takeException(CoprocessorUnusable, 0, delaySlot, false, false, 2);
-    debugger.halt("SWC3");
+    debugger::halt("SWC3");
 }
 
 void eval_SWL(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
-    // debugger.halt("SWL instruction");
+    // debugger::halt("SWL instruction");
     // @todo only BigEndianMem & !ReverseEndian for now
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
@@ -1464,7 +1464,7 @@ void eval_SWL(u32 instr, bool delaySlot) {
 
 void eval_SWR(u32 instr, bool delaySlot) {
     IType(instr, sign_extend);
-    // debugger.halt("SWR instruction");
+    // debugger::halt("SWR instruction");
     // @todo only BigEndianMem & !ReverseEndian for now
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
@@ -1573,7 +1573,7 @@ static void eval(bool delaySlot)
         loadw(pAddr, &instr),
         vAddr, delaySlot, true, true, 0);
 
-    debugger.cpuTrace.put(Debugger::TraceEntry(vAddr, instr));
+    debugger::debugger.cpuTrace.put(Debugger::TraceEntry(vAddr, instr));
 
     // The null instruction is 'sll r0, r0, 0', i.e. a NOP.
     // It is one of the most used instructions (to fill in delay slots).

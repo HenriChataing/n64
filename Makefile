@@ -5,15 +5,15 @@ LD        := g++
 
 Q ?= @
 
+EXTDIR    := external
 SRCDIR    := src
 OBJDIR    := obj
-BINDIR    := bin
 EXE       := n64
 
 # Select optimisation level.
 OPTIMISE  ?= 2
 
-INCLUDE   := $(SRCDIR) $(SRCDIR)/lib
+INCLUDE   := $(SRCDIR) $(SRCDIR)/lib $(SRCLIB) $(EXTDIR)/fmt/include
 DEFINE    := TARGET_BIGENDIAN
 
 CFLAGS    := -Wall -Wno-unused-function -std=gnu11 -g
@@ -32,74 +32,61 @@ CXXFLAGS  += -pg
 LDFLAGS   += -pg
 endif
 
-.PHONY: all
-all: $(EXE)
-
-SRC       := \
-    main.cc \
-    memory.cc \
-    debugger.cc
-
-SRC       += \
-    mips/cpu-disas.cc \
-    mips/rsp-disas.cc \
-    r4300/cpu.cc \
-    r4300/state.cc \
-    r4300/cop0.cc \
-    r4300/cop1.cc \
-    r4300/hw.cc \
-    r4300/rsp.cc \
-    r4300/rdp.cc \
-    r4300/mmu.cc
-
-# GDB RSP server sources
-SRC       += \
-    rsp/server.cc \
-    rsp/commands.cc \
-    rsp/buffer.cc
-
 # Options for linking imgui with opengl3 and glfw3
 LIBS      += -lGL -lGLEW `pkg-config --static --libs glfw3`
 CFLAGS    += `pkg-config --cflags glfw3` -I$(SRCDIR)/gui
 CXXFLAGS  += `pkg-config --cflags glfw3` -I$(SRCDIR)/gui
-SRC       += \
-    gui/imgui.cpp \
-    gui/imgui_draw.cpp \
-    gui/imgui_impl_glfw.cpp \
-    gui/imgui_impl_opengl3.cpp \
-    gui/imgui_widgets.cpp \
-    gui/gui.cpp \
-    gui/graphics.cc
 
-OBJS      := $(filter %.o, \
-                 $(patsubst %.c,$(OBJDIR)/%.o, $(SRC)) \
-                 $(patsubst %.cc,$(OBJDIR)/%.o, $(SRC)) \
-                 $(patsubst %.cpp,$(OBJDIR)/%.o, $(SRC)))
-
-DEPS      := $(patsubst %.o,%.d,$(OBJS))
-
+.PHONY: all
 all: $(EXE)
+
+OBJS      := \
+    src/main.o \
+    src/memory.o \
+    src/debugger.o \
+    src/mips/cpu-disas.o \
+    src/mips/rsp-disas.o \
+    src/r4300/cpu.o \
+    src/r4300/state.o \
+    src/r4300/cop0.o \
+    src/r4300/cop1.o \
+    src/r4300/hw.o \
+    src/r4300/rsp.o \
+    src/r4300/rdp.o \
+    src/r4300/mmu.o \
+    src/gui/gui.o \
+    src/gui/graphics.o \
+    src/gui/imgui.o \
+    src/gui/imgui_draw.o \
+    src/gui/imgui_impl_glfw.o \
+    src/gui/imgui_impl_opengl3.o \
+    src/gui/imgui_widgets.o
+
+OBJS      += \
+    external/fmt/src/format.o
+
+DEPS      := $(patsubst %.o,$(OBJDIR)/%.d,$(OBJS))
 
 -include $(DEPS)
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.cc
-	@echo "  CXX     $*.cc"
+$(OBJDIR)/%.o: %.cc
+	@echo "  CXX     $<"
 	@mkdir -p $(dir $@)
 	$(Q)$(CXX) $(CXXFLAGS) -c $< -MMD -MF $(@:.o=.d) -o $@
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.cpp
+$(OBJDIR)/%.o: %.cpp
 	@echo "  CXX     $*.cpp"
 	@mkdir -p $(dir $@)
 	$(Q)$(CXX) $(CXXFLAGS) -c $< -MMD -MF $(@:.o=.d) -o $@
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.c
+$(OBJDIR)/%.o: %.c
 	@echo "  CC      $*.c"
 	@mkdir -p $(dir $@)
 	$(Q)$(CC) $(CFLAGS) -c $< -MMD -MF $(@:.o=.d) -o $@
 
-$(EXE): $(OBJS)
+$(EXE): $(addprefix $(OBJDIR)/,$(OBJS))
 	@echo "  LD      $@"
-	$(Q)$(LD) -o $@ $(LDFLAGS) $(OBJS) $(LIBS)
+	$(Q)$(LD) -o $@ $(LDFLAGS) $^ $(LIBS)
 
 .PHONY: gprof2dot
 gprof2dot:

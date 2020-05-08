@@ -9,6 +9,8 @@
 #include <thread>
 #include <vector>
 
+#include <fmt/format.h>
+
 #include <types.h>
 #include <circular_buffer.h>
 #include <r4300/eval.h>
@@ -48,27 +50,38 @@ public:
     void unsetBreakpoint(u64 addr);
     bool checkBreakpoint(u64 addr);
 
-    struct {
-        bool cop0;
-        bool cop1;
-        bool memory;
+    enum Verbosity {
+        None,
+        Error,
+        Warn,
+        Info,
+        Debug,
+    };
 
-        bool rdram;
-        bool SP;
-        bool DPCommand;
-        bool DPSpan;
-        bool MI;
-        bool VI;
-        bool AI;
-        bool PI;
-        bool RI;
-        bool SI;
-        bool PIF;
-        bool cart_2_1;
-        bool RDP;
+    enum Label {
+        CPU,
+        COP0,
+        COP1,
+        RSP,
+        RDP,
 
-        bool thread;
-    } verbose;
+        RdRam,
+        SP,
+        DPCommand,
+        DPSpan,
+        MI,
+        VI,
+        AI,
+        PI,
+        RI,
+        SI,
+        PIF,
+        Cart_2_1,
+
+        LabelCount,
+    };
+
+    Verbosity verbose[LabelCount];
 
     /** Type of execution trace entries. */
     typedef std::pair<u64, u32> TraceEntry;
@@ -91,6 +104,48 @@ private:
     std::map<u64, std::unique_ptr<Breakpoint>> _breakpoints;
 };
 
+namespace debugger {
+
 extern Debugger debugger;
+extern const char *LabelName[Debugger::Label::LabelCount];
+extern const char *LabelColor[Debugger::Label::LabelCount];
+
+template <Debugger::Verbosity verb>
+static void vlog(Debugger::Label label, const char* format, fmt::format_args args) {
+    if (debugger.verbose[label] >= verb) {
+        fmt::print("[{}{:<10}\x1b[0m] ", LabelColor[label], LabelName[label]);
+        fmt::vprint(format, args);
+        fmt::print("\n");
+    }
+}
+
+template <typename... Args>
+static void debug(Debugger::Label label, const char* format, const Args & ... args) {
+    vlog<Debugger::Verbosity::Debug>(label, format, fmt::make_format_args(args...));
+}
+
+template <typename... Args>
+static void info(Debugger::Label label, const char* format, const Args & ... args) {
+    vlog<Debugger::Verbosity::Info>(label, format, fmt::make_format_args(args...));
+}
+
+template <typename... Args>
+static void warn(Debugger::Label label, const char* format, const Args & ... args) {
+    vlog<Debugger::Verbosity::Warn>(label, format, fmt::make_format_args(args...));
+}
+
+template <typename... Args>
+static void error(Debugger::Label label, const char* format, const Args & ... args) {
+    vlog<Debugger::Verbosity::Error>(label, format, fmt::make_format_args(args...));
+}
+
+static void halt(std::string reason) {
+    debugger.halt(reason);
+}
+
+static void undefined(std::string reason) {
+}
+
+}; /* namespace debugger */
 
 #endif /* _DEBUGGER_H_INCLUDED_ */

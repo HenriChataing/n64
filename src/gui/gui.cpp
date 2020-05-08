@@ -19,8 +19,8 @@
 static Disassembler imemDisassembler(12);
 static Disassembler dramDisassembler(22);
 static Disassembler romDisassembler(12);
-static Trace cpuTrace(&debugger.cpuTrace);
-static Trace rspTrace(&debugger.rspTrace);
+static Trace cpuTrace(&debugger::debugger.cpuTrace);
+static Trace rspTrace(&debugger::debugger.rspTrace);
 
 
 static void glfwErrorCallback(int error, const char* description) {
@@ -350,9 +350,6 @@ void joyKeyCallback(GLFWwindow* window, int key, int scancode, int action, int m
     default: return;
     }
 
-    std::cerr << "key: " << key;
-    std::cerr << (keyval ? " down" : " up") << std::endl;
-
     switch (key) {
     case GLFW_KEY_A:     R4300::state.hwreg.buttons.A       = keyval; break;
     case GLFW_KEY_B:     R4300::state.hwreg.buttons.B       = keyval; break;
@@ -380,7 +377,7 @@ int startGui()
     // Initialize the machine state.
     R4300::state.boot();
     // Start interpreter thread.
-    debugger.startInterpreter();
+    debugger::debugger.startInterpreter();
 
     // Setup window
     glfwSetErrorCallback(glfwErrorCallback);
@@ -467,22 +464,22 @@ int startGui()
             ImGui::Begin("Debugger");
             // CPU freq is 93.75 MHz
             ImGui::Text("Real time: %lums\n", R4300::state.cycles / 93750lu);
-            if (debugger.halted) {
+            if (debugger::debugger.halted) {
                 ImGui::Text("Machine halt reason: '%s'\n",
-                    debugger.haltedReason.c_str());
+                    debugger::debugger.haltedReason.c_str());
                 if (ImGui::Button("Continue")) {
-                    debugger.resume();
+                    debugger::debugger.resume();
                 }
                 ImGui::SameLine();
                 if (ImGui::Button("Step")) {
-                    debugger.step();
+                    debugger::debugger.step();
                 }
                 if (ImGui::Button("Save Screen")) {
                     exportAsPNG("screen.png");
                 }
             } else {
                 if (ImGui::Button("Halt")) {
-                    debugger.halt("Interrupted by user");
+                    debugger::halt("Interrupted by user");
                 }
             }
             if (ImGui::BeginTabBar("Registers", 0))
@@ -592,12 +589,12 @@ int startGui()
         {
             ImGui::Begin("Trace");
             if (ImGui::Button("Clear traces")) {
-                debugger.cpuTrace.reset();
-                debugger.rspTrace.reset();
+                debugger::debugger.cpuTrace.reset();
+                debugger::debugger.rspTrace.reset();
             }
             if (ImGui::BeginTabBar("Trace", 0)) {
                 if (ImGui::BeginTabItem("Cpu")) {
-                    if (debugger.halted) {
+                    if (debugger::debugger.halted) {
                         cpuTrace.DrawContents("cpu", Mips::CPU::disas);
                     } else {
                         ImGui::Text("Cpu is running...");
@@ -605,7 +602,7 @@ int startGui()
                     ImGui::EndTabItem();
                 }
                 if (ImGui::BeginTabItem("Rsp")) {
-                    if (debugger.halted) {
+                    if (debugger::debugger.halted) {
                         rspTrace.DrawContents("rsp", Mips::RSP::disas);
                     } else {
                         ImGui::Text("Rsp is running...");
@@ -638,6 +635,6 @@ int startGui()
     glfwDestroyWindow(window);
     glfwTerminate();
 
-    debugger.stopInterpreter();
+    debugger::debugger.stopInterpreter();
     return 0;
 }

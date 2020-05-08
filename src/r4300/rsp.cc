@@ -17,14 +17,6 @@
 namespace R4300 {
 namespace RSP {
 
-static inline void logWrite(bool flag, const char *tag, u64 value)
-{
-    if (flag) {
-        std::cerr << std::left << std::setfill(' ') << std::setw(32);
-        std::cerr << tag << " <- " << std::hex << value << std::endl;
-    }
-}
-
 /**
  * Check whether a virtual memory address is correctly aligned for a memory
  * access. The RSP does not implement exceptions but the alignment is checked
@@ -35,11 +27,11 @@ static inline void logWrite(bool flag, const char *tag, u64 value)
  */
 static inline bool checkAddressAlignment(u64 addr, u64 bytes) {
     if ((addr & (bytes - 1u)) != 0) {
-        std::cerr << "RSP: detected unaligned DMEM/IMEM access of ";
-        std::cerr << std::dec << bytes << " bytes from address ";
-        std::cerr << std::hex << addr << ", at pc: ";
-        std::cerr << std::hex << state.rspreg.pc << std::endl;
-        debugger.halt("Invalid address alignment");
+        debugger::warn(Debugger::RSP,
+            "detected unaligned DMEM/IMEM access of {} bytes"
+            " from address {:08x}, at pc {:08x}",
+            bytes, addr, state.rspreg.pc);
+        debugger::halt("RSP invalid address alignment");
         return false;
     } else {
         return true;
@@ -146,22 +138,21 @@ static u32 readCop0Register(u32 r) {
         case 10: return state.hwreg.DPC_CURRENT_REG;
         case 11: return state.hwreg.DPC_STATUS_REG;
         case 12:
-            debugger.halt("DPC_CLOCK_REG read access");
+            debugger::halt("DPC_CLOCK_REG read access");
             return state.hwreg.DPC_CLOCK_REG;
         case 13:
-            debugger.halt("DPC_BUF_BUSY_REG read access");
+            debugger::halt("DPC_BUF_BUSY_REG read access");
             return state.hwreg.DPC_BUF_BUSY_REG;
         case 14:
-            debugger.halt("DPC_PIPE_BUSY_REG read access");
+            debugger::halt("DPC_PIPE_BUSY_REG read access");
             return state.hwreg.DPC_PIPE_BUSY_REG;
         case 15:
-            debugger.halt("DPC_TMEM_REG read access");
+            debugger::halt("DPC_TMEM_REG read access");
             return state.hwreg.DPC_TMEM_REG;
         default:
             /* unknown register access */
-            std::cerr << "RSP: writing unknown Cop0 register ";
-            std::cerr << std::dec << r << std::endl;
-            debugger.halt("Unknown Cop0 register read access");
+            debugger::warn(Debugger::RSP, "read of unknown COP0 register {}", r);
+            debugger::halt("read unknown RSP Cop0 register");
             break;
     }
     return 0;
@@ -171,11 +162,11 @@ static u32 readCop0Register(u32 r) {
 static void writeCop0Register(u32 r, u32 value) {
     switch (r) {
         case 0:
-            logWrite(debugger.verbose.SP, "SP_MEM_ADDR_REG(rsp)", value);
+            debugger::info(Debugger::RSP, "SP_MEM_ADDR_REG <- {:08x}", value);
             state.hwreg.SP_MEM_ADDR_REG = value;
             break;
         case 1:
-            logWrite(debugger.verbose.SP, "SP_DRAM_ADDR_REG(rsp)", value);
+            debugger::info(Debugger::RSP, "SP_DRAM_ADDR_REG <- {:08x}", value);
             state.hwreg.SP_DRAM_ADDR_REG = value;
             break;
         case 2: write_SP_RD_LEN_REG(value); break;
@@ -187,26 +178,25 @@ static void writeCop0Register(u32 r, u32 value) {
         case 8: write_DPC_START_REG(value); break;
         case 9: write_DPC_END_REG(value); break;
         case 10:
-            debugger.halt("RSP::RDP_command_current");
+            debugger::halt("RSP::RDP_command_current");
             break;
         case 11: write_DPC_STATUS_REG(value); break;
         case 12:
-            debugger.halt("RSP::RDP_clock_counter");
+            debugger::halt("RSP::RDP_clock_counter");
             break;
         case 13:
-            debugger.halt("RSP::RDP_command_busy");
+            debugger::halt("RSP::RDP_command_busy");
             break;
         case 14:
-            debugger.halt("RSP::RDP_pipe_busy_counter");
+            debugger::halt("RSP::RDP_pipe_busy_counter");
             break;
         case 15:
-            debugger.halt("RSP::RDP_TMEM_load_counter");
+            debugger::halt("RSP::RDP_TMEM_load_counter");
             break;
         default:
             /* unknown register access */
-            std::cerr << "RSP: writing unknown Cop0 register ";
-            std::cerr << std::dec << r << std::endl;
-            debugger.halt("Unknown Cop0 register write access");
+            debugger::warn(Debugger::RSP, "read of unknown COP0 register {}", r);
+            debugger::halt("write unknown RSP COP0 register");
             break;
     }
 }
@@ -307,21 +297,21 @@ static void eval_LWC2(u32 instr) {
             break;
         }
         case UINT32_C(0x6): /* LPV */
-            debugger.halt("RSP::LPV not supported");
+            debugger::halt("RSP::LPV not supported");
             break;
         case UINT32_C(0x7): /* LUV */
-            debugger.halt("RSP::LUV not supported");
+            debugger::halt("RSP::LUV not supported");
             break;
         case UINT32_C(0x8): /* LHV */
-            debugger.halt("RSP::LHV not supported");
+            debugger::halt("RSP::LHV not supported");
             break;
         case UINT32_C(0x9): /* LFV */
-            debugger.halt("RSP::LFV not supported");
+            debugger::halt("RSP::LFV not supported");
             break;
         case UINT32_C(0xa): eval_LWV(instr); break;
         case UINT32_C(0xb): eval_LTV(instr); break;
         default:
-            debugger.halt("RSP::LWC2 invalid operation");
+            debugger::halt("RSP::LWC2 invalid operation");
             break;
     }
 }
@@ -421,19 +411,19 @@ static void eval_SWC2(u32 instr) {
             break;
         }
         case UINT32_C(0x6): /* SPV */
-            debugger.halt("RSP::SPV not supported");
+            debugger::halt("RSP::SPV not supported");
             break;
         case UINT32_C(0x7): eval_SUV(instr); break;
         case UINT32_C(0x8): /* SHV */
-            debugger.halt("RSP::SHV not supported");
+            debugger::halt("RSP::SHV not supported");
             break;
         case UINT32_C(0x9): /* SFV */
-            debugger.halt("RSP::SFV not supported");
+            debugger::halt("RSP::SFV not supported");
             break;
         case UINT32_C(0xa): eval_SWV(instr); break;
         case UINT32_C(0xb): eval_STV(instr); break;
         default:
-            debugger.halt("RSP::SWC2 invalid operation");
+            debugger::halt("RSP::SWC2 invalid operation");
             break;
     }
 }
@@ -453,7 +443,7 @@ static inline unsigned selectElementIndex(unsigned i, u32 e) {
 }
 
 static void eval_Reserved(u32 instr) {
-    debugger.halt("RSP reserved instruction");
+    debugger::halt("RSP reserved instruction");
 }
 
 static void eval_VABS(u32 instr) {
@@ -548,15 +538,15 @@ static void eval_VAND(u32 instr) {
 }
 
 static void eval_VCH(u32 instr) {
-    debugger.halt("VCH unsupported");
+    debugger::halt("VCH unsupported");
 }
 
 static void eval_VCL(u32 instr) {
-    debugger.halt("VCL unsupported");
+    debugger::halt("VCL unsupported");
 }
 
 static void eval_VCR(u32 instr) {
-    debugger.halt("VCR unsupported");
+    debugger::halt("VCR unsupported");
 }
 
 static void eval_VEQ(u32 instr) {
@@ -681,7 +671,7 @@ static void eval_VMACF(u32 instr) {
 }
 
 static void eval_VMACQ(u32 instr) {
-    debugger.halt("VMACQ unsupported");
+    debugger::halt("VMACQ unsupported");
 }
 
 static void eval_VMACU(u32 instr) {
@@ -796,7 +786,7 @@ static void eval_VMOV(u32 instr) {
 }
 
 static void eval_VMRG(u32 instr) {
-    debugger.halt("RSP::VMRG unsupported");
+    debugger::halt("RSP::VMRG unsupported");
 }
 
 static void eval_VMUDH(u32 instr) {
@@ -900,7 +890,7 @@ static void eval_VMULF(u32 instr) {
 }
 
 static void eval_VMULQ(u32 instr) {
-    debugger.halt("RSP::VMULQ unsupported");
+    debugger::halt("RSP::VMULQ unsupported");
 }
 
 static void eval_VMULU(u32 instr) {
@@ -1104,27 +1094,27 @@ static void eval_VRCPH(u32 instr) {
 }
 
 static void eval_VRCPL(u32 instr) {
-    debugger.halt("RSP::VRCPL unsupported");
+    debugger::halt("RSP::VRCPL unsupported");
 }
 
 static void eval_VRNDN(u32 instr) {
-    debugger.halt("RSP::VRNDN unsupported");
+    debugger::halt("RSP::VRNDN unsupported");
 }
 
 static void eval_VRNDP(u32 instr) {
-    debugger.halt("RSP::VRNDP unsupported");
+    debugger::halt("RSP::VRNDP unsupported");
 }
 
 static void eval_VRSQ(u32 instr) {
-    debugger.halt("RSP::VRSQ unsupported");
+    debugger::halt("RSP::VRSQ unsupported");
 }
 
 static void eval_VRSQH(u32 instr) {
-    debugger.halt("RSP::VRSQH unsupported");
+    debugger::halt("RSP::VRSQH unsupported");
 }
 
 static void eval_VRSQL(u32 instr) {
-    debugger.halt("RSP::VRSQL unsupported");
+    debugger::halt("RSP::VRSQL unsupported");
 }
 
 static void eval_VSAR(u32 instr) {
@@ -1288,7 +1278,7 @@ static bool eval(bool delaySlot)
     checkAddressAlignment(addr, 4);
     instr = __builtin_bswap32(*(u32 *)&state.imem[addr & 0xffflu]);
 
-    debugger.rspTrace.put(Debugger::TraceEntry(addr, instr));
+    debugger::debugger.rspTrace.put(Debugger::TraceEntry(addr, instr));
 
     using namespace Mips::Opcode;
     using namespace Mips::Special;
@@ -1351,8 +1341,8 @@ static bool eval(bool delaySlot)
                 })
                 /* MFHI not implemented */
                 /* MFLO not implemented */
-                RType(MOVN, instr, { debugger.halt("Unsupported"); })
-                RType(MOVZ, instr, { debugger.halt("Unsupported"); })
+                RType(MOVN, instr, { debugger::halt("Unsupported"); })
+                RType(MOVZ, instr, { debugger::halt("Unsupported"); })
                 /* MTHI not implemented */
                 /* MTLO not implemented */
                 /* MULT not implemented */
@@ -1428,7 +1418,7 @@ static bool eval(bool delaySlot)
                     state.rspreg.gpr[rd] = state.rspreg.gpr[rs] ^ state.rspreg.gpr[rt];
                 })
                 default:
-                    debugger.halt("Unsupported Special");
+                    debugger::halt("Unsupported Special");
             }
             break;
 
@@ -1461,7 +1451,7 @@ static bool eval(bool delaySlot)
                 /* TLTIU not implemented */
                 /* TNEI not implemented */
                 default:
-                    debugger.halt("Unupported Regimm");
+                    debugger::halt("Unupported Regimm");
                     break;
             }
             break;
@@ -1495,7 +1485,7 @@ static bool eval(bool delaySlot)
                 /* DMTC0 not implemented */
                 /* CTC0 not implemented */
                 default:
-                    debugger.halt("UnsupportedCOP0Instruction");
+                    debugger::halt("UnsupportedCOP0Instruction");
             }
             break;
         /* COP1 not implemented */
@@ -1523,11 +1513,11 @@ static bool eval(bool delaySlot)
                     state.rspreg.gpr[rt] = out;
                 })
                 RType(CT, instr, {
-                    debugger.halt("RSP::CTC2 unsupported");
+                    debugger::halt("RSP::CTC2 unsupported");
                 })
                 default:
                     if ((instr & (1lu << 25)) == 0) {
-                        debugger.halt("RSP::COP2 invalid operation");
+                        debugger::halt("RSP::COP2 invalid operation");
                     } else {
                         eval_COP2(instr);
                     }
@@ -1653,7 +1643,7 @@ static bool eval(bool delaySlot)
         })
 
         default:
-            debugger.halt("Unsupported Opcode");
+            debugger::halt("Unsupported Opcode");
             break;
     }
 
@@ -1670,7 +1660,7 @@ bool step()
     if (state.hwreg.SP_STATUS_REG & SP_STATUS_HALT)
         return false;
 
-    bool exn;
+    bool exn = false;
     switch (state.rsp.nextAction) {
         case State::Action::Continue:
             state.rspreg.pc += 4;
@@ -1690,7 +1680,7 @@ bool step()
             break;
 
         case State::Action::Interrupt:
-            debugger.halt("Invalid RSP INTERRUPT state");
+            debugger::halt("Invalid RSP INTERRUPT state");
             exn = false;
             break;
     }

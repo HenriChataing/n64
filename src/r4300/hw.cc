@@ -12,40 +12,6 @@
 
 namespace R4300 {
 
-static inline void logWrite(bool flag, const char *tag, u64 value)
-{
-    if (flag) {
-        std::cerr << std::left << std::setfill(' ') << std::setw(32);
-        std::cerr << tag << " <- " << std::hex << value << std::endl;
-    }
-}
-
-static inline void logWriteAtAddr(bool flag, const char *tag, u64 addr, u64 value)
-{
-    if (flag) {
-        std::cerr << std::left << std::setfill(' ') << std::setw(32);
-        std::cerr << tag << ":" << std::hex << addr;
-        std::cerr << " <- " << std::hex << value << std::endl;
-    }
-}
-
-static inline void logRead(bool flag, const char *tag, u64 value)
-{
-    if (flag) {
-        std::cerr << std::left << std::setfill(' ') << std::setw(32);
-        std::cerr << tag << " -> " << std::hex << value << std::endl;
-    }
-}
-
-static inline void logReadAtAddr(bool flag, const char *tag, u64 addr, u64 value)
-{
-    if (flag) {
-        std::cerr << std::left << std::setfill(' ') << std::setw(32);
-        std::cerr << tag << ":" << std::hex << addr;
-        std::cerr << " -> " << std::hex << value << std::endl;
-    }
-}
-
 /**
  * Set bits in the MI_INTR_REG register.
  * Reevaluate the value of the Interrupt 2 pending bit afterwards.
@@ -90,7 +56,7 @@ void raise_VI_INTR(void) {
  *  Writing the register starts a DMA tranfer from DRAM to DMEM/IMEM.
  */
 void write_SP_RD_LEN_REG(u32 value) {
-    logWrite(debugger.verbose.SP, "SP_RD_LEN_REG", value);
+    debugger::info(Debugger::SP, "SP_RD_LEN_REG <- {:08x}", value);
     state.hwreg.SP_RD_LEN_REG = value;
     u32 len = 1u + (value & SP_RD_LEN_LEN_MASK);
     u32 count = 1u + ((value >> SP_RD_LEN_COUNT_SHIFT) & SP_RD_LEN_COUNT_MASK);
@@ -113,7 +79,7 @@ void write_SP_RD_LEN_REG(u32 value) {
  *  Writing the register starts a DMA tranfer from DMEM/IMEM to DRAM.
  */
 void write_SP_WR_LEN_REG(u32 value) {
-    logWrite(debugger.verbose.SP, "SP_RD_LEN_REG", value);
+    debugger::info(Debugger::SP, "SP_WR_LEN_REG <- {:08x}", value);
     state.hwreg.SP_RD_LEN_REG = value;
     u32 len = 1u + (value & SP_RD_LEN_LEN_MASK);
     u32 count = 1u + ((value >> SP_RD_LEN_COUNT_SHIFT) & SP_RD_LEN_COUNT_MASK);
@@ -137,7 +103,7 @@ void write_SP_WR_LEN_REG(u32 value) {
  *  RSP (Coprocessor 0 register 4) view of the register.
  */
 void write_SP_STATUS_REG(u32 value) {
-    logWrite(debugger.verbose.SP, "SP_STATUS_REG", value);
+    debugger::info(Debugger::SP, "SP_STATUS_REG <- {:08x}", value);
     if (value & SP_STATUS_CLR_HALT) {
         state.hwreg.SP_STATUS_REG &= ~SP_STATUS_HALT;
     }
@@ -151,7 +117,8 @@ void write_SP_STATUS_REG(u32 value) {
         clear_MI_INTR_REG(MI_INTR_SP);
     }
     if (value & SP_STATUS_SET_INTR) {
-        throw "set_intr";
+        // Expected behaviour not clearly known.
+        debugger::halt("SP_STATUS_SET_INTR");
     }
     if (value & SP_STATUS_CLR_SSTEP) {
         state.hwreg.SP_STATUS_REG &= ~SP_STATUS_SSTEP;
@@ -220,8 +187,8 @@ void write_SP_STATUS_REG(u32 value) {
  *  The semaphore is set to 1 as a consequence.
  */
 u32 read_SP_SEMAPHORE_REG() {
-    logRead(debugger.verbose.SP, "SP_SEMAPHORE_REG",
-            state.hwreg.SP_SEMAPHORE_REG);
+    debugger::info(Debugger::SP, "SP_SEMAPHORE_REG -> {:08x}",
+        state.hwreg.SP_SEMAPHORE_REG);
     u32 value = state.hwreg.SP_SEMAPHORE_REG;
     state.hwreg.SP_SEMAPHORE_REG = 1;
     return value;
@@ -232,7 +199,7 @@ u32 read_SP_SEMAPHORE_REG() {
  *  Writing the register starts a DMA tranfer from DRAM to cartridge memory.
  */
 void write_PI_RD_LEN_REG(u32 value) {
-    logWrite(debugger.verbose.PI, "PI_RD_LEN_REG", value);
+    debugger::info(Debugger::PI, "PI_RD_LEN_REG <- {:08x}", value);
     state.hwreg.PI_RD_LEN_REG = value;
     u32 len = value + 1;
     u32 dst = state.hwreg.PI_CART_ADDR_REG;
@@ -243,8 +210,9 @@ void write_PI_RD_LEN_REG(u32 value) {
     if ((dst + len) <= dst ||
         dst < 0x10000000llu ||
         (dst + len) > 0x1fc00000llu) {
-        std::cerr << "write_PI_RD_LEN_REG() destination range invalid: 0x";
-        std::cerr << std::hex << dst << ",0x" << len << std::endl;
+        debugger::warn(Debugger::PI,
+            "PI_RD_LEN_REG destination range invalid: {:08x}+{:08x}",
+            dst, len);
         return;
     }
 
@@ -252,8 +220,9 @@ void write_PI_RD_LEN_REG(u32 value) {
     // particular does not overflow.
     if ((src + len) <= src ||
         (src + len) > 0x400000llu) {
-        std::cerr << "write_PI_RD_LEN_REG() source range invalid: 0x";
-        std::cerr << std::hex << src << ",0x" << len << std::endl;
+        debugger::warn(Debugger::PI,
+            "PI_RD_LEN_REG source range invalid: {:08x}+{:08x}",
+            src, len);
         return;
     }
 
@@ -268,7 +237,7 @@ void write_PI_RD_LEN_REG(u32 value) {
  *  Writing the register starts a DMA tranfer from cartridge memory to DRAM.
  */
 void write_PI_WR_LEN_REG(u32 value) {
-    logWrite(debugger.verbose.PI, "PI_WR_LEN_REG", value);
+    debugger::info(Debugger::PI, "PI_WR_LEN_REG <- {:08x}", value);
     state.hwreg.PI_WR_LEN_REG = value;
     u32 len = value + 1;
     u32 dst = state.hwreg.PI_DRAM_ADDR_REG;
@@ -278,8 +247,9 @@ void write_PI_WR_LEN_REG(u32 value) {
     // particular does not overflow.
     if ((dst + len) <= dst ||
         (dst + len) > 0x400000llu) {
-        std::cerr << "write_PI_WR_LEN_REG() destination range invalid: 0x";
-        std::cerr << std::hex << dst << ",0x" << len << std::endl;
+        debugger::warn(Debugger::PI,
+            "PI_WR_LEN_REG destination range invalid: {:08x}+{:08x}",
+            dst, len);
         return;
     }
 
@@ -288,8 +258,9 @@ void write_PI_WR_LEN_REG(u32 value) {
     if ((src + len) <= src ||
         src < 0x10000000llu ||
         (src + len) > 0x1fc00000llu) {
-        std::cerr << "write_PI_WR_LEN_REG() source range invalid: 0x";
-        std::cerr << std::hex << dst << ",0x" << len << std::endl;
+        debugger::warn(Debugger::PI,
+            "PI_WR_LEN_REG source range invalid: {:08x}+{:08x}",
+            src, len);
         return;
     }
 
@@ -300,44 +271,43 @@ void write_PI_WR_LEN_REG(u32 value) {
 }
 
 
-/*
-
-           Command Types:
-
-         | Command |       Description        |t |r |
-         +---------+--------------------------+-----+
-         |   00    |   request info (status)  |01|03|
-         |   01    |   read button values     |01|04|
-         |   02    |   read from mempack slot |03|21|
-         |   03    |   write to mempack slot  |23|01|
-         |   04    |   read eeprom            |02|08|
-         |   05    |   write eeprom           |10|01|
-         |   ff    |   reset                  |01|03|
-              NOTE: values are in hex
-
-     Error bits (written to r byte)
-      0x00 - no error, operation successful.
-      0x80 - error, device not present for specified command.
-      0x40 - error, unable to send/recieve the number bytes for command type.
-
-     Button bits:
-        unsigned A : 1;
-        unsigned B : 1;
-        unsigned Z : 1;
-        unsigned start : 1;
-        unsigned up : 1;
-        unsigned down : 1;
-        unsigned left : 1;
-        unsigned right : 1;
-        unsigned : 2;
-        unsigned L : 1;
-        unsigned R : 1;
-        unsigned C_up : 1;
-        unsigned C_down : 1;
-        unsigned C_left : 1;
-        unsigned C_right : 1;
-        signed x : 8;
-        signed y : 8;
+/**
+ * Command Types:
+ *
+ * | Command |       Description        |t |r |
+ * +---------+--------------------------+-----+
+ * |   00    |   request info (status)  |01|03|
+ * |   01    |   read button values     |01|04|
+ * |   02    |   read from mempack slot |03|21|
+ * |   03    |   write to mempack slot  |23|01|
+ * |   04    |   read eeprom            |02|08|
+ * |   05    |   write eeprom           |10|01|
+ * |   ff    |   reset                  |01|03|
+ *      NOTE: values are in hex
+ *
+ * Error bits (written to r byte)
+ *    0x00 - no error, operation successful.
+ *    0x80 - error, device not present for specified command.
+ *    0x40 - error, unable to send/recieve the number bytes for command type.
+ *
+ * Button bits:
+ *    unsigned A : 1;
+ *    unsigned B : 1;
+ *    unsigned Z : 1;
+ *    unsigned start : 1;
+ *    unsigned up : 1;
+ *    unsigned down : 1;
+ *    unsigned left : 1;
+ *    unsigned right : 1;
+ *    unsigned : 2;
+ *    unsigned L : 1;
+ *    unsigned R : 1;
+ *    unsigned C_up : 1;
+ *    unsigned C_down : 1;
+ *    unsigned C_left : 1;
+ *    unsigned C_right : 1;
+ *    signed x : 8;
+ *    signed y : 8;
  */
 
 void eval_PIF_commands()
@@ -471,15 +441,15 @@ void eval_PIF_commands()
  */
 void write_SI_PIF_ADDR_RD64B_REG(u32 value)
 {
-    logWrite(debugger.verbose.SI, "SI_PIF_ADDR_RD64B_REG", value);
+    debugger::info(Debugger::SI, "SI_PIF_ADDR_RD64B_REG <- {:08x}", value);
     u32 dst = state.hwreg.SI_DRAM_ADDR_REG;
 
     // Check that the destination range fits in the dram memory, and in
     // particular does not overflow.
     if ((dst + 64) <= dst ||
         (dst + 64) > 0x400000llu) {
-        std::cerr << "write_SI_PIF_ADDR_RD64B_REG() destination range invalid: ";
-        std::cerr << std::hex << dst << std::endl;
+        debugger::warn(Debugger::SI,
+            "SI_PIF_ADDR_RD64B_REG destination range invalid: {:08x}+64", dst);
         state.hwreg.SI_STATUS_REG = SI_STATUS_INTR | SI_STATUS_DMA_ERROR;
         set_MI_INTR_REG(MI_INTR_SI);
         return;
@@ -493,15 +463,14 @@ void write_SI_PIF_ADDR_RD64B_REG(u32 value)
     state.hwreg.SI_STATUS_REG = SI_STATUS_INTR;
     set_MI_INTR_REG(MI_INTR_SI);
 
-    if (debugger.verbose.SI) {
-        std::cerr << "PIF response buffer:" << std::endl;
-        for (size_t n = 0; n < 64; n++) {
-            if (n && !(n % 16))
-                std::cerr << std::endl;
-            std::cerr << std::hex << " ";
-            std::cerr << std::setw(2) << (unsigned)state.pifram[n];
-        }
-        std::cerr << std::endl;
+    debugger::debug(Debugger::SI, "PIF response buffer:");
+    for (size_t n = 0; n < 64; n+=8) {
+        debugger::debug(Debugger::SI,
+            "    {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x}",
+            state.pifram[n + 0], state.pifram[n + 1],
+            state.pifram[n + 2], state.pifram[n + 3],
+            state.pifram[n + 4], state.pifram[n + 5],
+            state.pifram[n + 6], state.pifram[n + 7]);
     }
 }
 
@@ -511,15 +480,15 @@ void write_SI_PIF_ADDR_RD64B_REG(u32 value)
  */
 void write_SI_PIF_ADDR_WR64B_REG(u32 value)
 {
-    logWrite(debugger.verbose.SI, "SI_PIF_ADDR_WR64B_REG", value);
+    debugger::info(Debugger::SI, "SI_PIF_ADDR_WR64B_REG <- {:08x}", value);
     u32 src = state.hwreg.SI_DRAM_ADDR_REG;
 
     // Check that the sourece range fits in the dram memory, and in
     // particular does not overflow.
     if ((src + 64) <= src ||
         (src + 64) > 0x400000llu) {
-        std::cerr << "write_SI_PIF_ADDR_RD64B_REG() source range invalid";
-        std::cerr << std::endl;
+        debugger::warn(Debugger::SI,
+            "SI_PIF_ADDR_WR64B_REG source range invalid: {:08x}+64", src);
         state.hwreg.SI_STATUS_REG = SI_STATUS_INTR | SI_STATUS_DMA_ERROR;
         set_MI_INTR_REG(MI_INTR_SI);
         return;
@@ -529,15 +498,14 @@ void write_SI_PIF_ADDR_WR64B_REG(u32 value)
     state.hwreg.SI_STATUS_REG = SI_STATUS_INTR;
     set_MI_INTR_REG(MI_INTR_SI);
 
-    if (debugger.verbose.SI) {
-        std::cerr << "PIF command buffer:" << std::endl;
-        for (size_t n = 0; n < 64; n++) {
-            if (n && !(n % 16))
-                std::cerr << std::endl;
-            std::cerr << std::hex << " ";
-            std::cerr << std::setw(2) << (unsigned)state.pifram[n];
-        }
-        std::cerr << std::endl;
+    debugger::debug(Debugger::SI, "PIF command buffer:");
+    for (size_t n = 0; n < 64; n+=8) {
+        debugger::debug(Debugger::SI,
+            "    {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x}",
+            state.pifram[n + 0], state.pifram[n + 1],
+            state.pifram[n + 2], state.pifram[n + 3],
+            state.pifram[n + 4], state.pifram[n + 5],
+            state.pifram[n + 6], state.pifram[n + 7]);
     }
 }
 
@@ -589,58 +557,59 @@ bool read(uint bytes, u64 addr, u64 *value)
 
     switch (addr) {
         case RDRAM_DEVICE_TYPE_REG:
-            logRead(debugger.verbose.rdram, "RDRAM_DEVICE_TYPE_REG",
-                    state.hwreg.RDRAM_DEVICE_TYPE_REG);
+            debugger::info(Debugger::RdRam, "RDRAM_DEVICE_TYPE_REG -> {:08x}",
+                state.hwreg.RDRAM_DEVICE_TYPE_REG);
             *value = state.hwreg.RDRAM_DEVICE_TYPE_REG;
             return true;
         case RDRAM_DEVICE_ID_REG:
-            logRead(debugger.verbose.rdram, "RDRAM_DEVICE_ID_REG",
-                    state.hwreg.RDRAM_DEVICE_ID_REG);
+            debugger::info(Debugger::RdRam, "RDRAM_DEVICE_ID_REG -> {:08x}",
+                state.hwreg.RDRAM_DEVICE_ID_REG);
             *value = state.hwreg.RDRAM_DEVICE_ID_REG;
             return true;
         case RDRAM_DELAY_REG:
-            logRead(debugger.verbose.rdram, "RDRAM_DELAY_REG",
-                    state.hwreg.RDRAM_DELAY_REG);
+            debugger::info(Debugger::RdRam, "RDRAM_DELAY_REG -> {:08x}",
+                state.hwreg.RDRAM_DELAY_REG);
             *value = state.hwreg.RDRAM_DELAY_REG;
             return true;
         case RDRAM_MODE_REG:
-            logRead(debugger.verbose.rdram, "RDRAM_MODE_REG",
-                    state.hwreg.RDRAM_MODE_REG);
+            debugger::info(Debugger::RdRam, "RDRAM_MODE_REG -> {:08x}",
+                state.hwreg.RDRAM_MODE_REG);
             *value = state.hwreg.RDRAM_MODE_REG;
             return true;
         case RDRAM_REF_INTERVAL_REG:
-            logRead(debugger.verbose.rdram, "RDRAM_REF_INTERVAL_REG",
-                    state.hwreg.RDRAM_REF_INTERVAL_REG);
+            debugger::info(Debugger::RdRam, "RDRAM_REF_INTERVAL_REG -> {:08x}",
+                state.hwreg.RDRAM_REF_INTERVAL_REG);
             *value = state.hwreg.RDRAM_REF_INTERVAL_REG;
             return true;
         case RDRAM_REF_ROW_REG:
-            logRead(debugger.verbose.rdram, "RDRAM_REF_ROW_REG",
-                    state.hwreg.RDRAM_REF_ROW_REG);
+            debugger::info(Debugger::RdRam, "RDRAM_REF_ROW_REG -> {:08x}",
+                state.hwreg.RDRAM_REF_ROW_REG);
             *value = state.hwreg.RDRAM_REF_ROW_REG;
             return true;
         case RDRAM_RAS_INTERVAL_REG:
-            logRead(debugger.verbose.rdram, "RDRAM_RAS_INTERVAL_REG",
-                    state.hwreg.RDRAM_RAS_INTERVAL_REG);
+            debugger::info(Debugger::RdRam, "RDRAM_RAS_INTERVAL_REG -> {:08x}",
+                state.hwreg.RDRAM_RAS_INTERVAL_REG);
             *value = state.hwreg.RDRAM_RAS_INTERVAL_REG;
             return true;
         case RDRAM_MIN_INTERVAL_REG:
-            logRead(debugger.verbose.rdram, "RDRAM_MIN_INTERVAL_REG",
-                    state.hwreg.RDRAM_MIN_INTERVAL_REG);
+            debugger::info(Debugger::RdRam, "RDRAM_MIN_INTERVAL_REG -> {:08x}",
+                state.hwreg.RDRAM_MIN_INTERVAL_REG);
             *value = state.hwreg.RDRAM_MIN_INTERVAL_REG;
             return true;
         case RDRAM_ADDR_SELECT_REG:
-            logRead(debugger.verbose.rdram, "RDRAM_ADDR_SELECT_REG",
-                    state.hwreg.RDRAM_ADDR_SELECT_REG);
+            debugger::info(Debugger::RdRam, "RDRAM_ADDR_SELECT_REG -> {:08x}",
+                state.hwreg.RDRAM_ADDR_SELECT_REG);
             *value = state.hwreg.RDRAM_ADDR_SELECT_REG;
             return true;
         case RDRAM_DEVICE_MANUF_REG:
-            logRead(debugger.verbose.rdram, "RDRAM_DEVICE_MANUF_REG",
-                    state.hwreg.RDRAM_DEVICE_MANUF_REG);
+            debugger::info(Debugger::RdRam, "RDRAM_DEVICE_MANUF_REG -> {:08x}",
+                state.hwreg.RDRAM_DEVICE_MANUF_REG);
             *value = state.hwreg.RDRAM_DEVICE_MANUF_REG;
             return true;
         default:
-            logRead(debugger.verbose.rdram, "RDRAM_UNKNOWN", 0);
-            debugger.halt("RDRAM read");
+            debugger::warn(Debugger::RdRam,
+                "Read of unknown RdRam register: {:08x}", addr);
+            debugger::halt("RdRam read unknown");
             break;
     }
     return true;
@@ -653,43 +622,43 @@ bool write(uint bytes, u64 addr, u64 value)
 
     switch (addr) {
         case RDRAM_DEVICE_TYPE_REG:
-            logWrite(debugger.verbose.rdram, "RDRAM_DEVICE_TYPE_REG", value);
+            debugger::info(Debugger::RdRam, "RDRAM_DEVICE_TYPE_REG <- {:08x}", value);
             state.hwreg.RDRAM_DEVICE_TYPE_REG = value;
             return true;
         case RDRAM_DEVICE_ID_REG:
-            logWrite(debugger.verbose.rdram, "RDRAM_DEVICE_ID_REG", value);
+            debugger::info(Debugger::RdRam, "RDRAM_DEVICE_ID_REG <- {:08x}", value);
             state.hwreg.RDRAM_DEVICE_ID_REG = value;
             return true;
         case RDRAM_DELAY_REG:
-            logWrite(debugger.verbose.rdram, "RDRAM_DELAY_REG", value);
+            debugger::info(Debugger::RdRam, "RDRAM_DELAY_REG <- {:08x}", value);
             state.hwreg.RDRAM_DELAY_REG = value;
             return true;
         case RDRAM_MODE_REG:
-            logWrite(debugger.verbose.rdram, "RDRAM_MODE_REG", value);
+            debugger::info(Debugger::RdRam, "RDRAM_MODE_REG <- {:08x}", value);
             state.hwreg.RDRAM_MODE_REG = value;
             return true;
         case RDRAM_REF_INTERVAL_REG:
-            logWrite(debugger.verbose.rdram, "RDRAM_REF_INTERVAL_REG", value);
+            debugger::info(Debugger::RdRam, "RDRAM_REF_INTERVAL_REG <- {:08x}", value);
             state.hwreg.RDRAM_REF_INTERVAL_REG = value;
             return true;
         case RDRAM_REF_ROW_REG:
-            logWrite(debugger.verbose.rdram, "RDRAM_REF_ROW_REG", value);
+            debugger::info(Debugger::RdRam, "RDRAM_REF_ROW_REG <- {:08x}", value);
             state.hwreg.RDRAM_REF_ROW_REG = value;
             return true;
         case RDRAM_RAS_INTERVAL_REG:
-            logWrite(debugger.verbose.rdram, "RDRAM_RAS_INTERVAL_REG", value);
+            debugger::info(Debugger::RdRam, "RDRAM_RAS_INTERVAL_REG <- {:08x}", value);
             state.hwreg.RDRAM_RAS_INTERVAL_REG = value;
             return true;
         case RDRAM_MIN_INTERVAL_REG:
-            logWrite(debugger.verbose.rdram, "RDRAM_MIN_INTERVAL_REG", value);
+            debugger::info(Debugger::RdRam, "RDRAM_MIN_INTERVAL_REG <- {:08x}", value);
             state.hwreg.RDRAM_MIN_INTERVAL_REG = value;
             return true;
         case RDRAM_ADDR_SELECT_REG:
-            logWrite(debugger.verbose.rdram, "RDRAM_ADDR_SELECT_REG", value);
+            debugger::info(Debugger::RdRam, "RDRAM_ADDR_SELECT_REG <- {:08x}", value);
             state.hwreg.RDRAM_ADDR_SELECT_REG = value;
             return true;
         case RDRAM_DEVICE_MANUF_REG:
-            logWrite(debugger.verbose.rdram, "RDRAM_DEVICE_MANUF_REG", value);
+            debugger::info(Debugger::RdRam, "RDRAM_DEVICE_MANUF_REG <- {:08x}", value);
             state.hwreg.RDRAM_DEVICE_MANUF_REG = value;
             return true;
 
@@ -702,8 +671,10 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
 
         default:
-            logWrite(debugger.verbose.rdram, "RDRAM_UNKNOWN", value);
-            debugger.halt("RDRAM write");
+            debugger::warn(Debugger::RdRam,
+                "Write of unknown RdRam register: {:08x} <- {:08x}",
+                addr, value);
+            debugger::halt("RdRam write unknown");
             break;
     }
     return true;
@@ -786,52 +757,54 @@ bool read(uint bytes, u64 addr, u64 *value)
 
     switch (addr) {
         case SP_MEM_ADDR_REG:
-            logRead(debugger.verbose.SP, "SP_MEM_ADDR_REG",
-                    state.hwreg.SP_MEM_ADDR_REG);
+            debugger::info(Debugger::SP, "SP_MEM_ADDR_REG -> {:08x}",
+                state.hwreg.SP_MEM_ADDR_REG);
             *value = state.hwreg.SP_MEM_ADDR_REG;
             return true;
         case SP_DRAM_ADDR_REG:
-            logRead(debugger.verbose.SP, "SP_DRAM_ADDR_REG",
-                    state.hwreg.SP_DRAM_ADDR_REG);
+            debugger::info(Debugger::SP, "SP_DRAM_ADDR_REG -> {:08x}",
+                state.hwreg.SP_DRAM_ADDR_REG);
             *value = state.hwreg.SP_DRAM_ADDR_REG;
             return true;
         case SP_RD_LEN_REG:
-            logRead(debugger.verbose.SP, "SP_RD_LEN_REG",
-                    state.hwreg.SP_RD_LEN_REG);
+            debugger::info(Debugger::SP, "SP_RD_LEN_REG -> {:08x}",
+                state.hwreg.SP_RD_LEN_REG);
             *value = state.hwreg.SP_RD_LEN_REG;
             return true;
         case SP_WR_LEN_REG:
-            logRead(debugger.verbose.SP, "SP_WR_LEN_REG",
-                    state.hwreg.SP_WR_LEN_REG);
+            debugger::info(Debugger::SP, "SP_WR_LEN_REG -> {:08x}",
+                state.hwreg.SP_WR_LEN_REG);
             *value = state.hwreg.SP_WR_LEN_REG;
             return true;
         case SP_STATUS_REG:
-            logRead(debugger.verbose.SP, "SP_STATUS_REG",
-                    state.hwreg.SP_STATUS_REG);
+            debugger::info(Debugger::SP, "SP_STATUS_REG -> {:08x}",
+                state.hwreg.SP_STATUS_REG);
             *value = state.hwreg.SP_STATUS_REG;
             return true;
         case SP_DMA_FULL_REG:
-            logRead(debugger.verbose.SP, "SP_DMA_FULL_REG", 0);
+            debugger::info(Debugger::SP, "SP_DMA_FULL_REG -> 0");
             *value = 0;
             return true;
         case SP_DMA_BUSY_REG:
-            logRead(debugger.verbose.SP, "SP_DMA_BUSY_REG", 0);
+            debugger::info(Debugger::SP, "SP_DMA_BUSY_REG -> 0");
             *value = 0;
             return true;
         case SP_SEMAPHORE_REG:
             *value = read_SP_SEMAPHORE_REG();
             return true;
         case SP_PC_REG:
-            logRead(debugger.verbose.SP, "SP_PC_REG", state.rspreg.pc);
+            debugger::info(Debugger::SP, "SP_PC_REG -> {:08x}", state.rspreg.pc);
             *value = state.rspreg.pc;
             return true;
         case SP_IBIST_REG:
-            logRead(debugger.verbose.SP, "SP_IBIST_REG",
-                    state.hwreg.SP_IBIST_REG);
+            debugger::info(Debugger::SP, "SP_IBIST_REG -> {:08x}",
+                state.hwreg.SP_IBIST_REG);
             *value = state.hwreg.SP_IBIST_REG;
             return true;
         default:
-            throw "SP read unsupported";
+            debugger::warn(Debugger::SP,
+                "Read of unknown SP register: {:08x}", addr);
+            debugger::halt("SP read unknown");
             break;
     }
     *value = 0;
@@ -845,36 +818,36 @@ bool write(uint bytes, u64 addr, u64 value)
 
     switch (addr) {
         case SP_MEM_ADDR_REG:
-            logWrite(debugger.verbose.SP, "SP_MEM_ADDR_REG", value);
+            debugger::info(Debugger::SP, "SP_MEM_ADDR_REG <- {:08x}", value);
             state.hwreg.SP_MEM_ADDR_REG = value;
             return true;
         case SP_DRAM_ADDR_REG:
-            logWrite(debugger.verbose.SP, "SP_DRAM_ADDR_REG", value);
+            debugger::info(Debugger::SP, "SP_DRAM_ADDR_REG <- {:08x}", value);
             state.hwreg.SP_DRAM_ADDR_REG = value;
             return true;
         case SP_RD_LEN_REG:
             write_SP_RD_LEN_REG(value);
             return true;
         case SP_WR_LEN_REG:
-            logWrite(debugger.verbose.SP, "SP_WR_LEN_REG", value);
+            debugger::info(Debugger::SP, "SP_WR_LEN_REG <- {:08x}", value);
             state.hwreg.SP_WR_LEN_REG = value;
-            throw "unsupported_wr";
+            debugger::halt("Write of SP_WR_LEN_LEG");
             return true;
         case SP_STATUS_REG:
             write_SP_STATUS_REG(value);
             return true;
         case SP_DMA_FULL_REG:
-            logWrite(debugger.verbose.SP, "SP_DMA_FULL_REG", value);
+            debugger::info(Debugger::SP, "SP_DMA_FULL_REG <- {:08x}", value);
             return true;
         case SP_DMA_BUSY_REG:
-            logWrite(debugger.verbose.SP, "SP_DMA_BUSY_REG", value);
+            debugger::info(Debugger::SP, "SP_DMA_BUSY_REG <- {:08x}", value);
             return true;
         case SP_SEMAPHORE_REG:
-            logWrite(debugger.verbose.SP, "SP_SEMAPHORE_REG", value);
+            debugger::info(Debugger::SP, "SP_SEMAPHORE_REG <- {:08x}", value);
             state.hwreg.SP_SEMAPHORE_REG = 0;
             return true;
         case SP_PC_REG:
-            logWrite(debugger.verbose.SP, "SP_PC_REG", value);
+            debugger::info(Debugger::SP, "SP_PC_REG <- {:08x}", value);
             // Note: not too preoccupied with the behaviour when the RSP
             // is already running; it is probably not recommended to try that..
             state.rspreg.pc = value & 0xffflu;
@@ -882,11 +855,15 @@ bool write(uint bytes, u64 addr, u64 value)
             state.rsp.nextAction = State::Action::Jump;
             return true;
         case SP_IBIST_REG:
-            logWrite(debugger.verbose.SP, "SP_IBIST_REG", value);
+            debugger::info(Debugger::SP, "SP_IBIST_REG <- {:08x}", value);
             state.hwreg.SP_IBIST_REG = value;
             return true;
+
         default:
-            throw "SP read unsupported";
+            debugger::warn(Debugger::SP,
+                "Write of unknown SP register: {:08x} <- {:08x}",
+                addr, value);
+            debugger::halt("SP write unknown");
             break;
     }
     return true;
@@ -941,7 +918,9 @@ bool read(uint bytes, u64 addr, u64 *value)
             *value = 0;
             return true;
         default:
-            debugger.halt("DPCommand::read invalid");
+            debugger::warn(Debugger::DPCommand,
+                "Read of unknown DPCommand register: {:08x}", addr);
+            debugger::halt("DPCommand read unknown");
             return false;
     }
     return true;
@@ -963,7 +942,10 @@ bool write(uint bytes, u64 addr, u64 value)
         case DPC_TMEM_REG:
             return true;
         default:
-            debugger.halt("DPCommand::write invalid");
+            debugger::warn(Debugger::DPCommand,
+                "Write of unknown DPCommand register: {:08x} <- {:08x}",
+                addr, value);
+            debugger::halt("DPCommand write unknown");
             return false;
     }
     return true;
@@ -975,16 +957,17 @@ namespace DPSpan {
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
-    std::cerr << "DPSpan::read(" << std::hex << addr << ")" << std::endl;
-    throw "Unsupported12";
+    debugger::warn(Debugger::DPSpan, "Read of DPSpan register: {:08x}", addr);
+    debugger::halt("DPSpan unsupported");
     *value = 0;
     return true;
 }
 
 bool write(uint bytes, u64 addr, u64 value)
 {
-    std::cerr << "DPSpan::write(" << std::hex << addr << ")" << std::endl;
-    throw "Unsupported11";
+    debugger::warn(Debugger::DPSpan,
+        "Write of DPSpan register: {:08x} <- {:08x}", addr, value);
+    debugger::halt("DPSpan unsupported");
     return true;
 }
 
@@ -1031,28 +1014,29 @@ bool read(uint bytes, u64 addr, u64 *value)
 
     switch (addr) {
         case MI_MODE_REG:
-            logRead(debugger.verbose.MI, "MI_MODE_REG",
-                    state.hwreg.MI_MODE_REG);
+            debugger::info(Debugger::MI, "MI_MODE_REG -> {:08x}",
+                state.hwreg.MI_MODE_REG);
             *value = state.hwreg.MI_MODE_REG;
             return true;
         case MI_VERSION_REG:
-            logRead(debugger.verbose.MI, "MI_VERSION_REG",
-                    state.hwreg.MI_VERSION_REG);
+            debugger::info(Debugger::MI, "MI_VERSION_REG -> {:08x}",
+                state.hwreg.MI_VERSION_REG);
             *value = state.hwreg.MI_VERSION_REG;
             return true;
         case MI_INTR_REG:
-            logRead(debugger.verbose.MI, "MI_INTR_REG",
-                    state.hwreg.MI_INTR_REG);
+            debugger::info(Debugger::MI, "MI_INTR_REG -> {:08x}",
+                state.hwreg.MI_INTR_REG);
             *value = state.hwreg.MI_INTR_REG;
             return true;
         case MI_INTR_MASK_REG:
-            logRead(debugger.verbose.MI, "MI_INTR_MASK_REG",
-                    state.hwreg.MI_INTR_MASK_REG);
+            debugger::info(Debugger::MI, "MI_INTR_MASK_REG -> {:08x}",
+                state.hwreg.MI_INTR_MASK_REG);
             *value = state.hwreg.MI_INTR_MASK_REG;
             return true;
         default:
-            logReadAtAddr(debugger.verbose.MI, "MI_??", addr, 0);
-            throw "Unsupported10";
+            debugger::warn(Debugger::MI,
+                "Read of unknown MI register: {:08x}", addr);
+            debugger::halt("MI read unknown");
             break;
     }
     *value = 0;
@@ -1066,7 +1050,7 @@ bool write(uint bytes, u64 addr, u64 value)
 
     switch (addr) {
         case MI_MODE_REG:
-            logWrite(debugger.verbose.MI, "MI_MODE_REG", value);
+            debugger::info(Debugger::MI, "MI_MODE_REG <- {:08x}", value);
             state.hwreg.MI_MODE_REG &= MI_MODE_INIT_LEN_MASK;
             state.hwreg.MI_MODE_REG |= (value & MI_MODE_INIT_LEN_MASK);
             if (value & MI_MODE_CLR_INIT) {
@@ -1092,13 +1076,13 @@ bool write(uint bytes, u64 addr, u64 value)
             }
             return true;
         case MI_VERSION_REG:
-            logWrite(debugger.verbose.MI, "MI_VERSION_REG", value);
+            debugger::info(Debugger::MI, "MI_VERSION_REG <- {:08x}", value);
             return true;
         case MI_INTR_REG:
-            logWrite(debugger.verbose.MI, "MI_INTR_REG", value);
+            debugger::info(Debugger::MI, "MI_INTR_REG <- {:08x}", value);
             return true;
         case MI_INTR_MASK_REG:
-            logWrite(debugger.verbose.MI, "MI_INTR_MASK_REG", value);
+            debugger::info(Debugger::MI, "MI_INTR_MASK_REG <- {:08x}", value);
             if (value & MI_INTR_MASK_CLR_SP) {
                 state.hwreg.MI_INTR_MASK_REG &= ~MI_INTR_MASK_SP;
             }
@@ -1137,8 +1121,10 @@ bool write(uint bytes, u64 addr, u64 value)
             }
             return true;
         default:
-            logWriteAtAddr(debugger.verbose.MI, "MI_??", addr, value);
-            throw "Unsupported9";
+            debugger::warn(Debugger::MI,
+                "Write of unknown MI register: {:08x} <- {:08x}",
+                addr, value);
+            debugger::halt("MI write unknown");
             break;
     }
     return true;
@@ -1241,7 +1227,8 @@ void updateCurrentFramebuffer(void) {
         case VI_CONTROL_COLOR_DEPTH_16BIT: pixelSize = 16; break;
         case VI_CONTROL_COLOR_DEPTH_BLANK:
         default:
-            std::cerr << "Invalid COLOR_DEPTH config" << std::endl;
+            debugger::warn(Debugger::VI,
+                "invalid COLOR_DEPTH config: {}", colorDepth);
             valid = false;
             break;
     }
@@ -1272,15 +1259,14 @@ void updateCurrentFramebuffer(void) {
     u32 framebufferHeight =
         ((u64)(verticalEnd - verticalStart) * (u64)verticalScale) / 1024 / 2;
 
-    if (debugger.verbose.VI) {
-        std::cerr << std::dec;
-        std::cerr << "horizontal start : " << horizontalStart << std::endl;
-        std::cerr << "horizontal end : " << horizontalEnd << std::endl;
-        std::cerr << "vertical start : " << verticalStart << std::endl;
-        std::cerr << "vertical end : " << verticalEnd << std::endl;
-        std::cerr << "framebuffer width : " << framebufferWidth << std::endl;
-        std::cerr << "framebuffer height : " << framebufferHeight << std::endl;
-    }
+    debugger::debug(Debugger::VI, "lines per frame : {}", linesPerFrame);
+    debugger::debug(Debugger::VI, "line duration : {}", (float)lineDuration / 4.);
+    debugger::debug(Debugger::VI, "horizontal start : {}", horizontalStart);
+    debugger::debug(Debugger::VI, "horizontal end : {}", horizontalEnd);
+    debugger::debug(Debugger::VI, "vertical start : {}", verticalStart);
+    debugger::debug(Debugger::VI, "vertical end : {}", verticalEnd);
+    debugger::debug(Debugger::VI, "framebuffer width : {}", framebufferWidth);
+    debugger::debug(Debugger::VI, "framebuffer height : {}", framebufferHeight);
 
     framebufferWidth = state.hwreg.VI_WIDTH_REG;
 
@@ -1294,8 +1280,9 @@ void updateCurrentFramebuffer(void) {
         offset + framebufferSize <= sizeof(state.dram)) {
         start = &state.dram[offset];
     } else {
-        std::cerr << "Invalid DRAM_ADDR config: " << std::hex;
-        std::cerr << addr << "(" << offset << ")," << framebufferSize << std::endl;
+        debugger::warn(Debugger::VI,
+            "invalid DRAM_ADDR config: {:08x}({:08x})+{:08x}",
+            addr, offset, framebufferSize);
         valid = false;
     }
 
@@ -1304,7 +1291,7 @@ void updateCurrentFramebuffer(void) {
 
 /** @brief Write the value of the VI_INTR_REG register. */
 void write_VI_INTR_REG(u32 value) {
-    logWrite(debugger.verbose.VI, "VI_INTR_REG", value);
+    debugger::info(Debugger::VI, "VI_INTR_REG <- {:08x}", value);
     state.hwreg.VI_INTR_REG = value;
 }
 
@@ -1332,14 +1319,15 @@ u32 read_VI_CURRENT_REG(void) {
         count &= ~UINT32_C(1);
         count |= 0; // TODO track current field.
     }
-    logRead(debugger.verbose.VI, "VI_CURRENT_REG", count);
+
+    debugger::info(Debugger::VI, "VI_CURRENT_REG -> {:08x}", count);
     return count;
 }
 
 /** @brief Write the value of the VI_V_SYNC_REG register. */
 void write_VI_V_SYNC_REG(u32 value) {
     // CPU freq is 93.75 MHz, refresh frequency is assumed 60Hz.
-    logWrite(debugger.verbose.VI, "VI_V_SYNC_REG", value);
+    debugger::info(Debugger::VI, "VI_V_SYNC_REG <- {:08x}", value);
     state.hwreg.VI_V_SYNC_REG = value;
     state.hwreg.vi_CyclesPerLine = 93750000lu / (60 * (value + 1));
     state.hwreg.vi_IntrInterval = state.hwreg.vi_CyclesPerLine * value;
@@ -1352,62 +1340,77 @@ bool read(uint bytes, u64 addr, u64 *value)
 
     switch (addr) {
         case VI_CONTROL_REG:
-            logRead(debugger.verbose.VI, "VI_CONTROL_REG", state.hwreg.VI_CONTROL_REG);
+            debugger::info(Debugger::VI, "VI_CONTROL_REG -> {:08x}",
+                state.hwreg.VI_CONTROL_REG);
             *value = state.hwreg.VI_CONTROL_REG;
             return true;
         case VI_DRAM_ADDR_REG:
-            logRead(debugger.verbose.VI, "VI_DRAM_ADDR_REG", state.hwreg.VI_DRAM_ADDR_REG);
+            debugger::info(Debugger::VI, "VI_DRAM_ADDR_REG -> {:08x}",
+                state.hwreg.VI_DRAM_ADDR_REG);
             *value = state.hwreg.VI_DRAM_ADDR_REG;
             return true;
         case VI_WIDTH_REG:
-            logRead(debugger.verbose.VI, "VI_WIDTH_REG", state.hwreg.VI_WIDTH_REG);
+            debugger::info(Debugger::VI, "VI_WIDTH_REG -> {:08x}",
+                state.hwreg.VI_WIDTH_REG);
             *value = state.hwreg.VI_WIDTH_REG;
             return true;
         case VI_INTR_REG:
-            logRead(debugger.verbose.VI, "VI_INTR_REG", state.hwreg.VI_INTR_REG);
+            debugger::info(Debugger::VI, "VI_INTR_REG -> {:08x}",
+                state.hwreg.VI_INTR_REG);
             *value = state.hwreg.VI_INTR_REG;
             return true;
         case VI_CURRENT_REG:
             *value = read_VI_CURRENT_REG();
             return true;
         case VI_BURST_REG:
-            logRead(debugger.verbose.VI, "VI_BURST_REG", state.hwreg.VI_BURST_REG);
+            debugger::info(Debugger::VI, "VI_BURST_REG -> {:08x}",
+                state.hwreg.VI_BURST_REG);
             *value = state.hwreg.VI_BURST_REG;
             return true;
         case VI_V_SYNC_REG:
-            logRead(debugger.verbose.VI, "VI_V_SYNC_REG", state.hwreg.VI_V_SYNC_REG);
+            debugger::info(Debugger::VI, "VI_V_SYNC_REG -> {:08x}",
+                state.hwreg.VI_V_SYNC_REG);
             *value = state.hwreg.VI_V_SYNC_REG;
             return true;
         case VI_H_SYNC_REG:
-            logRead(debugger.verbose.VI, "VI_H_SYNC_REG", state.hwreg.VI_H_SYNC_REG);
+            debugger::info(Debugger::VI, "VI_H_SYNC_REG -> {:08x}",
+                state.hwreg.VI_H_SYNC_REG);
             *value = state.hwreg.VI_H_SYNC_REG;
             return true;
         case VI_LEAP_REG:
-            logRead(debugger.verbose.VI, "VI_LEAP_REG", state.hwreg.VI_LEAP_REG);
+            debugger::info(Debugger::VI, "VI_LEAP_REG -> {:08x}",
+                state.hwreg.VI_LEAP_REG);
             *value = state.hwreg.VI_LEAP_REG;
             return true;
         case VI_H_START_REG:
-            logRead(debugger.verbose.VI, "VI_H_START_REG", state.hwreg.VI_H_START_REG);
+            debugger::info(Debugger::VI, "VI_H_START_REG -> {:08x}",
+                state.hwreg.VI_H_START_REG);
             *value = state.hwreg.VI_H_START_REG;
             return true;
         case VI_V_START_REG:
-            logRead(debugger.verbose.VI, "VI_V_START_REG", state.hwreg.VI_V_START_REG);
+            debugger::info(Debugger::VI, "VI_V_START_REG -> {:08x}",
+                state.hwreg.VI_V_START_REG);
             *value = state.hwreg.VI_V_START_REG;
             return true;
         case VI_V_BURST_REG:
-            logRead(debugger.verbose.VI, "VI_V_BURST_REG", state.hwreg.VI_V_BURST_REG);
+            debugger::info(Debugger::VI, "VI_V_BURST_REG -> {:08x}",
+                state.hwreg.VI_V_BURST_REG);
             *value = state.hwreg.VI_V_BURST_REG;
             return true;
         case VI_X_SCALE_REG:
-            logRead(debugger.verbose.VI, "VI_X_SCALE_REG", state.hwreg.VI_X_SCALE_REG);
+            debugger::info(Debugger::VI, "VI_X_SCALE_REG -> {:08x}",
+                state.hwreg.VI_X_SCALE_REG);
             *value = state.hwreg.VI_X_SCALE_REG;
             return true;
         case VI_Y_SCALE_REG:
-            logRead(debugger.verbose.VI, "VI_Y_SCALE_REG", state.hwreg.VI_Y_SCALE_REG);
+            debugger::info(Debugger::VI, "VI_Y_SCALE_REG -> {:08x}",
+                state.hwreg.VI_Y_SCALE_REG);
             *value = state.hwreg.VI_Y_SCALE_REG;
             return true;
         default:
-            throw "VI Unsupported8";
+            debugger::warn(Debugger::VI,
+                "Read of unknown VI register: {:08x}", addr);
+            debugger::halt("VI read unknown");
             break;
     }
     *value = 0;
@@ -1421,17 +1424,17 @@ bool write(uint bytes, u64 addr, u64 value)
 
     switch (addr) {
         case VI_CONTROL_REG:
-            logWrite(debugger.verbose.VI, "VI_CONTROL_REG", value);
+            debugger::info(Debugger::VI, "VI_CONTROL_REG <- {:08x}", value);
             state.hwreg.VI_CONTROL_REG = value;
             updateCurrentFramebuffer();
             return true;
         case VI_DRAM_ADDR_REG:
-            logWrite(debugger.verbose.VI, "VI_DRAM_ADDR_REG", value);
+            debugger::info(Debugger::VI, "VI_DRAM_ADDR_REG <- {:08x}", value);
             state.hwreg.VI_DRAM_ADDR_REG = value;
             updateCurrentFramebuffer();
             return true;
         case VI_WIDTH_REG:
-            logWrite(debugger.verbose.VI, "VI_WIDTH_REG", value);
+            debugger::info(Debugger::VI, "VI_WIDTH_REG <- {:08x}", value);
             state.hwreg.VI_WIDTH_REG = value;
             updateCurrentFramebuffer();
             return true;
@@ -1439,50 +1442,53 @@ bool write(uint bytes, u64 addr, u64 value)
             write_VI_INTR_REG(value);
             return true;
         case VI_CURRENT_REG:
-            logWrite(debugger.verbose.VI, "VI_CURRENT_REG", value);
+            debugger::info(Debugger::VI, "VI_CURRENT_REG <- {:08x}", value);
             clear_MI_INTR_REG(MI_INTR_VI);
             return true;
         case VI_BURST_REG:
-            logWrite(debugger.verbose.VI, "VI_BURST_REG", value);
+            debugger::info(Debugger::VI, "VI_BURST_REG <- {:08x}", value);
             state.hwreg.VI_BURST_REG = value;
             return true;
         case VI_V_SYNC_REG:
             write_VI_V_SYNC_REG(value);
             return true;
         case VI_H_SYNC_REG:
-            logWrite(debugger.verbose.VI, "VI_H_SYNC_REG", value);
+            debugger::info(Debugger::VI, "VI_H_SYNC_REG <- {:08x}", value);
             state.hwreg.VI_H_SYNC_REG = value;
             return true;
         case VI_LEAP_REG:
-            logWrite(debugger.verbose.VI, "VI_LEAP_REG", value);
+            debugger::info(Debugger::VI, "VI_LEAP_REG <- {:08x}", value);
             state.hwreg.VI_LEAP_REG = value;
             return true;
         case VI_H_START_REG:
-            logWrite(debugger.verbose.VI, "VI_H_START_REG", value);
+            debugger::info(Debugger::VI, "VI_H_START_REG <- {:08x}", value);
             state.hwreg.VI_H_START_REG = value;
             updateCurrentFramebuffer();
             return true;
         case VI_V_START_REG:
-            logWrite(debugger.verbose.VI, "VI_V_START_REG", value);
+            debugger::info(Debugger::VI, "VI_V_START_REG <- {:08x}", value);
             state.hwreg.VI_V_START_REG = value;
             updateCurrentFramebuffer();
             return true;
         case VI_V_BURST_REG:
-            logWrite(debugger.verbose.VI, "VI_V_BURST_REG", value);
+            debugger::info(Debugger::VI, "VI_V_BURST_REG <- {:08x}", value);
             state.hwreg.VI_V_BURST_REG = value;
             return true;
         case VI_X_SCALE_REG:
-            logWrite(debugger.verbose.VI, "VI_X_SCALE_REG", value);
+            debugger::info(Debugger::VI, "VI_X_SCALE_REG <- {:08x}", value);
             state.hwreg.VI_X_SCALE_REG = value;
             updateCurrentFramebuffer();
             return true;
         case VI_Y_SCALE_REG:
-            logWrite(debugger.verbose.VI, "VI_Y_SCALE_REG", value);
+            debugger::info(Debugger::VI, "VI_Y_SCALE_REG <- {:08x}", value);
             state.hwreg.VI_Y_SCALE_REG = value;
             updateCurrentFramebuffer();
             return true;
         default:
-            throw "VI Unsupported7";
+            debugger::warn(Debugger::VI,
+                "Write of unknown VI register: {:08x} <- {:08x}",
+                addr, value);
+            debugger::halt("VI write unknown");
             break;
     }
     return true;
@@ -1526,37 +1532,39 @@ bool read(uint bytes, u64 addr, u64 *value)
 
     switch (addr) {
         case AI_DRAM_ADDR_REG:
-            logRead(debugger.verbose.AI, "AI_DRAM_ADDR_REG",
-                    state.hwreg.AI_DRAM_ADDR_REG);
+            debugger::info(Debugger::AI, "AI_DRAM_ADDR_REG -> {:08x}",
+                state.hwreg.AI_DRAM_ADDR_REG);
             *value = state.hwreg.AI_DRAM_ADDR_REG;
             return true;
         case AI_LEN_REG:
-            logRead(debugger.verbose.AI, "AI_LEN_REG",
-                    state.hwreg.AI_LEN_REG);
+            debugger::info(Debugger::AI, "AI_LEN_REG -> {:08x}",
+                state.hwreg.AI_LEN_REG);
             *value = state.hwreg.AI_LEN_REG;
             return true;
         case AI_CONTROL_REG:
-            logRead(debugger.verbose.AI, "AI_CONTROL_REG",
-                    state.hwreg.AI_CONTROL_REG);
+            debugger::info(Debugger::AI, "AI_CONTROL_REG -> {:08x}",
+                state.hwreg.AI_CONTROL_REG);
             *value = state.hwreg.AI_CONTROL_REG;
             return true;
         case AI_STATUS_REG:
-            logRead(debugger.verbose.AI, "AI_STATUS_REG",
-                    state.hwreg.AI_STATUS_REG);
+            debugger::info(Debugger::AI, "AI_STATUS_REG -> {:08x}",
+                state.hwreg.AI_STATUS_REG);
             *value = state.hwreg.AI_STATUS_REG;
             return true;
         case AI_DACRATE_REG:
-            logRead(debugger.verbose.AI, "AI_DACRATE_REG",
-                    state.hwreg.AI_DACRATE_REG);
+            debugger::info(Debugger::AI, "AI_DACRATE_REG -> {:08x}",
+                state.hwreg.AI_DACRATE_REG);
             *value = state.hwreg.AI_DACRATE_REG;
             return true;
         case AI_BITRATE_REG:
-            logRead(debugger.verbose.AI, "AI_BITRATE_REG",
-                    state.hwreg.AI_BITRATE_REG);
+            debugger::info(Debugger::AI, "AI_BITRATE_REG -> {:08x}",
+                state.hwreg.AI_BITRATE_REG);
             *value = state.hwreg.AI_BITRATE_REG;
             return true;
         default:
-            throw "AI::unsupported";
+            debugger::warn(Debugger::AI,
+                "Read of unknown AI register: {:08x}", addr);
+            debugger::halt("AI read unknown");
             break;
     }
     *value = 0;
@@ -1570,31 +1578,34 @@ bool write(uint bytes, u64 addr, u64 value)
 
     switch (addr) {
         case AI_DRAM_ADDR_REG:
-            logWrite(debugger.verbose.AI, "AI_DRAM_ADDR_REG", value);
+            debugger::info(Debugger::AI, "AI_DRAM_ADDR_REG <- {:08x}", value);
             state.hwreg.AI_DRAM_ADDR_REG = value;
             return true;
         case AI_LEN_REG:
-            logWrite(debugger.verbose.AI, "AI_LEN_REG", value);
+            debugger::info(Debugger::AI, "AI_LEN_REG <- {:08x}", value);
             state.hwreg.AI_LEN_REG = value;
             return true;
         case AI_CONTROL_REG:
-            logWrite(debugger.verbose.AI, "AI_CONTROL_REG", value);
+            debugger::info(Debugger::AI, "AI_CONTROL_REG <- {:08x}", value);
             state.hwreg.AI_CONTROL_REG = value;
             return true;
         case AI_STATUS_REG:
-            logWrite(debugger.verbose.AI, "AI_STATUS_REG", value);
+            debugger::info(Debugger::AI, "AI_STATUS_REG <- {:08x}", value);
             state.hwreg.AI_STATUS_REG = value;
             return true;
         case AI_DACRATE_REG:
-            logWrite(debugger.verbose.AI, "AI_DACRATE_REG", value);
+            debugger::info(Debugger::AI, "AI_DACRATE_REG <- {:08x}", value);
             state.hwreg.AI_DACRATE_REG = value;
             return true;
         case AI_BITRATE_REG:
-            logWrite(debugger.verbose.AI, "AI_BITRATE_REG", value);
+            debugger::info(Debugger::AI, "AI_BITRATE_REG <- {:08x}", value);
             state.hwreg.AI_BITRATE_REG = value;
             return true;
         default:
-            throw "AI::unsupported";
+            debugger::warn(Debugger::AI,
+                "Write of unknown AI register: {:08x} <- {:08x}",
+                addr, value);
+            debugger::halt("AI write unknown");
             break;
     }
     return true;
@@ -1653,73 +1664,74 @@ bool read(uint bytes, u64 addr, u64 *value)
 
     switch (addr) {
         case PI_DRAM_ADDR_REG:
-            logRead(debugger.verbose.PI, "PI_DRAM_ADDR_REG",
-                    state.hwreg.PI_DRAM_ADDR_REG);
+            debugger::info(Debugger::PI, "PI_DRAM_ADDR_REG -> {:08x}",
+                state.hwreg.PI_DRAM_ADDR_REG);
             *value = state.hwreg.PI_DRAM_ADDR_REG;
             return true;
         case PI_CART_ADDR_REG:
-            logRead(debugger.verbose.PI, "PI_CART_ADDR_REG",
-                    state.hwreg.PI_CART_ADDR_REG);
+            debugger::info(Debugger::PI, "PI_CART_ADDR_REG -> {:08x}",
+                state.hwreg.PI_CART_ADDR_REG);
             *value = state.hwreg.PI_CART_ADDR_REG;
             return true;
         case PI_RD_LEN_REG:
-            logRead(debugger.verbose.PI, "PI_RD_LEN_REG",
-                    state.hwreg.PI_RD_LEN_REG);
+            debugger::info(Debugger::PI, "PI_RD_LEN_REG -> {:08x}",
+                state.hwreg.PI_RD_LEN_REG);
             *value = state.hwreg.PI_RD_LEN_REG;
             return true;
         case PI_WR_LEN_REG:
-            logRead(debugger.verbose.PI, "PI_WR_LEN_REG",
-                    state.hwreg.PI_WR_LEN_REG);
+            debugger::info(Debugger::PI, "PI_WR_LEN_REG -> {:08x}",
+                state.hwreg.PI_WR_LEN_REG);
             *value = state.hwreg.PI_WR_LEN_REG;
             return true;
         case PI_STATUS_REG:
-            logRead(debugger.verbose.PI, "PI_STATUS_REG",
-                    state.hwreg.PI_STATUS_REG);
+            debugger::info(Debugger::PI, "PI_STATUS_REG -> {:08x}",
+                state.hwreg.PI_STATUS_REG);
             *value = state.hwreg.PI_STATUS_REG;
             return true;
         case PI_BSD_DOM1_LAT_REG:
-            logRead(debugger.verbose.PI, "PI_BSD_DOM1_LAT_REG",
-                    state.hwreg.PI_BSD_DOM1_LAT_REG);
+            debugger::info(Debugger::PI, "PI_BSD_DOM1_LAT_REG -> {:08x}",
+                state.hwreg.PI_BSD_DOM1_LAT_REG);
             *value = state.hwreg.PI_BSD_DOM1_LAT_REG;
             return true;
         case PI_BSD_DOM1_PWD_REG:
-            logRead(debugger.verbose.PI, "PI_BSD_DOM1_PWD_REG",
-                    state.hwreg.PI_BSD_DOM1_PWD_REG);
+            debugger::info(Debugger::PI, "PI_BSD_DOM1_PWD_REG -> {:08x}",
+                state.hwreg.PI_BSD_DOM1_PWD_REG);
             *value = state.hwreg.PI_BSD_DOM1_PWD_REG;
             return true;
         case PI_BSD_DOM1_PGS_REG:
-            logRead(debugger.verbose.PI, "PI_BSD_DOM1_PGS_REG",
-                    state.hwreg.PI_BSD_DOM1_PGS_REG);
+            debugger::info(Debugger::PI, "PI_BSD_DOM1_PGS_REG -> {:08x}",
+                state.hwreg.PI_BSD_DOM1_PGS_REG);
             *value = state.hwreg.PI_BSD_DOM1_PGS_REG;
             return true;
         case PI_BSD_DOM1_RLS_REG:
-            logRead(debugger.verbose.PI, "PI_BSD_DOM1_RLS_REG",
-                    state.hwreg.PI_BSD_DOM1_RLS_REG);
+            debugger::info(Debugger::PI, "PI_BSD_DOM1_RLS_REG -> {:08x}",
+                state.hwreg.PI_BSD_DOM1_RLS_REG);
             *value = state.hwreg.PI_BSD_DOM1_RLS_REG;
             return true;
         case PI_BSD_DOM2_LAT_REG:
-            logRead(debugger.verbose.PI, "PI_BSD_DOM2_LAT_REG",
-                    state.hwreg.PI_BSD_DOM2_LAT_REG);
+            debugger::info(Debugger::PI, "PI_BSD_DOM2_LAT_REG -> {:08x}",
+                state.hwreg.PI_BSD_DOM2_LAT_REG);
             *value = state.hwreg.PI_BSD_DOM2_LAT_REG;
             return true;
         case PI_BSD_DOM2_PWD_REG:
-            logRead(debugger.verbose.PI, "PI_BSD_DOM2_PWD_REG",
-                    state.hwreg.PI_BSD_DOM2_PWD_REG);
+            debugger::info(Debugger::PI, "PI_BSD_DOM2_PWD_REG -> {:08x}",
+                state.hwreg.PI_BSD_DOM2_PWD_REG);
             *value = state.hwreg.PI_BSD_DOM2_PWD_REG;
             return true;
         case PI_BSD_DOM2_PGS_REG:
-            logRead(debugger.verbose.PI, "PI_BSD_DOM2_PGS_REG",
-                    state.hwreg.PI_BSD_DOM2_PGS_REG);
+            debugger::info(Debugger::PI, "PI_BSD_DOM2_PGS_REG -> {:08x}",
+                state.hwreg.PI_BSD_DOM2_PGS_REG);
             *value = state.hwreg.PI_BSD_DOM2_PGS_REG;
             return true;
         case PI_BSD_DOM2_RLS_REG:
-            logRead(debugger.verbose.PI, "PI_BSD_DOM2_RLS_REG",
-                    state.hwreg.PI_BSD_DOM2_RLS_REG);
+            debugger::info(Debugger::PI, "PI_BSD_DOM2_RLS_REG -> {:08x}",
+                state.hwreg.PI_BSD_DOM2_RLS_REG);
             *value = state.hwreg.PI_BSD_DOM2_RLS_REG;
             return true;
         default:
-            logRead(debugger.verbose.PI, "PI_??", addr);
-            throw "Unsupported6";
+            debugger::warn(Debugger::PI,
+                "Read of unknown PI register: {:08x}", addr);
+            debugger::halt("PI read unknown");
             break;
     }
     *value = 0;
@@ -1733,11 +1745,11 @@ bool write(uint bytes, u64 addr, u64 value)
 
     switch (addr) {
         case PI_DRAM_ADDR_REG:
-            logWrite(debugger.verbose.PI, "PI_DRAM_ADDR_REG", value);
+            debugger::info(Debugger::PI, "PI_DRAM_ADDR_REG <- {:08x}", value);
             state.hwreg.PI_DRAM_ADDR_REG = value & 0xfffffflu;
             return true;
         case PI_CART_ADDR_REG:
-            logWrite(debugger.verbose.PI, "PI_CART_ADDR_REG", value);
+            debugger::info(Debugger::PI, "PI_CART_ADDR_REG <- {:08x}", value);
             state.hwreg.PI_CART_ADDR_REG = value;
             return true;
 
@@ -1749,50 +1761,53 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
 
         case PI_STATUS_REG:
-            logWrite(debugger.verbose.PI, "PI_STATUS_REG", value);
+            debugger::info(Debugger::PI, "PI_STATUS_REG <- {:08x}", value);
             state.hwreg.PI_STATUS_REG = 0;
             if (value & PI_STATUS_RESET) {
-                throw "Unsupported_PI_STATUS_REG__RESET";
+                // Expected behaviour not clearly known.
+                debugger::halt("PI_STATUS_RESET");
             }
             if (value & PI_STATUS_CLR_INTR) {
                 clear_MI_INTR_REG(MI_INTR_PI);
             }
             return true;
         case PI_BSD_DOM1_LAT_REG:
-            logWrite(debugger.verbose.PI, "PI_BSD_DOM1_LAT_REG", value);
+            debugger::info(Debugger::PI, "PI_BSD_DOM1_LAT_REG <- {:08x}", value);
             state.hwreg.PI_BSD_DOM1_LAT_REG = value;
             return true;
         case PI_BSD_DOM1_PWD_REG:
-            logWrite(debugger.verbose.PI, "PI_BSD_DOM1_PWD_REG", value);
+            debugger::info(Debugger::PI, "PI_BSD_DOM1_PWD_REG <- {:08x}", value);
             state.hwreg.PI_BSD_DOM1_PWD_REG = value;
             return true;
         case PI_BSD_DOM1_PGS_REG:
-            logWrite(debugger.verbose.PI, "PI_BSD_DOM1_PGS_REG", value);
+            debugger::info(Debugger::PI, "PI_BSD_DOM1_PGS_REG <- {:08x}", value);
             state.hwreg.PI_BSD_DOM1_PGS_REG = value;
             return true;
         case PI_BSD_DOM1_RLS_REG:
-            logWrite(debugger.verbose.PI, "PI_BSD_DOM1_RLS_REG", value);
+            debugger::info(Debugger::PI, "PI_BSD_DOM1_RLS_REG <- {:08x}", value);
             state.hwreg.PI_BSD_DOM1_RLS_REG = value;
             return true;
         case PI_BSD_DOM2_LAT_REG:
-            logWrite(debugger.verbose.PI, "PI_BSD_DOM2_LAT_REG", value);
+            debugger::info(Debugger::PI, "PI_BSD_DOM2_LAT_REG <- {:08x}", value);
             state.hwreg.PI_BSD_DOM2_LAT_REG = value;
             return true;
         case PI_BSD_DOM2_PWD_REG:
-            logWrite(debugger.verbose.PI, "PI_BSD_DOM2_PWD_REG", value);
+            debugger::info(Debugger::PI, "PI_BSD_DOM2_PWD_REG <- {:08x}", value);
             state.hwreg.PI_BSD_DOM2_PWD_REG = value;
             return true;
         case PI_BSD_DOM2_PGS_REG:
-            logWrite(debugger.verbose.PI, "PI_BSD_DOM2_PGS_REG", value);
+            debugger::info(Debugger::PI, "PI_BSD_DOM2_PGS_REG <- {:08x}", value);
             state.hwreg.PI_BSD_DOM2_PGS_REG = value;
             return true;
         case PI_BSD_DOM2_RLS_REG:
-            logWrite(debugger.verbose.PI, "PI_BSD_DOM2_RLS_REG", value);
+            debugger::info(Debugger::PI, "PI_BSD_DOM2_RLS_REG <- {:08x}", value);
             state.hwreg.PI_BSD_DOM2_RLS_REG = value;
             return true;
         default:
-            logWrite(debugger.verbose.PI, "PI_??", addr);
-            throw "Unsupported5";
+            debugger::warn(Debugger::PI,
+                "Write of unknown PI register: {:08x} <- {:08x}",
+                addr, value);
+            debugger::halt("PI write unknown");
             break;
     }
     return true;
@@ -1835,48 +1850,49 @@ bool read(uint bytes, u64 addr, u64 *value)
 
     switch (addr) {
         case RI_MODE_REG:
-            logRead(debugger.verbose.RI, "RI_MODE_REG",
-                    state.hwreg.RI_MODE_REG);
+            debugger::info(Debugger::RI, "RI_MODE_REG -> {:08x}",
+                state.hwreg.RI_MODE_REG);
             *value = state.hwreg.RI_MODE_REG;
             return true;
         case RI_CONFIG_REG:
-            logRead(debugger.verbose.RI, "RI_CONFIG_REG",
-                    state.hwreg.RI_CONFIG_REG);
+            debugger::info(Debugger::RI, "RI_CONFIG_REG -> {:08x}",
+                state.hwreg.RI_CONFIG_REG);
             *value = state.hwreg.RI_CONFIG_REG;
             return true;
         case RI_CURRENT_LOAD_REG:
-            logRead(debugger.verbose.RI, "RI_CURRENT_LOAD_REG",
-                    state.hwreg.RI_CURRENT_LOAD_REG);
+            debugger::info(Debugger::RI, "RI_CURRENT_LOAD_REG -> {:08x}",
+                state.hwreg.RI_CURRENT_LOAD_REG);
             *value = state.hwreg.RI_CURRENT_LOAD_REG;
             return true;
         case RI_SELECT_REG:
-            logRead(debugger.verbose.RI, "RI_SELECT_REG",
-                    state.hwreg.RI_SELECT_REG);
+            debugger::info(Debugger::RI, "RI_SELECT_REG -> {:08x}",
+                state.hwreg.RI_SELECT_REG);
             *value = state.hwreg.RI_SELECT_REG;
             return true;
         case RI_REFRESH_REG:
-            logRead(debugger.verbose.RI, "RI_REFRESH_REG",
-                    state.hwreg.RI_REFRESH_REG);
+            debugger::info(Debugger::RI, "RI_REFRESH_REG -> {:08x}",
+                state.hwreg.RI_REFRESH_REG);
             *value = state.hwreg.RI_REFRESH_REG;
             return true;
         case RI_LATENCY_REG:
-            logRead(debugger.verbose.RI, "RI_LATENCY_REG",
-                    state.hwreg.RI_LATENCY_REG);
+            debugger::info(Debugger::RI, "RI_LATENCY_REG -> {:08x}",
+                state.hwreg.RI_LATENCY_REG);
             *value = state.hwreg.RI_LATENCY_REG;
             return true;
         case RI_RERROR_REG:
-            logRead(debugger.verbose.RI, "RI_RERROR_REG",
-                    state.hwreg.RI_RERROR_REG);
+            debugger::info(Debugger::RI, "RI_RERROR_REG -> {:08x}",
+                state.hwreg.RI_RERROR_REG);
             *value = state.hwreg.RI_RERROR_REG;
             return true;
         case RI_WERROR_REG:
-            logRead(debugger.verbose.RI, "RI_WERROR_REG",
-                    state.hwreg.RI_WERROR_REG);
+            debugger::info(Debugger::RI, "RI_WERROR_REG -> {:08x}",
+                state.hwreg.RI_WERROR_REG);
             *value = state.hwreg.RI_WERROR_REG;
             return true;
         default:
-            logRead(debugger.verbose.RI, "RI_??", addr);
-            throw "Unsupported4";
+            debugger::warn(Debugger::RI,
+                "Read of unknown RI register: {:08x}", addr);
+            debugger::halt("RI read unknown");
             break;
     }
     *value = 0;
@@ -1890,40 +1906,42 @@ bool write(uint bytes, u64 addr, u64 value)
 
     switch (addr) {
         case RI_MODE_REG:
-            logWrite(debugger.verbose.RI, "RI_MODE_REG", value);
+            debugger::info(Debugger::RI, "RI_MODE_REG <- {:08x}", value);
             state.hwreg.RI_MODE_REG = value;
             return true;
         case RI_CONFIG_REG:
-            logWrite(debugger.verbose.RI, "RI_CONFIG_REG", value);
+            debugger::info(Debugger::RI, "RI_CONFIG_REG <- {:08x}", value);
             state.hwreg.RI_CONFIG_REG = value;
             return true;
         case RI_CURRENT_LOAD_REG:
-            logWrite(debugger.verbose.RI, "RI_CURRENT_LOAD_REG", value);
+            debugger::info(Debugger::RI, "RI_CURRENT_LOAD_REG <- {:08x}", value);
             state.hwreg.RI_CURRENT_LOAD_REG = value;
             return true;
         case RI_SELECT_REG:
-            logWrite(debugger.verbose.RI, "RI_SELECT_REG", value);
+            debugger::info(Debugger::RI, "RI_SELECT_REG <- {:08x}", value);
             state.hwreg.RI_SELECT_REG = value;
             return true;
         case RI_REFRESH_REG:
-            logWrite(debugger.verbose.RI, "RI_REFRESH_REG", value);
+            debugger::info(Debugger::RI, "RI_REFRESH_REG <- {:08x}", value);
             state.hwreg.RI_REFRESH_REG = value;
             return true;
         case RI_LATENCY_REG:
-            logWrite(debugger.verbose.RI, "RI_LATENCY_REG", value);
+            debugger::info(Debugger::RI, "RI_LATENCY_REG <- {:08x}", value);
             state.hwreg.RI_LATENCY_REG = value;
             return true;
         case RI_RERROR_REG:
-            logWrite(debugger.verbose.RI, "RI_RERROR_REG", value);
+            debugger::info(Debugger::RI, "RI_RERROR_REG <- {:08x}", value);
             state.hwreg.RI_RERROR_REG = value;
             return true;
         case RI_WERROR_REG:
-            logWrite(debugger.verbose.RI, "RI_WERROR_REG", value);
+            debugger::info(Debugger::RI, "RI_WERROR_REG <- {:08x}", value);
             state.hwreg.RI_WERROR_REG = value;
             return true;
         default:
-            logWrite(debugger.verbose.RI, "RI_??", addr);
-            throw "Unsupported3";
+            debugger::warn(Debugger::RI,
+                "Write of unknown RI register: {:08x} <- {:08x}",
+                addr, value);
+            debugger::halt("RI write unknown");
             break;
     }
     return true;
@@ -1958,25 +1976,27 @@ bool read(uint bytes, u64 addr, u64 *value)
 
     switch (addr) {
         case SI_DRAM_ADDR_REG:
-            logRead(debugger.verbose.SI, "SI_DRAM_ADDR_REG",
-                    state.hwreg.SI_DRAM_ADDR_REG);
+            debugger::info(Debugger::SI, "SI_DRAM_ADDR_REG -> {:08x}",
+                state.hwreg.SI_DRAM_ADDR_REG);
             *value = state.hwreg.SI_DRAM_ADDR_REG;
             return true;
         case SI_PIF_ADDR_RD64B_REG:
-            logRead(debugger.verbose.SI, "SI_PIF_ADDR_RD64B_REG", 0);
+            debugger::info(Debugger::SI, "SI_PIF_ADDR_RD64B_REG -> 0");
             *value = 0;
             return true;
         case SI_PIF_ADDR_WR64B_REG:
-            logRead(debugger.verbose.SI, "SI_PIF_ADDR_WR64B_REG", 0);
+            debugger::info(Debugger::SI, "SI_PIF_ADDR_WR64B_REG -> 0");
             *value = 0;
             return true;
         case SI_STATUS_REG:
-            logRead(debugger.verbose.SI, "SI_STATUS_REG",
-                    state.hwreg.SI_STATUS_REG);
+            debugger::info(Debugger::SI, "SI_STATUS_REG -> {:08x}",
+                state.hwreg.SI_STATUS_REG);
             *value = state.hwreg.SI_STATUS_REG;
             return true;
         default:
-            throw "SI Unsupported14";
+            debugger::warn(Debugger::SI,
+                "Read of unknown SI register: {:08x}", addr);
+            debugger::halt("SI read unknown");
             break;
     }
     *value = 0;
@@ -1990,7 +2010,7 @@ bool write(uint bytes, u64 addr, u64 value)
 
     switch (addr) {
         case SI_DRAM_ADDR_REG:
-            logWrite(debugger.verbose.SI, "SI_DRAM_ADDR_REG", value);
+            debugger::info(Debugger::SI, "SI_DRAM_ADDR_REG <- {:08x}", value);
             state.hwreg.SI_DRAM_ADDR_REG = value & 0xfffffflu;
             return true;
 
@@ -2002,13 +2022,16 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
 
         case SI_STATUS_REG:
-            logWrite(debugger.verbose.SI, "SI_STATUS_REG", value);
+            debugger::info(Debugger::SI, "SI_STATUS_REG <- {:08x}", value);
             clear_MI_INTR_REG(MI_INTR_SI);
             state.hwreg.SI_STATUS_REG &= ~SI_STATUS_INTR;
             return true;
 
         default:
-            throw "SI Unsupported13";
+            debugger::warn(Debugger::SI,
+                "Write of unknown SI register: {:08x} <- {:08x}",
+                addr, value);
+            debugger::halt("SI write unknown");
             break;
     }
     return true;
@@ -2024,13 +2047,13 @@ bool read(uint bytes, u64 addr, u64 *value)
     if (offset < 0x7c0 || offset >= 0x800)
         return false;
     *value = state.pifram[offset - 0x7c0];
-    logReadAtAddr(debugger.verbose.PIF, "PIF", addr, *value);
+    debugger::info(Debugger::PIF, "{:08x} -> {:08x}", addr, *value);
     return true;
 }
 
 bool write(uint bytes, u64 addr, u64 value)
 {
-    logWriteAtAddr(debugger.verbose.PIF, "PIF", addr, value);
+    debugger::info(Debugger::PIF, "{:08x} <- {:08x}", addr, value);
     u64 offset = addr - UINT32_C(0x1fc00000);
     if (offset < 0x7c0 || offset >= 0x800)
         return false;
@@ -2047,16 +2070,16 @@ namespace Cart_2_1 {
 
 bool read(uint bytes, u64 addr, u64 *value)
 {
-    logReadAtAddr(debugger.verbose.cart_2_1, "Cart_2_1", addr, 0);
-    debugger.halt("Cart_2_1 read access");
+    debugger::info(Debugger::Cart_2_1, "{:08x} -> ?", addr);
+    debugger::halt("Cart_2_1 read access");
     *value = 0;
     return true;
 }
 
 bool write(uint bytes, u64 addr, u64 value)
 {
-    logWriteAtAddr(debugger.verbose.cart_2_1, "Cart_2_1", addr, value);
-    debugger.halt("Cart_2_1 write access");
+    debugger::info(Debugger::Cart_2_1, "{:08x} <- {:08x}", addr, value);
+    debugger::halt("Cart_2_1 write access");
     return true;
 }
 
