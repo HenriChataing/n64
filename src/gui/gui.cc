@@ -387,6 +387,27 @@ static Module Modules[] = {
     { "HW::Cart_2_1",   Debugger::Cart_2_1,     ShowCart_2_1Information },
 };
 
+static void ShowScreen(bool *show_screen) {
+    size_t width;
+    size_t height;
+    GLuint texture;
+
+    if (getVideoImage(&width, &height, &texture)) {
+        ImGui::SetNextWindowSize(ImVec2(width + 15, height + 35));
+        ImGui::Begin("Screen", show_screen);
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+            ImGui::GetWindowDrawList()->AddImage(
+                (void *)(unsigned long)texture, pos,
+                ImVec2(pos.x + width, pos.y + height),
+                ImVec2(0, 0), ImVec2(1, 1));
+        ImGui::End();
+    } else {
+        ImGui::Begin("Screen", show_screen);
+        ImGui::Text("Framebuffer invalid");
+        ImGui::End();
+    }
+}
+
 static void ShowLogConfig(bool *show_log_config) {
     ImGui::Begin("Log Config", show_log_config);
     for (int label = 0; label < Debugger::LabelCount; label++) {
@@ -409,10 +430,73 @@ static void ShowLogConfig(bool *show_log_config) {
     ImGui::End();
 }
 
-static void ShowDebuggerWindow(void) {
-    static bool show_log_config = false;
+static void ShowDisassembler(bool *show_disassembler) {
+    ImGui::Begin("Disassembler", show_disassembler);
+    if (ImGui::BeginTabBar("Memory", 0)) {
+        if (ImGui::BeginTabItem("DRAM")) {
+            dramDisassembler.DrawContents(
+                Mips::CPU::disas,
+                R4300::state.dram, sizeof(R4300::state.dram),
+                R4300::state.reg.pc);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("IMEM")) {
+            imemDisassembler.DrawContents(
+                Mips::RSP::disas,
+                R4300::state.imem, sizeof(R4300::state.imem),
+                R4300::state.rspreg.pc);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("ROM")) {
+            romDisassembler.DrawContents(
+                Mips::CPU::disas,
+                R4300::state.rom, 0x1000,
+                R4300::state.reg.pc);
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
+    ImGui::End();
+}
 
+static void ShowTrace(bool *show_trace) {
+    ImGui::Begin("Trace", show_trace);
+    if (ImGui::Button("Clear traces")) {
+        debugger::debugger.cpuTrace.reset();
+        debugger::debugger.rspTrace.reset();
+    }
+    if (ImGui::BeginTabBar("Trace", 0)) {
+        if (ImGui::BeginTabItem("Cpu")) {
+            if (debugger::debugger.halted) {
+                cpuTrace.DrawContents("cpu", Mips::CPU::disas);
+            } else {
+                ImGui::Text("Cpu is running...");
+            }
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Rsp")) {
+            if (debugger::debugger.halted) {
+                rspTrace.DrawContents("rsp", Mips::RSP::disas);
+            } else {
+                ImGui::Text("Rsp is running...");
+            }
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
+    ImGui::End();
+}
+
+static void ShowDebuggerWindow(void) {
+    static bool show_screen = true;
+    static bool show_log_config = false;
+    static bool show_disassembler = true;
+    static bool show_trace = false;
+
+    if (show_screen) ShowScreen(&show_screen);
     if (show_log_config) ShowLogConfig(&show_log_config);
+    if (show_disassembler) ShowDisassembler(&show_disassembler);
+    if (show_trace) ShowTrace(&show_trace);
 
     if (ImGui::Begin("Debugger", NULL, ImGuiWindowFlags_MenuBar)) {
         if (ImGui::BeginMenuBar()) {
@@ -427,6 +511,12 @@ static void ShowDebuggerWindow(void) {
                 if (ImGui::MenuItem("Save screen")) {
                     exportAsPNG("screen.png");
                 }
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("View")) {
+                if (ImGui::MenuItem("Screen", NULL, &show_screen)) {}
+                if (ImGui::MenuItem("Disassembler", NULL, &show_disassembler)) {}
+                if (ImGui::MenuItem("Trace", NULL, &show_trace)) {}
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("Options")) {
@@ -620,90 +710,6 @@ int startGui()
         // Show the main debugger control window.
         // Displays Continue, Halt commands and register values.
         ShowDebuggerWindow();
-
-        // Show the screen rendering.
-        // ImGuiCond_FirstUseEver
-        {
-            size_t width;
-            size_t height;
-            GLuint texture;
-
-            if (getVideoImage(&width, &height, &texture)) {
-                ImGui::SetNextWindowSize(ImVec2(width + 15, height + 35));
-                ImGui::Begin("Screen");
-                ImVec2 pos = ImGui::GetCursorScreenPos();
-                    ImGui::GetWindowDrawList()->AddImage(
-                        (void *)(unsigned long)texture, pos,
-                        ImVec2(pos.x + width, pos.y + height),
-                        ImVec2(0, 0), ImVec2(1, 1));
-                ImGui::End();
-            } else {
-                ImGui::Begin("Screen");
-                ImGui::Text("Framebuffer invalid");
-                ImGui::End();
-            }
-        }
-
-        // Show the memory disassembler window.
-        // Displays disassembly of main RdRam and IMEM.
-        {
-            ImGui::Begin("Disassembler");
-            if (ImGui::BeginTabBar("Memory", 0)) {
-                if (ImGui::BeginTabItem("DRAM")) {
-                    dramDisassembler.DrawContents(
-                        Mips::CPU::disas,
-                        R4300::state.dram, sizeof(R4300::state.dram),
-                        R4300::state.reg.pc);
-                    ImGui::EndTabItem();
-                }
-                if (ImGui::BeginTabItem("IMEM")) {
-                    imemDisassembler.DrawContents(
-                        Mips::RSP::disas,
-                        R4300::state.imem, sizeof(R4300::state.imem),
-                        R4300::state.rspreg.pc);
-                    ImGui::EndTabItem();
-                }
-                if (ImGui::BeginTabItem("ROM")) {
-                    romDisassembler.DrawContents(
-                        Mips::CPU::disas,
-                        R4300::state.rom, 0x1000,
-                        R4300::state.reg.pc);
-                    ImGui::EndTabItem();
-                }
-                ImGui::EndTabBar();
-            }
-            ImGui::End();
-        }
-
-        // Show the execution trace.
-        // Displays traces for the CPU and the RSP.
-        {
-            ImGui::Begin("Trace");
-            if (ImGui::Button("Clear traces")) {
-                debugger::debugger.cpuTrace.reset();
-                debugger::debugger.rspTrace.reset();
-            }
-            if (ImGui::BeginTabBar("Trace", 0)) {
-                if (ImGui::BeginTabItem("Cpu")) {
-                    if (debugger::debugger.halted) {
-                        cpuTrace.DrawContents("cpu", Mips::CPU::disas);
-                    } else {
-                        ImGui::Text("Cpu is running...");
-                    }
-                    ImGui::EndTabItem();
-                }
-                if (ImGui::BeginTabItem("Rsp")) {
-                    if (debugger::debugger.halted) {
-                        rspTrace.DrawContents("rsp", Mips::RSP::disas);
-                    } else {
-                        ImGui::Text("Rsp is running...");
-                    }
-                    ImGui::EndTabItem();
-                }
-                ImGui::EndTabBar();
-            }
-            ImGui::End();
-        }
 
         // Rendering
         ImGui::Render();
