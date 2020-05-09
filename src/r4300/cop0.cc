@@ -506,6 +506,9 @@ void eval_ERET(u32 instr) {
         state.cpu.nextPc = state.cp0reg.epc;
         state.cp0reg.sr &= ~STATUS_EXL;
     }
+    // Clearing the exception flag may have unmasked a
+    // pending interrupt.
+    checkInterrupt();
 }
 
 void eval_COP0(u32 instr, bool delaySlot)
