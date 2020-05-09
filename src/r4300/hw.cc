@@ -195,6 +195,19 @@ u32 read_SP_SEMAPHORE_REG() {
 }
 
 /**
+ * @brief Write the AI register AI_LEN_REG.
+ *  Writing the register starts a DMA tranfer from DRAM to DAC.
+ */
+void write_AI_LEN_REG(u32 value) {
+    debugger::info(Debugger::AI, "AI_LEN_REG <- {:08x}", value);
+    state.hwreg.AI_LEN_REG = value & AI_LEN_V2_MASK;
+    if (state.hwreg.AI_CONTROL_REG & AI_CONTROL_DMA_EN) {
+        // state.hwreg.AI_LEN_REG = 0;
+        set_MI_INTR_REG(MI_INTR_AI);
+    }
+}
+
+/**
  * @brief Write the PI register PI_RD_LEN_REG.
  *  Writing the register starts a DMA tranfer from DRAM to cartridge memory.
  */
@@ -1579,27 +1592,26 @@ bool write(uint bytes, u64 addr, u64 value)
     switch (addr) {
         case AI_DRAM_ADDR_REG:
             debugger::info(Debugger::AI, "AI_DRAM_ADDR_REG <- {:08x}", value);
-            state.hwreg.AI_DRAM_ADDR_REG = value;
+            state.hwreg.AI_DRAM_ADDR_REG = value & AI_DRAM_ADDR_MASK;
             return true;
         case AI_LEN_REG:
-            debugger::info(Debugger::AI, "AI_LEN_REG <- {:08x}", value);
-            state.hwreg.AI_LEN_REG = value;
+            write_AI_LEN_REG(value);
             return true;
         case AI_CONTROL_REG:
             debugger::info(Debugger::AI, "AI_CONTROL_REG <- {:08x}", value);
-            state.hwreg.AI_CONTROL_REG = value;
+            state.hwreg.AI_CONTROL_REG = value & AI_CONTROL_DMA_EN;
             return true;
         case AI_STATUS_REG:
             debugger::info(Debugger::AI, "AI_STATUS_REG <- {:08x}", value);
-            state.hwreg.AI_STATUS_REG = value;
+            clear_MI_INTR_REG(MI_INTR_AI);
             return true;
         case AI_DACRATE_REG:
             debugger::info(Debugger::AI, "AI_DACRATE_REG <- {:08x}", value);
-            state.hwreg.AI_DACRATE_REG = value;
+            state.hwreg.AI_DACRATE_REG = value & AI_DACRATE_MASK;
             return true;
         case AI_BITRATE_REG:
             debugger::info(Debugger::AI, "AI_BITRATE_REG <- {:08x}", value);
-            state.hwreg.AI_BITRATE_REG = value;
+            state.hwreg.AI_BITRATE_REG = value & AI_BITRATE_MASK;
             return true;
         default:
             debugger::warn(Debugger::AI,
