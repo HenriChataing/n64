@@ -531,13 +531,11 @@ static void ShowDebuggerWindow(void) {
         if (debugger::debugger.halted) {
             ImGui::Text("Machine halt reason: '%s'\n",
                 debugger::debugger.haltedReason.c_str());
-            if (ImGui::Button("Continue")) {
-                debugger::debugger.resume();
-            }
+            if (ImGui::Button("Reset")) { debugger::reset(); }
             ImGui::SameLine();
-            if (ImGui::Button("Step")) {
-                debugger::debugger.step();
-            }
+            if (ImGui::Button("Continue")) { debugger::resume(); }
+            ImGui::SameLine();
+            if (ImGui::Button("Step")) { debugger::step(); }
         } else {
             if (ImGui::Button("Halt")) {
                 debugger::halt("Interrupted by user");
@@ -624,7 +622,7 @@ void joyKeyCallback(GLFWwindow* window, int key, int scancode, int action, int m
 int startGui()
 {
     // Initialize the machine state.
-    R4300::state.boot();
+    R4300::state.reset();
     // Start interpreter thread.
     debugger::debugger.startInterpreter();
 

@@ -16,6 +16,7 @@
 #include <circular_buffer.h>
 #include <r4300/eval.h>
 #include <r4300/rsp.h>
+#include <r4300/state.h>
 
 
 class Debugger {
@@ -141,8 +142,20 @@ static void error(Debugger::Label label, const char* format, const Args & ... ar
     vlog<Debugger::Verbosity::Error>(label, format, fmt::make_format_args(args...));
 }
 
+static void reset() {
+    R4300::state.reset();
+}
+
 static void halt(std::string reason) {
     debugger.halt(reason);
+}
+
+static void resume() {
+    debugger.resume();
+}
+
+static void step() {
+    debugger.step();
 }
 
 static void undefined(std::string reason) {

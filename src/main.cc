@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
     }
 
     (void)gui;
-    R4300::state.init(path);
+    R4300::state.load(path);
     startGui();
     return 0;
 }

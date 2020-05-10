@@ -16,8 +16,8 @@ public:
     State();
     ~State();
 
-    void init(std::string romFile);
-    void boot();
+    int load(std::string file);
+    void reset();
 
     struct cpureg reg;          /**< CPU registers */
     struct cp0reg cp0reg;       /**< Co-processor 0 registers */
@@ -68,7 +68,5 @@ public:
 extern State state;
 
 }; /* namespace R4300 */
-
-std::ostream &operator<<(std::ostream &os, const R4300::State &state);
 
 #endif /* _R4300_STATE_H_INCLUDED_ */

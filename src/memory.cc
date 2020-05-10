@@ -126,8 +126,6 @@ class RamRegion : public Region
 public:
     RamRegion(u64 address, u64 size, Region *container = NULL);
     RamRegion(u64 address, u64 size, u8 *mem, Region *container = NULL);
-    RamRegion(u64 address, u64 size, u8 *mem, const std::string file,
-              Region *container = NULL);
     virtual ~RamRegion();
 
     virtual bool load(uint bytes, u64 addr, u64 *value);
@@ -157,42 +155,6 @@ RamRegion::RamRegion(u64 address, u64 size, u8 *mem, Region *container)
         _allocated = false;
     }
     memset(block, 0, size);
-}
-
-RamRegion::RamRegion(u64 address, u64 size, u8 *mem, const std::string file,
-                     Region *container)
-    : Region(address, size, container)
-{
-    readonly = true;
-
-    if (mem == NULL) {
-        block = new u8[size];
-        _allocated = true;
-    } else {
-        block = mem;
-        _allocated = false;
-    }
-    memset(block, 0, size);
-
-    FILE *romFile = fopen(file.c_str(), "r");
-    if (romFile == NULL)
-        throw "CannotReadFile";
-
-    /* Obtain file size */
-    fseek(romFile, 0, SEEK_END);
-    size_t romSize = ftell(romFile);
-    rewind(romFile);
-
-    if (romSize > size)
-        throw "LargeFile";
-
-    /* Copy the file into the buffer. */
-    int result = fread(block, 1, romSize, romFile);
-    if (result != (int)romSize)
-        throw "fread error";
-
-    /* The whole file is now loaded in the memory buffer. */
-    fclose(romFile);
 }
 
 RamRegion::~RamRegion()
@@ -287,9 +249,11 @@ void Region::insertRam(u64 addr, u64 size, u8 *mem)
     insert(new RamRegion(addr, size, mem, this));
 }
 
-void Region::insertRom(u64 addr, u64 size, u8 *mem, const std::string file)
+void Region::insertRom(u64 addr, u64 size, u8 *mem)
 {
-    insert(new RamRegion(addr, size, mem, file, this));
+    Region *reg = new RamRegion(addr, size, mem, this);
+    reg->readonly = true;
+    insert(reg);
 }
 
 void Region::insertIOmem(u64 addr, u64 size,
@@ -299,39 +263,27 @@ void Region::insertIOmem(u64 addr, u64 size,
     insert(new IOmemRegion(addr, size, read, write, this));
 }
 
-AddressSpace::AddressSpace() : root(NULL)
-{
+AddressSpace::AddressSpace(u64 address, u64 size) : root(address, size) {
 }
 
-AddressSpace::~AddressSpace()
-{
-    delete root;
+AddressSpace::~AddressSpace() {
 }
 
-bool AddressSpace::load(uint bytes, u64 addr, u64 *value)
-{
-    if (!root)
-        throw "EmptyAddressSpace";
-    return root->load(bytes, addr, value);
+bool AddressSpace::load(uint bytes, u64 addr, u64 *value) {
+    return root.load(bytes, addr, value);
 }
 
-bool AddressSpace::store(uint bytes, u64 addr, u64 value)
-{
-    if (!root)
-        throw "EmptyAddressSpace";
-    return root->store(bytes, addr, value);
+bool AddressSpace::store(uint bytes, u64 addr, u64 value) {
+    return root.store(bytes, addr, value);
 }
 
 bool AddressSpace::copy(u64 dst, u64 src, uint bytes)
 {
-    if (!root)
-        throw "EmptyAddressSpace";
-
     for (uint i = 0; i < bytes; i++) {
         u64 val;
-        if (!root->load(1, src + i, &val))
+        if (!root.load(1, src + i, &val))
             return false;
-        if (!root->store(1, dst + i, val))
+        if (!root.store(1, dst + i, val))
             return false;
     }
     return true;

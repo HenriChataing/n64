@@ -12,32 +12,69 @@ namespace R4300 {
 State state;
 };
 
-State::State() {}
-State::~State() {}
-
-void State::init(std::string romFile) {
+State::State() : physmem(0, 0x100000000llu) {
     // Create the physical memory address space for this machine
     // importing the rom bytes for the select file.
-    physmem.root = new Memory::Region(0, 0x100000000llu);
-    physmem.root->insertRam(  0x00000000llu, 0x400000, dram);   /* RDRAM ranges 0, 1 */
-    physmem.root->insertIOmem(0x03f00000llu, 0x100000, RdRam::read, RdRam::write); /* RDRAM Registers */
-    physmem.root->insertRam(  0x04000000llu, 0x1000, dmem);     /* SP DMEM */
-    physmem.root->insertRam(  0x04001000llu, 0x1000, imem);     /* SP IMEM */
-    physmem.root->insertIOmem(0x04040000llu, 0x80000, SP::read, SP::write); /* SP Registers */
-    physmem.root->insertIOmem(0x04100000llu, 0x100000, DPCommand::read, DPCommand::write); /* DP Command Registers */
-    physmem.root->insertIOmem(0x04200000llu, 0x100000, DPSpan::read, DPSpan::write); /* DP Span Registers */
-    physmem.root->insertIOmem(0x04300000llu, 0x100000, MI::read, MI::write); /* Mips Interface */
-    physmem.root->insertIOmem(0x04400000llu, 0x100000, VI::read, VI::write); /* Video Interface */
-    physmem.root->insertIOmem(0x04500000llu, 0x100000, AI::read, AI::write); /* Audio Interface */
-    physmem.root->insertIOmem(0x04600000llu, 0x100000, PI::read, PI::write); /* Peripheral Interface */
-    physmem.root->insertIOmem(0x04700000llu, 0x100000, RI::read, RI::write); /* RDRAM Interface */
-    physmem.root->insertIOmem(0x04800000llu, 0x100000, SI::read, SI::write); /* Serial Interface */
-    physmem.root->insertIOmem(0x05000000llu, 0x1000000, Cart_2_1::read, Cart_2_1::write);
-    physmem.root->insertRom(  0x10000000llu, 0xfc00000, rom, romFile);
-    physmem.root->insertIOmem(0x1fc00000llu, 0x100000, PIF::read, PIF::write);
+    physmem.root.insertRam(  0x00000000llu, 0x400000, dram);   /* RDRAM ranges 0, 1 */
+    physmem.root.insertIOmem(0x03f00000llu, 0x100000, RdRam::read, RdRam::write); /* RDRAM Registers */
+    physmem.root.insertRam(  0x04000000llu, 0x1000, dmem);     /* SP DMEM */
+    physmem.root.insertRam(  0x04001000llu, 0x1000, imem);     /* SP IMEM */
+    physmem.root.insertIOmem(0x04040000llu, 0x80000, SP::read, SP::write); /* SP Registers */
+    physmem.root.insertIOmem(0x04100000llu, 0x100000, DPCommand::read, DPCommand::write); /* DP Command Registers */
+    physmem.root.insertIOmem(0x04200000llu, 0x100000, DPSpan::read, DPSpan::write); /* DP Span Registers */
+    physmem.root.insertIOmem(0x04300000llu, 0x100000, MI::read, MI::write); /* Mips Interface */
+    physmem.root.insertIOmem(0x04400000llu, 0x100000, VI::read, VI::write); /* Video Interface */
+    physmem.root.insertIOmem(0x04500000llu, 0x100000, AI::read, AI::write); /* Audio Interface */
+    physmem.root.insertIOmem(0x04600000llu, 0x100000, PI::read, PI::write); /* Peripheral Interface */
+    physmem.root.insertIOmem(0x04700000llu, 0x100000, RI::read, RI::write); /* RDRAM Interface */
+    physmem.root.insertIOmem(0x04800000llu, 0x100000, SI::read, SI::write); /* Serial Interface */
+    physmem.root.insertIOmem(0x05000000llu, 0x1000000, Cart_2_1::read, Cart_2_1::write);
+    physmem.root.insertRom(  0x10000000llu, 0xfc00000, rom);
+    physmem.root.insertIOmem(0x1fc00000llu, 0x100000, PIF::read, PIF::write);
 }
 
-void State::boot() {
+State::~State() {
+}
+
+int State::load(std::string file) {
+    FILE *fd = fopen(file.c_str(), "r");
+    if (fd == NULL)
+        return -1;
+
+    // Obtain file size
+    fseek(fd, 0, SEEK_END);
+    size_t size = ftell(fd);
+    rewind(fd);
+
+    if (size > sizeof(rom)) {
+        fclose(fd);
+        return -1;
+    }
+
+    // Clear the ROM memory and copy the file.
+    memset(rom, 0, sizeof(rom));
+    int result = fread(rom, 1, size, fd);
+    fclose(fd);
+
+    return (result != (int)size) ? -1 : 0;
+}
+
+void State::reset() {
+    // Clear the machine state.
+    memset(dram, 0, sizeof(dram));
+    memset(dmem, 0, sizeof(dmem));
+    memset(imem, 0, sizeof(imem));
+    memset(tmem, 0, sizeof(tmem));
+    memset(pifram, 0, sizeof(pifram));
+
+    reg = (R4300::cpureg){};
+    cp0reg = (R4300::cp0reg){};
+    cp1reg = (R4300::cp1reg){};
+    rspreg = (R4300::rspreg){};
+    hwreg = (R4300::hwreg){};
+    for (unsigned nr = 0; nr < tlbEntryCount; nr++)
+        tlb[nr] = (R4300::tlbEntry){};
+
     // Reproduce the pif ROM boot sequence.
     // Referenced from http://www.emulation64.com/ultra64/bootn64.html
     // @todo test with actual pif ROM and compare the operations
@@ -58,7 +95,7 @@ void State::boot() {
     physmem.copy(0x04000000llu, 0x10000000llu, 0x1000);
     reg.pc = 0xffffffffa4000040llu;
 
-    // Set reset values for HW registers.
+    // Set HW config registers.
     hwreg.RDRAM_DEVICE_TYPE_REG = RDRAM_DEVICE_TYPE_18M;
     hwreg.SP_STATUS_REG = SP_STATUS_HALT;
     hwreg.MI_VERSION_REG = 0x01010101u;
@@ -75,7 +112,7 @@ void State::boot() {
 
     // Setup initial action.
     cpu.nextAction = Action::Jump;
-    cpu.nextPc = 0xffffffffa4000040llu;
+    cpu.nextPc = reg.pc;
     cpu.nextEvent = -1lu;
     rsp.nextAction = Action::Jump;
     rsp.nextPc = 0x0;
@@ -120,12 +157,4 @@ void State::handleEvent(void) {
     }
     cpu.nextEvent =
         (cpu.eventQueue != NULL) ? cpu.eventQueue->timeout : cycles - 1;
-}
-
-std::ostream &operator<<(std::ostream &os, const State &state)
-{
-    os << "pc  : $" << std::hex << state.reg.pc << std::endl;
-    for (uint r = 0; r < 32; r++)
-        os << "gpr[" << r << "]" << "  : $" << state.reg.gpr[r] << std::endl;
-    return os;
 }

@@ -36,8 +36,8 @@ public:
 
     void print();
     void insert(Region *region);
-    void insertRam(u64 addr, u64 size, u8 *mem = NULL);
-    void insertRom(u64 addr, u64 size, u8 *mem, const std::string file);
+    void insertRam(u64 addr, u64 size, u8 *mem);
+    void insertRom(u64 addr, u64 size, u8 *mem);
     void insertIOmem(u64 addr, u64 size,
                      bool (*read)(uint bytes, u64 addr, u64 *value),
                      bool (*write)(uint bytes, u64 addr, u64 value));
@@ -50,17 +50,14 @@ protected:
 class AddressSpace
 {
 public:
-    AddressSpace();
+    AddressSpace(u64 address, u64 size);
     ~AddressSpace();
 
-    Region *root;
+    Region root;
 
     bool load(uint bytes, u64 addr, u64 *value);
     bool store(uint bytes, u64 addr, u64 value);
     bool copy(u64 dst, u64 src, uint bytes);
-
-protected:
-    Region *lookup(u64 addr);
 };
 
 };
