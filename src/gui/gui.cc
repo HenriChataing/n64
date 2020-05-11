@@ -389,8 +389,6 @@ static void ShowRIRegisters(void) {
         R4300::state.hwreg.RI_MODE_REG);
     ImGui::Text("RI_CONFIG_REG          %08" PRIx32 "\n",
         R4300::state.hwreg.RI_CONFIG_REG);
-    ImGui::Text("RI_CURRENT_LOAD_REG    %08" PRIx32 "\n",
-        R4300::state.hwreg.RI_CURRENT_LOAD_REG);
     ImGui::Text("RI_SELECT_REG          %08" PRIx32 "\n",
         R4300::state.hwreg.RI_SELECT_REG);
     ImGui::Text("RI_REFRESH_REG         %08" PRIx32 "\n",
@@ -399,8 +397,6 @@ static void ShowRIRegisters(void) {
         R4300::state.hwreg.RI_LATENCY_REG);
     ImGui::Text("RI_RERROR_REG          %08" PRIx32 "\n",
         R4300::state.hwreg.RI_RERROR_REG);
-    ImGui::Text("RI_WERROR_REG          %08" PRIx32 "\n",
-        R4300::state.hwreg.RI_WERROR_REG);
 }
 
 static void ShowSIRegisters(void) {

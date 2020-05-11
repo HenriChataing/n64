@@ -1872,9 +1872,7 @@ bool read(uint bytes, u64 addr, u64 *value)
             *value = state.hwreg.RI_CONFIG_REG;
             return true;
         case RI_CURRENT_LOAD_REG:
-            debugger::info(Debugger::RI, "RI_CURRENT_LOAD_REG -> {:08x}",
-                state.hwreg.RI_CURRENT_LOAD_REG);
-            *value = state.hwreg.RI_CURRENT_LOAD_REG;
+            debugger::info(Debugger::RI, "RI_CURRENT_LOAD_REG -> NA");
             return true;
         case RI_SELECT_REG:
             debugger::info(Debugger::RI, "RI_SELECT_REG -> {:08x}",
@@ -1897,9 +1895,7 @@ bool read(uint bytes, u64 addr, u64 *value)
             *value = state.hwreg.RI_RERROR_REG;
             return true;
         case RI_WERROR_REG:
-            debugger::info(Debugger::RI, "RI_WERROR_REG -> {:08x}",
-                state.hwreg.RI_WERROR_REG);
-            *value = state.hwreg.RI_WERROR_REG;
+            debugger::info(Debugger::RI, "RI_WERROR_REG -> NA");
             return true;
         default:
             debugger::warn(Debugger::RI,
@@ -1927,7 +1923,7 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
         case RI_CURRENT_LOAD_REG:
             debugger::info(Debugger::RI, "RI_CURRENT_LOAD_REG <- {:08x}", value);
-            state.hwreg.RI_CURRENT_LOAD_REG = value;
+            // TODO: any write updates the control register
             return true;
         case RI_SELECT_REG:
             debugger::info(Debugger::RI, "RI_SELECT_REG <- {:08x}", value);
@@ -1943,11 +1939,10 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
         case RI_RERROR_REG:
             debugger::info(Debugger::RI, "RI_RERROR_REG <- {:08x}", value);
-            state.hwreg.RI_RERROR_REG = value;
             return true;
         case RI_WERROR_REG:
             debugger::info(Debugger::RI, "RI_WERROR_REG <- {:08x}", value);
-            state.hwreg.RI_WERROR_REG = value;
+            state.hwreg.RI_RERROR_REG = 0;
             return true;
         default:
             debugger::warn(Debugger::RI,
