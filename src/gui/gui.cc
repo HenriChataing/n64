@@ -228,34 +228,90 @@ static void ShowMIRegisters(void) {
 }
 
 static void ShowVIRegisters(void) {
-    ImGui::Text("VI_CONTROL_REG         %08" PRIx32 "\n",
-        R4300::state.hwreg.VI_CONTROL_REG);
+    if (ImGui::TreeNode(
+            "VI_CONTROL_REG", "VI_CONTROL_REG         %08" PRIx32 "\n",
+            R4300::state.hwreg.VI_CONTROL_REG)) {
+        bool serrate = (R4300::state.hwreg.VI_CONTROL_REG & VI_CONTROL_SERRATE) != 0;
+        u32 color_depth =
+            (R4300::state.hwreg.VI_CONTROL_REG >> VI_CONTROL_COLOR_DEPTH_SHIFT) &
+            VI_CONTROL_COLOR_DEPTH_MASK;
+        ImGui::Text("serrate: %s", serrate ? "on" : "off");
+        ImGui::Text("color depth: %s",
+            color_depth == VI_CONTROL_COLOR_DEPTH_BLANK ? "blank" :
+            color_depth == VI_CONTROL_COLOR_DEPTH_16BIT ? "16bit" :
+            color_depth == VI_CONTROL_COLOR_DEPTH_32BIT ? "32bit" : "invalid");
+        ImGui::TreePop();
+    }
+
+    ImGui::SetCursorPosX(ImGui::GetTreeNodeToLabelSpacing());
     ImGui::Text("VI_DRAM_ADDR_REG       %08" PRIx32 "\n",
         R4300::state.hwreg.VI_DRAM_ADDR_REG);
+    ImGui::SetCursorPosX(ImGui::GetTreeNodeToLabelSpacing());
     ImGui::Text("VI_WIDTH_REG           %08" PRIx32 "\n",
         R4300::state.hwreg.VI_WIDTH_REG);
+    ImGui::SetCursorPosX(ImGui::GetTreeNodeToLabelSpacing());
     ImGui::Text("VI_INTR_REG            %08" PRIx32 "\n",
         R4300::state.hwreg.VI_INTR_REG);
+    ImGui::SetCursorPosX(ImGui::GetTreeNodeToLabelSpacing());
     ImGui::Text("VI_CURRENT_REG         %08" PRIx32 "\n",
         R4300::state.hwreg.VI_CURRENT_REG);
+    ImGui::SetCursorPosX(ImGui::GetTreeNodeToLabelSpacing());
     ImGui::Text("VI_BURST_REG           %08" PRIx32 "\n",
         R4300::state.hwreg.VI_BURST_REG);
-    ImGui::Text("VI_V_SYNC_REG          %08" PRIx32 "\n",
-        R4300::state.hwreg.VI_V_SYNC_REG);
-    ImGui::Text("VI_H_SYNC_REG          %08" PRIx32 "\n",
-        R4300::state.hwreg.VI_H_SYNC_REG);
+    if (ImGui::TreeNode(
+            "VI_V_SYNC_REG", "VI_V_SYNC_REG          %08" PRIx32 "\n",
+            R4300::state.hwreg.VI_V_SYNC_REG)) {
+        ImGui::Text("lines per frame:  %" PRIu32 "\n",
+            R4300::state.hwreg.VI_V_SYNC_REG);
+        ImGui::TreePop();
+    }
+    if (ImGui::TreeNode(
+            "VI_H_SYNC_REG", "VI_H_SYNC_REG          %08" PRIx32 "\n",
+            R4300::state.hwreg.VI_H_SYNC_REG)) {
+        ImGui::Text("line duration:    %f\n",
+            (float)(R4300::state.hwreg.VI_H_SYNC_REG & 0xfffu) / 4.);
+        ImGui::TreePop();
+    }
+    ImGui::SetCursorPosX(ImGui::GetTreeNodeToLabelSpacing());
     ImGui::Text("VI_LEAP_REG            %08" PRIx32 "\n",
         R4300::state.hwreg.VI_LEAP_REG);
-    ImGui::Text("VI_H_START_REG         %08" PRIx32 "\n",
-        R4300::state.hwreg.VI_H_START_REG);
-    ImGui::Text("VI_V_START_REG         %08" PRIx32 "\n",
-        R4300::state.hwreg.VI_V_START_REG);
+    if (ImGui::TreeNode(
+            "VI_H_START_REG", "VI_H_START_REG         %08" PRIx32 "\n",
+            R4300::state.hwreg.VI_H_START_REG)) {
+        ImGui::Text("horizontal start: %" PRIu32 "\n",
+            (R4300::state.hwreg.VI_H_START_REG >> 16) & 0x3ffu);
+        ImGui::Text("horizontal end:   %" PRIu32 "\n",
+            R4300::state.hwreg.VI_H_START_REG & 0x3ffu);
+        ImGui::TreePop();
+    }
+    if (ImGui::TreeNode(
+            "VI_V_START_REG", "VI_V_START_REG         %08" PRIx32 "\n",
+            R4300::state.hwreg.VI_V_START_REG)) {
+        ImGui::Text("vertical start:   %" PRIu32 "\n",
+            (R4300::state.hwreg.VI_V_START_REG >> 16) & 0x3ffu);
+        ImGui::Text("vertical end:     %" PRIu32 "\n",
+            R4300::state.hwreg.VI_V_START_REG & 0x3ffu);
+        ImGui::TreePop();
+    }
+    ImGui::SetCursorPosX(ImGui::GetTreeNodeToLabelSpacing());
     ImGui::Text("VI_V_BURST_REG         %08" PRIx32 "\n",
         R4300::state.hwreg.VI_V_BURST_REG);
-    ImGui::Text("VI_X_SCALE_REG         %08" PRIx32 "\n",
-        R4300::state.hwreg.VI_X_SCALE_REG);
-    ImGui::Text("VI_Y_SCALE_REG         %08" PRIx32 "\n",
-        R4300::state.hwreg.VI_Y_SCALE_REG);
+    if (ImGui::TreeNode(
+            "VI_X_SCALE_REG", "VI_X_SCALE_REG         %08" PRIx32 "\n",
+            R4300::state.hwreg.VI_X_SCALE_REG)) {
+        ImGui::Text("horizontal scale: %f\n",
+            (float)(R4300::state.hwreg.VI_X_SCALE_REG & 0xfffu) / 1024.);
+        ImGui::TreePop();
+    }
+    if (ImGui::TreeNode(
+            "VI_Y_SCALE_REG", "VI_Y_SCALE_REG         %08" PRIx32 "\n",
+            R4300::state.hwreg.VI_Y_SCALE_REG)) {
+        ImGui::Text("vertical scale:   %f\n",
+            (float)(R4300::state.hwreg.VI_Y_SCALE_REG & 0xfffu) / 1024.);
+        ImGui::TreePop();
+    }
+
+    ImGui::Separator();
     ImGui::Text("vi_NextIntr            %lu\n",
         R4300::state.hwreg.vi_NextIntr);
     ImGui::Text("vi_IntrInterval        %lu\n",
@@ -265,6 +321,7 @@ static void ShowVIRegisters(void) {
     ImGui::Text("vi_CyclesPerLine       %lu\n",
         R4300::state.hwreg.vi_CyclesPerLine);
 
+    ImGui::Separator();
     ImGui::Text("lines per frame:  %" PRIu32 "\n",
         R4300::state.hwreg.VI_V_SYNC_REG);
     ImGui::Text("line duration:    %f\n",
