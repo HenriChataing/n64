@@ -218,8 +218,11 @@ void takeException(Exception exn, u64 vAddr,
             state.cp0reg.badvaddr = vAddr;
             state.cp0reg.entryhi &= ~0xffffffe000llu;
             state.cp0reg.entryhi |= (vAddr & 0xffffffe000llu);
-            // debugger::halt("TLBInvalid / TLBRefill");
-            // TODO : Context, XContext, EntryHi
+            state.cp0reg.context &= (CONTEXT_PTEBASE_MASK << CONTEXT_PTEBASE_SHIFT);
+            state.cp0reg.context |=
+                ((vAddr >> 13) & CONTEXT_BADVPN2_MASK) << CONTEXT_BADVPN2_SHIFT;
+            debugger::halt("TLBInvalid / TLBRefill");
+            // TODO : XContext
             break;
         // TLB Modified occurs when a store operation virtual address
         // reference to memory matches a TLB entry which is marked

@@ -56,6 +56,11 @@ struct cp0reg {
 
 #define INDEX_P                 (UINT32_C(0x80000000))
 
+#define CONTEXT_PTEBASE_SHIFT   23
+#define CONTEXT_PTEBASE_MASK    (UINT64_C(0x1ffffffffff))
+#define CONTEXT_BADVPN2_SHIFT   4
+#define CONTEXT_BADVPN2_MASK    (UINT64_C(0x7ffff))
+
 #define STATUS_CU3              (UINT32_C(1) << 31)
 #define STATUS_CU2              (UINT32_C(1) << 30)
 #define STATUS_CU1              (UINT32_C(1) << 29)
