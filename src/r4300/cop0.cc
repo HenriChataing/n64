@@ -315,13 +315,12 @@ void eval_MTC0(u32 instr) {
         case Index:     state.cp0reg.index = val & UINT32_C(0x3f); break;
         case Random:
             state.cp0reg.random = val;
-            debugger::halt("MFC0 random");
+            debugger::halt("MTC0 random");
             break;
         case EntryLo0:  state.cp0reg.entrylo0 = sign_extend<u64, u32>(val); break;
         case EntryLo1:  state.cp0reg.entrylo1 = sign_extend<u64, u32>(val); break;
         case Context:
             state.cp0reg.context = sign_extend<u64, u32>(val);
-            debugger::halt("MFC0 context");
             break;
         case PageMask:  state.cp0reg.pagemask = val & UINT32_C(0x01ffe000); break;
         case Wired:
