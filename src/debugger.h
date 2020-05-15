@@ -46,7 +46,7 @@ public:
     void undefined(std::string cause) {}
 
     /** Create a new breakpoint.
-     * \p addr is the physical address of RAM memory location to set the
+     * \p addr is the physical address of the RAM memory location to set the
      * breakpoint to. */
     void setBreakpoint(u64 addr);
     void unsetBreakpoint(u64 addr);

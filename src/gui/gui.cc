@@ -490,21 +490,26 @@ static void ShowDisassembler(bool *show_disassembler) {
             dramDisassembler.DrawContents(
                 Mips::CPU::disas,
                 R4300::state.dram, sizeof(R4300::state.dram),
-                R4300::state.reg.pc);
+                R4300::state.reg.pc,
+                0x0,
+                true);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("IMEM")) {
             imemDisassembler.DrawContents(
                 Mips::RSP::disas,
                 R4300::state.imem, sizeof(R4300::state.imem),
-                R4300::state.rspreg.pc);
+                R4300::state.rspreg.pc,
+                0x04001000lu);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("ROM")) {
             romDisassembler.DrawContents(
                 Mips::CPU::disas,
                 R4300::state.rom, 0x1000,
-                R4300::state.reg.pc);
+                R4300::state.reg.pc,
+                0x10000000lu,
+                true);
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();
@@ -554,6 +559,7 @@ static void ShowDebuggerWindow(void) {
     if (ImGui::Begin("Debugger", NULL, ImGuiWindowFlags_MenuBar)) {
         if (ImGui::BeginMenuBar()) {
             if (ImGui::BeginMenu("File")) {
+                if (ImGui::MenuItem("Load")) {}
                 if (ImGui::BeginMenu("Export")) {
                     if (ImGui::MenuItem("cpu trace")) {}
                     if (ImGui::MenuItem("rsp trace")) {}

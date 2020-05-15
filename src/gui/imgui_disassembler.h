@@ -53,6 +53,7 @@
 #include <stdint.h>     // uint8_t, etc.
 
 #include <mips/asm.h>
+#include <debugger.h>
 
 #ifdef _MSC_VER
 #define _PRISizeT   "I"
@@ -84,6 +85,7 @@ struct Disassembler
     char            AddrInputBuf[32];
     size_t          GotoAddr;
     size_t          HighlightMin, HighlightMax;
+    u64             BreakpointAddr;
 
     Disassembler(unsigned addr_size) : AddrSize(addr_size)
     {
@@ -102,6 +104,7 @@ struct Disassembler
         memset(AddrInputBuf, 0, sizeof(AddrInputBuf));
         GotoAddr = (size_t)-1;
         HighlightMin = HighlightMax = (size_t)-1;
+        BreakpointAddr = 0;
     }
 
     void GotoAddrAndHighlight(size_t addr_min, size_t addr_max)
@@ -136,19 +139,10 @@ struct Disassembler
         s.HexCellWidth = (float)(int)(s.GlyphWidth * 2.5f);             // "FF " we include trailing space in the width to easily catch clicks everywhere
         s.PosHexStart = (s.AddrDigitsCount + 2) * s.GlyphWidth;
         s.PosHexEnd = s.PosHexStart + (s.HexCellWidth * Cols);
-        s.PosInstrStart = s.PosHexEnd + s.GlyphWidth * 2;
+        s.PosInstrStart = s.PosHexEnd + s.GlyphWidth * 3;
         s.PosInstrEnd = s.PosInstrStart + Cols * s.GlyphWidth;
         s.WindowWidth = s.PosInstrEnd + style.ScrollbarSize +
                         style.WindowPadding.x * 2 + s.GlyphWidth;
-    }
-
-    bool IsLineMouseClicked(int button)
-    {
-        ImVec2 pos = ImGui::GetCursorScreenPos();
-        ImVec2 mouse_pos = ImGui::GetMousePos();
-        return ImGui::IsMouseClicked(button) &&
-               pos.y <= mouse_pos.y &&
-               mouse_pos.y <= pos.y + ImGui::GetTextLineHeight();
     }
 
     // Memory Editor contents only
@@ -157,7 +151,8 @@ struct Disassembler
         void* mem_data_void_ptr,
         size_t mem_size,
         uint64_t program_counter,
-        size_t base_display_addr = 0x0000
+        size_t base_display_addr = 0x0000,
+        bool enable_breakpoints = false
         )
     {
         u8* mem_data = (u8*)mem_data_void_ptr;
@@ -205,13 +200,10 @@ struct Disassembler
 
         for (int line_i = clipper.DisplayStart; line_i < clipper.DisplayEnd; line_i++) // display only visible lines
         {
+            ImGui::BeginGroup();
+
             // ImVec2 pos = ImGui::GetCursorScreenPos();
             size_t addr = (size_t)(line_i * Cols);
-
-            // New highlight if line clicked.
-            if (IsLineMouseClicked(0)) {
-                next_highlight_min = next_highlight_max = addr;
-            }
 
             // Draw hightlight if corresponds to current pc or current highlight.
             size_t addr_mask = (1u << AddrSize) - 1u;
@@ -244,13 +236,42 @@ struct Disassembler
                 else
                     ImGui::Text(format_byte_space, b);
             }
+            addr = line_i * Cols;
+
+            // Draw breakpoint flag.
+            if (debugger::debugger.checkBreakpoint(base_display_addr + addr) &&
+                enable_breakpoints) {
+                ImGui::SameLine();
+                ImGui::Text(" *");
+            }
 
             // Draw disassembled instruction
             ImGui::SameLine(s.PosInstrStart);
-            addr = line_i * Cols;
             u32 instr = __builtin_bswap32(*(u32 *)&mem_data[addr]);
             std::string instr_str = disas(base_display_addr + addr, instr);
             ImGui::Text("%s", instr_str.c_str());
+
+            ImGui::EndGroup();
+
+            if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) {
+                next_highlight_min = next_highlight_max = addr;
+            }
+            if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(1) &&
+                enable_breakpoints) {
+                BreakpointAddr = base_display_addr + addr;
+                ImGui::OpenPopup("breakpoint_popup");
+            }
+        }
+        if (ImGui::BeginPopup("breakpoint_popup")) {
+            bool has_breakpoint = debugger::debugger.checkBreakpoint(BreakpointAddr);
+            if (!has_breakpoint && ImGui::MenuItem("Add breakpoint")) {
+                debugger::debugger.setBreakpoint(BreakpointAddr);
+                ImGui::CloseCurrentPopup();
+            } else if (has_breakpoint && ImGui::MenuItem("Remove breakpoint")) {
+                debugger::debugger.unsetBreakpoint(BreakpointAddr);
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
         }
 
         clipper.End();
