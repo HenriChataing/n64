@@ -1599,6 +1599,7 @@ void syncTile(u64 command, u64 const *params) {
 }
 
 void syncFull(u64 command, u64 const *params) {
+    set_MI_INTR_REG(MI_INTR_DP);
 }
 
 void setKeyGB(u64 command, u64 const *params) {
