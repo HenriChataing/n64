@@ -1285,22 +1285,19 @@ void updateCurrentFramebuffer(void) {
     framebufferWidth = state.hwreg.VI_WIDTH_REG;
 
     unsigned framebufferSize = framebufferWidth * framebufferHeight * (pixelSize / 8);
-    u64 addr = sign_extend<u64, u32>(state.hwreg.VI_DRAM_ADDR_REG);
-    u64 offset = 0;
-    Exception exn;
+    u64 addr = state.hwreg.VI_DRAM_ADDR_REG;
 
-    exn = translateAddress(addr, &offset, false);
-    if (exn == Exception::None &&
-        offset + framebufferSize <= sizeof(state.dram)) {
-        start = &state.dram[offset];
-    } else {
+    if (addr + framebufferSize > sizeof(state.dram)) {
         debugger::warn(Debugger::VI,
-            "invalid DRAM_ADDR config: {:08x}({:08x})+{:08x}",
-            addr, offset, framebufferSize);
+            "invalid DRAM_ADDR config: {:06x}+{:06x}",
+            addr, framebufferSize);
         valid = false;
+    } else {
+        start = &state.dram[addr];
     }
 
-    setVideoImage(framebufferWidth, framebufferHeight, pixelSize, valid ? start : NULL);
+    setVideoImage(framebufferWidth, framebufferHeight, pixelSize,
+        valid ? start : NULL);
 }
 
 /** @brief Write the value of the VI_INTR_REG register. */
@@ -1444,7 +1441,7 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
         case VI_DRAM_ADDR_REG:
             debugger::info(Debugger::VI, "VI_DRAM_ADDR_REG <- {:08x}", value);
-            state.hwreg.VI_DRAM_ADDR_REG = value;
+            state.hwreg.VI_DRAM_ADDR_REG = value & 0xfffffflu;
             updateCurrentFramebuffer();
             return true;
         case VI_WIDTH_REG:
