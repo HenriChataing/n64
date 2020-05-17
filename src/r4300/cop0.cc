@@ -365,6 +365,11 @@ void eval_MTC0(u32 instr) {
             state.cp0reg.cause =
                 (state.cp0reg.cause & ~CAUSE_IP_MASK) |
                 (val                &  CAUSE_IP_MASK);
+            // Interrupts bit 0 and 1 can be used to raise
+            // software interrupts.
+            // TODO mask unimplemented bits (only NMI, IRQ, SWI0, SWI1
+            // are actually writable).
+            checkInterrupt();
             break;
         case EPC:       state.cp0reg.epc = sign_extend<u64, u32>(val); break;
         case PrId:
