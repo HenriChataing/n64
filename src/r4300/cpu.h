@@ -8,7 +8,11 @@
 
 namespace R4300 {
 
-const static uint tlbEntryCount = 48;
+/**
+ * The TLB entry count is specified as 48 in the MIPS R4000 reference,
+ * downsized to 32 by MIPS R4300.
+ */
+const static uint tlbEntryCount = 32;
 
 struct cpureg {
     u64 pc;             /**< Program counter */
