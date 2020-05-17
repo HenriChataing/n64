@@ -40,7 +40,7 @@ struct rspreg {
 
 namespace RSP {
 /** @brief Move the RSP one step, if not halted. */
-bool step();
+void step();
 }; /* namespace RSP */
 
 };

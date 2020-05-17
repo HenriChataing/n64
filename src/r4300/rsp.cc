@@ -17,6 +17,17 @@
 namespace R4300 {
 namespace RSP {
 
+const char *Cop0RegisterNames[32] = {
+    "dma_cache",    "dma_dram",     "dma_rd_len",   "dma_wr_len",
+    "sp_status",    "dma_full",     "dma_busy",     "sp_reserved",
+    "cmd_start",    "cmd_end",      "cmd_current",  "cmd_status",
+    "cmd_clock",    "cmd_busy",     "cmd_pipe_busy","cmd_tmem_busy",
+    "$16",          "$17",          "$18",          "$19",
+    "$20",          "$21",          "$22",          "$23",
+    "$24",          "$25",          "$26",          "$27",
+    "$28",          "$29",          "$30",          "$31",
+};
+
 /**
  * Check whether a virtual memory address is correctly aligned for a memory
  * access. The RSP does not implement exceptions but the alignment is checked
@@ -42,42 +53,16 @@ static inline bool checkAddressAlignment(u64 addr, u64 bytes) {
  * @brief Preprocessor template for I-type instructions.
  *
  * The registers and immediate value are automatically extracted from the
- * instruction and added as rs, rt, imm in a new scope. The immediate value
- * is sign extended into a 64 bit unsigned integer.
+ * instruction and added as rs, rt, imm in a new scope.
  *
- * @param opcode            Instruction opcode
  * @param instr             Original instruction
  * @param extend            Extension method (sign or zero extend)
- * @param ...               Instruction implementation
  */
-#define IType(opcode, instr, extend, ...) \
-    case opcode: { \
-        u32 rs = Mips::getRs(instr); \
-        u32 rt = Mips::getRt(instr); \
-        u64 imm = extend<u64, u16>(Mips::getImmediate(instr)); \
-        (void)rs; (void)rt; (void)imm; \
-        __VA_ARGS__; \
-        break; \
-    }
-
-/**
- * @brief Preprocessor template for J-type instructions.
- *
- * The target is automatically extracted from the instruction and added as
- * tg in a new scope. The target is sign extended into a 64 bit unsigned
- * integer.
- *
- * @param opcode            Instruction opcode
- * @param instr             Original instruction
- * @param ...               Instruction implementation
- */
-#define JType(opcode, instr, ...) \
-    case opcode: { \
-        u64 tg = Mips::getTarget(instr); \
-        (void)tg; \
-        __VA_ARGS__; \
-        break; \
-    }
+#define IType(instr, extend) \
+    u32 rs = Mips::getRs(instr); \
+    u32 rt = Mips::getRt(instr); \
+    u64 imm = extend<u64, u16>(Mips::getImmediate(instr)); \
+    (void)rs; (void)rt; (void)imm;
 
 /**
  * @brief Preprocessor template for R-type instructions.
@@ -85,120 +70,17 @@ static inline bool checkAddressAlignment(u64 addr, u64 bytes) {
  * The registers are automatically extracted from the instruction and added
  * as rd, rs, rt, shamnt in a new scope.
  *
- * @param opcode            Instruction opcode
  * @param instr             Original instruction
- * @param ...               Instruction implementation
  */
-#define RType(opcode, instr, ...) \
-    case opcode: { \
-        u32 rd = Mips::getRd(instr); \
-        u32 rs = Mips::getRs(instr); \
-        u32 rt = Mips::getRt(instr); \
-        u32 shamnt = Mips::getShamnt(instr); \
-        (void)rd; (void)rs; (void)rt; (void)shamnt; \
-        __VA_ARGS__; \
-        break; \
-    }
+#define RType(instr) \
+    u32 rd = Mips::getRd(instr); \
+    u32 rs = Mips::getRs(instr); \
+    u32 rt = Mips::getRt(instr); \
+    u32 shamnt = Mips::getShamnt(instr); \
+    (void)rd; (void)rs; (void)rt; (void)shamnt;
 
-/**
- * @brief Preprocessor template for branching instructions.
- *
- * The macro generates the code for the "normal" instructions.
- * "branch likely" instructions are not implemented in the RSP processor.
- *
- * The registers and immediate value are automatically extracted from the
- * instruction and added as rs, rt, imm in a new scope. The immediate value
- * is sign extended into a 64 bit unsigned integer.
- *
- * @param opcode            Instruction opcode
- * @param instr             Original instruction
- * @param ...               Test condition
- */
-#define BType(opcode, instr, ...) \
-    IType(opcode, instr, sign_extend, { \
-        if (__VA_ARGS__) { \
-            state.rsp.nextAction = State::Action::Delay; \
-            state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2); \
-        } \
-    })
-
-/** @brief Write a COP0 register value. */
-static u32 readCop0Register(u32 r) {
-    switch (r) {
-        case 0: return state.hwreg.SP_MEM_ADDR_REG;
-        case 1: return state.hwreg.SP_DRAM_ADDR_REG;
-        case 2: return state.hwreg.SP_RD_LEN_REG;
-        case 3: return state.hwreg.SP_WR_LEN_REG;
-        case 4: return state.hwreg.SP_STATUS_REG;
-        case 5: return (state.hwreg.SP_STATUS_REG & SP_STATUS_DMA_FULL) != 0;
-        case 6: return (state.hwreg.SP_STATUS_REG & SP_STATUS_DMA_BUSY) != 0;
-        case 7: return read_SP_SEMAPHORE_REG();
-        case 8: return state.hwreg.DPC_START_REG;
-        case 9: return state.hwreg.DPC_END_REG;
-        case 10: return state.hwreg.DPC_CURRENT_REG;
-        case 11: return state.hwreg.DPC_STATUS_REG;
-        case 12:
-            debugger::halt("DPC_CLOCK_REG read access");
-            return state.hwreg.DPC_CLOCK_REG;
-        case 13:
-            debugger::halt("DPC_BUF_BUSY_REG read access");
-            return state.hwreg.DPC_BUF_BUSY_REG;
-        case 14:
-            debugger::halt("DPC_PIPE_BUSY_REG read access");
-            return state.hwreg.DPC_PIPE_BUSY_REG;
-        case 15:
-            debugger::halt("DPC_TMEM_REG read access");
-            return state.hwreg.DPC_TMEM_REG;
-        default:
-            /* unknown register access */
-            debugger::warn(Debugger::RSP, "read of unknown COP0 register {}", r);
-            debugger::halt("read unknown RSP Cop0 register");
-            break;
-    }
-    return 0;
-}
-
-/** @brief Read a COP0 register value. */
-static void writeCop0Register(u32 r, u32 value) {
-    switch (r) {
-        case 0:
-            debugger::info(Debugger::RSP, "SP_MEM_ADDR_REG <- {:08x}", value);
-            state.hwreg.SP_MEM_ADDR_REG = value;
-            break;
-        case 1:
-            debugger::info(Debugger::RSP, "SP_DRAM_ADDR_REG <- {:08x}", value);
-            state.hwreg.SP_DRAM_ADDR_REG = value;
-            break;
-        case 2: write_SP_RD_LEN_REG(value); break;
-        case 3: write_SP_WR_LEN_REG(value); break;
-        case 4: write_SP_STATUS_REG(value); break;
-        case 5: /* DMA_FULL, read only */ break;
-        case 6: /* DMA_BUSY, read only */ break;
-        case 7: state.hwreg.SP_SEMAPHORE_REG = 0; break;
-        case 8: write_DPC_START_REG(value); break;
-        case 9: write_DPC_END_REG(value); break;
-        case 10:
-            debugger::halt("RSP::RDP_command_current");
-            break;
-        case 11: write_DPC_STATUS_REG(value); break;
-        case 12:
-            debugger::halt("RSP::RDP_clock_counter");
-            break;
-        case 13:
-            debugger::halt("RSP::RDP_command_busy");
-            break;
-        case 14:
-            debugger::halt("RSP::RDP_pipe_busy_counter");
-            break;
-        case 15:
-            debugger::halt("RSP::RDP_TMEM_load_counter");
-            break;
-        default:
-            /* unknown register access */
-            debugger::warn(Debugger::RSP, "read of unknown COP0 register {}", r);
-            debugger::halt("write unknown RSP COP0 register");
-            break;
-    }
+static inline u32 getElement(u32 instr) {
+     return (instr >> 21) & 0xfu;
 }
 
 static inline u32 getVt(u32 instr) {
@@ -447,7 +329,7 @@ static void eval_Reserved(u32 instr) {
 }
 
 static void eval_VABS(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -470,7 +352,7 @@ static void eval_VABS(u32 instr) {
 }
 
 static void eval_VADD(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -493,7 +375,7 @@ static void eval_VADD(u32 instr) {
 }
 
 static void eval_VADDC(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -517,7 +399,7 @@ static void eval_VADDC(u32 instr) {
 }
 
 static void eval_VAND(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -550,7 +432,7 @@ static void eval_VCR(u32 instr) {
 }
 
 static void eval_VEQ(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -583,7 +465,7 @@ static void eval_VEQ(u32 instr) {
 }
 
 static void eval_VGE(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -617,7 +499,7 @@ static void eval_VGE(u32 instr) {
 }
 
 static void eval_VLT(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -651,7 +533,7 @@ static void eval_VLT(u32 instr) {
 }
 
 static void eval_VMACF(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -675,7 +557,7 @@ static void eval_VMACQ(u32 instr) {
 }
 
 static void eval_VMACU(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -695,7 +577,7 @@ static void eval_VMACU(u32 instr) {
 }
 
 static void eval_VMADH(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -715,7 +597,7 @@ static void eval_VMADH(u32 instr) {
 }
 
 static void eval_VMADL(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -735,7 +617,7 @@ static void eval_VMADL(u32 instr) {
 }
 
 static void eval_VMADM(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -755,7 +637,7 @@ static void eval_VMADM(u32 instr) {
 }
 
 static void eval_VMADN(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -790,7 +672,7 @@ static void eval_VMRG(u32 instr) {
 }
 
 static void eval_VMUDH(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -810,7 +692,7 @@ static void eval_VMUDH(u32 instr) {
 }
 
 static void eval_VMUDL(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -830,7 +712,7 @@ static void eval_VMUDL(u32 instr) {
 }
 
 static void eval_VMUDM(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -850,7 +732,7 @@ static void eval_VMUDM(u32 instr) {
 }
 
 static void eval_VMUDN(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -870,7 +752,7 @@ static void eval_VMUDN(u32 instr) {
 }
 
 static void eval_VMULF(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -894,7 +776,7 @@ static void eval_VMULQ(u32 instr) {
 }
 
 static void eval_VMULU(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -914,7 +796,7 @@ static void eval_VMULU(u32 instr) {
 }
 
 static void eval_VNAND(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -935,7 +817,7 @@ static void eval_VNAND(u32 instr) {
 }
 
 static void eval_VNE(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -972,7 +854,7 @@ static void eval_VNOP(u32 instr) {
 }
 
 static void eval_VNOR(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -993,7 +875,7 @@ static void eval_VNOR(u32 instr) {
 }
 
 static void eval_VNXOR(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -1014,7 +896,7 @@ static void eval_VNXOR(u32 instr) {
 }
 
 static void eval_VOR(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -1046,7 +928,7 @@ static void eval_VOR(u32 instr) {
  *  point division, whose result is converted back to S0.31.
  */
 static void eval_VRCP(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 de = getVs(instr);
     u32 vd = getVd(instr);
@@ -1078,7 +960,7 @@ static void eval_VRCP(u32 instr) {
 }
 
 static void eval_VRCPH(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 de = getVs(instr);
     u32 vd = getVd(instr);
@@ -1118,7 +1000,7 @@ static void eval_VRSQL(u32 instr) {
 }
 
 static void eval_VSAR(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     // u32 vs = getVs(instr);
     u32 vd = getVd(instr);
 
@@ -1155,7 +1037,7 @@ static void eval_VSAR(u32 instr) {
 }
 
 static void eval_VSUB(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -1177,7 +1059,7 @@ static void eval_VSUB(u32 instr) {
 }
 
 static void eval_VSUBC(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -1207,7 +1089,7 @@ static void eval_VSUBC(u32 instr) {
 }
 
 static void eval_VXOR(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0xf);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 vs = getVs(instr);
     u32 vd = getVd(instr);
@@ -1227,39 +1109,579 @@ static void eval_VXOR(u32 instr) {
     state.rspreg.vr[vd] = out;
 }
 
-static void (*COP2_callbacks[64])(u32) = {
+/* SPECIAL opcodes */
+
+void eval_ADD(u32 instr) {
+    RType(instr);
+    u32 res = state.rspreg.gpr[rs] + state.rspreg.gpr[rt];
+    state.rspreg.gpr[rd] = sign_extend<u64, u32>(res);
+}
+
+void eval_ADDU(u32 instr) {
+    RType(instr);
+    u32 res = state.rspreg.gpr[rs] + state.rspreg.gpr[rt];
+    state.rspreg.gpr[rd] = sign_extend<u64, u32>(res);
+}
+
+void eval_AND(u32 instr) {
+    RType(instr);
+    state.rspreg.gpr[rd] = state.rspreg.gpr[rs] & state.rspreg.gpr[rt];
+}
+
+void eval_BREAK(u32 instr) {
+    if (state.hwreg.SP_STATUS_REG & SP_STATUS_INTR_BREAK) {
+        set_MI_INTR_REG(MI_INTR_SP);
+    }
+    state.hwreg.SP_STATUS_REG |= SP_STATUS_BROKE | SP_STATUS_HALT;
+}
+
+void eval_JALR(u32 instr) {
+    RType(instr);
+    u64 tg = state.rspreg.gpr[rs];
+    state.rspreg.gpr[rd] = state.rspreg.pc + 8;
+    state.rsp.nextAction = State::Action::Delay;
+    state.rsp.nextPc = tg;
+}
+
+void eval_JR(u32 instr) {
+    RType(instr);
+    u64 tg = state.rspreg.gpr[rs];
+    state.rsp.nextAction = State::Action::Delay;
+    state.rsp.nextPc = tg;
+}
+
+void eval_MOVN(u32 instr) {
+    RType(instr);
+    debugger::halt("MOVN");
+}
+
+void eval_MOVZ(u32 instr) {
+    RType(instr);
+    debugger::halt("MOVZ");
+}
+
+void eval_NOR(u32 instr) {
+    RType(instr);
+    state.rspreg.gpr[rd] = ~(state.rspreg.gpr[rs] | state.rspreg.gpr[rt]);
+}
+
+void eval_OR(u32 instr) {
+    RType(instr);
+    state.rspreg.gpr[rd] = state.rspreg.gpr[rs] | state.rspreg.gpr[rt];
+}
+
+void eval_SLL(u32 instr) {
+    RType(instr);
+    state.rspreg.gpr[rd] = sign_extend<u64, u32>(state.rspreg.gpr[rt] << shamnt);
+}
+
+void eval_SLLV(u32 instr) {
+    RType(instr);
+    shamnt = state.rspreg.gpr[rs] & 0x1flu;
+    state.rspreg.gpr[rd] = sign_extend<u64, u32>(state.rspreg.gpr[rt] << shamnt);
+}
+
+void eval_SLT(u32 instr) {
+    RType(instr);
+    state.rspreg.gpr[rd] = (i64)state.rspreg.gpr[rs] < (i64)state.rspreg.gpr[rt];
+}
+
+void eval_SLTU(u32 instr) {
+    RType(instr);
+    state.rspreg.gpr[rd] = state.rspreg.gpr[rs] < state.rspreg.gpr[rt];
+}
+
+void eval_SRA(u32 instr) {
+    RType(instr);
+    bool sign = (state.rspreg.gpr[rt] & (1lu << 31)) != 0;
+    // Right shift is logical for unsigned c types,
+    // we need to add the type manually.
+    state.rspreg.gpr[rd] = state.rspreg.gpr[rt] >> shamnt;
+    if (sign) {
+        u64 mask = (1ul << (shamnt + 32)) - 1u;
+        state.rspreg.gpr[rd] |= mask << (32 - shamnt);
+    }
+}
+
+void eval_SRAV(u32 instr) {
+    RType(instr);
+    bool sign = (state.rspreg.gpr[rt] & (1lu << 31)) != 0;
+    shamnt = state.rspreg.gpr[rs] & 0x1flu;
+    // Right shift is logical for unsigned c types,
+    // we need to add the type manually.
+    state.rspreg.gpr[rd] = state.rspreg.gpr[rt] >> shamnt;
+    if (sign) {
+        u64 mask = (1ul << (shamnt + 32)) - 1u;
+        state.rspreg.gpr[rd] |= mask << (32 - shamnt);
+    }
+}
+
+void eval_SRL(u32 instr) {
+    RType(instr);
+    u64 res = (state.rspreg.gpr[rt] & 0xffffffffllu) >> shamnt;
+    state.rspreg.gpr[rd] = sign_extend<u64, u32>(res);
+}
+
+void eval_SRLV(u32 instr) {
+    RType(instr);
+    shamnt = state.rspreg.gpr[rs] & 0x1flu;
+    u64 res = (state.rspreg.gpr[rt] & 0xfffffffflu) >> shamnt;
+    state.rspreg.gpr[rd] = sign_extend<u64, u32>(res);
+}
+
+void eval_SUB(u32 instr) {
+    RType(instr);
+    state.rspreg.gpr[rd] = sign_extend<u64, u32>(
+        state.rspreg.gpr[rs] - state.rspreg.gpr[rt]);
+}
+
+void eval_SUBU(u32 instr) {
+    RType(instr);
+    state.rspreg.gpr[rd] = sign_extend<u64, u32>(
+        state.rspreg.gpr[rs] - state.rspreg.gpr[rt]);
+}
+
+void eval_XOR(u32 instr) {
+    RType(instr);
+    state.rspreg.gpr[rd] = state.rspreg.gpr[rs] ^ state.rspreg.gpr[rt];
+}
+
+/* REGIMM opcodes */
+
+void eval_BGEZ(u32 instr) {
+    IType(instr, sign_extend);
+    if ((i64)state.rspreg.gpr[rs] >= 0) {
+        state.rsp.nextAction = State::Action::Delay;
+        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
+    }
+}
+
+void eval_BLTZ(u32 instr) {
+    IType(instr, sign_extend);
+    if ((i64)state.rspreg.gpr[rs] < 0) {
+        state.rsp.nextAction = State::Action::Delay;
+        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
+    }
+}
+
+void eval_BGEZAL(u32 instr) {
+    IType(instr, sign_extend);
+    i64 r = state.rspreg.gpr[rs];
+    state.rspreg.gpr[31] = state.rspreg.pc + 8;
+    if (r >= 0) {
+        state.rsp.nextAction = State::Action::Delay;
+        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
+    }
+}
+
+void eval_BLTZAL(u32 instr) {
+    IType(instr, sign_extend);
+    i64 r = state.rspreg.gpr[rs];
+    state.rspreg.gpr[31] = state.rspreg.pc + 8;
+    if (r < 0) {
+        state.rsp.nextAction = State::Action::Delay;
+        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
+    }
+}
+
+/* Other opcodes */
+
+void eval_ADDI(u32 instr) {
+    IType(instr, sign_extend);
+    state.rspreg.gpr[rt] = sign_extend<u64, u32>(state.rspreg.gpr[rs] + imm);
+}
+
+void eval_ADDIU(u32 instr) {
+    IType(instr, sign_extend);
+    state.rspreg.gpr[rt] = sign_extend<u64, u32>(state.rspreg.gpr[rs] + imm);
+}
+
+void eval_ANDI(u32 instr) {
+    IType(instr, zero_extend);
+    state.rspreg.gpr[rt] = state.rspreg.gpr[rs] & imm;
+}
+
+void eval_BEQ(u32 instr) {
+    IType(instr, sign_extend);
+    if (state.rspreg.gpr[rt] == state.rspreg.gpr[rs]) {
+        state.rsp.nextAction = State::Action::Delay;
+        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
+    }
+}
+
+void eval_BGTZ(u32 instr) {
+    IType(instr, sign_extend);
+    if ((i64)state.rspreg.gpr[rs] > 0) {
+        state.rsp.nextAction = State::Action::Delay;
+        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
+    }
+}
+
+void eval_BLEZ(u32 instr) {
+    IType(instr, sign_extend);
+    if ((i64)state.rspreg.gpr[rs] <= 0) {
+        state.rsp.nextAction = State::Action::Delay;
+        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
+    }
+}
+
+void eval_BNE(u32 instr) {
+    IType(instr, sign_extend);
+    if (state.rspreg.gpr[rt] != state.rspreg.gpr[rs]) {
+        state.rsp.nextAction = State::Action::Delay;
+        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
+    }
+}
+
+void eval_CACHE(u32 instr) {
+    (void)instr;
+}
+
+void eval_MFC0(u32 instr) {
+    u32 rt = Mips::getRt(instr);
+    u32 rd = Mips::getRd(instr);
+    u32 val;
+
+    switch (rd) {
+    case 0:     val = state.hwreg.SP_MEM_ADDR_REG; break;
+    case 1:     val = state.hwreg.SP_DRAM_ADDR_REG; break;
+    case 2:     val = state.hwreg.SP_RD_LEN_REG; break;
+    case 3:     val = state.hwreg.SP_WR_LEN_REG; break;
+    case 4:     val = state.hwreg.SP_STATUS_REG; break;
+    case 5:     val = (state.hwreg.SP_STATUS_REG & SP_STATUS_DMA_FULL) != 0; break;
+    case 6:     val = (state.hwreg.SP_STATUS_REG & SP_STATUS_DMA_BUSY) != 0; break;
+    case 7:     val = read_SP_SEMAPHORE_REG(); break;
+    case 8:     val = state.hwreg.DPC_START_REG; break;
+    case 9:     val = state.hwreg.DPC_END_REG; break;
+    case 10:    val = state.hwreg.DPC_CURRENT_REG; break;
+    case 11:    val = state.hwreg.DPC_STATUS_REG; break;
+    case 12:
+        debugger::halt("DPC_CLOCK_REG read access");
+        val = state.hwreg.DPC_CLOCK_REG;
+        break;
+    case 13:
+        debugger::halt("DPC_BUF_BUSY_REG read access");
+        val = state.hwreg.DPC_BUF_BUSY_REG;
+        break;
+    case 14:
+        debugger::halt("DPC_PIPE_BUSY_REG read access");
+        val = state.hwreg.DPC_PIPE_BUSY_REG;
+        break;
+    case 15:
+        debugger::halt("DPC_TMEM_REG read access");
+        val = state.hwreg.DPC_TMEM_REG;
+        break;
+    default:
+        /* unknown register access */
+        val = 0;
+        std::string reason = "MFC0 ";
+        debugger::halt(reason + Cop0RegisterNames[rd]);
+        break;
+    }
+
+    debugger::info(Debugger::RSP, "{} -> {:08x}", Cop0RegisterNames[rd], val);
+    state.rspreg.gpr[rt] = sign_extend<u64, u32>(val);
+}
+
+void eval_MTC0(u32 instr) {
+    u32 rt = Mips::getRt(instr);
+    u32 rd = Mips::getRd(instr);
+    u32 val = state.rspreg.gpr[rt];
+
+    debugger::info(Debugger::RSP, "{} <- {:08x}", Cop0RegisterNames[rd], val);
+
+    switch (rd) {
+    case 0:     state.hwreg.SP_MEM_ADDR_REG = val; break;
+    case 1:     state.hwreg.SP_DRAM_ADDR_REG = val & 0xfffffflu; break;
+    case 2:     write_SP_RD_LEN_REG(val); break;
+    case 3:     write_SP_WR_LEN_REG(val); break;
+    case 4:     write_SP_STATUS_REG(val); break;
+    case 5:     /* DMA_FULL, read only */ break;
+    case 6:     /* DMA_BUSY, read only */ break;
+    case 7:     state.hwreg.SP_SEMAPHORE_REG = 0; break;
+    case 8:     write_DPC_START_REG(val); break;
+    case 9:     write_DPC_END_REG(val); break;
+    case 10:
+        debugger::halt("RSP::RDP_command_current");
+        break;
+    case 11:    write_DPC_STATUS_REG(val); break;
+    case 12:
+        debugger::halt("RSP::RDP_clock_counter");
+        break;
+    case 13:
+        debugger::halt("RSP::RDP_command_busy");
+        break;
+    case 14:
+        debugger::halt("RSP::RDP_pipe_busy_counter");
+        break;
+    case 15:
+        debugger::halt("RSP::RDP_TMEM_load_counter");
+        break;
+    default:
+        std::string reason = "MTC0 ";
+        debugger::halt(reason + Cop0RegisterNames[rd]);
+        break;
+    }
+}
+
+void eval_COP0(u32 instr) {
+    switch (Mips::getRs(instr)) {
+    case Mips::Copz::MF: eval_MFC0(instr); break;
+    case Mips::Copz::MT: eval_MTC0(instr); break;
+    default:
+        debugger::halt("invalid RSP::COP0 instruction");
+        break;
+    }
+}
+
+void eval_MFC2(u32 instr) {
+    u32 rt = Mips::getRt(instr);
+    u32 rd = Mips::getRd(instr);
+    u32 e = (instr >> 7) & 0xfu;
+    u16 val;
+    storeVectorBytesAt(rd, e, (u8 *)&val, 2);
+    val = __builtin_bswap16(val);
+    state.rspreg.gpr[rt] = sign_extend<u64, u16>(val);
+}
+
+void eval_MTC2(u32 instr) {
+    u32 rt = Mips::getRt(instr);
+    u32 rd = Mips::getRd(instr);
+    u32 e = (instr >> 7) & 0xfu;
+    u16 val = __builtin_bswap16((u16)state.rspreg.gpr[rt]);
+    loadVectorBytesAt(rd, e, (u8 *)&val, 2);
+}
+
+void eval_CFC2(u32 instr) {
+    u32 rt = Mips::getRt(instr);
+    u32 rd = Mips::getRd(instr);
+    u32 val = 0;
+
+    switch (rd) {
+    case 0: val = state.rspreg.vco; break;
+    case 1: val = state.rspreg.vcc; break;
+    case 2: val = state.rspreg.vce; break;
+    }
+    state.rspreg.gpr[rt] = val;
+}
+
+void eval_CTC2(u32 instr) {
+    debugger::halt("RSP::CTC2 unsupported");
+}
+
+void eval_J(u32 instr) {
+    u64 tg = Mips::getTarget(instr);
+    tg = (state.rspreg.pc & 0xfffffffff0000000llu) | (tg << 2);
+    state.rsp.nextAction = State::Action::Delay;
+    state.rsp.nextPc = tg;
+}
+
+void eval_JAL(u32 instr) {
+    u64 tg = Mips::getTarget(instr);
+    tg = (state.rspreg.pc & 0xfffffffff0000000llu) | (tg << 2);
+    state.rspreg.gpr[31] = state.rspreg.pc + 8;
+    state.rsp.nextAction = State::Action::Delay;
+    state.rsp.nextPc = tg;
+}
+
+void eval_LB(u32 instr) {
+    IType(instr, sign_extend);
+    u64 addr = state.rspreg.gpr[rs] + imm;
+    u64 val = state.dmem[addr & 0xfffu];
+    state.rspreg.gpr[rt] = sign_extend<u64, u8>(val);
+}
+
+void eval_LBU(u32 instr) {
+    IType(instr, sign_extend);
+    u64 addr = state.rspreg.gpr[rs] + imm;
+    u64 val = state.dmem[addr & 0xfffu];
+    state.rspreg.gpr[rt] = zero_extend<u64, u8>(val);
+}
+
+void eval_LH(u32 instr) {
+    IType(instr, sign_extend);
+    u64 addr = state.rspreg.gpr[rs] + imm;
+
+    if (checkAddressAlignment(addr, 2)) {
+        u64 val = __builtin_bswap16(*(u16 *)&state.dmem[addr & 0xfffu]);
+        state.rspreg.gpr[rt] = sign_extend<u64, u16>(val);
+    }
+}
+
+void eval_LHU(u32 instr) {
+    IType(instr, sign_extend);
+    u64 addr = state.rspreg.gpr[rs] + imm;
+
+    if (checkAddressAlignment(addr, 2)) {
+        u64 val = __builtin_bswap16(*(u16 *)&state.dmem[addr & 0xfffu]);
+        state.rspreg.gpr[rt] = zero_extend<u64, u16>(val);
+    } else {
+        u64 val =
+            ((u16)state.dmem[addr & 0xfffu] << 8) |
+            (u16)state.dmem[(addr + 1u) & 0xfffu];
+        state.rspreg.gpr[rt] = zero_extend<u64, u16>(val);
+    }
+}
+
+void eval_LUI(u32 instr) {
+    IType(instr, sign_extend);
+    state.rspreg.gpr[rt] = imm << 16;
+}
+
+void eval_LW(u32 instr) {
+    IType(instr, sign_extend);
+    u64 addr = state.rspreg.gpr[rs] + imm;
+
+    if (checkAddressAlignment(addr, 4)) {
+        u64 val = __builtin_bswap32(*(u32 *)&state.dmem[addr & 0xfffu]);
+        state.rspreg.gpr[rt] = sign_extend<u64, u32>(val);
+    }
+}
+
+void eval_ORI(u32 instr) {
+    IType(instr, zero_extend);
+    state.rspreg.gpr[rt] = state.rspreg.gpr[rs] | imm;
+}
+
+void eval_SB(u32 instr) {
+    IType(instr, sign_extend);
+    u64 addr = state.rspreg.gpr[rs] + imm;
+    state.dmem[addr & 0xfffu] = state.rspreg.gpr[rt];
+}
+
+void eval_SH(u32 instr) {
+    IType(instr, sign_extend);
+    u64 addr = state.rspreg.gpr[rs] + imm;
+
+    if (checkAddressAlignment(addr, 2)) {
+        *(u16 *)&state.dmem[addr & 0xfffu] =
+            __builtin_bswap16(state.rspreg.gpr[rt]);
+    }
+}
+
+void eval_SLTI(u32 instr) {
+    IType(instr, sign_extend);
+    state.rspreg.gpr[rt] = (i64)state.rspreg.gpr[rs] < (i64)imm;
+}
+
+void eval_SLTIU(u32 instr) {
+    IType(instr, sign_extend);
+    state.rspreg.gpr[rt] = state.rspreg.gpr[rs] < imm;
+}
+
+void eval_SW(u32 instr) {
+    IType(instr, sign_extend);
+    u64 addr = state.rspreg.gpr[rs] + imm;
+
+    if (checkAddressAlignment(addr, 4)) {
+        *(u32 *)&state.dmem[addr & 0xfffu] =
+            __builtin_bswap32(state.rspreg.gpr[rt]);
+    }
+}
+
+void eval_XORI(u32 instr) {
+    IType(instr, zero_extend);
+    state.rspreg.gpr[rt] = state.rspreg.gpr[rs] ^ imm;
+}
+
+
+void (*COP2_callbacks[64])(u32) = {
     /* Multiply group */
-    eval_VMULF,         eval_VMULU,         eval_VRNDP,         eval_VMULQ,
-    eval_VMUDL,         eval_VMUDM,         eval_VMUDN,         eval_VMUDH,
-    eval_VMACF,         eval_VMACU,         eval_VRNDN,         eval_VMACQ,
-    eval_VMADL,         eval_VMADM,         eval_VMADN,         eval_VMADH,
-
+    eval_VMULF,     eval_VMULU,     eval_VRNDP,     eval_VMULQ,
+    eval_VMUDL,     eval_VMUDM,     eval_VMUDN,     eval_VMUDH,
+    eval_VMACF,     eval_VMACU,     eval_VRNDN,     eval_VMACQ,
+    eval_VMADL,     eval_VMADM,     eval_VMADN,     eval_VMADH,
     /* Add group */
-    eval_VADD,          eval_VSUB,          eval_Reserved,      eval_VABS,
-    eval_VADDC,         eval_VSUBC,         eval_Reserved,      eval_Reserved,
-    eval_Reserved,      eval_Reserved,      eval_Reserved,      eval_Reserved,
-    eval_Reserved,      eval_VSAR,          eval_Reserved,      eval_Reserved,
-
+    eval_VADD,      eval_VSUB,      eval_Reserved,  eval_VABS,
+    eval_VADDC,     eval_VSUBC,     eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_VSAR,      eval_Reserved,  eval_Reserved,
     /* Select group */
-    eval_VLT,           eval_VEQ,           eval_VNE,           eval_VGE,
-    eval_VCL,           eval_VCH,           eval_VCR,           eval_VMRG,
-
+    eval_VLT,       eval_VEQ,       eval_VNE,       eval_VGE,
+    eval_VCL,       eval_VCH,       eval_VCR,       eval_VMRG,
     /* Logical group */
-    eval_VAND,          eval_VNAND,         eval_VOR,           eval_VNOR,
-    eval_VXOR,          eval_VNXOR,         eval_Reserved,      eval_Reserved,
-
+    eval_VAND,      eval_VNAND,     eval_VOR,       eval_VNOR,
+    eval_VXOR,      eval_VNXOR,     eval_Reserved,  eval_Reserved,
     /* Divide group */
-    eval_VRCP,          eval_VRCPL,         eval_VRCPH,         eval_VMOV,
-    eval_VRSQ,          eval_VRSQL,         eval_VRSQH,         eval_VNOP,
-
+    eval_VRCP,      eval_VRCPL,     eval_VRCPH,     eval_VMOV,
+    eval_VRSQ,      eval_VRSQL,     eval_VRSQH,     eval_VNOP,
     /* Invalid group */
-    eval_Reserved,      eval_Reserved,      eval_Reserved,      eval_Reserved,
-    eval_Reserved,      eval_Reserved,      eval_Reserved,      eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
 };
 
-static void eval_COP2(u32 instr) {
-    COP2_callbacks[instr & UINT32_C(0x3f)](instr);
+void eval_COP2(u32 instr) {
+    switch (Mips::getRs(instr)) {
+    case Mips::Copz::MF: eval_MFC2(instr); break;
+    case Mips::Copz::MT: eval_MTC2(instr); break;
+    case Mips::Copz::CF: eval_CFC2(instr); break;
+    case Mips::Copz::CT: eval_CTC2(instr); break;
+    default:
+        if ((instr & (1lu << 25)) == 0) {
+            debugger::halt("RSP::COP2 invalid operation");
+        } else {
+            COP2_callbacks[instr & UINT32_C(0x3f)](instr);
+        }
+        break;
+    }
 }
+
+void (*SPECIAL_callbacks[64])(u32) = {
+    eval_SLL,       eval_Reserved,  eval_SRL,       eval_SRA,
+    eval_SLLV,      eval_Reserved,  eval_SRLV,      eval_SRAV,
+    eval_JR,        eval_JALR,      eval_MOVZ,      eval_MOVN,
+    eval_Reserved,  eval_BREAK,     eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_ADD,       eval_ADDU,      eval_SUB,       eval_SUBU,
+    eval_AND,       eval_OR,        eval_XOR,       eval_NOR,
+    eval_Reserved,  eval_Reserved,  eval_SLT,       eval_SLTU,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+};
+
+void eval_SPECIAL(u32 instr) {
+    SPECIAL_callbacks[Mips::getFunct(instr)](instr);
+}
+
+void (*REGIMM_callbacks[32])(u32) = {
+    eval_BLTZ,      eval_BGEZ,      eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_BLTZAL,    eval_BGEZAL,    eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+};
+
+void eval_REGIMM(u32 instr) {
+    REGIMM_callbacks[Mips::getRt(instr)](instr);
+}
+
+void (*CPU_callbacks[64])(u32) = {
+    eval_SPECIAL,   eval_REGIMM,    eval_J,         eval_JAL,
+    eval_BEQ,       eval_BNE,       eval_BLEZ,      eval_BGTZ,
+    eval_ADDI,      eval_ADDIU,     eval_SLTI,      eval_SLTIU,
+    eval_ANDI,      eval_ORI,       eval_XORI,      eval_LUI,
+    eval_COP0,      eval_Reserved,  eval_COP2,      eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_LB,        eval_LH,        eval_Reserved,  eval_LW,
+    eval_LBU,       eval_LHU,       eval_Reserved,  eval_Reserved,
+    eval_SB,        eval_SH,        eval_Reserved,  eval_SW,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_CACHE,
+    eval_Reserved,  eval_Reserved,  eval_LWC2,      eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_SWC2,      eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+};
 
 /**
  * @brief Fetch and interpret a single instruction from the provided address.
@@ -1267,419 +1689,52 @@ static void eval_COP2(u32 instr) {
  * @param addr         Virtual address of the instruction to execute.
  * @param delaySlot     Whether the instruction executed is in a
  *                      branch delay slot.
- * @return true if the instruction caused an exception
  */
-static bool eval(bool delaySlot)
+static void eval(void)
 {
     u64 addr = state.rspreg.pc;
     u64 instr;
-    u32 opcode;
 
     checkAddressAlignment(addr, 4);
-    instr = __builtin_bswap32(*(u32 *)&state.imem[addr & 0xffflu]);
+    instr = __builtin_bswap32(*(u32 *)&state.imem[addr & 0xfffu]);
 
     debugger::debugger.rspTrace.put(Debugger::TraceEntry(addr, instr));
 
-    using namespace Mips::Opcode;
-    using namespace Mips::Special;
-    using namespace Mips::Regimm;
-    using namespace Mips::Cop0;
-    using namespace Mips::Copz;
-    using namespace R4300;
-
-    switch (opcode = Mips::getOpcode(instr)) {
-        case SPECIAL:
-            switch (Mips::getFunct(instr)) {
-                RType(ADD, instr, {
-                    u64 r = state.rspreg.gpr[rs] + state.rspreg.gpr[rt];
-                    state.rspreg.gpr[rd] = sign_extend<u64, u32>(r);
-                })
-                RType(ADDU, instr, {
-                    u64 r = state.rspreg.gpr[rs] + state.rspreg.gpr[rt];
-                    state.rspreg.gpr[rd] = sign_extend<u64, u32>(r);
-                })
-                RType(AND, instr, {
-                    state.rspreg.gpr[rd] = state.rspreg.gpr[rs] & state.rspreg.gpr[rt];
-                })
-                case BREAK: {
-                    if (state.hwreg.SP_STATUS_REG & SP_STATUS_INTR_BREAK) {
-                        set_MI_INTR_REG(MI_INTR_SP);
-                    }
-                    state.hwreg.SP_STATUS_REG |=
-                        SP_STATUS_BROKE | SP_STATUS_HALT;
-                    break;
-                }
-                /* DADD not implemented */
-                /* DADDU not implemented */
-                /* DDIV not implemented */
-                /* DDIVU not implemented */
-                /* DIV not implemented */
-                /* DIVU not implemented */
-                /* DMULT not implemented */
-                /* DMULTU not implemented */
-                /* DSLL not implemented */
-                /* DSLL32 not implemented */
-                /* DSLLV not implemented */
-                /* DSRA not implemented */
-                /* DSRA32 not implemented */
-                /* DSRAV not implemented */
-                /* DSRL not implemented */
-                /* DSRL32 not implemented */
-                /* DSRLV not implemented */
-                /* DSUB not implemented */
-                /* DSUBU not implemented */
-                RType(JALR, instr, {
-                    u64 tg = state.rspreg.gpr[rs];
-                    state.rspreg.gpr[rd] = state.rspreg.pc + 8;
-                    state.rsp.nextAction = State::Action::Delay;
-                    state.rsp.nextPc = tg;
-                })
-                RType(JR, instr, {
-                    u64 tg = state.rspreg.gpr[rs];
-                    state.rsp.nextAction = State::Action::Delay;
-                    state.rsp.nextPc = tg;
-                })
-                /* MFHI not implemented */
-                /* MFLO not implemented */
-                RType(MOVN, instr, { debugger::halt("Unsupported"); })
-                RType(MOVZ, instr, { debugger::halt("Unsupported"); })
-                /* MTHI not implemented */
-                /* MTLO not implemented */
-                /* MULT not implemented */
-                /* MULTU not implemented */
-                RType(NOR, instr, {
-                    state.rspreg.gpr[rd] = ~(state.rspreg.gpr[rs] | state.rspreg.gpr[rt]);
-                })
-                RType(OR, instr, {
-                    state.rspreg.gpr[rd] = state.rspreg.gpr[rs] | state.rspreg.gpr[rt];
-                })
-                RType(SLL, instr, {
-                    state.rspreg.gpr[rd] = sign_extend<u64, u32>(
-                        state.rspreg.gpr[rt] << shamnt);
-                })
-                RType(SLLV, instr, {
-                    unsigned int shamnt = state.rspreg.gpr[rs] & 0x1flu;
-                    state.rspreg.gpr[rd] = sign_extend<u64, u32>(
-                        state.rspreg.gpr[rt] << shamnt);
-                })
-                RType(SLT, instr, {
-                    state.rspreg.gpr[rd] = (i64)state.rspreg.gpr[rs] < (i64)state.rspreg.gpr[rt];
-                })
-                RType(SLTU, instr, {
-                    state.rspreg.gpr[rd] = state.rspreg.gpr[rs] < state.rspreg.gpr[rt];
-                })
-                RType(SRA, instr, {
-                    bool sign = (state.rspreg.gpr[rt] & (1lu << 31)) != 0;
-                    // Right shift is logical for unsigned c types,
-                    // we need to add the type manually.
-                    state.rspreg.gpr[rd] = state.rspreg.gpr[rt] >> shamnt;
-                    if (sign) {
-                        u64 mask = (1ul << (shamnt + 32)) - 1u;
-                        state.rspreg.gpr[rd] |= mask << (32 - shamnt);
-                    }
-                })
-                RType(SRAV, instr, {
-                    bool sign = (state.rspreg.gpr[rt] & (1lu << 31)) != 0;
-                    unsigned int shamnt = state.rspreg.gpr[rs] & 0x1flu;
-                    // Right shift is logical for unsigned c types,
-                    // we need to add the type manually.
-                    state.rspreg.gpr[rd] = state.rspreg.gpr[rt] >> shamnt;
-                    if (sign) {
-                        u64 mask = (1ul << (shamnt + 32)) - 1u;
-                        state.rspreg.gpr[rd] |= mask << (32 - shamnt);
-                    }
-                })
-                RType(SRL, instr, {
-                    u64 r = (state.rspreg.gpr[rt] & 0xffffffffllu) >> shamnt;
-                    state.rspreg.gpr[rd] = sign_extend<u64, u32>(r);
-                })
-                RType(SRLV, instr, {
-                    unsigned int shamnt = state.rspreg.gpr[rs] & 0x1flu;
-                    u64 res = (state.rspreg.gpr[rt] & 0xfffffffflu) >> shamnt;
-                    state.rspreg.gpr[rd] = sign_extend<u64, u32>(res);
-                })
-                RType(SUB, instr, {
-                    state.rspreg.gpr[rd] = sign_extend<u64, u32>(
-                        state.rspreg.gpr[rs] - state.rspreg.gpr[rt]);
-                })
-                RType(SUBU, instr, {
-                    state.rspreg.gpr[rd] = sign_extend<u64, u32>(
-                        state.rspreg.gpr[rs] - state.rspreg.gpr[rt]);
-                })
-                /* SYNC not implemented */
-                /* SYSCALL not implemented */
-                /* TEQ not implemented */
-                /* TGE not implemented */
-                /* TGEU not implemented */
-                /* TLT not implemented */
-                /* TLTU not implemented */
-                /* TNE not implemented */
-                RType(XOR, instr, {
-                    state.rspreg.gpr[rd] = state.rspreg.gpr[rs] ^ state.rspreg.gpr[rt];
-                })
-                default:
-                    debugger::halt("Unsupported Special");
-            }
-            break;
-
-        case REGIMM:
-            switch (Mips::getRt(instr)) {
-                BType(BGEZ, instr, (i64)state.rspreg.gpr[rs] >= 0)
-                BType(BLTZ, instr, (i64)state.rspreg.gpr[rs] < 0)
-                IType(BGEZAL, instr, sign_extend, {
-                    i64 r = state.rspreg.gpr[rs];
-                    state.rspreg.gpr[31] = state.rspreg.pc + 8;
-                    if (r >= 0) {
-                        state.rsp.nextAction = State::Action::Delay;
-                        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
-                    }
-                })
-                /* BGEZALL not implemented */
-                IType(BLTZAL, instr, sign_extend, {
-                    i64 r = state.rspreg.gpr[rs];
-                    state.rspreg.gpr[31] = state.rspreg.pc + 8;
-                    if (r < 0) {
-                        state.rsp.nextAction = State::Action::Delay;
-                        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
-                    }
-                })
-                /* BLTZALL not implemented */
-                /* TEQI not implemented */
-                /* TGEI not implemented */
-                /* TGEIU not implemented */
-                /* TLTI not implemented */
-                /* TLTIU not implemented */
-                /* TNEI not implemented */
-                default:
-                    debugger::halt("Unupported Regimm");
-                    break;
-            }
-            break;
-
-        IType(ADDI, instr, sign_extend, {
-            state.rspreg.gpr[rt] = sign_extend<u64, u32>(
-                state.rspreg.gpr[rs] + imm);
-        })
-        IType(ADDIU, instr, sign_extend, {
-            state.rspreg.gpr[rt] = sign_extend<u64, u32>(
-                state.rspreg.gpr[rs] + imm);
-        })
-        IType(ANDI, instr, zero_extend, {
-            state.rspreg.gpr[rt] = state.rspreg.gpr[rs] & imm;
-        })
-        BType(BEQ, instr, state.rspreg.gpr[rt] == state.rspreg.gpr[rs])
-        BType(BGTZ, instr, (i64)state.rspreg.gpr[rs] > 0)
-        BType(BLEZ, instr, (i64)state.rspreg.gpr[rs] <= 0)
-        BType(BNE, instr, state.rspreg.gpr[rt] != state.rspreg.gpr[rs])
-        IType(CACHE, instr, sign_extend, { /* @todo */ })
-        case COP0:
-            switch (Mips::getRs(instr)) {
-                RType(MF, instr, {
-                    state.rspreg.gpr[rt] = readCop0Register(rd);
-                })
-                /* DMFC0 not implemented */
-                /* CFC0 not implemented */
-                RType(MT, instr, {
-                    writeCop0Register(rd, state.rspreg.gpr[rt]);
-                })
-                /* DMTC0 not implemented */
-                /* CTC0 not implemented */
-                default:
-                    debugger::halt("UnsupportedCOP0Instruction");
-            }
-            break;
-        /* COP1 not implemented */
-        case COP2:
-            switch (Mips::getRs(instr)) {
-                RType(MF, instr, {
-                    u32 e = (instr >> 7) & UINT32_C(0xf);
-                    u16 val;
-                    storeVectorBytesAt(rd, e, (u8 *)&val, 2);
-                    val = __builtin_bswap16(val);
-                    state.rspreg.gpr[rt] = sign_extend<u64, u16>(val);
-                })
-                RType(MT, instr, {
-                    u32 e = (instr >> 7) & UINT32_C(0xf);
-                    u16 val = __builtin_bswap16((u16)state.rspreg.gpr[rt]);
-                    loadVectorBytesAt(rd, e, (u8 *)&val, 2);
-                })
-                RType(CF, instr, {
-                    u32 out = 0;
-                    switch (rd) {
-                        case 0: out = state.rspreg.vco; break;
-                        case 1: out = state.rspreg.vcc; break;
-                        case 2: out = state.rspreg.vce; break;
-                    }
-                    state.rspreg.gpr[rt] = out;
-                })
-                RType(CT, instr, {
-                    debugger::halt("RSP::CTC2 unsupported");
-                })
-                default:
-                    if ((instr & (1lu << 25)) == 0) {
-                        debugger::halt("RSP::COP2 invalid operation");
-                    } else {
-                        eval_COP2(instr);
-                    }
-                    break;
-            }
-            break;
-        /* COP3 not implemented */
-        /* DADDI not implemented */
-        /* DADDIU not implemented */
-        JType(J, instr, {
-            tg = (state.rspreg.pc & 0xfffffffff0000000llu) | (tg << 2);
-            state.rsp.nextAction = State::Action::Delay;
-            state.rsp.nextPc = tg;
-        })
-        JType(JAL, instr, {
-            tg = (state.rspreg.pc & 0xfffffffff0000000llu) | (tg << 2);
-            state.rspreg.gpr[31] = state.rspreg.pc + 8;
-            state.rsp.nextAction = State::Action::Delay;
-            state.rsp.nextPc = tg;
-        })
-        IType(LB, instr, sign_extend, {
-            u64 addr = state.rspreg.gpr[rs] + imm;
-            u64 val = state.dmem[addr & 0xffflu];
-            state.rspreg.gpr[rt] = sign_extend<u64, u8>(val);
-        })
-        IType(LBU, instr, sign_extend, {
-            u64 addr = state.rspreg.gpr[rs] + imm;
-            u64 val = state.dmem[addr & 0xffflu];
-            state.rspreg.gpr[rt] = zero_extend<u64, u8>(val);
-        })
-        /* LD not implemented */
-        /* LDC1 not implemented */
-        /* LDC2 not implemented */
-        /* LDL not implemented */
-        /* LDR not implemented */
-        IType(LH, instr, sign_extend, {
-            u64 addr = state.rspreg.gpr[rs] + imm;
-
-            if (checkAddressAlignment(addr, 2)) {
-                u64 val = __builtin_bswap16(*(u16 *)&state.dmem[addr & 0xffflu]);
-                state.rspreg.gpr[rt] = sign_extend<u64, u16>(val);
-            }
-        })
-        IType(LHU, instr, sign_extend, {
-            u64 addr = state.rspreg.gpr[rs] + imm;
-
-            // if (checkAddressAlignment(addr, 2)) {
-            // TODO unaligned access !
-            if ((addr & 1u) != 0) {
-                u64 val = __builtin_bswap16(*(u16 *)&state.dmem[addr & 0xffflu]);
-                state.rspreg.gpr[rt] = zero_extend<u64, u16>(val);
-            } else {
-                u64 val =
-                    ((u16)state.dmem[addr & 0xffflu] << 8) |
-                    (u16)state.dmem[(addr + 1u) & 0xffflu];
-                state.rspreg.gpr[rt] = zero_extend<u64, u16>(val);
-            }
-        })
-        /* LL not implemented */
-        /* LLD not implemented */
-        IType(LUI, instr, sign_extend, {
-            state.rspreg.gpr[rt] = imm << 16;
-        })
-        IType(LW, instr, sign_extend, {
-            u64 addr = state.rspreg.gpr[rs] + imm;
-
-            if (checkAddressAlignment(addr, 4)) {
-                u64 val = __builtin_bswap32(*(u32 *)&state.dmem[addr & 0xffflu]);
-                state.rspreg.gpr[rt] = sign_extend<u64, u32>(val);
-            }
-        })
-        /* LWC1 not implemented */
-        case LWC2:
-            eval_LWC2(instr);
-            break;
-        /* LWC3 not implemented */
-        /* LWL not implemented */
-        /* LWR not implemented */
-        /* LWU not implemented */
-        IType(ORI, instr, zero_extend, {
-            state.rspreg.gpr[rt] = state.rspreg.gpr[rs] | imm;
-        })
-        IType(SB, instr, sign_extend, {
-            u64 addr = state.rspreg.gpr[rs] + imm;
-            state.dmem[addr & 0xffflu] = state.rspreg.gpr[rt];
-        })
-        /* SC not implemented */
-        /* SCD not implemented */
-        /* SD not implemented */
-        /* SDC1 not implemented */
-        /* SDC2 not implemented */
-        /* SDL not implemented */
-        /* SDR not implemented */
-        IType(SH, instr, sign_extend, {
-            u64 addr = state.rspreg.gpr[rs] + imm;
-            if (checkAddressAlignment(addr, 2)) {
-                *(u16 *)&state.dmem[addr & 0xffflu] =
-                    __builtin_bswap16(state.rspreg.gpr[rt]);
-            }
-        })
-        IType(SLTI, instr, sign_extend, {
-            state.rspreg.gpr[rt] = (i64)state.rspreg.gpr[rs] < (i64)imm;
-        })
-        IType(SLTIU, instr, sign_extend, {
-            state.rspreg.gpr[rt] = state.rspreg.gpr[rs] < imm;
-        })
-        IType(SW, instr, sign_extend, {
-            u64 addr = state.rspreg.gpr[rs] + imm;
-            if (checkAddressAlignment(addr, 4)) {
-                *(u32 *)&state.dmem[addr & 0xffflu] =
-                    __builtin_bswap32(state.rspreg.gpr[rt]);
-            }
-        })
-        /* SWC1 not implemented */
-        case SWC2:
-            eval_SWC2(instr);
-            break;
-        /* SWC3 not implemented */
-        /* SWL not implemented */
-        /* SWR not implemented */
-        IType(XORI, instr, zero_extend, {
-            state.rspreg.gpr[rt] = state.rspreg.gpr[rs] ^ imm;
-        })
-
-        default:
-            debugger::halt("Unsupported Opcode");
-            break;
+    // The null instruction is 'sll r0, r0, 0', i.e. a NOP.
+    // It is one of the most used instructions (to fill in delay slots).
+    if (instr) {
+        CPU_callbacks[Mips::getOpcode(instr)](instr);
     }
-
-    return false;
 }
 
 /**
  * @brief Fetch and interpret a single instruction from memory.
  * @return true if the instruction caused an exception
  */
-bool step()
+void step()
 {
-    // Nothing done is RSP is halted.
+    // Nothing done if RSP is halted.
     if (state.hwreg.SP_STATUS_REG & SP_STATUS_HALT)
-        return false;
+        return;
 
-    bool exn = false;
     switch (state.rsp.nextAction) {
         case State::Action::Continue:
             state.rspreg.pc += 4;
-            exn = eval(false);
+            eval();
             break;
 
         case State::Action::Delay:
             state.rspreg.pc += 4;
             state.rsp.nextAction = State::Action::Jump;
-            exn = eval(true);
+            eval();
             break;
 
         case State::Action::Jump:
             state.rspreg.pc = state.rsp.nextPc;
             state.rsp.nextAction = State::Action::Continue;
-            exn = eval(false);
+            eval();
             break;
     }
-    return exn;
 }
 
 }; /* namespace RSP */
