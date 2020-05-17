@@ -31,7 +31,7 @@ void set_MI_INTR_REG(u32 bits) {
  */
 void clear_MI_INTR_REG(u32 bits) {
     state.hwreg.MI_INTR_REG &= ~bits;
-    if (state.hwreg.MI_INTR_REG & ~state.hwreg.MI_INTR_MASK_REG) {
+    if (state.hwreg.MI_INTR_REG & state.hwreg.MI_INTR_MASK_REG) {
         setInterruptPending(2);
     } else {
         clearInterruptPending(2);
@@ -1132,6 +1132,7 @@ bool write(uint bytes, u64 addr, u64 value)
             if (value & MI_INTR_MASK_SET_DP) {
                 state.hwreg.MI_INTR_MASK_REG |= MI_INTR_MASK_DP;
             }
+            checkInterrupt();
             return true;
         default:
             debugger::warn(Debugger::MI,
