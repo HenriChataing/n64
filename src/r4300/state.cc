@@ -6,6 +6,8 @@
 #include <r4300/hw.h>
 #include <r4300/state.h>
 
+#include <debugger.h>
+
 using namespace R4300;
 
 namespace R4300 {
@@ -75,6 +77,9 @@ void State::reset() {
     for (unsigned nr = 0; nr < tlbEntryCount; nr++)
         tlb[nr] = (R4300::tlbEntry){};
 
+    cp0reg.lastCounterUpdate = 0;
+    cancelAllEvents();
+
     // Reproduce the pif ROM boot sequence.
     // Referenced from http://www.emulation64.com/ultra64/bootn64.html
     // @todo test with actual pif ROM and compare the operations
@@ -83,10 +88,10 @@ void State::reset() {
     reg.gpr[22]   = 0x3f;
     reg.gpr[29]   = 0xffffffffa4001ff0llu;
     memset(&cp0reg, 0, sizeof(cp0reg));
-    cp0reg.random = 0x0000001f;
-    cp0reg.sr     = 0x74400004;
-    cp0reg.prid   = 0x00000b00;
-    cp0reg.config = 0x0006e463;
+    cp0reg.random = 0x0000001flu;
+    cp0reg.sr     = 0x74400004lu; // 0x70400004
+    cp0reg.prid   = 0x00000b00lu;
+    cp0reg.config = 0x0006e463lu;
     memset(&cp1reg, 0, sizeof(cp1reg));
     memset(tlb, 0, sizeof(tlb));
     cp1reg.setFprAliases(true);
@@ -98,7 +103,7 @@ void State::reset() {
     // Set HW config registers.
     hwreg.RDRAM_DEVICE_TYPE_REG = RDRAM_DEVICE_TYPE_18M;
     hwreg.SP_STATUS_REG = SP_STATUS_HALT;
-    hwreg.MI_VERSION_REG = 0x01010101u;
+    hwreg.MI_VERSION_REG = 0x01010101lu;
 
     // Set reset video mode to NTSC.
     hwreg.VI_V_SYNC_REG = UINT32_C(0x20d); // 525 lines
@@ -145,6 +150,16 @@ void State::cancelEvent(void (*callback)()) {
             prev = &pos->next;
             pos = pos->next;
         }
+    }
+}
+
+void State::cancelAllEvents(void) {
+    State::Event *pos = cpu.eventQueue;
+    cpu.eventQueue = NULL;
+    while (pos != NULL) {
+        State::Event *tmp = pos;
+        pos = pos->next;
+        delete tmp;
     }
 }
 

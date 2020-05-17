@@ -61,6 +61,7 @@ public:
 
     void scheduleEvent(ulong timeout, void (*callback)());
     void cancelEvent(void (*callback)());
+    void cancelAllEvents();
     void handleEvent();
 };
 

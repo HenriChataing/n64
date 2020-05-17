@@ -166,6 +166,12 @@ void handleCounterEvent() {
     ulong diff = (state.cycles - state.cp0reg.lastCounterUpdate) / 2;
     u32 untilCompare = state.cp0reg.compare - state.cp0reg.count;
 
+    debugger::debug(Debugger::COP0, "counter event");
+    debugger::debug(Debugger::COP0, "  count:{}", state.cp0reg.count);
+    debugger::debug(Debugger::COP0, "  compare:{}", state.cp0reg.compare);
+    debugger::debug(Debugger::COP0, "  cycles:{}", state.cycles);
+    debugger::debug(Debugger::COP0, "  last_counter_update:{}", state.cp0reg.lastCounterUpdate);
+
     if (diff > untilCompare) {
         state.cp0reg.cause |= CAUSE_IP7;
         checkInterrupt();
@@ -174,7 +180,9 @@ void handleCounterEvent() {
     state.cp0reg.count = (u32)((ulong)state.cp0reg.count + diff);
     state.cp0reg.lastCounterUpdate = state.cycles;
     untilCompare = state.cp0reg.compare - state.cp0reg.count - 1;
-    state.scheduleEvent(2 * (ulong)untilCompare, handleCounterEvent);
+
+    debugger::debug(Debugger::COP0, "  next:{}", 2 * (ulong)untilCompare);
+    state.scheduleEvent(state.cycles + 2 * (ulong)untilCompare, handleCounterEvent);
 }
 
 /**
@@ -184,9 +192,10 @@ void handleCounterEvent() {
 void scheduleCounterEvent() {
     ulong diff = (state.cycles - state.cp0reg.lastCounterUpdate) / 2;
     state.cp0reg.count = (u32)((ulong)state.cp0reg.count + diff);
+    state.cp0reg.lastCounterUpdate = state.cycles;
     u32 untilCompare = state.cp0reg.compare - state.cp0reg.count;
     state.cancelEvent(handleCounterEvent);
-    state.scheduleEvent(2 * (ulong)untilCompare, handleCounterEvent);
+    state.scheduleEvent(state.cycles + 2 * (ulong)untilCompare, handleCounterEvent);
 }
 
 namespace Eval {
