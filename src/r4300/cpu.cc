@@ -83,14 +83,6 @@ static Exception loadb(u64 addr, u8 *val) {
         *val = state.dram[addr];
         return Exception::None;
     }
-    if (addr >= 0x04000000lu && addr < 0x04001000lu) {
-        *val = state.dmem[addr - 0x04000000lu];
-        return Exception::None;
-    }
-    if (addr >= 0x04001000lu && addr < 0x04002000lu) {
-        *val = state.imem[addr - 0x04001000lu];
-        return Exception::None;
-    }
     u64 val64;
     if (state.physmem.load(1, addr, &val64)) {
         *val = val64;
@@ -106,14 +98,6 @@ static Exception loadh(u64 addr, u16 *val) {
     }
     if (addr <  0x00400000lu) {
         *val = __builtin_bswap16(*(u16 *)&state.dram[addr]);
-        return Exception::None;
-    }
-    if (addr >= 0x04000000lu && addr < 0x04001000lu) {
-        *val = __builtin_bswap16(*(u16 *)&state.dmem[addr - 0x04000000lu]);
-        return Exception::None;
-    }
-    if (addr >= 0x04001000lu && addr < 0x04002000lu) {
-        *val = __builtin_bswap16(*(u16 *)&state.imem[addr - 0x04001000lu]);
         return Exception::None;
     }
     u64 val64;
@@ -132,14 +116,6 @@ static Exception loadw(u64 addr, u32 *val) {
     }
     if (addr <  0x00400000lu) {
         *val = __builtin_bswap32(*(u32 *)&state.dram[addr]);
-        return Exception::None;
-    }
-    if (addr >= 0x04000000lu && addr < 0x04001000lu) {
-        *val = __builtin_bswap32(*(u32 *)&state.dmem[addr - 0x04000000lu]);
-        return Exception::None;
-    }
-    if (addr >= 0x04001000lu && addr < 0x04002000lu) {
-        *val = __builtin_bswap32(*(u32 *)&state.imem[addr - 0x04001000lu]);
         return Exception::None;
     }
     u64 val64;
@@ -220,6 +196,9 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
         case AddressError:
             exccode = load ? 4 : 5; // AdEL : AdES
             state.cp0reg.badvaddr = vAddr;
+            debugger::info(Debugger::CPU,
+                "exception AddressError({:08x},{})",
+                vAddr, load);
             debugger::halt("AddressError");
             break;
         // TLB Refill occurs when there is no TLB entry that matches an
@@ -238,6 +217,9 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
             state.cp0reg.context &= (CONTEXT_PTEBASE_MASK << CONTEXT_PTEBASE_SHIFT);
             state.cp0reg.context |=
                 ((vAddr >> 13) & CONTEXT_BADVPN2_MASK) << CONTEXT_BADVPN2_SHIFT;
+            debugger::info(Debugger::CPU,
+                "exception TLBRefill/TLBInvalid({:08x},{})",
+                vAddr, load);
             debugger::halt("TLBInvalid / TLBRefill");
             // TODO : XContext
             break;
@@ -247,6 +229,8 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
         case TLBModified:
             exccode = 1; // Mod
             state.cp0reg.badvaddr = vAddr;
+            debugger::info(Debugger::CPU,
+                "exception TLBModified({:08x},{})", vAddr);
             debugger::halt("TLBModified");
             // TODO : Context, XContext, EntryHi
             break;
@@ -255,6 +239,7 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
         // condition occurs and error detection is enabled.
         case CacheError:
             // vector = 0x100llu;
+            debugger::info(Debugger::CPU, "exception CacheError");
             debugger::halt("CacheError");
             break;
         // A Virtual Coherency exception occurs when all of the following
@@ -268,6 +253,9 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
         case VirtualCoherency:
             exccode = instr ? 14 : 31; // VCEI : VCED
             state.cp0reg.badvaddr = vAddr;
+            debugger::info(Debugger::CPU,
+                "exception VirtualCoherency({:08x},{})",
+                vAddr, instr);
             debugger::halt("VirtualCoherency");
             break;
         // A Bus Error exception is raised by board-level circuitry for events
@@ -275,12 +263,14 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
         // physical memory addresses or access types.
         case BusError:
             exccode = instr ? 6 : 7; // IBE : DBE
+            debugger::info(Debugger::CPU, "exception BusError({})", instr);
             debugger::halt("BusError");
             break;
         // An Integer Overflow exception occurs when an ADD, ADDI, SUB, DADD,
         // DADDI or DSUB instruction results in a 2’s complement overflow
         case IntegerOverflow:
             exccode = 12; // Ov
+            debugger::info(Debugger::CPU, "exception IntegerOverflow");
             debugger::halt("IntegerOverflow");
             break;
         // The Trap exception occurs when a TGE, TGEU, TLT, TLTU, TEQ, TNE,
@@ -288,17 +278,20 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
         // condition.
         case Trap:
             exccode = 13; // Tr
+            debugger::info(Debugger::CPU, "exception Trap");
             debugger::halt("Trap");
             break;
         // A System Call exception occurs during an attempt to execute the
         // SYSCALL instruction.
         case SystemCall:
             exccode = 8; // Sys
+            debugger::info(Debugger::CPU, "exception SystemCall");
             break;
         // A Breakpoint exception occurs when an attempt is made to execute the
         // BREAK instruction.
         case Breakpoint:
             exccode = 9; // Bp
+            debugger::info(Debugger::CPU, "exception Breakpoint");
             debugger::halt("Breakpoint");
             break;
         // The Reserved Instruction exception occurs when one of the following
@@ -313,6 +306,7 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
         //        when in User or Supervisor mode
         case ReservedInstruction:
             exccode = 10; // RI
+            debugger::info(Debugger::CPU, "exception ReservedInstruction");
             debugger::halt("ReservedInstruction");
             break;
         // The Coprocessor Unusable exception occurs when an attempt is made to
@@ -323,11 +317,13 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
         //        and the process executes in either User or Supervisor mode.
         case CoprocessorUnusable:
             exccode = 11; // CpU
+            debugger::info(Debugger::CPU, "exception CoprocessorUnusable({})", ce);
             break;
         // The Floating-Point exception is used by the floating-point
         // coprocessor.
         case FloatingPoint:
             exccode = 15; // FPEEXL
+            debugger::info(Debugger::CPU, "exception FloatingPoint");
             debugger::halt("FloatingPoint");
             // TODO: Set FP Control Status Register
             break;
@@ -337,6 +333,7 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
         // load or store initiated this exception.
         case Watch:
             exccode = 23; // WATCH
+            debugger::info(Debugger::CPU, "exception Watch");
             debugger::halt("Watch");
             // TODO: Set Watch register
             break;
@@ -344,6 +341,7 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
         // is asserted.
         case Interrupt:
             exccode = 0;
+            debugger::info(Debugger::CPU, "exception Interrupt");
             break;
         default:
             debugger::halt("UndefinedException");
@@ -382,7 +380,6 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
 
     state.cpu.nextAction = State::Action::Jump;
     state.cpu.nextPc = pc;
-    debugger::info(Debugger::CPU, "exn cause after {:08x}", state.cp0reg.cause);
 }
 
 /**
