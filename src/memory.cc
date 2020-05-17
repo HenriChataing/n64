@@ -41,7 +41,7 @@ void Region::print()
 
 bool Region::load(uint bytes, u64 addr, u64 *value)
 {
-    if (addr + bytes > size)
+    if (addr + bytes > address + size)
         return false;
 
     for (Region *sub : subregions) {
@@ -59,7 +59,7 @@ bool Region::load(uint bytes, u64 addr, u64 *value)
 
 bool Region::store(uint bytes, u64 addr, u64 value)
 {
-    if (addr + bytes > size)
+    if (addr + bytes > address + size)
         return false;
 
     for (Region *sub : subregions) {
@@ -188,8 +188,9 @@ bool RamRegion::load(uint bytes, u64 addr, u64 *value)
 
 bool RamRegion::store(uint bytes, u64 addr, u64 value)
 {
-    if (readonly)
-        return false;
+    if (readonly) {
+        return true;
+    }
 
     u64 offset = addr - this->address;
     adjustEndianness(bytes, &value);
