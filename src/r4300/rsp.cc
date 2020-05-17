@@ -20,7 +20,7 @@ namespace RSP {
 /**
  * Check whether a virtual memory address is correctly aligned for a memory
  * access. The RSP does not implement exceptions but the alignment is checked
- * for the sake of catching suspicious states for debugging purposes.
+ * for the sake of catching suspicious states, for debugging purposes.
  *
  * @param addr          Checked DMEM/IMEM address.
  * @param bytes         Required alignment, must be a power of two.
@@ -1677,11 +1677,6 @@ bool step()
             state.rspreg.pc = state.rsp.nextPc;
             state.rsp.nextAction = State::Action::Continue;
             exn = eval(false);
-            break;
-
-        case State::Action::Interrupt:
-            debugger::halt("Invalid RSP INTERRUPT state");
-            exn = false;
             break;
     }
     return exn;

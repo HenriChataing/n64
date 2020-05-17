@@ -32,15 +32,14 @@ public:
     alignas(u64) u8 tmem[0x1000];
     alignas(u64) u8 pifram[0x40];
     alignas(u64) u8 rom[0xfc00000];
-    Memory::AddressSpace physmem;
 
+    Memory::AddressSpace physmem;
     ulong cycles;
 
     enum Action {
         Continue,   /**< Evaluate the instruction at pc+4 */
         Delay,      /**< Evaluate the instruction at pc+4, then perform a jump */
         Jump,       /**< Jump to the specified address. */
-        Interrupt,  /**< Take an interrupt at the next instruction. */
     };
 
     struct Event {
@@ -53,10 +52,11 @@ public:
     };
 
     struct {
-        Action nextAction;
-        u64 nextPc;
-        Event *eventQueue;
-        ulong nextEvent;
+        Action  nextAction;
+        u64     nextPc;
+        ulong   nextEvent;
+        bool    delaySlot;
+        Event  *eventQueue;
     } cpu, rsp;
 
     void scheduleEvent(ulong timeout, void (*callback)());

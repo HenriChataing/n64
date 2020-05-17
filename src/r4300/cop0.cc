@@ -510,9 +510,8 @@ void eval_ERET(u32 instr) {
     checkInterrupt();
 }
 
-void eval_COP0(u32 instr, bool delaySlot)
+void eval_COP0(u32 instr)
 {
-    (void)delaySlot;
     switch (Mips::getRs(instr)) {
         case Mips::Copz::MF:    eval_MFC0(instr); break;
         case Mips::Copz::DMF:   eval_DMFC0(instr); break;

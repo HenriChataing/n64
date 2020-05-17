@@ -8,9 +8,9 @@
 namespace R4300 {
 namespace Eval {
 
-void eval_Reserved(u32 instr, bool delaySlot);
-void eval_COP0(u32 instr, bool delaySlot);
-void eval_COP1(u32 instr, bool delaySlot);
+void eval_Reserved(u32 instr);
+void eval_COP0(u32 instr);
+void eval_COP1(u32 instr);
 
 /** @brief Execute exactly one instruction. */
 void step();
@@ -27,7 +27,7 @@ void step();
  *                      operation.
  */
 void takeException(R4300::Exception exn, u64 vAddr,
-                   bool delaySlot, bool instr, bool load, u32 ce = 0);
+                   bool instr, bool load, u32 ce = 0);
 
 /**
  * @brief Print out a backtrace of the program execution.

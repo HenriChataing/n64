@@ -44,14 +44,6 @@ using namespace R4300::Eval;
     u32 ft = Mips::getFt(instr); \
     (void)fd; (void)fs; (void)ft;
 
-
-#define checkCop1Usable() \
-    if (!CU1()) { \
-        Eval::takeException(CoprocessorUnusable, 0, \
-                            delaySlot, instr, false, 1u); \
-        return; \
-    }
-
 namespace R4300 {
 
 /**
@@ -74,12 +66,12 @@ void cp1reg::setFprAliases(bool fr) {
 
 namespace Eval {
 
-void eval_MFC1(u32 instr, bool delaySlot) {
+void eval_MFC1(u32 instr) {
     RType(instr);
     state.reg.gpr[rt] = sign_extend<u64, u32>(state.cp1reg.fpr_s[rd]->w);
 }
 
-void eval_DMFC1(u32 instr, bool delaySlot) {
+void eval_DMFC1(u32 instr) {
     RType(instr);
     // NB: the instruction puts an undefined value in rd for
     // odd register access. To remove some checks, the instruction
@@ -89,7 +81,7 @@ void eval_DMFC1(u32 instr, bool delaySlot) {
     debugger::halt("DMFC1 instruction");
 }
 
-void eval_CFC1(u32 instr, bool delaySlot) {
+void eval_CFC1(u32 instr) {
     RType(instr);
     switch (rd) {
         case 0:  state.reg.gpr[rt] = state.cp1reg.fcr0; break;
@@ -99,12 +91,12 @@ void eval_CFC1(u32 instr, bool delaySlot) {
     }
 }
 
-void eval_MTC1(u32 instr, bool delaySlot) {
+void eval_MTC1(u32 instr) {
     RType(instr);
     state.cp1reg.fpr_s[rd]->w = state.reg.gpr[rt];
 }
 
-void eval_DMTC1(u32 instr, bool delaySlot) {
+void eval_DMTC1(u32 instr) {
     RType(instr);
     // NB: the instruction presents an undefined behaviour for
     // odd register access. To remove some checks, the instruction
@@ -114,7 +106,7 @@ void eval_DMTC1(u32 instr, bool delaySlot) {
     debugger::halt("DMTC1 instruction");
 }
 
-void eval_CTC1(u32 instr, bool delaySlot) {
+void eval_CTC1(u32 instr) {
     RType(instr);
     switch (rd) {
         case 0:  state.cp1reg.fcr0  = state.reg.gpr[rt]; break;
@@ -124,7 +116,7 @@ void eval_CTC1(u32 instr, bool delaySlot) {
     }
 }
 
-void eval_BC1(u32 instr, bool delaySlot) {
+void eval_BC1(u32 instr) {
 
     u64 offset = sign_extend<u64, u16>(Mips::getImmediate(instr));
     bool taken = false;
@@ -158,7 +150,7 @@ void eval_BC1(u32 instr, bool delaySlot) {
     }
 }
 
-void eval_ADD_S(u32 instr, bool delaySlot) {
+void eval_ADD_S(u32 instr) {
     // TODO overflow
     FRType(instr);
     state.cp1reg.fpr_s[fd]->s =
@@ -166,7 +158,7 @@ void eval_ADD_S(u32 instr, bool delaySlot) {
         state.cp1reg.fpr_s[ft]->s;
 }
 
-void eval_SUB_S(u32 instr, bool delaySlot) {
+void eval_SUB_S(u32 instr) {
     // TODO overflow
     FRType(instr);
     state.cp1reg.fpr_s[fd]->s =
@@ -174,7 +166,7 @@ void eval_SUB_S(u32 instr, bool delaySlot) {
         state.cp1reg.fpr_s[ft]->s;
 }
 
-void eval_MUL_S(u32 instr, bool delaySlot) {
+void eval_MUL_S(u32 instr) {
     // TODO overflow
     FRType(instr);
     state.cp1reg.fpr_s[fd]->s =
@@ -182,7 +174,7 @@ void eval_MUL_S(u32 instr, bool delaySlot) {
         state.cp1reg.fpr_s[ft]->s;
 }
 
-void eval_DIV_S(u32 instr, bool delaySlot) {
+void eval_DIV_S(u32 instr) {
     // TODO divide by zero
     FRType(instr);
     state.cp1reg.fpr_s[fd]->s =
@@ -190,24 +182,24 @@ void eval_DIV_S(u32 instr, bool delaySlot) {
         state.cp1reg.fpr_s[ft]->s;
 }
 
-void eval_SQRT_S(u32 instr, bool delaySlot) {
+void eval_SQRT_S(u32 instr) {
     // TODO inexact
     FRType(instr);
     state.cp1reg.fpr_s[fd]->s =
         sqrt(state.cp1reg.fpr_s[fs]->s);
 }
 
-void eval_ABS_S(u32 instr, bool delaySlot) {
+void eval_ABS_S(u32 instr) {
     FRType(instr);
     state.cp1reg.fpr_s[fd]->s = ::fabs(state.cp1reg.fpr_s[fs]->s);
 }
 
-void eval_MOV_S(u32 instr, bool delaySlot) {
+void eval_MOV_S(u32 instr) {
     FRType(instr);
     state.cp1reg.fpr_s[fd]->s = state.cp1reg.fpr_s[fs]->s;
 }
 
-void eval_NEG_S(u32 instr, bool delaySlot) {
+void eval_NEG_S(u32 instr) {
     FRType(instr);
     if (std::isnan(state.cp1reg.fpr_s[fs]->s)) {
         // TODO invalid operation exception is NaN
@@ -216,7 +208,7 @@ void eval_NEG_S(u32 instr, bool delaySlot) {
     state.cp1reg.fpr_s[fd]->s = -state.cp1reg.fpr_s[fs]->s;
 }
 
-void eval_ROUND_L_S(u32 instr, bool delaySlot) {
+void eval_ROUND_L_S(u32 instr) {
     FRType(instr);
 
     int rmode = std::fegetround();
@@ -234,7 +226,7 @@ void eval_ROUND_L_S(u32 instr, bool delaySlot) {
     state.cp1reg.fpr_d[fd]->l = out;
 }
 
-void eval_TRUNC_L_S(u32 instr, bool delaySlot) {
+void eval_TRUNC_L_S(u32 instr) {
     FRType(instr);
 
     float in = ::trunc(state.cp1reg.fpr_s[fs]->s);
@@ -249,7 +241,7 @@ void eval_TRUNC_L_S(u32 instr, bool delaySlot) {
     state.cp1reg.fpr_d[fd]->l = out;
 }
 
-void eval_CEIL_L_S(u32 instr, bool delaySlot) {
+void eval_CEIL_L_S(u32 instr) {
     FRType(instr);
 
     float in = ::ceil(state.cp1reg.fpr_s[fs]->s);
@@ -264,7 +256,7 @@ void eval_CEIL_L_S(u32 instr, bool delaySlot) {
     state.cp1reg.fpr_d[fd]->l = out;
 }
 
-void eval_FLOOR_L_S(u32 instr, bool delaySlot) {
+void eval_FLOOR_L_S(u32 instr) {
     FRType(instr);
 
     float in = ::floor(state.cp1reg.fpr_s[fs]->s);
@@ -279,7 +271,7 @@ void eval_FLOOR_L_S(u32 instr, bool delaySlot) {
     state.cp1reg.fpr_d[fd]->l = out;
 }
 
-void eval_ROUND_W_S(u32 instr, bool delaySlot) {
+void eval_ROUND_W_S(u32 instr) {
     FRType(instr);
 
     int rmode = std::fegetround();
@@ -297,7 +289,7 @@ void eval_ROUND_W_S(u32 instr, bool delaySlot) {
     state.cp1reg.fpr_s[fd]->w = out;
 }
 
-void eval_TRUNC_W_S(u32 instr, bool delaySlot) {
+void eval_TRUNC_W_S(u32 instr) {
     FRType(instr);
 
     float in = ::trunc(state.cp1reg.fpr_s[fs]->s);
@@ -312,7 +304,7 @@ void eval_TRUNC_W_S(u32 instr, bool delaySlot) {
     state.cp1reg.fpr_s[fd]->w = out;
 }
 
-void eval_CEIL_W_S(u32 instr, bool delaySlot) {
+void eval_CEIL_W_S(u32 instr) {
     FRType(instr);
 
     float in = ::ceil(state.cp1reg.fpr_s[fs]->s);
@@ -327,7 +319,7 @@ void eval_CEIL_W_S(u32 instr, bool delaySlot) {
     state.cp1reg.fpr_s[fd]->w = out;
 }
 
-void eval_FLOOR_W_S(u32 instr, bool delaySlot) {
+void eval_FLOOR_W_S(u32 instr) {
     FRType(instr);
 
     float in = ::floor(state.cp1reg.fpr_s[fs]->s);
@@ -342,22 +334,22 @@ void eval_FLOOR_W_S(u32 instr, bool delaySlot) {
     state.cp1reg.fpr_s[fd]->w = out;
 }
 
-void eval_CVT_D_S(u32 instr, bool delaySlot) {
+void eval_CVT_D_S(u32 instr) {
     FRType(instr);
     state.cp1reg.fpr_d[fd]->d = state.cp1reg.fpr_s[fs]->s;
 }
 
-void eval_CVT_W_S(u32 instr, bool delaySlot) {
+void eval_CVT_W_S(u32 instr) {
     FRType(instr);
     state.cp1reg.fpr_s[fd]->w = state.cp1reg.fpr_s[fs]->s;
 }
 
-void eval_CVT_L_S(u32 instr, bool delaySlot) {
+void eval_CVT_L_S(u32 instr) {
     FRType(instr);
     state.cp1reg.fpr_d[fd]->l = state.cp1reg.fpr_s[fs]->s;
 }
 
-void eval_CMP_S(u32 instr, bool delaySlot) {
+void eval_CMP_S(u32 instr) {
     FRType(instr);
 
     float s = state.cp1reg.fpr_s[fs]->s;
@@ -393,7 +385,7 @@ void eval_CMP_S(u32 instr, bool delaySlot) {
     }
 }
 
-void eval_ADD_D(u32 instr, bool delaySlot) {
+void eval_ADD_D(u32 instr) {
     // TODO overflow
     FRType(instr);
     state.cp1reg.fpr_d[fd]->d =
@@ -401,7 +393,7 @@ void eval_ADD_D(u32 instr, bool delaySlot) {
         state.cp1reg.fpr_d[ft]->d;
 }
 
-void eval_SUB_D(u32 instr, bool delaySlot) {
+void eval_SUB_D(u32 instr) {
     // TODO overflow
     FRType(instr);
     state.cp1reg.fpr_d[fd]->d =
@@ -409,7 +401,7 @@ void eval_SUB_D(u32 instr, bool delaySlot) {
         state.cp1reg.fpr_d[ft]->d;
 }
 
-void eval_MUL_D(u32 instr, bool delaySlot) {
+void eval_MUL_D(u32 instr) {
     // TODO overflow
     FRType(instr);
     state.cp1reg.fpr_d[fd]->d =
@@ -417,7 +409,7 @@ void eval_MUL_D(u32 instr, bool delaySlot) {
         state.cp1reg.fpr_d[ft]->d;
 }
 
-void eval_DIV_D(u32 instr, bool delaySlot) {
+void eval_DIV_D(u32 instr) {
     // TODO divide by zero
     FRType(instr);
     state.cp1reg.fpr_d[fd]->d =
@@ -425,24 +417,24 @@ void eval_DIV_D(u32 instr, bool delaySlot) {
         state.cp1reg.fpr_d[ft]->d;
 }
 
-void eval_SQRT_D(u32 instr, bool delaySlot) {
+void eval_SQRT_D(u32 instr) {
     // TODO inexact
     FRType(instr);
     state.cp1reg.fpr_d[fd]->d =
         sqrt(state.cp1reg.fpr_d[fs]->d);
 }
 
-void eval_ABS_D(u32 instr, bool delaySlot) {
+void eval_ABS_D(u32 instr) {
     FRType(instr);
     state.cp1reg.fpr_d[fd]->d = ::fabs(state.cp1reg.fpr_d[fs]->d);
 }
 
-void eval_MOV_D(u32 instr, bool delaySlot) {
+void eval_MOV_D(u32 instr) {
     FRType(instr);
     state.cp1reg.fpr_d[fd]->d = state.cp1reg.fpr_d[fs]->d;
 }
 
-void eval_NEG_D(u32 instr, bool delaySlot) {
+void eval_NEG_D(u32 instr) {
     FRType(instr);
     if (std::isnan(state.cp1reg.fpr_d[fs]->d)) {
         // TODO invalid operation exception is NaN
@@ -451,7 +443,7 @@ void eval_NEG_D(u32 instr, bool delaySlot) {
     state.cp1reg.fpr_d[fd]->d = -state.cp1reg.fpr_d[fs]->d;
 }
 
-void eval_ROUND_L_D(u32 instr, bool delaySlot) {
+void eval_ROUND_L_D(u32 instr) {
     FRType(instr);
 
     int rmode = std::fegetround();
@@ -469,7 +461,7 @@ void eval_ROUND_L_D(u32 instr, bool delaySlot) {
     state.cp1reg.fpr_d[fd]->l = out;
 }
 
-void eval_TRUNC_L_D(u32 instr, bool delaySlot) {
+void eval_TRUNC_L_D(u32 instr) {
     FRType(instr);
 
     double in = ::trunc(state.cp1reg.fpr_d[fs]->d);
@@ -484,7 +476,7 @@ void eval_TRUNC_L_D(u32 instr, bool delaySlot) {
     state.cp1reg.fpr_d[fd]->l = out;
 }
 
-void eval_CEIL_L_D(u32 instr, bool delaySlot) {
+void eval_CEIL_L_D(u32 instr) {
     FRType(instr);
 
     double in = ::ceil(state.cp1reg.fpr_d[fs]->d);
@@ -499,7 +491,7 @@ void eval_CEIL_L_D(u32 instr, bool delaySlot) {
     state.cp1reg.fpr_d[fd]->l = out;
 }
 
-void eval_FLOOR_L_D(u32 instr, bool delaySlot) {
+void eval_FLOOR_L_D(u32 instr) {
     FRType(instr);
 
     double in = ::floor(state.cp1reg.fpr_d[fs]->d);
@@ -514,7 +506,7 @@ void eval_FLOOR_L_D(u32 instr, bool delaySlot) {
     state.cp1reg.fpr_d[fd]->l = out;
 }
 
-void eval_ROUND_W_D(u32 instr, bool delaySlot) {
+void eval_ROUND_W_D(u32 instr) {
     FRType(instr);
 
     int rmode = std::fegetround();
@@ -532,7 +524,7 @@ void eval_ROUND_W_D(u32 instr, bool delaySlot) {
     state.cp1reg.fpr_s[fd]->w = out;
 }
 
-void eval_TRUNC_W_D(u32 instr, bool delaySlot) {
+void eval_TRUNC_W_D(u32 instr) {
     FRType(instr);
 
     double in = ::trunc(state.cp1reg.fpr_d[fs]->d);
@@ -548,7 +540,7 @@ void eval_TRUNC_W_D(u32 instr, bool delaySlot) {
     state.cp1reg.fpr_s[fd]->w = out;
 }
 
-void eval_CEIL_W_D(u32 instr, bool delaySlot) {
+void eval_CEIL_W_D(u32 instr) {
     FRType(instr);
 
     double in = ::ceil(state.cp1reg.fpr_d[fs]->d);
@@ -563,7 +555,7 @@ void eval_CEIL_W_D(u32 instr, bool delaySlot) {
     state.cp1reg.fpr_s[fd]->w = out;
 }
 
-void eval_FLOOR_W_D(u32 instr, bool delaySlot) {
+void eval_FLOOR_W_D(u32 instr) {
     FRType(instr);
 
     double in = ::floor(state.cp1reg.fpr_d[fs]->d);
@@ -578,25 +570,25 @@ void eval_FLOOR_W_D(u32 instr, bool delaySlot) {
     state.cp1reg.fpr_s[fd]->w = out;
 }
 
-void eval_CVT_S_D(u32 instr, bool delaySlot) {
+void eval_CVT_S_D(u32 instr) {
     // TODO Rounding occurs with specified rounding mode
     FRType(instr);
     state.cp1reg.fpr_s[fd]->s = state.cp1reg.fpr_d[fs]->d;
 }
 
-void eval_CVT_W_D(u32 instr, bool delaySlot) {
+void eval_CVT_W_D(u32 instr) {
     // TODO Rounding occurs with specified rounding mode
     FRType(instr);
     state.cp1reg.fpr_s[fd]->w = state.cp1reg.fpr_d[fs]->d;
 }
 
-void eval_CVT_L_D(u32 instr, bool delaySlot) {
+void eval_CVT_L_D(u32 instr) {
     // TODO Rounding occurs with specified rounding mode
     FRType(instr);
     state.cp1reg.fpr_d[fd]->l = state.cp1reg.fpr_d[fs]->d;
 }
 
-void eval_CMP_D(u32 instr, bool delaySlot) {
+void eval_CMP_D(u32 instr) {
     FRType(instr);
 
     double s = state.cp1reg.fpr_d[fs]->d;
@@ -632,31 +624,31 @@ void eval_CMP_D(u32 instr, bool delaySlot) {
     }
 }
 
-void eval_CVT_S_W(u32 instr, bool delaySlot) {
+void eval_CVT_S_W(u32 instr) {
     // TODO Rounding occurs with specified rounding mode
     FRType(instr);
     state.cp1reg.fpr_s[fd]->s = (i32)state.cp1reg.fpr_s[fs]->w;
 }
 
-void eval_CVT_D_W(u32 instr, bool delaySlot) {
+void eval_CVT_D_W(u32 instr) {
     // TODO Rounding occurs with specified rounding mode
     FRType(instr);
     state.cp1reg.fpr_d[fd]->d = (i32)state.cp1reg.fpr_s[fs]->w;
 }
 
-void eval_CVT_S_L(u32 instr, bool delaySlot) {
+void eval_CVT_S_L(u32 instr) {
     // TODO Rounding occurs with specified rounding mode
     FRType(instr);
     state.cp1reg.fpr_s[fd]->s = (i64)state.cp1reg.fpr_d[fs]->l;
 }
 
-void eval_CVT_D_L(u32 instr, bool delaySlot) {
+void eval_CVT_D_L(u32 instr) {
     // TODO Rounding occurs with specified rounding mode
     FRType(instr);
     state.cp1reg.fpr_d[fd]->d = (i64)state.cp1reg.fpr_d[fs]->l;
 }
 
-void (*COP1_S_callbacks[64])(u32, bool) = {
+void (*COP1_S_callbacks[64])(u32) = {
     eval_ADD_S,     eval_SUB_S,     eval_MUL_S,     eval_DIV_S,
     eval_SQRT_S,    eval_ABS_S,     eval_MOV_S,     eval_NEG_S,
     eval_ROUND_L_S, eval_TRUNC_L_S, eval_CEIL_L_S,  eval_FLOOR_L_S,
@@ -675,11 +667,11 @@ void (*COP1_S_callbacks[64])(u32, bool) = {
     eval_CMP_S,     eval_CMP_S,     eval_CMP_S,     eval_CMP_S,
 };
 
-void eval_COP1_S(u32 instr, bool delaySlot) {
-    COP1_S_callbacks[Mips::getFunct(instr)](instr, delaySlot);
+void eval_COP1_S(u32 instr) {
+    COP1_S_callbacks[Mips::getFunct(instr)](instr);
 }
 
-void (*COP1_D_callbacks[64])(u32, bool) = {
+void (*COP1_D_callbacks[64])(u32) = {
     eval_ADD_D,     eval_SUB_D,     eval_MUL_D,     eval_DIV_D,
     eval_SQRT_D,    eval_ABS_D,     eval_MOV_D,     eval_NEG_D,
     eval_ROUND_L_D, eval_TRUNC_L_D, eval_CEIL_L_D,  eval_FLOOR_L_D,
@@ -698,11 +690,11 @@ void (*COP1_D_callbacks[64])(u32, bool) = {
     eval_CMP_D,     eval_CMP_D,     eval_CMP_D,     eval_CMP_D,
 };
 
-void eval_COP1_D(u32 instr, bool delaySlot) {
-    COP1_D_callbacks[Mips::getFunct(instr)](instr, delaySlot);
+void eval_COP1_D(u32 instr) {
+    COP1_D_callbacks[Mips::getFunct(instr)](instr);
 }
 
-void (*COP1_W_callbacks[64])(u32, bool) = {
+void (*COP1_W_callbacks[64])(u32) = {
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
@@ -721,11 +713,11 @@ void (*COP1_W_callbacks[64])(u32, bool) = {
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
 };
 
-void eval_COP1_W(u32 instr, bool delaySlot) {
-    COP1_W_callbacks[Mips::getFunct(instr)](instr, delaySlot);
+void eval_COP1_W(u32 instr) {
+    COP1_W_callbacks[Mips::getFunct(instr)](instr);
 }
 
-void (*COP1_L_callbacks[64])(u32, bool) = {
+void (*COP1_L_callbacks[64])(u32) = {
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
@@ -744,11 +736,11 @@ void (*COP1_L_callbacks[64])(u32, bool) = {
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
 };
 
-void eval_COP1_L(u32 instr, bool delaySlot) {
-    COP1_L_callbacks[Mips::getFunct(instr)](instr, delaySlot);
+void eval_COP1_L(u32 instr) {
+    COP1_L_callbacks[Mips::getFunct(instr)](instr);
 }
 
-void (*COP1_callbacks[64])(u32, bool) = {
+void (*COP1_callbacks[64])(u32) = {
     eval_MFC1,      eval_DMFC1,     eval_CFC1,      eval_Reserved,
     eval_MTC1,      eval_DMTC1,     eval_CTC1,      eval_Reserved,
     eval_BC1,       eval_Reserved,  eval_Reserved,  eval_Reserved,
@@ -759,8 +751,12 @@ void (*COP1_callbacks[64])(u32, bool) = {
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
 };
 
-void eval_COP1(u32 instr, bool delaySlot) {
-    COP1_callbacks[Mips::getFmt(instr)](instr, delaySlot);
+void eval_COP1(u32 instr) {
+    if (!state.cp0reg.CU1()) {
+        Eval::takeException(CoprocessorUnusable, 0, false, false, 1u);
+    } else {
+        COP1_callbacks[Mips::getFmt(instr)](instr);
+    }
 }
 
 }; /* namespace Eval */
