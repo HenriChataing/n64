@@ -451,7 +451,13 @@ void eval_BREAK(u32 instr) {
 
 void eval_DADD(u32 instr) {
     RType(instr);
-    debugger::halt("DADD");
+    i64 res;
+    i64 a = (i64)state.reg.gpr[rs];
+    i64 b = (i64)state.reg.gpr[rt];
+    if (__builtin_add_overflow(a, b, &res)) {
+        debugger::halt("DADD IntegerOverflow");
+    }
+    state.reg.gpr[rd] = (u64)res;
 }
 
 void eval_DADDU(u32 instr) {
@@ -462,7 +468,10 @@ void eval_DADDU(u32 instr) {
 
 void eval_DDIV(u32 instr) {
     RType(instr);
-    debugger::halt("DDIV");
+    i64 lo = (i64)state.reg.gpr[rs] / (i64)state.reg.gpr[rt];
+    i64 hi = (i64)state.reg.gpr[rs] % (i64)state.reg.gpr[rt];
+    state.reg.multLo = (u64)lo;
+    state.reg.multHi = (u64)hi;
 }
 
 void eval_DDIVU(u32 instr) {
