@@ -172,16 +172,19 @@ void handleCounterEvent() {
     debugger::debug(Debugger::COP0, "  cycles:{}", state.cycles);
     debugger::debug(Debugger::COP0, "  last_counter_update:{}", state.cp0reg.lastCounterUpdate);
 
-    if (diff > untilCompare) {
+    if (diff >= untilCompare) {
         state.cp0reg.cause |= CAUSE_IP7;
         checkInterrupt();
+    } else {
+        debugger::halt("Spurious counter event");
     }
 
     state.cp0reg.count = (u32)((ulong)state.cp0reg.count + diff);
     state.cp0reg.lastCounterUpdate = state.cycles;
     untilCompare = state.cp0reg.compare - state.cp0reg.count - 1;
 
-    debugger::debug(Debugger::COP0, "  next:{}", 2 * (ulong)untilCompare);
+    debugger::debug(Debugger::COP0, "  now:{}", state.cycles);
+    debugger::debug(Debugger::COP0, "  trig:{}", state.cycles + 2 * (ulong)untilCompare);
     state.scheduleEvent(state.cycles + 2 * (ulong)untilCompare, handleCounterEvent);
 }
 
@@ -194,6 +197,10 @@ void scheduleCounterEvent() {
     state.cp0reg.count = (u32)((ulong)state.cp0reg.count + diff);
     state.cp0reg.lastCounterUpdate = state.cycles;
     u32 untilCompare = state.cp0reg.compare - state.cp0reg.count;
+
+    debugger::debug(Debugger::COP0, "scheduling counter event");
+    debugger::debug(Debugger::COP0, "  now:{}", state.cycles);
+    debugger::debug(Debugger::COP0, "  trig:{}", state.cycles + 2 * (ulong)untilCompare);
     state.cancelEvent(handleCounterEvent);
     state.scheduleEvent(state.cycles + 2 * (ulong)untilCompare, handleCounterEvent);
 }
@@ -211,10 +218,7 @@ void eval_MFC0(u32 instr) {
         case Random:    val = state.cp0reg.random; break;
         case EntryLo0:  val = state.cp0reg.entrylo0; break;
         case EntryLo1:  val = state.cp0reg.entrylo1; break;
-        case Context:
-            val = state.cp0reg.context;
-            debugger::halt("MFC0 context");
-            break;
+        case Context:   val = state.cp0reg.context; break;
         case PageMask:  val = state.cp0reg.pagemask; break;
         case Wired:     val = state.cp0reg.wired; break;
         case BadVAddr:  val = state.cp0reg.badvaddr; break;
