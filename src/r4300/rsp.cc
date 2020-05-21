@@ -420,15 +420,149 @@ static void eval_VAND(u32 instr) {
 }
 
 static void eval_VCH(u32 instr) {
-    debugger::halt("VCH unsupported");
+    u32 e = getElement(instr);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+    vr_t out;
+
+    state.rspreg.vcc = 0;
+    state.rspreg.vco = 0;
+    state.rspreg.vce = 0;
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j = selectElementIndex(i, e);
+        u16 s = state.rspreg.vr[vs].h[i];
+        u16 t = state.rspreg.vr[vt].h[j];
+        u16 tmp;
+        u16 di;
+
+        bool sign = (i16)(u16)(s ^ t) < 0;
+        bool ge;
+        bool le;
+        bool vce;
+
+        if (sign) {
+            tmp = s + t;
+            ge = (i16)t < 0;
+            le = (i16)tmp <= 0;
+            vce = (i16)tmp == -1;
+            di = le ? -t : s;
+        } else {
+            tmp = s - t;
+            le = (i16)t < 0;
+            ge = (i16)tmp >= 0;
+            vce = 0;
+            di = ge ? t : s;
+        }
+
+        bool neq = tmp != 0;
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= di;
+        state.rspreg.vcc |= (u16)ge << (i + 8);
+        state.rspreg.vcc |= (u16)le << i;
+        state.rspreg.vco |= (u16)neq << (i + 8);
+        state.rspreg.vco |= (u16)sign << i;
+        state.rspreg.vce |= (u8)vce << i;
+        out.h[i] = di;
+    }
+
+    state.rspreg.vr[vd] = out;
 }
 
+/// XXX TODO
+/// failure for N64/RSPTest/CP2/VCL/RSPCP2VCL.N64
 static void eval_VCL(u32 instr) {
-    debugger::halt("VCL unsupported");
+    u32 e = getElement(instr);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+    vr_t out;
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j = selectElementIndex(i, e);
+        u16 s = state.rspreg.vr[vs].h[i];
+        u16 t = state.rspreg.vr[vt].h[j];
+        u32 tmp;
+        u16 di;
+
+        bool neq = (state.rspreg.vco >> (i + 8)) & 1;
+        bool sign = (state.rspreg.vco >> i) & 1;
+        bool ge = (state.rspreg.vcc >> (i + 8)) & 1;
+        bool le = (state.rspreg.vcc >> i) & 1;
+        bool vce = (state.rspreg.vce >> i) & 1;
+
+        if (sign) {
+            tmp = (u32)s + (u32)t;
+            bool carry = tmp > 0xffffu;
+            if (!neq) {
+                le = (!vce && (tmp & 0xffffu) == 0 && !carry) ||
+                     (vce && ((tmp & 0xffffu) == 0 || !carry));
+            }
+            di = le ? -t : s;
+        } else {
+            tmp = (u32)s - (u32)t;
+            if (!neq) {
+                ge = (i32)tmp >= 0;
+            }
+            di = ge ? t : s;
+        }
+
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= di;
+        state.rspreg.vcc &= ~(0x101u << i);
+        state.rspreg.vcc |= (u16)ge << (i + 8);
+        state.rspreg.vcc |= (u16)le << i;
+        out.h[i] = di;
+    }
+
+    state.rspreg.vco = 0;
+    state.rspreg.vce = 0;
+    state.rspreg.vr[vd] = out;
 }
 
 static void eval_VCR(u32 instr) {
-    debugger::halt("VCR unsupported");
+    u32 e = getElement(instr);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+    vr_t out;
+
+    state.rspreg.vcc = 0;
+    state.rspreg.vco = 0;
+    state.rspreg.vce = 0;
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j = selectElementIndex(i, e);
+        u16 s = state.rspreg.vr[vs].h[i];
+        u16 t = state.rspreg.vr[vt].h[j];
+        u16 tmp;
+        u16 di;
+
+        bool sign = (i16)(u16)(s ^ t) < 0;
+        bool ge;
+        bool le;
+
+        if (sign) {
+            tmp = s + t + 1;
+            ge = (i16)t < 0;
+            le = (i16)tmp <= 0;
+            di = le ? ~t : s;
+        } else {
+            tmp = s - t;
+            le = (i16)t < 0;
+            ge = (i16)tmp >= 0;
+            di = ge ? t : s;
+        }
+
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= di;
+        state.rspreg.vcc |= (u16)ge << (i + 8);
+        state.rspreg.vcc |= (u16)le << i;
+        out.h[i] = di;
+    }
+
+    state.rspreg.vr[vd] = out;
 }
 
 static void eval_VEQ(u32 instr) {
@@ -556,6 +690,8 @@ static void eval_VMACQ(u32 instr) {
     debugger::halt("VMACQ unsupported");
 }
 
+/// XXX TODO
+/// failure for N64/RSPTest/CP2/VMACF/RSPCP2VMACF.N64
 static void eval_VMACU(u32 instr) {
     u32 e = getElement(instr);
     u32 vt = getVt(instr);
@@ -668,7 +804,25 @@ static void eval_VMOV(u32 instr) {
 }
 
 static void eval_VMRG(u32 instr) {
-    debugger::halt("RSP::VMRG unsupported");
+    u32 e = getElement(instr);
+    u32 vt = getVt(instr);
+    u32 vs = getVs(instr);
+    u32 vd = getVd(instr);
+    vr_t out;
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned j = selectElementIndex(i, e);
+
+        bool vcci = (state.rspreg.vcc >> i) & 1;
+        u16 res = vcci ? state.rspreg.vr[vs].h[i]
+                       : state.rspreg.vr[vt].h[j];
+
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= res;
+        out.h[i] = res;
+    }
+
+    state.rspreg.vr[vd] = out;
 }
 
 static void eval_VMUDH(u32 instr) {
@@ -850,6 +1004,10 @@ static void eval_VNE(u32 instr) {
 }
 
 static void eval_VNOP(u32 instr) {
+    (void)instr;
+}
+
+static void eval_VNULL(u32 instr) {
     (void)instr;
 }
 
@@ -1512,7 +1670,7 @@ void eval_LHU(u32 instr) {
     IType(instr, sign_extend);
     u64 addr = state.rspreg.gpr[rs] + imm;
 
-    if (checkAddressAlignment(addr, 2)) {
+    if ((addr & 0x1u) == 0) { // checkAddressAlignment(addr, 2)) {
         u64 val = __builtin_bswap16(*(u16 *)&state.dmem[addr & 0xfffu]);
         state.rspreg.gpr[rt] = zero_extend<u64, u16>(val);
     } else {
@@ -1532,8 +1690,15 @@ void eval_LW(u32 instr) {
     IType(instr, sign_extend);
     u64 addr = state.rspreg.gpr[rs] + imm;
 
-    if (checkAddressAlignment(addr, 4)) {
+    if ((addr & 0x3u) == 0) { //checkAddressAlignment(addr, 4)) {
         u64 val = __builtin_bswap32(*(u32 *)&state.dmem[addr & 0xfffu]);
+        state.rspreg.gpr[rt] = sign_extend<u64, u32>(val);
+    } else {
+        u32 val =
+            ((u32)state.dmem[(addr + 0u) & 0xfffu] << 24) |
+            ((u32)state.dmem[(addr + 1u) & 0xfffu] << 16) |
+            ((u32)state.dmem[(addr + 2u) & 0xfffu] << 8) |
+             (u32)state.dmem[(addr + 3u) & 0xfffu];
         state.rspreg.gpr[rt] = sign_extend<u64, u32>(val);
     }
 }
@@ -1573,9 +1738,15 @@ void eval_SW(u32 instr) {
     IType(instr, sign_extend);
     u64 addr = state.rspreg.gpr[rs] + imm;
 
-    if (checkAddressAlignment(addr, 4)) {
+    if ((addr & 0x3u) == 0) { // checkAddressAlignment(addr, 4)) {
         *(u32 *)&state.dmem[addr & 0xfffu] =
             __builtin_bswap32(state.rspreg.gpr[rt]);
+    } else {
+        u32 val = state.rspreg.gpr[rt];
+        state.dmem[(addr + 0u) & 0xfffu] = val >> 24;
+        state.dmem[(addr + 1u) & 0xfffu] = val >> 16;
+        state.dmem[(addr + 2u) & 0xfffu] = val >> 8;
+        state.dmem[(addr + 3u) & 0xfffu] = val;
     }
 }
 
@@ -1607,7 +1778,7 @@ void (*COP2_callbacks[64])(u32) = {
     eval_VRSQ,      eval_VRSQL,     eval_VRSQH,     eval_VNOP,
     /* Invalid group */
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
-    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
+    eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_VNULL,
 };
 
 void eval_COP2(u32 instr) {
