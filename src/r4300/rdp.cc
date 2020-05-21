@@ -1321,56 +1321,56 @@ static void read_zbuffer_coefs(u64 const *params, struct zbuffer_coefs *zbuffer)
 }
 
 static void print_edge_coefs(struct edge_coefs const *edge) {
-    debugger::info(Debugger::RDP, "  yl: {}", s29_2_to_float(edge->yl));
-    debugger::info(Debugger::RDP, "  ym: {}", s29_2_to_float(edge->ym));
-    debugger::info(Debugger::RDP, "  yh: {}", s29_2_to_float(edge->yh));
-    debugger::info(Debugger::RDP, "  xl: {}", s15_16_to_float(edge->xl));
-    debugger::info(Debugger::RDP, "  xm: {}", s15_16_to_float(edge->xm));
-    debugger::info(Debugger::RDP, "  xh: {}", s15_16_to_float(edge->xh));
-    debugger::info(Debugger::RDP, "  dxldy: {}", s15_16_to_float(edge->dxldy));
-    debugger::info(Debugger::RDP, "  dxmdy: {}", s15_16_to_float(edge->dxmdy));
-    debugger::info(Debugger::RDP, "  dxhdy: {}", s15_16_to_float(edge->dxhdy));
+    debugger::debug(Debugger::RDP, "  yl: {}", s29_2_to_float(edge->yl));
+    debugger::debug(Debugger::RDP, "  ym: {}", s29_2_to_float(edge->ym));
+    debugger::debug(Debugger::RDP, "  yh: {}", s29_2_to_float(edge->yh));
+    debugger::debug(Debugger::RDP, "  xl: {}", s15_16_to_float(edge->xl));
+    debugger::debug(Debugger::RDP, "  xm: {}", s15_16_to_float(edge->xm));
+    debugger::debug(Debugger::RDP, "  xh: {}", s15_16_to_float(edge->xh));
+    debugger::debug(Debugger::RDP, "  dxldy: {}", s15_16_to_float(edge->dxldy));
+    debugger::debug(Debugger::RDP, "  dxmdy: {}", s15_16_to_float(edge->dxmdy));
+    debugger::debug(Debugger::RDP, "  dxhdy: {}", s15_16_to_float(edge->dxhdy));
 }
 
 static void print_shade_coefs(struct shade_coefs const *shade) {
-    debugger::info(Debugger::RDP, "  r: {}", s15_16_to_float(shade->r));
-    debugger::info(Debugger::RDP, "  g: {}", s15_16_to_float(shade->g));
-    debugger::info(Debugger::RDP, "  b: {}", s15_16_to_float(shade->b));
-    debugger::info(Debugger::RDP, "  a: {}", s15_16_to_float(shade->a));
-    debugger::info(Debugger::RDP, "  drdx: {}", s15_16_to_float(shade->drdx));
-    debugger::info(Debugger::RDP, "  dgdx: {}", s15_16_to_float(shade->dgdx));
-    debugger::info(Debugger::RDP, "  dbdx: {}", s15_16_to_float(shade->dbdx));
-    debugger::info(Debugger::RDP, "  dadx: {}", s15_16_to_float(shade->dadx));
-    debugger::info(Debugger::RDP, "  drde: {}", s15_16_to_float(shade->drde));
-    debugger::info(Debugger::RDP, "  dgde: {}", s15_16_to_float(shade->dgde));
-    debugger::info(Debugger::RDP, "  dbde: {}", s15_16_to_float(shade->dbde));
-    debugger::info(Debugger::RDP, "  dade: {}", s15_16_to_float(shade->dade));
-    debugger::info(Debugger::RDP, "  drdy: {}", s15_16_to_float(shade->drdy));
-    debugger::info(Debugger::RDP, "  dgdy: {}", s15_16_to_float(shade->dgdy));
-    debugger::info(Debugger::RDP, "  dbdy: {}", s15_16_to_float(shade->dbdy));
-    debugger::info(Debugger::RDP, "  dady: {}", s15_16_to_float(shade->dady));
+    debugger::debug(Debugger::RDP, "  r: {}", s15_16_to_float(shade->r));
+    debugger::debug(Debugger::RDP, "  g: {}", s15_16_to_float(shade->g));
+    debugger::debug(Debugger::RDP, "  b: {}", s15_16_to_float(shade->b));
+    debugger::debug(Debugger::RDP, "  a: {}", s15_16_to_float(shade->a));
+    debugger::debug(Debugger::RDP, "  drdx: {}", s15_16_to_float(shade->drdx));
+    debugger::debug(Debugger::RDP, "  dgdx: {}", s15_16_to_float(shade->dgdx));
+    debugger::debug(Debugger::RDP, "  dbdx: {}", s15_16_to_float(shade->dbdx));
+    debugger::debug(Debugger::RDP, "  dadx: {}", s15_16_to_float(shade->dadx));
+    debugger::debug(Debugger::RDP, "  drde: {}", s15_16_to_float(shade->drde));
+    debugger::debug(Debugger::RDP, "  dgde: {}", s15_16_to_float(shade->dgde));
+    debugger::debug(Debugger::RDP, "  dbde: {}", s15_16_to_float(shade->dbde));
+    debugger::debug(Debugger::RDP, "  dade: {}", s15_16_to_float(shade->dade));
+    debugger::debug(Debugger::RDP, "  drdy: {}", s15_16_to_float(shade->drdy));
+    debugger::debug(Debugger::RDP, "  dgdy: {}", s15_16_to_float(shade->dgdy));
+    debugger::debug(Debugger::RDP, "  dbdy: {}", s15_16_to_float(shade->dbdy));
+    debugger::debug(Debugger::RDP, "  dady: {}", s15_16_to_float(shade->dady));
 }
 
 static void print_texture_coefs(struct texture_coefs const *texture) {
-    debugger::info(Debugger::RDP, "  s: {}", s10_21_to_float(texture->s));
-    debugger::info(Debugger::RDP, "  t: {}", s10_21_to_float(texture->t));
-    debugger::info(Debugger::RDP, "  w: {}", s10_21_to_float(texture->w));
-    debugger::info(Debugger::RDP, "  dsdx: {}", s10_21_to_float(texture->dsdx));
-    debugger::info(Debugger::RDP, "  dtdx: {}", s10_21_to_float(texture->dtdx));
-    debugger::info(Debugger::RDP, "  dwdx: {}", s10_21_to_float(texture->dwdx));
-    debugger::info(Debugger::RDP, "  dsde: {}", s10_21_to_float(texture->dsde));
-    debugger::info(Debugger::RDP, "  dtde: {}", s10_21_to_float(texture->dtde));
-    debugger::info(Debugger::RDP, "  dwde: {}", s10_21_to_float(texture->dwde));
-    debugger::info(Debugger::RDP, "  dsdy: {}", s10_21_to_float(texture->dsdy));
-    debugger::info(Debugger::RDP, "  dtdy: {}", s10_21_to_float(texture->dtdy));
-    debugger::info(Debugger::RDP, "  dwdy: {}", s10_21_to_float(texture->dwdy));
+    debugger::debug(Debugger::RDP, "  s: {}", s10_21_to_float(texture->s));
+    debugger::debug(Debugger::RDP, "  t: {}", s10_21_to_float(texture->t));
+    debugger::debug(Debugger::RDP, "  w: {}", s10_21_to_float(texture->w));
+    debugger::debug(Debugger::RDP, "  dsdx: {}", s10_21_to_float(texture->dsdx));
+    debugger::debug(Debugger::RDP, "  dtdx: {}", s10_21_to_float(texture->dtdx));
+    debugger::debug(Debugger::RDP, "  dwdx: {}", s10_21_to_float(texture->dwdx));
+    debugger::debug(Debugger::RDP, "  dsde: {}", s10_21_to_float(texture->dsde));
+    debugger::debug(Debugger::RDP, "  dtde: {}", s10_21_to_float(texture->dtde));
+    debugger::debug(Debugger::RDP, "  dwde: {}", s10_21_to_float(texture->dwde));
+    debugger::debug(Debugger::RDP, "  dsdy: {}", s10_21_to_float(texture->dsdy));
+    debugger::debug(Debugger::RDP, "  dtdy: {}", s10_21_to_float(texture->dtdy));
+    debugger::debug(Debugger::RDP, "  dwdy: {}", s10_21_to_float(texture->dwdy));
 }
 
 static void print_zbuffer_coefs(struct zbuffer_coefs const *zbuffer) {
-    debugger::info(Debugger::RDP, "  z: {}", s15_16_to_float(zbuffer->z));
-    debugger::info(Debugger::RDP, "  dzdx: {}", s15_16_to_float(zbuffer->dzdx));
-    debugger::info(Debugger::RDP, "  dzde: {}", s15_16_to_float(zbuffer->dzde));
-    debugger::info(Debugger::RDP, "  dzdy: {}", s15_16_to_float(zbuffer->dzdy));
+    debugger::debug(Debugger::RDP, "  z: {}", s15_16_to_float(zbuffer->z));
+    debugger::debug(Debugger::RDP, "  dzdx: {}", s15_16_to_float(zbuffer->dzdx));
+    debugger::debug(Debugger::RDP, "  dzde: {}", s15_16_to_float(zbuffer->dzde));
+    debugger::debug(Debugger::RDP, "  dzdy: {}", s15_16_to_float(zbuffer->dzdy));
 }
 
 static void render_triangle(u64 command, u64 const *params,
@@ -1385,9 +1385,9 @@ static void render_triangle(u64 command, u64 const *params,
     struct texture_coefs texture;
     struct zbuffer_coefs zbuffer;
 
-    debugger::info(Debugger::RDP, "  left: {}", left);
-    debugger::info(Debugger::RDP, "  level: {}", level);
-    debugger::info(Debugger::RDP, "  tile: {}", tile);
+    debugger::debug(Debugger::RDP, "  left: {}", left);
+    debugger::debug(Debugger::RDP, "  level: {}", level);
+    debugger::debug(Debugger::RDP, "  tile: {}", tile);
 
     read_edge_coefs(command, params, &edge);
     print_edge_coefs(&edge);
@@ -1522,15 +1522,15 @@ void textureRectangle(u64 command, u64 const *params) {
     i32 dsdx = (i16)(u16)((params[0] >> 16) & 0xffffu);
     i32 dtdy = (i16)(u16)((params[0] >>  0) & 0xffffu);
 
-    debugger::info(Debugger::RDP, "  xl: {}", (float)xl / 4.);
-    debugger::info(Debugger::RDP, "  yl: {}", (float)yl / 4.);
-    debugger::info(Debugger::RDP, "  tile: {}", tile);
-    debugger::info(Debugger::RDP, "  xh: {}", (float)xh / 4.);
-    debugger::info(Debugger::RDP, "  yh: {}", (float)yh / 4.);
-    debugger::info(Debugger::RDP, "  s: {}", (float)s / 32.);
-    debugger::info(Debugger::RDP, "  t: {}", (float)t / 32.);
-    debugger::info(Debugger::RDP, "  dsdx: {}", (float)dsdx / 1024.);
-    debugger::info(Debugger::RDP, "  dtdy: {}", (float)dtdy / 1024.);
+    debugger::debug(Debugger::RDP, "  xl: {}", (float)xl / 4.);
+    debugger::debug(Debugger::RDP, "  yl: {}", (float)yl / 4.);
+    debugger::debug(Debugger::RDP, "  tile: {}", tile);
+    debugger::debug(Debugger::RDP, "  xh: {}", (float)xh / 4.);
+    debugger::debug(Debugger::RDP, "  yh: {}", (float)yh / 4.);
+    debugger::debug(Debugger::RDP, "  s: {}", (float)s / 32.);
+    debugger::debug(Debugger::RDP, "  t: {}", (float)t / 32.);
+    debugger::debug(Debugger::RDP, "  dsdx: {}", (float)dsdx / 1024.);
+    debugger::debug(Debugger::RDP, "  dtdy: {}", (float)dtdy / 1024.);
 
     /* Convert texture coefficients from s10.5 or s5.10 to s10.21 */
     struct texture_coefs texture = {
@@ -1564,15 +1564,15 @@ void textureRectangleFlip(u64 command, u64 const *params) {
     i32 dsdx = (i16)(u16)((params[0] >> 16) & 0xffffu);
     i32 dtdy = (i16)(u16)((params[0] >>  0) & 0xffffu);
 
-    debugger::info(Debugger::RDP, "  xl: {}", (float)xl / 4.);
-    debugger::info(Debugger::RDP, "  yl: {}", (float)yl / 4.);
-    debugger::info(Debugger::RDP, "  tile: {}", tile);
-    debugger::info(Debugger::RDP, "  xh: {}", (float)xh / 4.);
-    debugger::info(Debugger::RDP, "  yh: {}", (float)yh / 4.);
-    debugger::info(Debugger::RDP, "  s: {}", (float)s / 32.);
-    debugger::info(Debugger::RDP, "  t: {}", (float)t / 32.);
-    debugger::info(Debugger::RDP, "  dsdx: {}", (float)dsdx / 1024.);
-    debugger::info(Debugger::RDP, "  dtdy: {}", (float)dtdy / 1024.);
+    debugger::debug(Debugger::RDP, "  xl: {}", (float)xl / 4.);
+    debugger::debug(Debugger::RDP, "  yl: {}", (float)yl / 4.);
+    debugger::debug(Debugger::RDP, "  tile: {}", tile);
+    debugger::debug(Debugger::RDP, "  xh: {}", (float)xh / 4.);
+    debugger::debug(Debugger::RDP, "  yh: {}", (float)yh / 4.);
+    debugger::debug(Debugger::RDP, "  s: {}", (float)s / 32.);
+    debugger::debug(Debugger::RDP, "  t: {}", (float)t / 32.);
+    debugger::debug(Debugger::RDP, "  dsdx: {}", (float)dsdx / 1024.);
+    debugger::debug(Debugger::RDP, "  dtdy: {}", (float)dtdy / 1024.);
 
     struct texture_coefs texture = {
         s << 16,    t << 16,    0,
@@ -1620,10 +1620,10 @@ void setScissor(u64 command, u64 const *params) {
     scissor.xl = (command >> 12) & 0xfffu;
     scissor.yl = (command >>  0) & 0xfffu;
 
-    debugger::info(Debugger::RDP, "  xl: {}", (float)scissor.xl / 4.);
-    debugger::info(Debugger::RDP, "  yl: {}", (float)scissor.yl / 4.);
-    debugger::info(Debugger::RDP, "  xh: {}", (float)scissor.xh / 4.);
-    debugger::info(Debugger::RDP, "  yh: {}", (float)scissor.yh / 4.);
+    debugger::debug(Debugger::RDP, "  xl: {}", (float)scissor.xl / 4.);
+    debugger::debug(Debugger::RDP, "  yl: {}", (float)scissor.yl / 4.);
+    debugger::debug(Debugger::RDP, "  xh: {}", (float)scissor.xh / 4.);
+    debugger::debug(Debugger::RDP, "  yh: {}", (float)scissor.yh / 4.);
 
     bool scissorField = (command & (1lu << 25)) != 0;
     bool oddEven = (command & (1lu << 25)) != 0;
@@ -1642,8 +1642,8 @@ void setPrimDepth(u64 command, u64 const *params) {
     prim_z      = (i16)((command >> 16) & 0xffffu);
     prim_deltaz = (i16)((command >>  0) & 0xffffu);
 
-    debugger::info(Debugger::RDP, "  z: {}", s15_16_to_float(prim_z));
-    debugger::info(Debugger::RDP, "  deltaz: {}", s15_16_to_float(prim_deltaz));
+    debugger::debug(Debugger::RDP, "  z: {}", s15_16_to_float(prim_z));
+    debugger::debug(Debugger::RDP, "  deltaz: {}", s15_16_to_float(prim_deltaz));
 }
 
 void setOtherModes(u64 command, u64 const *params) {
@@ -1685,43 +1685,43 @@ void setOtherModes(u64 command, u64 const *params) {
     other_modes.dither_alpha_en = (command >> 1) & 0x1u;
     other_modes.alpha_compare_en = (command >> 0) & 0x1u;
 
-    debugger::info(Debugger::RDP, "  atomic_prim: {}", other_modes.atomic_prim);
+    debugger::debug(Debugger::RDP, "  atomic_prim: {}", other_modes.atomic_prim);
     debugger::info(Debugger::RDP, "  cycle_type: {}", other_modes.cycle_type);
-    debugger::info(Debugger::RDP, "  persp_tex_en: {}", other_modes.persp_tex_en);
-    debugger::info(Debugger::RDP, "  detail_tex_en: {}", other_modes.detail_tex_en);
-    debugger::info(Debugger::RDP, "  sharpen_tex_en: {}", other_modes.sharpen_tex_en);
-    debugger::info(Debugger::RDP, "  tex_lod_en: {}", other_modes.tex_lod_en);
-    debugger::info(Debugger::RDP, "  tlut_en: {}", other_modes.tlut_en);
-    debugger::info(Debugger::RDP, "  tlut_type: {}", other_modes.tlut_type);
-    debugger::info(Debugger::RDP, "  sample_type: {}", other_modes.sample_type);
-    debugger::info(Debugger::RDP, "  mid_texel: {}", other_modes.mid_texel);
-    debugger::info(Debugger::RDP, "  bi_lerp_0: {}", other_modes.bi_lerp_0);
-    debugger::info(Debugger::RDP, "  bi_lerp_1: {}", other_modes.bi_lerp_1);
-    debugger::info(Debugger::RDP, "  convert_one: {}", other_modes.convert_one);
-    debugger::info(Debugger::RDP, "  key_en: {}", other_modes.key_en);
-    debugger::info(Debugger::RDP, "  rgb_dither_sel: {}", other_modes.rgb_dither_sel);
-    debugger::info(Debugger::RDP, "  alpha_dither_sel: {}", other_modes.alpha_dither_sel);
-    debugger::info(Debugger::RDP, "  b_m1a_0: {}", other_modes.b_m1a_0);
-    debugger::info(Debugger::RDP, "  b_m1a_1: {}", other_modes.b_m1a_1);
-    debugger::info(Debugger::RDP, "  b_m1b_0: {}", other_modes.b_m1b_0);
-    debugger::info(Debugger::RDP, "  b_m1b_1: {}", other_modes.b_m1b_1);
-    debugger::info(Debugger::RDP, "  b_m2a_0: {}", other_modes.b_m2a_0);
-    debugger::info(Debugger::RDP, "  b_m2a_1: {}", other_modes.b_m2a_1);
-    debugger::info(Debugger::RDP, "  b_m2b_0: {}", other_modes.b_m2b_0);
-    debugger::info(Debugger::RDP, "  b_m2b_1: {}", other_modes.b_m2b_1);
-    debugger::info(Debugger::RDP, "  force_blend: {}", other_modes.force_blend);
-    debugger::info(Debugger::RDP, "  alpha_cvg_select: {}", other_modes.alpha_cvg_select);
-    debugger::info(Debugger::RDP, "  cvg_times_alpha: {}", other_modes.cvg_times_alpha);
-    debugger::info(Debugger::RDP, "  z_mode: {}", other_modes.z_mode);
-    debugger::info(Debugger::RDP, "  cvg_dest: {}", other_modes.cvg_dest);
-    debugger::info(Debugger::RDP, "  color_on_cvg: {}", other_modes.color_on_cvg);
-    debugger::info(Debugger::RDP, "  image_read_en: {}", other_modes.image_read_en);
-    debugger::info(Debugger::RDP, "  z_update_en: {}", other_modes.z_update_en);
-    debugger::info(Debugger::RDP, "  z_compare_en: {}", other_modes.z_compare_en);
-    debugger::info(Debugger::RDP, "  antialias_en: {}", other_modes.antialias_en);
-    debugger::info(Debugger::RDP, "  z_source_sel: {}", other_modes.z_source_sel);
-    debugger::info(Debugger::RDP, "  dither_alpha_en: {}", other_modes.dither_alpha_en);
-    debugger::info(Debugger::RDP, "  alpha_compare_en: {}", other_modes.alpha_compare_en);
+    debugger::debug(Debugger::RDP, "  persp_tex_en: {}", other_modes.persp_tex_en);
+    debugger::debug(Debugger::RDP, "  detail_tex_en: {}", other_modes.detail_tex_en);
+    debugger::debug(Debugger::RDP, "  sharpen_tex_en: {}", other_modes.sharpen_tex_en);
+    debugger::debug(Debugger::RDP, "  tex_lod_en: {}", other_modes.tex_lod_en);
+    debugger::debug(Debugger::RDP, "  tlut_en: {}", other_modes.tlut_en);
+    debugger::debug(Debugger::RDP, "  tlut_type: {}", other_modes.tlut_type);
+    debugger::debug(Debugger::RDP, "  sample_type: {}", other_modes.sample_type);
+    debugger::debug(Debugger::RDP, "  mid_texel: {}", other_modes.mid_texel);
+    debugger::debug(Debugger::RDP, "  bi_lerp_0: {}", other_modes.bi_lerp_0);
+    debugger::debug(Debugger::RDP, "  bi_lerp_1: {}", other_modes.bi_lerp_1);
+    debugger::debug(Debugger::RDP, "  convert_one: {}", other_modes.convert_one);
+    debugger::debug(Debugger::RDP, "  key_en: {}", other_modes.key_en);
+    debugger::debug(Debugger::RDP, "  rgb_dither_sel: {}", other_modes.rgb_dither_sel);
+    debugger::debug(Debugger::RDP, "  alpha_dither_sel: {}", other_modes.alpha_dither_sel);
+    debugger::debug(Debugger::RDP, "  b_m1a_0: {}", other_modes.b_m1a_0);
+    debugger::debug(Debugger::RDP, "  b_m1a_1: {}", other_modes.b_m1a_1);
+    debugger::debug(Debugger::RDP, "  b_m1b_0: {}", other_modes.b_m1b_0);
+    debugger::debug(Debugger::RDP, "  b_m1b_1: {}", other_modes.b_m1b_1);
+    debugger::debug(Debugger::RDP, "  b_m2a_0: {}", other_modes.b_m2a_0);
+    debugger::debug(Debugger::RDP, "  b_m2a_1: {}", other_modes.b_m2a_1);
+    debugger::debug(Debugger::RDP, "  b_m2b_0: {}", other_modes.b_m2b_0);
+    debugger::debug(Debugger::RDP, "  b_m2b_1: {}", other_modes.b_m2b_1);
+    debugger::debug(Debugger::RDP, "  force_blend: {}", other_modes.force_blend);
+    debugger::debug(Debugger::RDP, "  alpha_cvg_select: {}", other_modes.alpha_cvg_select);
+    debugger::debug(Debugger::RDP, "  cvg_times_alpha: {}", other_modes.cvg_times_alpha);
+    debugger::debug(Debugger::RDP, "  z_mode: {}", other_modes.z_mode);
+    debugger::debug(Debugger::RDP, "  cvg_dest: {}", other_modes.cvg_dest);
+    debugger::debug(Debugger::RDP, "  color_on_cvg: {}", other_modes.color_on_cvg);
+    debugger::debug(Debugger::RDP, "  image_read_en: {}", other_modes.image_read_en);
+    debugger::debug(Debugger::RDP, "  z_update_en: {}", other_modes.z_update_en);
+    debugger::debug(Debugger::RDP, "  z_compare_en: {}", other_modes.z_compare_en);
+    debugger::debug(Debugger::RDP, "  antialias_en: {}", other_modes.antialias_en);
+    debugger::debug(Debugger::RDP, "  z_source_sel: {}", other_modes.z_source_sel);
+    debugger::debug(Debugger::RDP, "  dither_alpha_en: {}", other_modes.dither_alpha_en);
+    debugger::debug(Debugger::RDP, "  alpha_compare_en: {}", other_modes.alpha_compare_en);
 
     if (other_modes.cycle_type == CYCLE_TYPE_COPY)
         other_modes.sample_type = SAMPLE_TYPE_4X1;
@@ -1739,11 +1739,11 @@ void loadTlut(u64 command, u64 const *params) {
     tiles[tile].sh = sh;
     tiles[tile].th = th;
 
-    debugger::info(Debugger::RDP, "  sl: {}", (float)tiles[tile].sl / 4.);
-    debugger::info(Debugger::RDP, "  tl: {}", (float)tiles[tile].tl / 4.);
-    debugger::info(Debugger::RDP, "  tile: {}", tile);
-    debugger::info(Debugger::RDP, "  sh: {}", (float)tiles[tile].sh / 4.);
-    debugger::info(Debugger::RDP, "  th: {}", (float)tiles[tile].th / 4.);
+    debugger::debug(Debugger::RDP, "  sl: {}", (float)tiles[tile].sl / 4.);
+    debugger::debug(Debugger::RDP, "  tl: {}", (float)tiles[tile].tl / 4.);
+    debugger::debug(Debugger::RDP, "  tile: {}", tile);
+    debugger::debug(Debugger::RDP, "  sh: {}", (float)tiles[tile].sh / 4.);
+    debugger::debug(Debugger::RDP, "  th: {}", (float)tiles[tile].th / 4.);
 
     if (texture_image.size != PIXEL_SIZE_16B) {
         debugger::halt("load_tlut: invalid pixel size");
@@ -1788,11 +1788,11 @@ void loadTile(u64 command, u64 const *params) {
     tiles[tile].sh = sh;
     tiles[tile].th = th;
 
-    debugger::info(Debugger::RDP, "  sl: {}", (float)tiles[tile].sl / 4.);
-    debugger::info(Debugger::RDP, "  tl: {}", (float)tiles[tile].tl / 4.);
-    debugger::info(Debugger::RDP, "  tile: {}", tile);
-    debugger::info(Debugger::RDP, "  sh: {}", (float)tiles[tile].sh / 4.);
-    debugger::info(Debugger::RDP, "  th: {}", (float)tiles[tile].th / 4.);
+    debugger::debug(Debugger::RDP, "  sl: {}", (float)tiles[tile].sl / 4.);
+    debugger::debug(Debugger::RDP, "  tl: {}", (float)tiles[tile].tl / 4.);
+    debugger::debug(Debugger::RDP, "  tile: {}", tile);
+    debugger::debug(Debugger::RDP, "  sh: {}", (float)tiles[tile].sh / 4.);
+    debugger::debug(Debugger::RDP, "  th: {}", (float)tiles[tile].th / 4.);
 
     unsigned src_size = texture_image.size;
     unsigned dst_size = tiles[tile].size;
@@ -1838,20 +1838,20 @@ void setTile(u64 command, u64 const *params) {
     tiles[tile].mask_s = (command >> 4) & 0xfu;
     tiles[tile].shift_s = (command >> 0) & 0xfu;
 
-    debugger::info(Debugger::RDP, "  format: {}", tiles[tile].format);
-    debugger::info(Debugger::RDP, "  size: {}", tiles[tile].size);
-    debugger::info(Debugger::RDP, "  line: {}", tiles[tile].line);
-    debugger::info(Debugger::RDP, "  tmem_addr: {:x}", tiles[tile].tmem_addr);
-    debugger::info(Debugger::RDP, "  tile: {}", tile);
-    debugger::info(Debugger::RDP, "  palette: {}", tiles[tile].palette);
-    debugger::info(Debugger::RDP, "  clamp_t: {}", tiles[tile].clamp_t);
-    debugger::info(Debugger::RDP, "  mirror_t: {}", tiles[tile].mirror_t);
-    debugger::info(Debugger::RDP, "  mask_t: {}", tiles[tile].mask_t);
-    debugger::info(Debugger::RDP, "  shift_t: {}", tiles[tile].shift_t);
-    debugger::info(Debugger::RDP, "  clamp_s: {}", tiles[tile].clamp_s);
-    debugger::info(Debugger::RDP, "  mirror_s: {}", tiles[tile].mirror_s);
-    debugger::info(Debugger::RDP, "  mask_s: {}", tiles[tile].mask_s);
-    debugger::info(Debugger::RDP, "  shift_s: {}", tiles[tile].shift_s);
+    debugger::debug(Debugger::RDP, "  format: {}", tiles[tile].format);
+    debugger::debug(Debugger::RDP, "  size: {}", tiles[tile].size);
+    debugger::debug(Debugger::RDP, "  line: {}", tiles[tile].line);
+    debugger::debug(Debugger::RDP, "  tmem_addr: {:x}", tiles[tile].tmem_addr);
+    debugger::debug(Debugger::RDP, "  tile: {}", tile);
+    debugger::debug(Debugger::RDP, "  palette: {}", tiles[tile].palette);
+    debugger::debug(Debugger::RDP, "  clamp_t: {}", tiles[tile].clamp_t);
+    debugger::debug(Debugger::RDP, "  mirror_t: {}", tiles[tile].mirror_t);
+    debugger::debug(Debugger::RDP, "  mask_t: {}", tiles[tile].mask_t);
+    debugger::debug(Debugger::RDP, "  shift_t: {}", tiles[tile].shift_t);
+    debugger::debug(Debugger::RDP, "  clamp_s: {}", tiles[tile].clamp_s);
+    debugger::debug(Debugger::RDP, "  mirror_s: {}", tiles[tile].mirror_s);
+    debugger::debug(Debugger::RDP, "  mask_s: {}", tiles[tile].mask_s);
+    debugger::debug(Debugger::RDP, "  shift_s: {}", tiles[tile].shift_s);
 
     tiles[tile].type = convert_image_data_format(tiles[tile].format, tiles[tile].size);
 }
@@ -1864,10 +1864,10 @@ void fillRectangle(u64 command, u64 const *params) {
     unsigned xh = (command >> 12) & 0xfffu;
     unsigned yh = (command >>  0) & 0xfffu;
 
-    debugger::info(Debugger::RDP, "  xl: {}", (float)xl / 4.);
-    debugger::info(Debugger::RDP, "  yl: {}", (float)yl / 4.);
-    debugger::info(Debugger::RDP, "  xh: {}", (float)xh / 4.);
-    debugger::info(Debugger::RDP, "  yh: {}", (float)yh / 4.);
+    debugger::debug(Debugger::RDP, "  xl: {}", (float)xl / 4.);
+    debugger::debug(Debugger::RDP, "  yl: {}", (float)yl / 4.);
+    debugger::debug(Debugger::RDP, "  xh: {}", (float)xh / 4.);
+    debugger::debug(Debugger::RDP, "  yh: {}", (float)yh / 4.);
 
     /* Expect rasterizer to be in Fill cycle type. */
     if (other_modes.cycle_type != CYCLE_TYPE_FILL) {
@@ -1955,22 +1955,22 @@ void setCombineMode(u64 command, u64 const *params) {
     combine_mode.sub_b_A_1 = (command >>  3) & 0x7u;
     combine_mode.add_A_1   = (command >>  0) & 0x7u;
 
-    debugger::info(Debugger::RDP, "  sub_a_R_0: {}", combine_mode.sub_a_R_0);
-    debugger::info(Debugger::RDP, "  sub_b_R_0: {}", combine_mode.sub_b_R_0);
-    debugger::info(Debugger::RDP, "  mul_R_0: {}", combine_mode.mul_R_0);
-    debugger::info(Debugger::RDP, "  add_R_0: {}", combine_mode.add_R_0);
-    debugger::info(Debugger::RDP, "  sub_a_A_0: {}", combine_mode.sub_a_A_0);
-    debugger::info(Debugger::RDP, "  sub_b_A_0: {}", combine_mode.sub_b_A_0);
-    debugger::info(Debugger::RDP, "  mul_A_0: {}", combine_mode.mul_A_0);
-    debugger::info(Debugger::RDP, "  add_A_0: {}", combine_mode.add_A_0);
-    debugger::info(Debugger::RDP, "  sub_a_R_1: {}", combine_mode.sub_a_R_1);
-    debugger::info(Debugger::RDP, "  sub_b_R_1: {}", combine_mode.sub_b_R_1);
-    debugger::info(Debugger::RDP, "  mul_R_1: {}", combine_mode.mul_R_1);
-    debugger::info(Debugger::RDP, "  add_R_1: {}", combine_mode.add_R_1);
-    debugger::info(Debugger::RDP, "  sub_a_A_1: {}", combine_mode.sub_a_A_1);
-    debugger::info(Debugger::RDP, "  sub_b_A_1: {}", combine_mode.sub_b_A_1);
-    debugger::info(Debugger::RDP, "  mul_A_1: {}", combine_mode.mul_A_1);
-    debugger::info(Debugger::RDP, "  add_A_1: {}", combine_mode.add_A_1);
+    debugger::debug(Debugger::RDP, "  sub_a_R_0: {}", combine_mode.sub_a_R_0);
+    debugger::debug(Debugger::RDP, "  sub_b_R_0: {}", combine_mode.sub_b_R_0);
+    debugger::debug(Debugger::RDP, "  mul_R_0: {}", combine_mode.mul_R_0);
+    debugger::debug(Debugger::RDP, "  add_R_0: {}", combine_mode.add_R_0);
+    debugger::debug(Debugger::RDP, "  sub_a_A_0: {}", combine_mode.sub_a_A_0);
+    debugger::debug(Debugger::RDP, "  sub_b_A_0: {}", combine_mode.sub_b_A_0);
+    debugger::debug(Debugger::RDP, "  mul_A_0: {}", combine_mode.mul_A_0);
+    debugger::debug(Debugger::RDP, "  add_A_0: {}", combine_mode.add_A_0);
+    debugger::debug(Debugger::RDP, "  sub_a_R_1: {}", combine_mode.sub_a_R_1);
+    debugger::debug(Debugger::RDP, "  sub_b_R_1: {}", combine_mode.sub_b_R_1);
+    debugger::debug(Debugger::RDP, "  mul_R_1: {}", combine_mode.mul_R_1);
+    debugger::debug(Debugger::RDP, "  add_R_1: {}", combine_mode.add_R_1);
+    debugger::debug(Debugger::RDP, "  sub_a_A_1: {}", combine_mode.sub_a_A_1);
+    debugger::debug(Debugger::RDP, "  sub_b_A_1: {}", combine_mode.sub_b_A_1);
+    debugger::debug(Debugger::RDP, "  mul_A_1: {}", combine_mode.mul_A_1);
+    debugger::debug(Debugger::RDP, "  add_A_1: {}", combine_mode.add_A_1);
 }
 
 void setTextureImage(u64 command, u64 const *params) {
@@ -1979,10 +1979,10 @@ void setTextureImage(u64 command, u64 const *params) {
     texture_image.width = 1u + ((command >> 32) & 0x3ffu);
     texture_image.addr = command & 0x3fffffflu;
 
-    debugger::info(Debugger::RDP, "  format: {}", texture_image.format);
-    debugger::info(Debugger::RDP, "  size: {}", texture_image.size);
-    debugger::info(Debugger::RDP, "  width: {}", texture_image.width);
-    debugger::info(Debugger::RDP, "  addr: {:#x}", texture_image.addr);
+    debugger::debug(Debugger::RDP, "  format: {}", texture_image.format);
+    debugger::debug(Debugger::RDP, "  size: {}", texture_image.size);
+    debugger::debug(Debugger::RDP, "  width: {}", texture_image.width);
+    debugger::info(Debugger::RDP,  "  addr: {:#x}", texture_image.addr);
 
     if ((texture_image.addr % 8u) != 0) {
         debugger::warn(Debugger::RDP, "set_texture_image: misaligned data address");
@@ -2012,10 +2012,10 @@ void setColorImage(u64 command, u64 const *params) {
     color_image.width = 1u + ((command >> 32) & 0x3ffu);
     color_image.addr = command & 0x3fffffflu;
 
-    debugger::info(Debugger::RDP, "  format: {}", color_image.format);
-    debugger::info(Debugger::RDP, "  size: {}", color_image.size);
-    debugger::info(Debugger::RDP, "  width: {}", color_image.width);
-    debugger::info(Debugger::RDP, "  addr: {:#x}", color_image.addr);
+    debugger::debug(Debugger::RDP, "  format: {}", color_image.format);
+    debugger::debug(Debugger::RDP, "  size: {}", color_image.size);
+    debugger::debug(Debugger::RDP, "  width: {}", color_image.width);
+    debugger::info(Debugger::RDP,  "  addr: {:#x}", color_image.addr);
 
     if ((color_image.addr % 8u) != 0) {
         debugger::warn(Debugger::RDP, "set_color_image: misaligned data address");
@@ -2191,7 +2191,8 @@ void write_DPC_END_REG(u32 value) {
         u64 opcode = (command >> 56) & 0x3flu;
 
         if (RDPCommands[opcode].command == NULL) {
-            debugger::warn(Debugger::RDP, "unknown command {:02x}", opcode);
+            debugger::warn(Debugger::RDP, "unknown command {:02x} [{:016x}]",
+                opcode, command);
             debugger::halt("DPC unknown command");
             break;
         }
@@ -2207,7 +2208,7 @@ void write_DPC_END_REG(u32 value) {
         u64 params[nr_dwords] = { 0 };
         DPC_read(params, nr_dwords);
 
-        debugger::info(Debugger::RDP, "{} []",
+        debugger::info(Debugger::RDP, "{} [{:016x}]",
             RDPCommands[opcode].name, command);
 
         RDPCommands[opcode].command(command, params + 1);
