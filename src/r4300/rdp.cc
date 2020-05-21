@@ -1773,7 +1773,26 @@ void syncLoad(u64 command, u64 const *params) {
 }
 
 void setTileSize(u64 command, u64 const *params) {
-    debugger::halt("set_tile_size");
+    unsigned sl = (command >> 44) & 0xfffu;
+    unsigned tl = (command >> 32) & 0xfffu;
+    unsigned tile = (command >> 24) & 0x7u;
+    unsigned sh = (command >> 12) & 0xfffu;
+    unsigned th = (command >>  0) & 0xfffu;
+
+    tiles[tile].sl = sl;
+    tiles[tile].tl = tl;
+    tiles[tile].sh = sh;
+    tiles[tile].th = th;
+
+    debugger::debug(Debugger::RDP, "  sl: {}", (float)sl / 4.);
+    debugger::debug(Debugger::RDP, "  tl: {}", (float)tl / 4.);
+    debugger::debug(Debugger::RDP, "  tile: {}", tile);
+    debugger::debug(Debugger::RDP, "  sh: {}", (float)sh / 4.);
+    debugger::debug(Debugger::RDP, "  th: {}", (float)th / 4.);
+}
+
+void loadBlock(u64 command, u64 const *params) {
+    debugger::halt("load_block");
 }
 
 void loadTile(u64 command, u64 const *params) {
@@ -2035,6 +2054,9 @@ void setColorImage(u64 command, u64 const *params) {
     }
 }
 
+void noop(u64 command, u64 const *params) {
+}
+
 /**
  * @brief Write the DP Command register DPC_STATUS_REG.
  *  This function is used for both the CPU (DPC_STATUS_REG) and
@@ -2111,7 +2133,7 @@ struct {
     RDPCommand command;     /**< Pointer to the method implementing the command */
     std::string name;       /**< String command name */
 } RDPCommands[64] = {
-    { 0,  NULL },
+    { 1,  noop,                         "no_op" },
     { 0,  NULL },
     { 0,  NULL },
     { 0,  NULL },
@@ -2162,7 +2184,7 @@ struct {
     { 1,  loadTlut,                     "load_tlut" },
     { 1,  syncLoad,                     "sync_load" },
     { 1,  setTileSize,                  "set_tile_size" },
-    { 0,  NULL },
+    { 1,  loadBlock,                    "load_block" },
     { 1,  loadTile,                     "load_tile" },
     { 1,  setTile,                      "set_tile" },
     { 1,  fillRectangle,                "fill_rectangle" },
