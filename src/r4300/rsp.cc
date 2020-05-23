@@ -144,6 +144,28 @@ static void eval_LWV(u32 instr) {
     }
 }
 
+static void eval_LPV(u32 instr) {
+    u32 base = (instr >> 21) & 0x1flu;
+    u32 vt = (instr >> 16) & 0x1flu;
+    u32 offset = i7_to_i32(instr & 0x7flu);
+    u32 addr = state.rspreg.gpr[base] + (offset << 3);
+
+    for (unsigned i = 0; i < 8; i++) {
+        state.rspreg.vr[vt].h[i] = (u16)state.dmem[(addr + i) & 0xfffu] << 8;
+    }
+}
+
+static void eval_LUV(u32 instr) {
+    u32 base = (instr >> 21) & 0x1flu;
+    u32 vt = (instr >> 16) & 0x1flu;
+    u32 offset = i7_to_i32(instr & 0x7flu);
+    u32 addr = state.rspreg.gpr[base] + (offset << 3);
+
+    for (unsigned i = 0; i < 8; i++) {
+        state.rspreg.vr[vt].h[i] = (u16)state.dmem[(addr + i) & 0xfffu] << 7;
+    }
+}
+
 static void eval_LWC2(u32 instr) {
     u32 base = (instr >> 21) & 0x1flu;
     u32 vt = (instr >> 16) & 0x1flu;
@@ -178,12 +200,8 @@ static void eval_LWC2(u32 instr) {
             loadVectorBytes(vt, element, start, end - start);
             break;
         }
-        case UINT32_C(0x6): /* LPV */
-            debugger::halt("RSP::LPV not supported");
-            break;
-        case UINT32_C(0x7): /* LUV */
-            debugger::halt("RSP::LUV not supported");
-            break;
+        case UINT32_C(0x6): eval_LPV(instr); break;
+        case UINT32_C(0x7): eval_LUV(instr); break;
         case UINT32_C(0x8): /* LHV */
             debugger::halt("RSP::LHV not supported");
             break;
@@ -793,7 +811,7 @@ static void eval_VMADN(u32 instr) {
 }
 
 static void eval_VMOV(u32 instr) {
-    u32 e = (instr >> 21) & UINT32_C(0x7);
+    u32 e = getElement(instr);
     u32 vt = getVt(instr);
     u32 de = getVs(instr) & 0x7;
     u32 vd = getVd(instr);
@@ -1093,8 +1111,7 @@ static void eval_VRCP(u32 instr) {
 
     // Compute the reciprocal of the input value interpreted as
     // in S15.0 format, in S0.31 format. The actual output radix depends
-    // on the radix the caller has set for the input value:
-    //      input: Sm.n => output: Sm':(n-1)
+    // on the radix the caller has set for the input value.
     i16 in = (i16)state.rspreg.vr[vt].h[e];
     i32 out;
 
