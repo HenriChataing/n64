@@ -985,6 +985,11 @@ static void pipeline_bl(pixel_t *px) {
     case BLENDER_SRC_SEL_0: b = 0; break;
     }
 
+    if ((a + b) == 0) {
+        debugger::warn(Debugger::RDP, "pipeline_bl: divide by 0");
+        return;
+    }
+
     px->blended_color.r = ((p.r * a + m.r * b) / (a + b));
     px->blended_color.g = ((p.g * a + m.g * b) / (a + b));
     px->blended_color.b = ((p.b * a + m.b * b) / (a + b));
@@ -1792,7 +1797,48 @@ void setTileSize(u64 command, u64 const *params) {
 }
 
 void loadBlock(u64 command, u64 const *params) {
-    debugger::halt("load_block");
+    unsigned sl = (command >> 44) & 0xfffu;
+    unsigned tl = (command >> 32) & 0xfffu;
+    unsigned tile = (command >> 24) & 0x7u;
+    unsigned sh = (command >> 12) & 0xfffu;
+    unsigned dxt = (command >>  0) & 0xfffu;
+
+    tiles[tile].sl = sl << 2;
+    tiles[tile].tl = tl << 2;
+    tiles[tile].sh = sh << 2;
+    tiles[tile].th = tl << 2;
+
+    debugger::debug(Debugger::RDP, "  sl: {}", sl);
+    debugger::debug(Debugger::RDP, "  tl: {}", tl);
+    debugger::debug(Debugger::RDP, "  tile: {}", tile);
+    debugger::debug(Debugger::RDP, "  sh: {}", sh);
+    debugger::debug(Debugger::RDP, "  dxt: {}", i32_fixpoint_to_float((u32)dxt, 11));
+
+    unsigned src_size = texture_image.size;
+    if (src_size == PIXEL_SIZE_4B) {
+        debugger::halt("Invalid texture format for loadBlock");
+    }
+
+    unsigned src_size_shift = src_size - 1;
+    unsigned line_size = (sh - sl) << src_size_shift;
+    unsigned src_stride = texture_image.width << src_size_shift;
+    unsigned dst_stride = tiles[tile].line << 3;
+
+    line_size = (line_size + 7u) & ~7u; /* Rounded-up to 64bit boundary. */
+    u8 *src = &state.dram[texture_image.addr + (tl * src_stride) + (sl << src_size_shift)];
+    u8 *dst = &state.tmem[tiles[tile].tmem_addr << 3];
+
+    u32 t = 0;
+    u32 t_int = 0;
+    for (unsigned i = 0; i < line_size; i += 8, src += 8, dst += 8) {
+        memcpy(dst, src, 8);
+        t += dxt;
+        if ((t >> 11) != t_int) {
+            t_int = (t >> 11);
+            dst += dst_stride;
+        }
+    }
+    // TODO buffer overflow checks
 }
 
 void loadTile(u64 command, u64 const *params) {
@@ -2221,8 +2267,8 @@ void write_DPC_END_REG(u32 value) {
 
         unsigned nr_dwords = RDPCommands[opcode].nrDoubleWords;
         if (!DPC_hasNext(nr_dwords)) {
-            debugger::warn(Debugger::RDP, "incomplete command {:02x}", opcode);
-            debugger::halt("DPC incomplete command");
+            debugger::info(Debugger::RDP, "incomplete command {} [{:016x}]",
+                RDPCommands[opcode].name, command);
             break;
         }
 
