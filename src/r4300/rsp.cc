@@ -811,9 +811,9 @@ static void eval_VMADN(u32 instr) {
 }
 
 static void eval_VMOV(u32 instr) {
-    u32 e = getElement(instr);
+    u32 e = getElement(instr) & 0x7u;
     u32 vt = getVt(instr);
-    u32 de = getVs(instr) & 0x7;
+    u32 de = getVs(instr) & 0x7u;
     u32 vd = getVd(instr);
 
     state.rspreg.vacc[de] &= ~UINT64_C(0xffff);
@@ -1104,9 +1104,9 @@ static void eval_VOR(u32 instr) {
  *  point division, whose result is converted back to S0.31.
  */
 static void eval_VRCP(u32 instr) {
-    u32 e = getElement(instr);
+    u32 e = getElement(instr) & 0x7u;
     u32 vt = getVt(instr);
-    u32 de = getVs(instr);
+    u32 de = getVs(instr) & 0x7u;
     u32 vd = getVd(instr);
 
     // Compute the reciprocal of the input value interpreted as
@@ -1135,9 +1135,9 @@ static void eval_VRCP(u32 instr) {
 }
 
 static void eval_VRCPH(u32 instr) {
-    u32 e = getElement(instr);
+    u32 e = getElement(instr) & 0x7u;
     u32 vt = getVt(instr);
-    u32 de = getVs(instr);
+    u32 de = getVs(instr) & 0x7u;
     u32 vd = getVd(instr);
 
     u16 in = state.rspreg.vr[vt].h[e];
@@ -1151,7 +1151,35 @@ static void eval_VRCPH(u32 instr) {
 }
 
 static void eval_VRCPL(u32 instr) {
-    debugger::halt("RSP::VRCPL unsupported");
+    u32 e = getElement(instr) & 0x7u;
+    u32 vt = getVt(instr);
+    u32 de = getVs(instr) & 0x7u;
+    u32 vd = getVd(instr);
+
+    // Compute the reciprocal of the input value interpreted as
+    // in S15.0 format, in S0.31 format. The actual output radix depends
+    // on the radix the caller has set for the input value.
+    state.rspreg.divin |= state.rspreg.vr[vt].h[e];
+    i32 in = (i32)state.rspreg.divin;
+    i32 out;
+
+    if (in == 0) {
+        out = INT32_MAX;
+    } else {
+        double dout = 1. / (double)(in > 0 ? in : -in);
+        dout *= (double)(1lu << 31);
+        i64 out_ = in > 0 ? dout : -dout;
+        // Clamp the result to the INT32_MIN, INT32_MAX interval.
+        out = out_ > INT32_MAX ? INT32_MAX :
+              out_ < INT32_MIN ? INT32_MIN : out_;
+    }
+
+    state.rspreg.divout = (u32)out;
+    for (unsigned i = 0; i < 8; i++) {
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= state.rspreg.vr[vt].h[e];
+    }
+    state.rspreg.vr[vd].h[de] = (u16)(u32)out;
 }
 
 static void eval_VRNDN(u32 instr) {
@@ -1163,15 +1191,83 @@ static void eval_VRNDP(u32 instr) {
 }
 
 static void eval_VRSQ(u32 instr) {
-    debugger::halt("RSP::VRSQ unsupported");
+    u32 e = getElement(instr) & 0x7u;
+    u32 vt = getVt(instr);
+    u32 de = getVs(instr) & 0x7u;
+    u32 vd = getVd(instr);
+
+    // Compute the reciprocal of the square root of the input value
+    // interpreted as in S15.0 format, in S0.31 format. The actual
+    // output radix depends on the radix the caller has set for the
+    // input value.
+    i16 in = (i16)state.rspreg.vr[vt].h[e];
+    i32 out;
+
+    if (in == 0) {
+        out = INT32_MAX;
+    } else {
+        double dout = 1. / sqrt((double)(in > 0 ? in : -in));
+        dout *= (double)(1lu << 31);
+        i64 out_ = in > 0 ? dout : -dout;
+        // Clamp the result to the INT32_MIN, INT32_MAX interval.
+        out = out_ > INT32_MAX ? INT32_MAX :
+              out_ < INT32_MIN ? INT32_MIN : out_;
+    }
+
+    state.rspreg.divout = (u32)out;
+    for (unsigned i = 0; i < 8; i++) {
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= (u16)in;
+    }
+    state.rspreg.vr[vd].h[de] = (u16)(u32)out;
 }
 
 static void eval_VRSQH(u32 instr) {
-    debugger::halt("RSP::VRSQH unsupported");
+    u32 e = getElement(instr) & 0x7u;
+    u32 vt = getVt(instr);
+    u32 de = getVs(instr) & 0x7u;
+    u32 vd = getVd(instr);
+
+    u16 in = state.rspreg.vr[vt].h[e];
+
+    state.rspreg.divin = (u32)in << 16;
+    for (unsigned i = 0; i < 8; i++) {
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= (u16)in;
+    }
+    state.rspreg.vr[vd].h[de] = state.rspreg.divout >> 16;
 }
 
 static void eval_VRSQL(u32 instr) {
-    debugger::halt("RSP::VRSQL unsupported");
+    u32 e = getElement(instr) & 0x7u;
+    u32 vt = getVt(instr);
+    u32 de = getVs(instr) & 0x7u;
+    u32 vd = getVd(instr);
+
+    // Compute the reciprocal of the square root of the input value
+    // interpreted as in S15.0 format, in S0.31 format. The actual output
+    // radix depends on the radix the caller has set for the input value.
+    state.rspreg.divin |= state.rspreg.vr[vt].h[e];
+    i32 in = (i32)state.rspreg.divin;
+    i32 out;
+
+    if (in == 0) {
+        out = INT32_MAX;
+    } else {
+        double dout = 1. / sqrt((double)(in > 0 ? in : -in));
+        dout *= (double)(1lu << 31);
+        i64 out_ = in > 0 ? dout : -dout;
+        // Clamp the result to the INT32_MIN, INT32_MAX interval.
+        out = out_ > INT32_MAX ? INT32_MAX :
+              out_ < INT32_MIN ? INT32_MIN : out_;
+    }
+
+    state.rspreg.divout = (u32)out;
+    for (unsigned i = 0; i < 8; i++) {
+        state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
+        state.rspreg.vacc[i] |= state.rspreg.vr[vt].h[e];
+    }
+    state.rspreg.vr[vd].h[de] = (u16)(u32)out;
 }
 
 static void eval_VSAR(u32 instr) {
