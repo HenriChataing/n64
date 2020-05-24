@@ -249,6 +249,8 @@ void raise_VI_INTR(void);
 #define VI_CONTROL_COLOR_DEPTH_16BIT    UINT32_C(2)
 #define VI_CONTROL_COLOR_DEPTH_32BIT    UINT32_C(3)
 
+#define VI_DRAM_ADDR_MASK       (UINT32_C(0xffffff))
+
 #define AI_DRAM_ADDR_MASK       (UINT32_C(0xffffff))
 
 #define AI_LEN_V1_MASK          (UINT32_C(0x7fff))
@@ -263,12 +265,16 @@ void raise_VI_INTR(void);
 
 #define AI_BITRATE_MASK         (UINT32_C(0xf))
 
+#define PI_DRAM_ADDR_MASK       (UINT32_C(0xffffff))
+
 #define PI_STATUS_ERROR         (UINT32_C(1) << 2)
 #define PI_STATUS_IO_BUSY       (UINT32_C(1) << 1)
 #define PI_STATUS_DMA_BUSY      (UINT32_C(1) << 0)
 
 #define PI_STATUS_CLR_INTR      (UINT32_C(1) << 1)
 #define PI_STATUS_RESET         (UINT32_C(1) << 0)
+
+#define SI_DRAM_ADDR_MASK       (UINT32_C(0xffffff))
 
 #define SI_STATUS_INTR          (UINT32_C(1) << 12)
 #define SI_STATUS_DMA_ERROR     (UINT32_C(1) << 3)

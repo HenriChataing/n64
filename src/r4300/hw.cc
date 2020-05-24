@@ -40,6 +40,7 @@ void clear_MI_INTR_REG(u32 bits) {
 
 /** @brief Called for VI interrupts. */
 void raise_VI_INTR(void) {
+    debugger::debug(Debugger::VI, "VI_INTR event");
     // Compute the next interrupt time.
     state.hwreg.vi_NextIntr += state.hwreg.vi_IntrInterval;
     // Set the pending interrupt bit.
@@ -832,11 +833,11 @@ bool write(uint bytes, u64 addr, u64 value)
     switch (addr) {
         case SP_MEM_ADDR_REG:
             debugger::info(Debugger::SP, "SP_MEM_ADDR_REG <- {:08x}", value);
-            state.hwreg.SP_MEM_ADDR_REG = value;
+            state.hwreg.SP_MEM_ADDR_REG = value & SP_MEM_ADDR_MASK;
             return true;
         case SP_DRAM_ADDR_REG:
             debugger::info(Debugger::SP, "SP_DRAM_ADDR_REG <- {:08x}", value);
-            state.hwreg.SP_DRAM_ADDR_REG = value;
+            state.hwreg.SP_DRAM_ADDR_REG = value & SP_DRAM_ADDR_MASK;
             return true;
         case SP_RD_LEN_REG:
             write_SP_RD_LEN_REG(value);
@@ -1441,7 +1442,7 @@ bool write(uint bytes, u64 addr, u64 value)
             return true;
         case VI_DRAM_ADDR_REG:
             debugger::info(Debugger::VI, "VI_DRAM_ADDR_REG <- {:08x}", value);
-            state.hwreg.VI_DRAM_ADDR_REG = value & 0xfffffflu;
+            state.hwreg.VI_DRAM_ADDR_REG = value & VI_DRAM_ADDR_MASK;
             updateCurrentFramebuffer();
             return true;
         case VI_WIDTH_REG:
@@ -1756,7 +1757,7 @@ bool write(uint bytes, u64 addr, u64 value)
     switch (addr) {
         case PI_DRAM_ADDR_REG:
             debugger::info(Debugger::PI, "PI_DRAM_ADDR_REG <- {:08x}", value);
-            state.hwreg.PI_DRAM_ADDR_REG = value & 0xfffffflu;
+            state.hwreg.PI_DRAM_ADDR_REG = value & PI_DRAM_ADDR_MASK;
             return true;
         case PI_CART_ADDR_REG:
             debugger::info(Debugger::PI, "PI_CART_ADDR_REG <- {:08x}", value);
@@ -2016,7 +2017,7 @@ bool write(uint bytes, u64 addr, u64 value)
     switch (addr) {
         case SI_DRAM_ADDR_REG:
             debugger::info(Debugger::SI, "SI_DRAM_ADDR_REG <- {:08x}", value);
-            state.hwreg.SI_DRAM_ADDR_REG = value & 0xfffffflu;
+            state.hwreg.SI_DRAM_ADDR_REG = value & SI_DRAM_ADDR_MASK;
             return true;
 
         case SI_PIF_ADDR_RD64B_REG:

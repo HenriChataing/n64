@@ -220,7 +220,6 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
             debugger::info(Debugger::CPU,
                 "exception TLBRefill/TLBInvalid({:08x},{})",
                 vAddr, load);
-            debugger::halt("TLBInvalid / TLBRefill");
             // TODO : XContext
             break;
         // TLB Modified occurs when a store operation virtual address

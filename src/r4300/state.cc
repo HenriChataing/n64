@@ -69,6 +69,7 @@ void State::reset() {
     memset(tmem, 0, sizeof(tmem));
     memset(pifram, 0, sizeof(pifram));
 
+    cycles = 0;
     reg = (R4300::cpureg){};
     cp0reg = (R4300::cp0reg){};
     cp1reg = (R4300::cp1reg){};

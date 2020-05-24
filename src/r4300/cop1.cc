@@ -103,7 +103,6 @@ void eval_DMTC1(u32 instr) {
     // has for side effect to write as if the register index
     // were rt - 1. See \ref cp1reg::setFprAliases for details.
     state.cp1reg.fpr_d[rd]->l = state.reg.gpr[rt];
-    debugger::halt("DMTC1 instruction");
 }
 
 void eval_CTC1(u32 instr) {
