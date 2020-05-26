@@ -1,4 +1,5 @@
 
+#include <climits>
 #include <cstring>
 #include <iomanip>
 #include <iostream>
@@ -128,7 +129,10 @@ typedef struct pixel {
     /* RS */
     struct { i32 x, y; }    edge_coefs;
     struct { i32 s, t, w; } texture_coefs;
-    struct { i32 z; }       zbuffer_coefs;
+    struct {
+        u32 z;
+        u16 deltaz;
+    }                       zbuffer_coefs;
     color_t                 shade_color;
     /* TX */
     struct tile const *     tile;
@@ -144,7 +148,8 @@ typedef struct pixel {
     color_t                 blended_color;  /* 2-cycle mode */
     /* MI */
     color_t                 mem_color;
-    i16                     mem_z;
+    u32                     mem_z; /* U15.3 */
+    i16                     mem_deltaz; /* S15 */
     unsigned                mem_color_addr;
     unsigned                mem_z_addr;
 } pixel_t;
@@ -381,8 +386,8 @@ struct {
     unsigned add_A_1;
 } combine_mode;
 
-static i32 prim_z;
-static i32 prim_deltaz;
+static u32 prim_z;
+static u16 prim_deltaz;
 
 static u8 noise() {
     return 128;
@@ -390,7 +395,7 @@ static u8 noise() {
 
 static float i32_fixpoint_to_float(i32 val, int radix) {
     unsigned long div = 1lu << radix;
-    double fval = val < 0 ? -(i64)val : (i64)val;
+    double fval = (i64)val;// val < 0 ? - : (i64)val;
     return fval / (float)div;
 }
 
@@ -1047,6 +1052,42 @@ static void pipeline_mi_load(pixel_t *px) {
 }
 
 /**
+ * Read the pixel depth saved in the current zbuffer image.
+ * The depth is read from px->mem_z_addr and saved to
+ * px->mem_z, px->mem_deltaz.
+ */
+static void pipeline_mi_load_z(pixel_t *px) {
+    /* The stepped Z is saved in the zbuffer as a 14bit floating point
+     * number with 11bit mantissa and 3bit exponent. */
+    u16 mem_z = __builtin_bswap16(*(u16 *)&state.dram[px->mem_z_addr]);
+    u16 mem_z_01 = state.loadHiddenBits(px->mem_z_addr);
+    /* Convert 11 bit mantissa and 3 bit exponent to U15.3 number */
+    struct {
+        int shift;
+        u32 add;
+    } z_format[8] = {
+        6, 0x00000lu,
+        5, 0x20000lu,
+        4, 0x30000lu,
+        3, 0x38000lu,
+        2, 0x3c000lu,
+        1, 0x3e000lu,
+        0, 0x3f000lu,
+        0, 0x3f800lu,
+    };
+    u16 mantissa = (mem_z >> 2) & 0x7ffu;
+    u16 exponent = (mem_z >> 13) & 0x7u;
+    px->mem_z = ((u32)mantissa << z_format[exponent].shift) |
+                z_format[exponent].add;
+
+    /* The DeltaZ is also encoded into 4 bit integer for storage into
+     * the Z-buffer using the following equation:
+     * mem_deltaz = log2( px->deltaz ) */
+    u16 mem_deltaz = (mem_z & 0x3u) << 2 | mem_z_01;
+    px->mem_deltaz = (i16)(u16)(1u << mem_deltaz);
+}
+
+/**
  * Write the blended color to the current color image.
  * The color is read from px->blended_color and written
  * to px->mem_color_addr.
@@ -1081,48 +1122,114 @@ static void pipeline_mi_store(pixel_t *px) {
     }
 }
 
-/** Clamp a S15.16 depth value to U14.2 */
-static u16 clamp_z(i32 z) {
-    i32 z_min = INT32_C(0); // INT32_C(0xe0000000);
-    i32 z_max = INT32_C(0x3fffc000); // INT32_C(0x1fffc000);
-    return (z <= z_min) ? z_min >> 14 :
-           (z >= z_max) ? z_max >> 14 :
-           z >> 14;
-}
+/**
+ * Write the pixel depth to the current zbuffer image.
+ * The depth is read from px->z, px->deltaz and written
+ * to px->mem_z_addr.
+ */
+static void pipeline_mi_store_z(pixel_t *px) {
+    if (!other_modes.z_update_en)
+        return;
 
-#if 0
-/** Optionally compare and update a z memory value with a computed stepped
- * pixel z value. Returns true iff the pixel is nearer than the memory pixel. */
-static bool z_compare_update(pixel_t *px, u32 px_deltaz) {
-    if (other_modes.z_compare_en) {
-        return true;
-    }
+    /* Convert U15.3 number into 11 bit mantissa and 3 bit exponent */
+    struct {
+        int exponent;
+        int shift;
+    } z_format[128] = {
+        { 0, 6 }, { 0, 6 }, { 0, 6 }, { 0, 6 },
+        { 0, 6 }, { 0, 6 }, { 0, 6 }, { 0, 6 },
+        { 0, 6 }, { 0, 6 }, { 0, 6 }, { 0, 6 },
+        { 0, 6 }, { 0, 6 }, { 0, 6 }, { 0, 6 },
+        { 0, 6 }, { 0, 6 }, { 0, 6 }, { 0, 6 },
+        { 0, 6 }, { 0, 6 }, { 0, 6 }, { 0, 6 },
+        { 0, 6 }, { 0, 6 }, { 0, 6 }, { 0, 6 },
+        { 0, 6 }, { 0, 6 }, { 0, 6 }, { 0, 6 },
+        { 0, 6 }, { 0, 6 }, { 0, 6 }, { 0, 6 },
+        { 0, 6 }, { 0, 6 }, { 0, 6 }, { 0, 6 },
+        { 0, 6 }, { 0, 6 }, { 0, 6 }, { 0, 6 },
+        { 0, 6 }, { 0, 6 }, { 0, 6 }, { 0, 6 },
+        { 0, 6 }, { 0, 6 }, { 0, 6 }, { 0, 6 },
+        { 0, 6 }, { 0, 6 }, { 0, 6 }, { 0, 6 },
+        { 0, 6 }, { 0, 6 }, { 0, 6 }, { 0, 6 },
+        { 0, 6 }, { 0, 6 }, { 0, 6 }, { 0, 6 },
+        { 1, 5 }, { 1, 5 }, { 1, 5 }, { 1, 5 },
+        { 1, 5 }, { 1, 5 }, { 1, 5 }, { 1, 5 },
+        { 1, 5 }, { 1, 5 }, { 1, 5 }, { 1, 5 },
+        { 1, 5 }, { 1, 5 }, { 1, 5 }, { 1, 5 },
+        { 1, 5 }, { 1, 5 }, { 1, 5 }, { 1, 5 },
+        { 1, 5 }, { 1, 5 }, { 1, 5 }, { 1, 5 },
+        { 1, 5 }, { 1, 5 }, { 1, 5 }, { 1, 5 },
+        { 1, 5 }, { 1, 5 }, { 1, 5 }, { 1, 5 },
+        { 2, 4 }, { 2, 4 }, { 2, 4 }, { 2, 4 },
+        { 2, 4 }, { 2, 4 }, { 2, 4 }, { 2, 4 },
+        { 2, 4 }, { 2, 4 }, { 2, 4 }, { 2, 4 },
+        { 2, 4 }, { 2, 4 }, { 2, 4 }, { 2, 4 },
+        { 3, 3 }, { 3, 3 }, { 3, 3 }, { 3, 3 },
+        { 3, 3 }, { 3, 3 }, { 3, 3 }, { 3, 3 },
+        { 4, 2 }, { 4, 2 }, { 4, 2 }, { 4, 2 },
+        { 5, 1 }, { 5, 1 }, { 6, 0 }, { 7, 0 },
+    };
 
-    i32 comp_z;
-    u32 comp_deltaz;
+    u32 z;
+    u16 deltaz;
 
     if (other_modes.z_source_sel) {
-        comp_z = clamp_z(prim_z);
-        comp_deltaz = clamp_z(prim_deltaz);
+        z = prim_z;
+        deltaz = prim_deltaz;
     } else {
-        comp_z = clamp_z(px->zbuffer_coefs.z);
-        comp_deltaz = px_deltaz;
+        z = px->zbuffer_coefs.z;
+        deltaz = px->zbuffer_coefs.deltaz + prim_deltaz;
     }
 
-    i32 mem_z;
-    u32 mem_deltaz;
+    u32 idx = z >> 11;
+    u16 exponent = z_format[idx].exponent;
+    u16 mantissa = (z >> z_format[idx].shift) & 0x7ffu;
 
-    mem_z = *(i16 *)&state.dram[px->mem_z_addr];
+    /* The DeltaZ is also encoded into 4 bit integer for storage into
+     * the Z-buffer using the following equation:
+     * mem_deltaz = log2( px->deltaz ) */
+    u16 log2_deltaz = deltaz ?
+        sizeof(unsigned) * CHAR_BIT - __builtin_clz(deltaz) : 0;
 
-    if (comp_z >= mem_z) {
-        return false;
-    }
-    if (other_modes.z_update_en) {
-        *(i16 *)&state.dram[px->mem_z_addr] = comp_z;
-    }
-    return true;
+    u16 mem_z = exponent << 13 | mantissa << 2 | log2_deltaz >> 2;
+    u16 mem_z_01 = log2_deltaz & 0x3u;
+
+    *(u16 *)&state.dram[px->mem_z_addr] = __builtin_bswap16(mem_z);
+    state.storeHiddenBits(px->mem_z_addr, mem_z_01);
 }
-#endif
+
+/** Optionally compare and update a z memory value with a computed stepped
+ * pixel z value. Returns true iff the pixel is nearer than the memory pixel. */
+static bool z_compare(pixel_t *px) {
+    bool compare = true;
+
+    if (other_modes.z_compare_en) {
+        pipeline_mi_load_z(px);
+
+        u32 comp_z;
+        u16 comp_deltaz;
+
+        if (other_modes.z_source_sel) {
+            comp_z = prim_z;
+            comp_deltaz = prim_deltaz;
+        } else {
+            comp_z = px->zbuffer_coefs.z;
+            comp_deltaz = px->zbuffer_coefs.deltaz + prim_deltaz;
+        }
+
+        u32 mem_z = px->mem_z;
+        // u16 mem_deltaz = px->mem_deltaz;
+        u32 near = comp_z >= ((u32)comp_deltaz << 3) ?
+            comp_z - ((u32)comp_deltaz << 3) : 0;
+        // u32 far = comp_z + ((u32)comp_deltaz << 3);
+        bool behind  = mem_z < near;
+        // bool infront = mem_z > far;
+
+        compare &= !behind;
+    }
+
+    return compare;
+}
 
 /** @brief Fills the line with coordinates (xs,y), (xe, y) with the
  * fill color. Input coordinates are in 10.2 fixedpoint format. */
@@ -1166,11 +1273,17 @@ static void render_span(bool left, unsigned level, unsigned tile,
     px.edge_coefs.y = y;
     px.mem_color_addr = left ? offset : offset + length - px_size;
 
+    i32 shade_r = 0;
+    i32 shade_g = 0;
+    i32 shade_b = 0;
+    i32 shade_a = 0;
+    i32 z = 0;
+
     if (shade) {
-        px.shade_color.r = shade->r;
-        px.shade_color.g = shade->g;
-        px.shade_color.b = shade->b;
-        px.shade_color.a = shade->a;
+        shade_r = shade->r;
+        shade_g = shade->g;
+        shade_b = shade->b;
+        shade_a = shade->a;
     }
     if (texture) {
         px.texture_coefs.s = texture->s;
@@ -1191,27 +1304,45 @@ static void render_span(bool left, unsigned level, unsigned tile,
         }
 
         px.mem_z_addr = left ? z_offset : z_offset + z_length - 2;
-        px.zbuffer_coefs.z = zbuffer->z;
+        z = zbuffer->z;
+        px.zbuffer_coefs.deltaz =
+           ((zbuffer->dzdx > 0 ? (u32)zbuffer->dzdx : (u32)-zbuffer->dzdx) +
+            (zbuffer->dzdy > 0 ? (u32)zbuffer->dzdy : (u32)-zbuffer->dzdy)) >> 16;
     }
 
     if (left) {
         for (px.edge_coefs.x = xs; px.edge_coefs.x < xe; px.edge_coefs.x++) {
-            if (texture) {
-                pipeline_tx(&px);
-                pipeline_tf(&px);
+            if (shade) {
+                px.shade_color.r = shade_r >> 16;
+                px.shade_color.g = shade_g >> 16;
+                px.shade_color.b = shade_b >> 16;
+                px.shade_color.a = shade_a >> 16;
             }
-            pipeline_cc(&px);
-            pipeline_mi_load(&px);
-            pipeline_bl(&px);
-            pipeline_mi_store(&px);
-            print_pixel(&px);
+            if (zbuffer) {
+                /* Convert from S15.16 to U15.3
+                 * TODO check clamp to 0 ? */
+                px.zbuffer_coefs.z = z < 0 ? 0 : (u32)z >> 13;
+            }
+
+            if (z_compare(&px)) {
+                if (texture) {
+                    pipeline_tx(&px);
+                    pipeline_tf(&px);
+                }
+                pipeline_cc(&px);
+                pipeline_mi_load(&px);
+                pipeline_bl(&px);
+                pipeline_mi_store(&px);
+                pipeline_mi_store_z(&px);
+                print_pixel(&px);
+            }
 
             px.mem_color_addr += px_size;
             if (shade) {
-                px.shade_color.r += shade->drdx;
-                px.shade_color.g += shade->dgdx;
-                px.shade_color.b += shade->dbdx;
-                px.shade_color.a += shade->dadx;
+                shade_r += shade->drdx;
+                shade_g += shade->dgdx;
+                shade_b += shade->dbdx;
+                shade_a += shade->dadx;
             }
             if (texture) {
                 px.texture_coefs.s += texture->dsdx;
@@ -1220,27 +1351,42 @@ static void render_span(bool left, unsigned level, unsigned tile,
             }
             if (zbuffer) {
                 px.mem_z_addr += 2;
-                px.zbuffer_coefs.z += zbuffer->dzdx;
+                z += zbuffer->dzdx;
             }
         }
     } else {
         for (px.edge_coefs.x = xe; px.edge_coefs.x > xs; px.edge_coefs.x--) {
-            if (texture) {
-                pipeline_tx(&px);
-                pipeline_tf(&px);
+            if (shade) {
+                px.shade_color.r = shade_r >> 16;
+                px.shade_color.g = shade_g >> 16;
+                px.shade_color.b = shade_b >> 16;
+                px.shade_color.a = shade_a >> 16;
             }
-            pipeline_cc(&px);
-            pipeline_mi_load(&px);
-            pipeline_bl(&px);
-            pipeline_mi_store(&px);
-            print_pixel(&px);
+            if (zbuffer) {
+                /* Convert from S15.16 to U15.3
+                 * TODO check clamp to 0 ? */
+                px.zbuffer_coefs.z = z < 0 ? 0 : (u32)z >> 13;
+            }
+
+            if (z_compare(&px)) {
+                if (texture) {
+                    pipeline_tx(&px);
+                    pipeline_tf(&px);
+                }
+                pipeline_cc(&px);
+                pipeline_mi_load(&px);
+                pipeline_bl(&px);
+                pipeline_mi_store(&px);
+                pipeline_mi_store_z(&px);
+                print_pixel(&px);
+            }
 
             px.mem_color_addr -= px_size;
             if (shade) {
-                px.shade_color.r -= shade->drdx;
-                px.shade_color.g -= shade->dgdx;
-                px.shade_color.b -= shade->dbdx;
-                px.shade_color.a -= shade->dadx;
+                shade_r -= shade->drdx;
+                shade_g -= shade->dgdx;
+                shade_b -= shade->dbdx;
+                shade_a -= shade->dadx;
             }
             if (texture) {
                 px.texture_coefs.s -= texture->dsdx;
@@ -1249,7 +1395,7 @@ static void render_span(bool left, unsigned level, unsigned tile,
             }
             if (zbuffer) {
                 px.mem_z_addr -= 2;
-                px.zbuffer_coefs.z -= zbuffer->dzdx;
+                z -= zbuffer->dzdx;
             }
         }
     }
@@ -1644,11 +1790,11 @@ void setScissor(u64 command, u64 const *params) {
 }
 
 void setPrimDepth(u64 command, u64 const *params) {
-    prim_z      = (i16)((command >> 16) & 0xffffu);
-    prim_deltaz = (i16)((command >>  0) & 0xffffu);
+    prim_z      = (u32)((command >> 16) & 0xffffu) << 3;
+    prim_deltaz = ((command >>  0) & 0xffffu);
 
-    debugger::debug(Debugger::RDP, "  z: {}", s15_16_to_float(prim_z));
-    debugger::debug(Debugger::RDP, "  deltaz: {}", s15_16_to_float(prim_deltaz));
+    debugger::debug(Debugger::RDP, "  z: {}", (float)prim_z / 8.);
+    debugger::debug(Debugger::RDP, "  deltaz: {}", (i16)prim_deltaz);
 }
 
 void setOtherModes(u64 command, u64 const *params) {

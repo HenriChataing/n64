@@ -27,6 +27,7 @@ public:
     struct tlbEntry tlb[tlbEntryCount]; /**< Translation look-aside buffer */
 
     alignas(u64) u8 dram[0x400000];
+                 u8 dram_bit9[80000];
     alignas(u64) u8 dmem[0x1000];
     alignas(u64) u8 imem[0x1000];
     alignas(u64) u8 tmem[0x1000];
@@ -63,6 +64,9 @@ public:
     void cancelEvent(void (*callback)());
     void cancelAllEvents();
     void handleEvent();
+
+    u8 loadHiddenBits(u32 addr);
+    void storeHiddenBits(u32 addr, u8 val);
 };
 
 /** Current machine state. */

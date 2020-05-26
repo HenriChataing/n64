@@ -124,6 +124,19 @@ void State::reset() {
     rsp.nextPc = 0x0;
 }
 
+u8 State::loadHiddenBits(u32 addr) {
+    unsigned offset = addr / 8;
+    unsigned shift = (addr % 8) / 2;
+    return (dram_bit9[offset] >> shift) & 0x3u;
+}
+
+void State::storeHiddenBits(u32 addr, u8 val) {
+    unsigned offset = addr / 8;
+    unsigned shift = (addr % 8) / 2;
+    dram_bit9[offset] &= ~(0x3u << shift);
+    dram_bit9[offset] |= (val & 0x3u) << shift;
+}
+
 void State::scheduleEvent(ulong timeout, void (*callback)()) {
     State::Event *event = new Event(timeout, callback, NULL);
     State::Event *pos = cpu.eventQueue, **prev = &cpu.eventQueue;
