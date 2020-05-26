@@ -1,8 +1,10 @@
 
+#include <ctime>
 #include <cstring>
 #include <iostream>
 #include <mutex>
 
+#include <circular_buffer.h>
 #include <graphics.h>
 #include <debugger.h>
 #include <r4300/state.h>
@@ -26,6 +28,9 @@ static void *data = NULL;
 
 static GLuint texture = 0;
 static bool dirty = false;
+
+static clock_t lastRefresh = 0;
+static float lastFrameTiming = 0.;
 };
 
 /** Set the configuration of the framebuffer being displayed to the screen. */
@@ -48,7 +53,20 @@ void setVideoImage(size_t width, size_t height, size_t colorDepth, void *data)
 /** Refresh the screen, called once during vertical blank. */
 void refreshVideoImage(void)
 {
+    clock_t now = clock();
+    clock_t currentFrameTiming = now - VideoImage::lastRefresh;
+    VideoImage::lastFrameTiming =
+        (VideoImage::lastFrameTiming * 0.9) + (currentFrameTiming * 0.1);
+    VideoImage::lastRefresh = now;
+
     VideoImage::dirty = true;
+}
+
+/** Return the frame rate */
+float getInstantFrameRate(void)
+{
+    return VideoImage::lastFrameTiming > 0. ?
+        (float)CLOCKS_PER_SEC / VideoImage::lastFrameTiming : 0.;
 }
 
 /** Return the ID of a texture copied from the current video image, or

@@ -601,6 +601,8 @@ static void ShowDebuggerWindow(void) {
             }
         }
 
+        ImGui::Text("fps %f", getInstantFrameRate());
+
         static int selected = 0;
         ImGui::Separator();
         ImGui::BeginChild("module select", ImVec2(150, 0), true);
