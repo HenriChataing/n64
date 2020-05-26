@@ -238,6 +238,18 @@ static void storeVectorBytes(unsigned vr, unsigned element, unsigned addr,
     }
 }
 
+static void eval_SPV(u32 instr) {
+    u32 base = (instr >> 21) & 0x1flu;
+    u32 vt = (instr >> 16) & 0x1flu;
+    u32 offset = i7_to_i32(instr & 0x7flu);
+    u32 addr = state.rspreg.gpr[base] + (offset << 3);
+
+    for (unsigned i = 0; i < 8; i++, addr++) {
+        u8 val = state.rspreg.vr[vt].h[i] >> 8;
+        state.dmem[addr & 0xfffu] = val;
+    }
+}
+
 static void eval_SUV(u32 instr) {
     u32 base = (instr >> 21) & 0x1flu;
     u32 vt = (instr >> 16) & 0x1flu;
@@ -310,9 +322,7 @@ static void eval_SWC2(u32 instr) {
             storeVectorBytes(vt, element, start, end - start);
             break;
         }
-        case UINT32_C(0x6): /* SPV */
-            debugger::halt("RSP::SPV not supported");
-            break;
+        case UINT32_C(0x6): eval_SPV(instr); break;
         case UINT32_C(0x7): eval_SUV(instr); break;
         case UINT32_C(0x8): /* SHV */
             debugger::halt("RSP::SHV not supported");
