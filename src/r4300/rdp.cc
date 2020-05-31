@@ -1743,6 +1743,9 @@ void textureRectangleFlip(u64 command, u64 const *params) {
     }
 }
 
+void syncLoad(u64 command, u64 const *params) {
+}
+
 void syncPipe(u64 command, u64 const *params) {
 }
 
@@ -1918,9 +1921,6 @@ void loadTlut(u64 command, u64 const *params) {
     memcpy(dst + 0x200, src, line_size);
     memcpy(dst + 0x400, src, line_size);
     memcpy(dst + 0x600, src, line_size);
-}
-
-void syncLoad(u64 command, u64 const *params) {
 }
 
 void setTileSize(u64 command, u64 const *params) {
@@ -2363,10 +2363,10 @@ struct {
     { 0,  NULL },
     { 2,  textureRectangle,             "texture_rectangle" },
     { 2,  textureRectangleFlip,         "texture_rectangle_flip" },
-    { 1,  syncFull,                     "sync_full_1" },
+    { 1,  syncLoad,                     "sync_load" },
     { 1,  syncPipe,                     "sync_pipe" },
     { 1,  syncTile,                     "sync_tile" },
-    { 1,  syncFull,                     "sync_full_2" },
+    { 1,  syncFull,                     "sync_full" },
     { 1,  setKeyGB,                     "set_key_gb" },
     { 1,  setKeyR,                      "set_key_r" },
     { 1,  setConvert,                   "set_convert" },
@@ -2374,7 +2374,7 @@ struct {
     { 1,  setPrimDepth,                 "set_prim_depth" },
     { 1,  setOtherModes,                "set_other_modes" },
     { 1,  loadTlut,                     "load_tlut" },
-    { 1,  syncLoad,                     "sync_load" },
+    { 0,  NULL },
     { 1,  setTileSize,                  "set_tile_size" },
     { 1,  loadBlock,                    "load_block" },
     { 1,  loadTile,                     "load_tile" },
