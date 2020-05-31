@@ -58,7 +58,7 @@ OBJS      := \
     src/gui/gui.o \
     src/gui/graphics.o \
     src/gui/imgui_impl_glfw.o \
-    src/gui/imgui_impl_opengl3.o \
+    src/gui/imgui_impl_opengl3.o
 
 OBJS      += \
     external/fmt/src/format.o \

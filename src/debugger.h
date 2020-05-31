@@ -45,13 +45,6 @@ public:
      * emulation. */
     void undefined(std::string cause) {}
 
-    /** Create a new breakpoint.
-     * \p addr is the physical address of the RAM memory location to set the
-     * breakpoint to. */
-    void setBreakpoint(u64 addr);
-    void unsetBreakpoint(u64 addr);
-    bool checkBreakpoint(u64 addr);
-
     enum Verbosity {
         None,
         Error,
@@ -93,9 +86,20 @@ public:
     circular_buffer<TraceEntry> rspTrace;
 
     struct Breakpoint {
-        u64 addr;   /* Virtual memory address of the breakpoint. */
-        Breakpoint(u64 addr) : addr(addr) {}
+        u64 addr;       /* Virtual memory address of the breakpoint. */
+        bool enabled;   /* Breakpoint enable flag */
+        Breakpoint(u64 addr) : addr(addr), enabled(true) {}
     };
+
+    /** Create a new breakpoint.
+     * \p addr is the physical address of the RAM memory location to set the
+     * breakpoint to. */
+    void setBreakpoint(u64 addr);
+    void unsetBreakpoint(u64 addr);
+    bool checkBreakpoint(u64 addr);
+
+    std::map<u64, std::unique_ptr<Debugger::Breakpoint>>::const_iterator breakpointsBegin();
+    std::map<u64, std::unique_ptr<Debugger::Breakpoint>>::const_iterator breakpointsEnd();
 
 private:
     std::thread *           _interpreterThread;

@@ -149,5 +149,16 @@ void Debugger::unsetBreakpoint(u64 addr) {
 }
 
 bool Debugger::checkBreakpoint(u64 addr) {
-    return _breakpoints.find(addr) != _breakpoints.end();
+    auto it = _breakpoints.find(addr);
+    return it != _breakpoints.end() && it->second->enabled;
+}
+
+std::map<u64, std::unique_ptr<Debugger::Breakpoint>>::const_iterator
+Debugger::breakpointsBegin() {
+    return _breakpoints.begin();
+}
+
+std::map<u64, std::unique_ptr<Debugger::Breakpoint>>::const_iterator
+Debugger::breakpointsEnd() {
+    return _breakpoints.end();
 }

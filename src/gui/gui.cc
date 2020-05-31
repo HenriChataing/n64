@@ -545,16 +545,60 @@ static void ShowTrace(bool *show_trace) {
     ImGui::End();
 }
 
+static void ShowBreakpoints(bool *show_breakpoints) {
+    static char addr_input_buf[32];
+    bool added = false;
+    bool removed = false;
+    u64 removed_addr = 0;
+
+    ImGui::Begin("Breakpoints", show_breakpoints);
+    added |= ImGui::InputText("##addr", addr_input_buf, 32,
+        ImGuiInputTextFlags_CharsHexadecimal |
+        ImGuiInputTextFlags_EnterReturnsTrue);
+    ImGui::SameLine();
+    added |= ImGui::Button("Add");
+
+    if (added) {
+        u64 addr;
+        if (sscanf(addr_input_buf, "%" PRIx64 "X", &addr) == 1) {
+            debugger::debugger.setBreakpoint(addr);
+        }
+    }
+
+    ImGui::BeginChild("BreakpointList");
+    auto it = debugger::debugger.breakpointsBegin();
+    for (; it != debugger::debugger.breakpointsEnd(); it++) {
+        ImGui::PushID(it->first);
+        ImGui::Checkbox("", &it->second->enabled);
+        ImGui::SameLine();
+        if (ImGui::Button("Remove")) {
+            removed = true;
+            removed_addr = it->first;
+        }
+        ImGui::SameLine();
+        ImGui::Text("%08lx", it->first);
+        ImGui::PopID();
+    }
+    ImGui::EndChild();
+    ImGui::End();
+
+    if (removed) {
+        debugger::debugger.unsetBreakpoint(removed_addr);
+    }
+}
+
 static void ShowDebuggerWindow(void) {
     static bool show_screen = true;
     static bool show_log_config = false;
     static bool show_disassembler = true;
     static bool show_trace = false;
+    static bool show_breakpoints = false;
 
     if (show_screen) ShowScreen(&show_screen);
     if (show_log_config) ShowLogConfig(&show_log_config);
     if (show_disassembler) ShowDisassembler(&show_disassembler);
     if (show_trace) ShowTrace(&show_trace);
+    if (show_breakpoints) ShowBreakpoints(&show_breakpoints);
 
     if (ImGui::Begin("Debugger", NULL, ImGuiWindowFlags_MenuBar)) {
         if (ImGui::BeginMenuBar()) {
@@ -576,6 +620,7 @@ static void ShowDebuggerWindow(void) {
                 if (ImGui::MenuItem("Screen", NULL, &show_screen)) {}
                 if (ImGui::MenuItem("Disassembler", NULL, &show_disassembler)) {}
                 if (ImGui::MenuItem("Trace", NULL, &show_trace)) {}
+                if (ImGui::MenuItem("Breakpoints", NULL, &show_breakpoints)) {}
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("Options")) {
@@ -586,7 +631,8 @@ static void ShowDebuggerWindow(void) {
         }
 
         // CPU freq is 93.75 MHz
-        ImGui::Text("Real time: %lums\n", R4300::state.cycles / 93750lu);
+        ImGui::Text("Real time: %lums (%lu)\n", R4300::state.cycles / 93750lu,
+            R4300::state.cycles);
         if (debugger::debugger.halted) {
             ImGui::Text("Machine halt reason: '%s'\n",
                 debugger::debugger.haltedReason.c_str());
