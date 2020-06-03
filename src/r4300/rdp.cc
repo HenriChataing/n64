@@ -30,6 +30,9 @@ namespace R4300 {
 
 using namespace R4300;
 
+/* Addr in 64bit words */
+#define HIGH_TMEM_ADDR 256
+
 /** Image data format set by the SetColorImage DPC command. */
 enum image_data_format {
     IMAGE_DATA_FORMAT_RGBA = 0,
@@ -526,7 +529,7 @@ namespace Cycle1Mode {
  */
 
 static void pipeline_tx(pixel_t *px);
-static void pipeline_tx_load(struct tile const *tile, unsigned addr, color_t *tx);
+static void pipeline_tx_load(struct tile const *tile, unsigned s, unsigned t, color_t *tx);
 static void pipeline_tf(pixel_t *px);
 static void pipeline_cc(pixel_t *px);
 static void pipeline_bl(pixel_t *px);
@@ -602,36 +605,24 @@ static void pipeline_tx(pixel_t *px) {
             t_tile = (u32)t_tile & mask_t;
     }
 
-    /* Address of the texel closest to the rasterized point.
-     * The value is an offset into tmem memory, multiplied by two
-     * to account for 4bit texel addressing. */
-    unsigned addr =
-        (tile->tmem_addr << 4) +
-        ((tile->tl >> 2) + t_tile) * (tile->line << 4) +
-        (((tile->sl >> 2) + s_tile) << tile->size);
-
     switch (other_modes.sample_type) {
         case SAMPLE_TYPE_1X1:
-            pipeline_tx_load(tile, addr, &px->texel_colors[0]);
+            pipeline_tx_load(tile, s_tile, t_tile, &px->texel_colors[0]);
             px->texel_colors[1] = px->texel_colors[0];
             px->texel_colors[2] = px->texel_colors[0];
             px->texel_colors[3] = px->texel_colors[0];
             break;
         case SAMPLE_TYPE_2X2:
-            pipeline_tx_load(tile, addr,
-                             &px->texel_colors[0]);
-            pipeline_tx_load(tile, addr + (1u << tile->size),
-                             &px->texel_colors[1]);
-            pipeline_tx_load(tile, addr + (tile->line << 2),
-                             &px->texel_colors[2]);
-            pipeline_tx_load(tile, addr + (tile->line << 2) + (1u << tile->size),
-                             &px->texel_colors[3]);
+            pipeline_tx_load(tile, s_tile,     t_tile,     &px->texel_colors[0]);
+            pipeline_tx_load(tile, s_tile + 1, t_tile,     &px->texel_colors[1]);
+            pipeline_tx_load(tile, s_tile,     t_tile + 1, &px->texel_colors[2]);
+            pipeline_tx_load(tile, s_tile + 1, t_tile + 1, &px->texel_colors[3]);
             break;
         case SAMPLE_TYPE_4X1:
-            pipeline_tx_load(tile, addr, &px->texel_colors[0]);
-            pipeline_tx_load(tile, addr + (1u << tile->size), &px->texel_colors[1]);
-            pipeline_tx_load(tile, addr + (2u << tile->size), &px->texel_colors[2]);
-            pipeline_tx_load(tile, addr + (3u << tile->size), &px->texel_colors[3]);
+            pipeline_tx_load(tile, s_tile,     t_tile,     &px->texel_colors[0]);
+            pipeline_tx_load(tile, s_tile + 1, t_tile,     &px->texel_colors[1]);
+            pipeline_tx_load(tile, s_tile + 2, t_tile,     &px->texel_colors[2]);
+            pipeline_tx_load(tile, s_tile + 3, t_tile,     &px->texel_colors[3]);
             break;
     }
 }
@@ -683,7 +674,18 @@ static void pipeline_palette_load(u8 ci, color_t *tx) {
  * RGBA pixel. After searching the texels, the texture unit will convert them
  * to 32bit RGBA format.
  */
-static void pipeline_tx_load(struct tile const *tile, unsigned addr, color_t *tx) {
+static void pipeline_tx_load(struct tile const *tile, unsigned s, unsigned t, color_t *tx) {
+    /* Address of the texel closest to the rasterized point.
+     * The value is an offset into tmem memory, multiplied by two
+     * to account for 4bit texel addressing. */
+    s += tile->sl >> 2;
+    t += tile->tl >> 2;
+    unsigned shift =
+        tile->type == IMAGE_DATA_FORMAT_RGBA_8_8_8_8 ? 2 :
+        tile->type == IMAGE_DATA_FORMAT_YUV_16 ? 2 : tile->size;
+    unsigned stride = tile->line << 4;
+    unsigned addr = (tile->tmem_addr << 4) + (t * stride) + (s << shift);
+
     switch (tile->type) {
     /* I[3:0] =>
      * R {[3:0],[3:0]}
@@ -763,9 +765,12 @@ static void pipeline_tx_load(struct tile const *tile, unsigned addr, color_t *tx
      * G [15:8]
      * B [15:8]
      * A [7:0] */
-    case IMAGE_DATA_FORMAT_IA_8_8:
-        debugger::halt("pipeline_tx_load: unsupported image data type IA_8_8");
+    case IMAGE_DATA_FORMAT_IA_8_8: {
+        u16 ia = __builtin_bswap16(*(u16 *)&state.tmem[addr >> 1]);
+        tx->r = tx->g = tx->b = (ia >> 8) & 0xffu;
+        tx->a = ia & 0xffu;
         break;
+    }
     case IMAGE_DATA_FORMAT_YUV_16:
         debugger::halt("pipeline_tx_load: unsupported image data type YUV_16");
         break;
@@ -775,23 +780,18 @@ static void pipeline_tx_load(struct tile const *tile, unsigned addr, color_t *tx
      * B [15:8]
      * A [7:0] */
     case IMAGE_DATA_FORMAT_RGBA_8_8_8_8: {
-        u32 rgba = __builtin_bswap32(*(u32 *)&state.tmem[addr >> 1]);
-        tx->r = (rgba >> 24) & 0xffu;
-        tx->g = (rgba >> 16) & 0xffu;
-        tx->b = (rgba >>  8) & 0xffu;
-        tx->a = (rgba >>  0) & 0xffu;
+        u16 rg = __builtin_bswap16(*(u16 *)&state.tmem[addr >> 1]);
+        u16 ba = __builtin_bswap16(*(u16 *)&state.tmem[2048 + (addr >> 1)]);
+        tx->r = (rg >> 8) & 0xffu;
+        tx->g = (rg >> 0) & 0xffu;
+        tx->b = (ba >> 8) & 0xffu;
+        tx->a = (ba >> 0) & 0xffu;
         break;
     }
     default:
         debugger::halt("pipeline_tx_load: unexpected image data type");
         break;
     }
-    // if (other_modes.tlut_en) {
-    //     debugger::halt("tlut_en not implemented");
-    // } else {
-    //     debugger::halt("tlut_en not enabled");
-    //     tx->r = tx->g = tx->b = tx->a = 0;
-    // }
 }
 
 static void pipeline_tf(pixel_t *px) {
@@ -2007,12 +2007,19 @@ void loadTile(u64 command, u64 const *params) {
 
     unsigned src_size = texture_image.size;
     unsigned dst_size = tiles[tile].size;
+    unsigned src_fmt = texture_image.format;
+    unsigned dst_fmt = tiles[tile].format;
 
     if (src_size != dst_size) {
         debugger::halt("Incompatible texture formats");
+        return;
     }
     if (src_size == PIXEL_SIZE_4B) {
         debugger::halt("Invalid texture format for loadTile");
+        return;
+    }
+    if (src_fmt != dst_fmt) {
+        debugger::warn(Debugger::RDP, "load_tile: differing texture formats");
     }
 
     /* sl, tl, sh, th are in 10.2 fixpoint format. */
@@ -2023,12 +2030,38 @@ void loadTile(u64 command, u64 const *params) {
     unsigned line_size = (sh - sl) << src_size_shift;
     unsigned src_stride = texture_image.width << src_size_shift;
     unsigned dst_stride = tiles[tile].line << 3;
+
     line_size = (line_size + 7u) & ~7u; /* Rounded-up to 64bit boundary. */
     u8 *src = &state.dram[texture_image.addr + (tl * src_stride) + (sl << src_size_shift)];
     u8 *dst = &state.tmem[tiles[tile].tmem_addr << 3];
 
-    for (unsigned y = tl; y <= th; y++, src += src_stride, dst += dst_stride) {
-        memcpy(dst, src, line_size);
+    switch (texture_image.type) {
+    case IMAGE_DATA_FORMAT_YUV_16:
+        debugger::halt("Unsupported texture image data format YUV");
+        break;
+    /* Texels are split RG + BA between low and high texture memory addresses */
+    case IMAGE_DATA_FORMAT_RGBA_8_8_8_8:
+        if (tiles[tile].tmem_addr >= HIGH_TMEM_ADDR) {
+            debugger::halt("load_tile: RGBA_8_8_8_8 in high mem");
+            return;
+        }
+        for (unsigned y = tl; y < th; y++) {
+            for (unsigned xd = 0, xs = 0; xs < line_size; xs += 4, xd += 2) {
+                dst[xd]        = src[xs];
+                dst[xd + 1]    = src[xs + 1];
+                dst[xd + 2048] = src[xs + 2];
+                dst[xd + 2049] = src[xs + 3];
+            }
+            src += src_stride;
+            dst += dst_stride;
+        }
+        break;
+
+    default:
+        for (unsigned y = tl; y <= th; y++, src += src_stride, dst += dst_stride) {
+            memcpy(dst, src, line_size);
+        }
+        break;
     }
     // TODO buffer overflow checks
 }

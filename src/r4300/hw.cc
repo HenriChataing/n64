@@ -17,6 +17,7 @@ namespace R4300 {
  * Reevaluate the value of the Interrupt 2 pending bit afterwards.
  */
 void set_MI_INTR_REG(u32 bits) {
+    debugger::info(Debugger::MI, "MI_INTR_REG |= {:x}", bits);
     state.hwreg.MI_INTR_REG |= bits;
     if (state.hwreg.MI_INTR_REG & state.hwreg.MI_INTR_MASK_REG) {
         setInterruptPending(2);
@@ -30,6 +31,7 @@ void set_MI_INTR_REG(u32 bits) {
  * Reevaluate the value of the Interrupt 2 pending bit afterwards.
  */
 void clear_MI_INTR_REG(u32 bits) {
+    debugger::info(Debugger::MI, "MI_INTR_REG &= ~{:x}", bits);
     state.hwreg.MI_INTR_REG &= ~bits;
     if (state.hwreg.MI_INTR_REG & state.hwreg.MI_INTR_MASK_REG) {
         setInterruptPending(2);
