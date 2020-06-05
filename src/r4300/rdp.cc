@@ -1258,9 +1258,9 @@ static void render_span(bool left, unsigned level, unsigned tile,
 
     if ((offset + length) > sizeof(state.dram)) {
         debugger::warn(Debugger::RDP,
-            "(cycle1) render_span out-of-bounds, start:{}, length:{}",
+            "(cycle1) render_span out-of-bounds, start:{:x}, length:{}",
             offset, length);
-        debugger::halt("Cycle1Mode::render_span out-of-bounds");
+        // debugger::halt("Cycle1Mode::render_span out-of-bounds");
         return;
     }
 
@@ -2113,25 +2113,27 @@ void fillRectangle(u64 command, u64 const *params) {
     debugger::debug(Debugger::RDP, "  xh: {}", (float)xh / 4.);
     debugger::debug(Debugger::RDP, "  yh: {}", (float)yh / 4.);
 
-    /* Expect rasterizer to be in Fill cycle type. */
-    if (other_modes.cycle_type != CYCLE_TYPE_FILL) {
-        debugger::warn(Debugger::RDP, "fill_rectangle not in fill cycle type");
-        debugger::halt("fill_rectangle: invalid cycle type");
-        return;
-    }
-
     if (xh > xl || yh > yl) {
         debugger::warn(Debugger::RDP, "invalid fill_rcetangle coordinates");
         debugger::halt("fill_rectangle: invalid coordinates");
         return;
     }
 
-    /* TODO in fill mode rectangles are scissored to the neareast
-     * 4 pixel boundary
-     * TODO potential edge case : one-line scissorbox
-     * */
-    for (unsigned y = (yh >> 2); y <= (yl >> 2); y++)
-        FillMode::renderLine(y << 2, xh, xl);
+    /* Expect rasterizer to be in Fill cycle type. */
+    if (other_modes.cycle_type == CYCLE_TYPE_1CYCLE) {
+        for (unsigned y = (yh >> 2); y <= (yl >> 2); y++) {
+            Cycle1Mode::render_span(
+                true, 0, 0, y << 2, xh, xl,
+                NULL, NULL, NULL);
+        }
+    } else {
+        /* TODO in fill mode rectangles are scissored to the neareast
+         * 4 pixel boundary
+         * TODO potential edge case : one-line scissorbox
+         * */
+        for (unsigned y = (yh >> 2); y <= (yl >> 2); y++)
+            FillMode::renderLine(y << 2, xh, xl);
+    }
 }
 
 /**
