@@ -74,7 +74,7 @@ void write_SP_RD_LEN_REG(u32 value) {
         //  it is an error if DRAM_ADDR is not inside the Ram.
         state.physmem.copy(dst_base, src_base, len);
     }
-    set_MI_INTR_REG(MI_INTR_SP);
+    // set_MI_INTR_REG(MI_INTR_SP);
 }
 
 /**
@@ -97,7 +97,7 @@ void write_SP_WR_LEN_REG(u32 value) {
         //  it is an error if DRAM_ADDR is not inside the Ram.
         state.physmem.copy(dst_base, src_base, len);
     }
-    set_MI_INTR_REG(MI_INTR_SP);
+    // set_MI_INTR_REG(MI_INTR_SP);
 }
 
 /**
