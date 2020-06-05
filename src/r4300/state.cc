@@ -14,10 +14,26 @@ namespace R4300 {
 State state;
 };
 
+/* Read-As-Zero */
+static bool RAZ(unsigned bytes, u64 addr, u64 *val) {
+    (void)bytes; (void)addr;
+    *val = 0;
+    debugger::halt("RAZ");
+    return true;
+}
+
+/* Write-Ignored */
+static bool WI(unsigned bytes, u64 addr, u64 val) {
+    (void)bytes; (void)addr; (void)val;
+    // debugger::halt("WI");
+    return true;
+}
+
 State::State() : physmem(0, 0x100000000llu) {
     // Create the physical memory address space for this machine
     // importing the rom bytes for the select file.
     physmem.root.insertRam(  0x00000000llu, 0x400000, dram);   /* RDRAM ranges 0, 1 */
+    physmem.root.insertIOmem(0x00400000llu, 0x400000, RAZ, WI);/* RDRAM ranges 2, 3 (extended) */
     physmem.root.insertIOmem(0x03f00000llu, 0x100000, RdRam::read, RdRam::write); /* RDRAM Registers */
     physmem.root.insertRam(  0x04000000llu, 0x1000, dmem);     /* SP DMEM */
     physmem.root.insertRam(  0x04001000llu, 0x1000, imem);     /* SP IMEM */
@@ -31,8 +47,9 @@ State::State() : physmem(0, 0x100000000llu) {
     physmem.root.insertIOmem(0x04700000llu, 0x100000, RI::read, RI::write); /* RDRAM Interface */
     physmem.root.insertIOmem(0x04800000llu, 0x100000, SI::read, SI::write); /* Serial Interface */
     physmem.root.insertIOmem(0x05000000llu, 0x1000000, Cart_2_1::read, Cart_2_1::write);
-    physmem.root.insertRom(  0x10000000llu, 0xfc00000, rom);
+    physmem.root.insertRom(  0x10000000llu, 0xfc00000, rom); /* Cartridge Domain 1 Address 2 */
     physmem.root.insertIOmem(0x1fc00000llu, 0x100000, PIF::read, PIF::write);
+    physmem.root.insertIOmem(0x1fd00000llu, 0x60300000lu, RAZ, WI); /* Cartridge Domain 1 Address 3*/
 }
 
 State::~State() {
