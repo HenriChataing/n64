@@ -155,6 +155,11 @@ typedef struct pixel {
     i16                     mem_deltaz; /* S15 */
     unsigned                mem_color_addr;
     unsigned                mem_z_addr;
+
+    /* Pipeline control */
+    bool                    color_write_en;
+    bool                    z_write_en;
+    bool                    blend_en;
 } pixel_t;
 
 struct rdp rdp;
@@ -535,6 +540,7 @@ static void pipeline_cc(pixel_t *px);
 static void pipeline_bl(pixel_t *px);
 static void pipeline_mi_store(pixel_t *px);
 static void pipeline_mi_load(pixel_t *px);
+static void pipeline_ctl(pixel_t *px);
 
 /**
  * Execute the texture pipeline module TX.
@@ -960,6 +966,11 @@ static void pipeline_cc(pixel_t *px) {
  * first cycle can be injected as input of the second cycle.
  */
 static void pipeline_bl(pixel_t *px) {
+    if (!px->blend_en) {
+        px->blended_color = px->combined_color;
+        return;
+    }
+
     color_t p = { 0 };
     color_t m = { 0 };
     u8 a = 0;
@@ -999,10 +1010,6 @@ static void pipeline_bl(pixel_t *px) {
     px->blended_color.g = ((p.g * a + m.g * b) / (a + b));
     px->blended_color.b = ((p.b * a + m.b * b) / (a + b));
     px->blended_color.a = ((p.a * a + m.a * b) / (a + b));
-
-    if (other_modes.alpha_compare_en) {
-        // dither_alpha_en
-    }
 }
 
 /**
@@ -1128,7 +1135,7 @@ static void pipeline_mi_store(pixel_t *px) {
  * to px->mem_z_addr.
  */
 static void pipeline_mi_store_z(pixel_t *px) {
-    if (!other_modes.z_update_en)
+    if (!px->z_write_en)
         return;
 
     /* Convert U15.3 number into 11 bit mantissa and 3 bit exponent */
@@ -1198,10 +1205,11 @@ static void pipeline_mi_store_z(pixel_t *px) {
     state.storeHiddenBits(px->mem_z_addr, mem_z_01);
 }
 
-/** Optionally compare and update a z memory value with a computed stepped
- * pixel z value. Returns true iff the pixel is nearer than the memory pixel. */
-static bool z_compare(pixel_t *px) {
-    bool compare = true;
+/** Execute the logic to generate the color write enable, z write enable,
+ * and blend enable signals. */
+static void pipeline_ctl(pixel_t *px) {
+    bool compare_behind = false;
+    bool compare_infront = false;
 
     if (other_modes.z_compare_en) {
         pipeline_mi_load_z(px);
@@ -1221,14 +1229,16 @@ static bool z_compare(pixel_t *px) {
         // u16 mem_deltaz = px->mem_deltaz;
         u32 near = comp_z >= ((u32)comp_deltaz << 3) ?
             comp_z - ((u32)comp_deltaz << 3) : 0;
-        // u32 far = comp_z + ((u32)comp_deltaz << 3);
-        bool behind  = mem_z < near;
-        // bool infront = mem_z > far;
-
-        compare &= !behind;
+        u32 far = comp_z + ((u32)comp_deltaz << 3);
+        compare_behind  = mem_z < near;
+        compare_infront = mem_z > far;
     }
 
-    return compare;
+    px->color_write_en = !other_modes.z_compare_en || !compare_behind;
+    px->z_write_en     =  other_modes.z_update_en  && px->color_write_en;
+    px->blend_en       =  other_modes.force_blend  ||
+                         (other_modes.z_compare_en &&
+                          !compare_behind && !compare_infront);
 }
 
 /** @brief Fills the line with coordinates (xs,y), (xe, y) with the
@@ -1324,7 +1334,8 @@ static void render_span(bool left, unsigned level, unsigned tile,
                 px.zbuffer_coefs.z = z < 0 ? 0 : (u32)z >> 13;
             }
 
-            if (z_compare(&px)) {
+            pipeline_ctl(&px);
+            if (px.color_write_en) {
                 if (texture) {
                     pipeline_tx(&px);
                     pipeline_tf(&px);
@@ -1368,7 +1379,8 @@ static void render_span(bool left, unsigned level, unsigned tile,
                 px.zbuffer_coefs.z = z < 0 ? 0 : (u32)z >> 13;
             }
 
-            if (z_compare(&px)) {
+            pipeline_ctl(&px);
+            if (px.color_write_en) {
                 if (texture) {
                     pipeline_tx(&px);
                     pipeline_tf(&px);
