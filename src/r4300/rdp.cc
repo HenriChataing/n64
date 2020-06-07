@@ -33,37 +33,7 @@ using namespace R4300;
 /* Addr in 64bit words */
 #define HIGH_TMEM_ADDR 256
 
-/** Image data format set by the SetColorImage DPC command. */
-enum image_data_format {
-    IMAGE_DATA_FORMAT_RGBA = 0,
-    IMAGE_DATA_FORMAT_YUV = 1,
-    IMAGE_DATA_FORMAT_CI = 2,
-    IMAGE_DATA_FORMAT_IA = 3,
-    IMAGE_DATA_FORMAT_I = 4,
-};
-
-/** Pixel size. */
-enum pixel_size {
-    PIXEL_SIZE_4B = 0,
-    PIXEL_SIZE_8B = 1,
-    PIXEL_SIZE_16B = 2,
-    PIXEL_SIZE_32B = 3,
-};
-
-/* Image data format with the pixel size included, for easier matching. */
-enum image_data_type {
-    IMAGE_DATA_FORMAT_I_4 = 0,
-    IMAGE_DATA_FORMAT_IA_3_1,
-    IMAGE_DATA_FORMAT_CI_4,
-    IMAGE_DATA_FORMAT_I_8,
-    IMAGE_DATA_FORMAT_IA_4_4,
-    IMAGE_DATA_FORMAT_CI_8,
-    IMAGE_DATA_FORMAT_RGBA_5_5_5_1,
-    IMAGE_DATA_FORMAT_IA_8_8,
-    IMAGE_DATA_FORMAT_YUV_16,
-    IMAGE_DATA_FORMAT_RGBA_8_8_8_8,
-    IMAGE_DATA_FORMAT_INVAL = -1,
-};
+struct rdp rdp;
 
 enum image_data_type convert_image_data_format(enum image_data_format format,
                                                enum pixel_size size) {
@@ -87,42 +57,6 @@ enum image_data_type convert_image_data_format(enum image_data_format format,
     };
     return types[format][size];
 }
-
-/**
- * Internal color representation. The RDP graphics pipeline performs most
- * operations at 8 bits per component RGBA pixel. After searching the texels,
- * the texture unit will convert them to 32bit RGBA format.
- */
-typedef struct color {
-    u8 r, g, b, a;
-} color_t;
-
-/**
- * Representation of the current RDP configuration.
- */
-struct rdp {
-    /* Color registers. */
-    u32         fill_color;
-    color_t     fog_color;
-    color_t     blend_color;
-    color_t     prim_color;
-    color_t     env_color;
-
-    /* Coefficients for YUV->RGB color conversion,
-     * in S1.7 fixpoint format, sign extended to S8.7. */
-    struct {
-        i16 k0, k1, k2, k3, k4, k5;
-    } convert;
-
-    /* Parameters for chroma keying. */
-    struct {
-        unsigned width_r;
-        unsigned width_g;
-        unsigned width_b;
-        color_t  center; /* alpha ignored */
-        color_t  scale;  /* alpha ignored */
-    } key;
-};
 
 /**
  * Representation of the internal RDP state for the rendering
@@ -162,141 +96,6 @@ typedef struct pixel {
     bool                    blend_en;
 } pixel_t;
 
-struct rdp rdp;
-
-/** Current texture image configuration. */
-static struct {
-    enum image_data_format  format;
-    enum pixel_size         size;
-    enum image_data_type    type;
-    unsigned width;         /**< Width of image in pixels. */
-    u32      addr;
-} texture_image;
-
-/** Current color image configuration. */
-static struct {
-    enum image_data_format  format;
-    enum pixel_size         size;
-    enum image_data_type    type;
-    unsigned width;         /**< Width of image in pixels. */
-    u32      addr;
-} color_image;
-
-/** Current Z image configuration. */
-static struct {
-    u32      addr;
-} z_image;
-
-static struct tile {
-    enum image_data_type type;
-    enum image_data_format format;
-    enum pixel_size size;
-    unsigned line;          /**< Size of tile line in 64b words, max of 4KB */
-    unsigned tmem_addr;     /**< Starting Tmem address for this tile in 64b words, 4KB range */
-    /* Palette number for 4b Color Indexed texels.
-     * This number is used as the MS 4b of an 8b index. */
-    unsigned palette;
-    bool clamp_t;           /**< Clamp enable for T direction */
-    bool mirror_t;          /**< Mirror enable for T direction */
-    /* Mask for wrapping/mirroring in T direction.
-     * If this field is zero then clamp, otherwise pass
-     * (mask) LSBs of T address.*/
-    unsigned mask_t;
-    unsigned shift_t;       /**< Level of detail shift for T addresses */
-    bool clamp_s;           /**< Clamp enable for S direction */
-    bool mirror_s;          /**< Mirror enable for S direction */
-    /* Mask for wrapping/mirroring in S direction.
-     * If this field is zero then clamp, otherwise pass
-     * (mask) LSBs of T address.*/
-    unsigned mask_s;
-    unsigned shift_s;       /**< Level of detail shift for S addresses */
-    /* Coordinates of tile in texture space, in U10.2 fixpoint format. */
-    unsigned sl;
-    unsigned tl;
-    unsigned sh;
-    unsigned th;
-} tiles[8];
-
-static struct {
-    unsigned xh;
-    unsigned yh;
-    unsigned xl;
-    unsigned yl;
-    bool skipOddLines;
-    bool skipEvenLines;
-} scissor;
-
-/** Cycle type set by the SetOtherModes DPC command */
-enum cycle_type {
-    CYCLE_TYPE_1CYCLE = 0,
-    CYCLE_TYPE_2CYCLE = 1,
-    CYCLE_TYPE_COPY   = 2,
-    CYCLE_TYPE_FILL   = 3,
-};
-
-enum tlut_type {
-    TLUT_TYPE_RGBA = 0,
-    TLUT_TYPE_IA   = 1,
-};
-
-enum sample_type {
-    SAMPLE_TYPE_1X1 = 0,
-    SAMPLE_TYPE_2X2 = 1,
-    SAMPLE_TYPE_4X1 = 2, /* When cycle_type == COPY */
-};
-
-enum rgb_dither_sel {
-    SEL_RGB_MAGIC_SQUARE = 0,
-    SEL_RGB_BAYER_MATRIX = 1,
-    SEL_RGB_NOISE = 2,
-    SEL_RGB_NONE = 3,
-};
-
-enum alpha_dither_sel {
-    SEL_ALPHA_PATTERN = 0,
-    SEL_ALPHA_NEG_PATTERN = 1,
-    SEL_ALPHA_NOISE = 2,
-    SEL_ALPHA_NONE = 3,
-};
-
-enum blender_src_sel {
-    /* P and M mux input source selection */
-    BLENDER_SRC_SEL_IN_COLOR = 0,
-    BLENDER_SRC_SEL_MEM_COLOR = 1,
-    BLENDER_SRC_SEL_BLEND_COLOR = 2,
-    BLENDER_SRC_SEL_FOG_COLOR = 3,
-
-    /* A mux input source selection */
-    BLENDER_SRC_SEL_IN_ALPHA = 0,
-    BLENDER_SRC_SEL_FOG_ALPHA = 1,
-    BLENDER_SRC_SEL_SHADE_ALPHA = 2,
-    BLENDER_SRC_SEL_0 = 3,
-
-    /* B mux input source selection */
-    BLENDER_SRC_SEL_1_AMUX = 0,
-    BLENDER_SRC_SEL_MEM_ALPHA = 1,
-    BLENDER_SRC_SEL_1 = 2,
-};
-
-enum z_mode {
-    ZMODE_OPAQUE = 0,
-    ZMODE_INTERPENETRATING = 1,
-    ZMODE_TRANSPARENT = 2,
-    ZMODE_DECAL = 3,
-};
-
-enum cvg_dest {
-    DEST_CLAMP = 0,
-    DEST_WRAP = 1,
-    DEST_ZAP = 2,
-    DEST_SAVE = 3,
-};
-
-enum z_source_sel {
-    SEL_PRIMITIVE = 0,
-    SEL_PIXEL = 0,
-};
-
 /**
  * yl, ym, yh are saved in signed S29.2 fixpoint format
  * (signed extended from S11.2). Other values are in signed S15.16
@@ -331,71 +130,6 @@ struct zbuffer_coefs {
     i32 dzde;
     i32 dzdy;
 };
-
-static struct {
-    bool atomic_prim;
-    enum cycle_type cycle_type;
-    bool persp_tex_en;
-    bool detail_tex_en;
-    bool sharpen_tex_en;
-    bool tex_lod_en;
-    bool tlut_en;
-    enum tlut_type tlut_type;
-    enum sample_type sample_type;
-    bool mid_texel;
-    bool bi_lerp_0;
-    bool bi_lerp_1;
-    bool convert_one;
-    bool key_en;
-    enum rgb_dither_sel rgb_dither_sel;
-    enum alpha_dither_sel alpha_dither_sel;
-    enum blender_src_sel b_m1a_0;
-    enum blender_src_sel b_m1a_1;
-    enum blender_src_sel b_m1b_0;
-    enum blender_src_sel b_m1b_1;
-    enum blender_src_sel b_m2a_0;
-    enum blender_src_sel b_m2a_1;
-    enum blender_src_sel b_m2b_0;
-    enum blender_src_sel b_m2b_1;
-    bool force_blend;
-    bool alpha_cvg_select;
-    bool cvg_times_alpha;
-    enum z_mode z_mode;
-    enum cvg_dest cvg_dest;
-    bool color_on_cvg;
-    bool image_read_en;
-    bool z_update_en;
-    bool z_compare_en;
-    bool antialias_en;
-    enum z_source_sel z_source_sel;
-    bool dither_alpha_en;
-    bool alpha_compare_en;
-} other_modes;
-
-struct {
-    unsigned sub_a_R_0;
-    unsigned sub_b_R_0;
-    unsigned mul_R_0;
-    unsigned add_R_0;
-
-    unsigned sub_a_A_0;
-    unsigned sub_b_A_0;
-    unsigned mul_A_0;
-    unsigned add_A_0;
-
-    unsigned sub_a_R_1;
-    unsigned sub_b_R_1;
-    unsigned mul_R_1;
-    unsigned add_R_1;
-
-    unsigned sub_a_A_1;
-    unsigned sub_b_A_1;
-    unsigned mul_A_1;
-    unsigned add_A_1;
-} combine_mode;
-
-static u32 prim_z;
-static u16 prim_deltaz;
 
 static u8 noise() {
     return 128;
@@ -455,20 +189,20 @@ namespace FillMode {
 /** @brief Fills the line with coordinates (xs,y), (xe, y) with the
  * fill color. Input coordinates are in 10.2 fixedpoint format. */
 static void renderLine(unsigned y, unsigned xs, unsigned xe) {
-    if (y < scissor.yh || y >= scissor.yl ||
-        (scissor.skipOddLines && ((y >> 2) % 2)) ||
-        (scissor.skipEvenLines && !((y >> 2) % 2)))
+    if (y < rdp.scissor.yh || y >= rdp.scissor.yl ||
+        (rdp.scissor.skipOddLines && ((y >> 2) % 2)) ||
+        (rdp.scissor.skipEvenLines && !((y >> 2) % 2)))
         return;
 
     // Clip x coordinate and convert to integer values
     // from fixed point 10.2 format.
     y = y >> 2;
-    xs = std::max(xs, scissor.xh) >> 2;
-    xe = std::min(xe, scissor.xl) >> 2;
+    xs = std::max(xs, rdp.scissor.xh) >> 2;
+    xe = std::min(xe, rdp.scissor.xl) >> 2;
 
-    unsigned offset = color_image.addr +
-                      ((xs + y * color_image.width) << (color_image.size - 1));
-    unsigned length = (xe - xs) << (color_image.size - 1);
+    unsigned offset = rdp.color_image.addr +
+                      ((xs + y * rdp.color_image.width) << (rdp.color_image.size - 1));
+    unsigned length = (xe - xs) << (rdp.color_image.size - 1);
 
     if ((offset + length) > sizeof(state.dram)) {
         debugger::warn(Debugger::RDP,
@@ -478,7 +212,7 @@ static void renderLine(unsigned y, unsigned xs, unsigned xe) {
         return;
     }
 
-    if (color_image.type == IMAGE_DATA_FORMAT_RGBA_5_5_5_1) {
+    if (rdp.color_image.type == IMAGE_DATA_FORMAT_RGBA_5_5_5_1) {
         u32 filler = __builtin_bswap32(rdp.fill_color);
         if (xs % 2) {
             // Copy first half-word manually.
@@ -496,7 +230,7 @@ static void renderLine(unsigned y, unsigned xs, unsigned xe) {
             *(u16 *)base = filler;
         }
     }
-    else if (color_image.type == IMAGE_DATA_FORMAT_RGBA_8_8_8_8) {
+    else if (rdp.color_image.type == IMAGE_DATA_FORMAT_RGBA_8_8_8_8) {
         u32 *base = (u32 *)(void *)&state.dram[offset];
         for (unsigned x = xs; x < xe; x++, base++) {
             *base = __builtin_bswap32(rdp.fill_color);
@@ -556,7 +290,7 @@ static void pipeline_tx(pixel_t *px) {
 
     /* Perform perspective correction if enabled.
      * W is the normalized inverse depth. */
-    if (other_modes.persp_tex_en && w != 0) {
+    if (rdp.other_modes.persp_tex_en && w != 0) {
         s /= w;
         t /= w;
     }
@@ -611,7 +345,7 @@ static void pipeline_tx(pixel_t *px) {
             t_tile = (u32)t_tile & mask_t;
     }
 
-    switch (other_modes.sample_type) {
+    switch (rdp.other_modes.sample_type) {
         case SAMPLE_TYPE_1X1:
             pipeline_tx_load(tile, s_tile, t_tile, &px->texel_colors[0]);
             px->texel_colors[1] = px->texel_colors[0];
@@ -645,7 +379,7 @@ static void pipeline_tx(pixel_t *px) {
  */
 static void pipeline_palette_load(u8 ci, color_t *tx) {
     u16 val = __builtin_bswap16(*(u16 *)&state.tmem[0x800 + (ci << 1)]);
-    switch (other_modes.tlut_type) {
+    switch (rdp.other_modes.tlut_type) {
     /* I[15:8],A[7:0] =>
      * R [15:8]
      * G [15:8]
@@ -844,7 +578,7 @@ static void pipeline_cc(pixel_t *px) {
     color_t mul;
     color_t add;
 
-    switch (combine_mode.sub_a_R_1) {
+    switch (rdp.combine_mode.sub_a_R_1) {
     case 0 /* COMBINED */:      sub_a = px->combined_color; break;
     case 1 /* TEXEL0 */:        sub_a = px->texel0_color; break;
     case 2 /* TEXEL1 */:        sub_a = px->texel1_color; break;
@@ -859,7 +593,7 @@ static void pipeline_cc(pixel_t *px) {
         break;
     default /* 0 */:            sub_a.r = sub_a.g = sub_a.b = 0; break;
     }
-    switch (combine_mode.sub_b_R_1) {
+    switch (rdp.combine_mode.sub_b_R_1) {
     case 0 /* COMBINED */:      sub_b = px->combined_color; break;
     case 1 /* TEXEL0 */:        sub_b = px->texel0_color; break;
     case 2 /* TEXEL1 */:        sub_b = px->texel1_color; break;
@@ -870,7 +604,7 @@ static void pipeline_cc(pixel_t *px) {
     case 7 /* K4 */:            sub_b.r = sub_b.g = sub_b.b = rdp.convert.k4; break;
     default /* 0 */:            sub_b.r = sub_b.g = sub_b.b = 0; break;
     }
-    switch (combine_mode.mul_R_1) {
+    switch (rdp.combine_mode.mul_R_1) {
     case 0 /* COMBINED */:      mul = px->combined_color; break;
     case 1 /* TEXEL0 */:        mul = px->texel0_color; break;
     case 2 /* TEXEL1 */:        mul = px->texel1_color; break;
@@ -889,7 +623,7 @@ static void pipeline_cc(pixel_t *px) {
     case 15 /* K5 */:           mul.r = mul.g = mul.b = rdp.convert.k4; break;
     default /* 0 */:            mul.r = mul.g = mul.b = 0; break;
     }
-    switch (combine_mode.add_R_1) {
+    switch (rdp.combine_mode.add_R_1) {
     case 0 /* COMBINED */:      add = px->combined_color; break;
     case 1 /* TEXEL0 */:        add = px->texel0_color; break;
     case 2 /* TEXEL1 */:        add = px->texel1_color; break;
@@ -905,7 +639,7 @@ static void pipeline_cc(pixel_t *px) {
     px->combined_color.g = ((((sub_a.g - sub_b.g)) * mul.g) >> 8) + add.g;
     px->combined_color.b = ((((sub_a.b - sub_b.b)) * mul.b) >> 8) + add.b;
 
-    switch (combine_mode.sub_a_A_1) {
+    switch (rdp.combine_mode.sub_a_A_1) {
     case 0 /* COMBINED A */:    sub_a.a = px->combined_color.a; break;
     case 1 /* TEXEL0 A */:      sub_a.a = px->texel0_color.a; break;
     case 2 /* TEXEL1 A */:      sub_a.a = px->texel1_color.a; break;
@@ -915,7 +649,7 @@ static void pipeline_cc(pixel_t *px) {
     case 6 /* 1 */:             sub_a.a = 255; break;
     default /* 0 */:            sub_a.a = 0; break;
     }
-    switch (combine_mode.sub_b_A_1) {
+    switch (rdp.combine_mode.sub_b_A_1) {
     case 0 /* COMBINED A */:    sub_b.a = px->combined_color.a; break;
     case 1 /* TEXEL0 A */:      sub_b.a = px->texel0_color.a; break;
     case 2 /* TEXEL1 A */:      sub_b.a = px->texel1_color.a; break;
@@ -925,7 +659,7 @@ static void pipeline_cc(pixel_t *px) {
     case 6 /* 1 */:             sub_b.a = 255; break;
     default /* 0 */:            sub_b.a = 0; break;
     }
-    switch (combine_mode.mul_A_1) {
+    switch (rdp.combine_mode.mul_A_1) {
     case 0 /* LOD FRACTION */:  mul.a = px->lod_frac; break;
     case 1 /* TEXEL0 A */:      mul.a = px->texel0_color.a; break;
     case 2 /* TEXEL1 A */:      mul.a = px->texel1_color.a; break;
@@ -935,7 +669,7 @@ static void pipeline_cc(pixel_t *px) {
     case 6 /* PRIM LOD FRAC */: mul.a = px->prim_lod_frac; break;
     default /* 0 */:            mul.a = 0; break;
     }
-    switch (combine_mode.add_A_1) {
+    switch (rdp.combine_mode.add_A_1) {
     case 0 /* COMBINED A */:    add.a = px->combined_color.a; break;
     case 1 /* TEXEL0 A */:      add.a = px->texel0_color.a; break;
     case 2 /* TEXEL1 A */:      add.a = px->texel1_color.a; break;
@@ -976,25 +710,25 @@ static void pipeline_bl(pixel_t *px) {
     u8 a = 0;
     u8 b = 0;
 
-    switch (other_modes.b_m1a_0) {
+    switch (rdp.other_modes.b_m1a_0) {
     case BLENDER_SRC_SEL_IN_COLOR: p = px->combined_color; break; // blended color in second cycle
     case BLENDER_SRC_SEL_MEM_COLOR: p = px->mem_color; break;
     case BLENDER_SRC_SEL_BLEND_COLOR: p = rdp.blend_color; break;
     case BLENDER_SRC_SEL_FOG_COLOR: p = rdp.fog_color; break;
     }
-    switch (other_modes.b_m1b_0) {
+    switch (rdp.other_modes.b_m1b_0) {
     case BLENDER_SRC_SEL_IN_ALPHA: a = px->combined_color.a; break;
     case BLENDER_SRC_SEL_FOG_ALPHA: a = rdp.fog_color.a; break;
     case BLENDER_SRC_SEL_SHADE_ALPHA: a = px->shade_color.a; break;
     case BLENDER_SRC_SEL_0: a = 0; break;
     }
-    switch (other_modes.b_m2a_0) {
+    switch (rdp.other_modes.b_m2a_0) {
     case BLENDER_SRC_SEL_IN_COLOR: m = px->combined_color; break;  // blended color in second cycle
     case BLENDER_SRC_SEL_MEM_COLOR: m = px->mem_color; break;
     case BLENDER_SRC_SEL_BLEND_COLOR: m = rdp.blend_color; break;
     case BLENDER_SRC_SEL_FOG_COLOR: m = rdp.fog_color; break;
     }
-    switch (other_modes.b_m2b_0) {
+    switch (rdp.other_modes.b_m2b_0) {
     case BLENDER_SRC_SEL_1_AMUX: b = 255 - a; break;
     case BLENDER_SRC_SEL_MEM_ALPHA: b = px->mem_color.a; break;
     case BLENDER_SRC_SEL_1: b = 255; break;
@@ -1019,7 +753,7 @@ static void pipeline_bl(pixel_t *px) {
  */
 static void pipeline_mi_load(pixel_t *px) {
     u8 *addr = &state.dram[px->mem_color_addr];
-    switch (color_image.type) {
+    switch (rdp.color_image.type) {
     case IMAGE_DATA_FORMAT_I_8:
         debugger::halt("pipeline_mi_load: unsupported image data type I_8");
         break;
@@ -1101,7 +835,7 @@ static void pipeline_mi_load_z(pixel_t *px) {
  */
 static void pipeline_mi_store(pixel_t *px) {
     u8 *addr = &state.dram[px->mem_color_addr];
-    switch (color_image.type) {
+    switch (rdp.color_image.type) {
     case IMAGE_DATA_FORMAT_I_8:
         debugger::halt("pipeline_mi_store: unsupported image data type I_8");
         break;
@@ -1180,12 +914,12 @@ static void pipeline_mi_store_z(pixel_t *px) {
     u32 z;
     u16 deltaz;
 
-    if (other_modes.z_source_sel) {
-        z = prim_z;
-        deltaz = prim_deltaz;
+    if (rdp.other_modes.z_source_sel == Z_SOURCE_SEL_PRIMITIVE) {
+        z = rdp.prim_z;
+        deltaz = rdp.prim_deltaz;
     } else {
         z = px->zbuffer_coefs.z;
-        deltaz = px->zbuffer_coefs.deltaz + prim_deltaz;
+        deltaz = px->zbuffer_coefs.deltaz + rdp.prim_deltaz;
     }
 
     u32 idx = z >> 11;
@@ -1211,18 +945,18 @@ static void pipeline_ctl(pixel_t *px) {
     bool compare_behind = false;
     bool compare_infront = false;
 
-    if (other_modes.z_compare_en) {
+    if (rdp.other_modes.z_compare_en) {
         pipeline_mi_load_z(px);
 
         u32 comp_z;
         u16 comp_deltaz;
 
-        if (other_modes.z_source_sel) {
-            comp_z = prim_z;
-            comp_deltaz = prim_deltaz;
+        if (rdp.other_modes.z_source_sel) {
+            comp_z = rdp.prim_z;
+            comp_deltaz = rdp.prim_deltaz;
         } else {
             comp_z = px->zbuffer_coefs.z;
-            comp_deltaz = px->zbuffer_coefs.deltaz + prim_deltaz;
+            comp_deltaz = px->zbuffer_coefs.deltaz + rdp.prim_deltaz;
         }
 
         u32 mem_z = px->mem_z;
@@ -1234,10 +968,10 @@ static void pipeline_ctl(pixel_t *px) {
         compare_infront = mem_z > far;
     }
 
-    px->color_write_en = !other_modes.z_compare_en || !compare_behind;
-    px->z_write_en     =  other_modes.z_update_en  && px->color_write_en;
-    px->blend_en       =  other_modes.force_blend  ||
-                         (other_modes.z_compare_en &&
+    px->color_write_en = !rdp.other_modes.z_compare_en || !compare_behind;
+    px->z_write_en     =  rdp.other_modes.z_update_en  && px->color_write_en;
+    px->blend_en       =  rdp.other_modes.force_blend  ||
+                         (rdp.other_modes.z_compare_en &&
                           !compare_behind && !compare_infront);
 }
 
@@ -1249,32 +983,32 @@ static void render_span(bool left, unsigned level, unsigned tile,
                         struct texture_coefs const *texture,
                         struct zbuffer_coefs const *zbuffer) {
 
-    if (y < (i32)scissor.yh || y > (i32)scissor.yl || xe <= xs ||
-        (scissor.skipOddLines && ((y >> 2) % 2)) ||
-        (scissor.skipEvenLines && !((y >> 2) % 2)))
+    if (y < (i32)rdp.scissor.yh || y > (i32)rdp.scissor.yl || xe <= xs ||
+        (rdp.scissor.skipOddLines && ((y >> 2) % 2)) ||
+        (rdp.scissor.skipEvenLines && !((y >> 2) % 2)))
         return;
 
     // Clip x coordinate and convert to integer values
     // from fixed point 10.2 format.
     y = y >> 2;
-    xs = std::max(xs >> 14, (i32)scissor.xh) >> 2;
-    xe = std::min(xe >> 14, (i32)scissor.xl) >> 2;
+    xs = std::max(xs >> 14, (i32)rdp.scissor.xh) >> 2;
+    xe = std::min(xe >> 14, (i32)rdp.scissor.xl) >> 2;
     xs = std::max(xs, 0);
-    xe = std::min(xe, (i32)color_image.width);
+    xe = std::min(xe, (i32)rdp.color_image.width);
 
     unsigned offset =
-        color_image.addr + ((xs + y * color_image.width) << (color_image.size - 1));
-    unsigned length = (xe - xs) << (color_image.size - 1);
+        rdp.color_image.addr + ((xs + y * rdp.color_image.width) << (rdp.color_image.size - 1));
+    unsigned length = (xe - xs) << (rdp.color_image.size - 1);
 
     if ((offset + length) > sizeof(state.dram)) {
         debugger::warn(Debugger::RDP,
             "(cycle1) render_span out-of-bounds, start:{:x}, length:{}",
             offset, length);
-        // debugger::halt("Cycle1Mode::render_span out-of-bounds");
+        debugger::halt("Cycle1Mode::render_span out-of-bounds");
         return;
     }
 
-    unsigned px_size = 1 << (color_image.size - 1);
+    unsigned px_size = 1 << (rdp.color_image.size - 1);
     pixel_t px = { 0 };
     px.mem_color_addr = offset;
     px.shade_color.a = 255;
@@ -1299,10 +1033,10 @@ static void render_span(bool left, unsigned level, unsigned tile,
         px.texture_coefs.s = texture->s;
         px.texture_coefs.t = texture->t;
         px.texture_coefs.w = texture->w;
-        px.tile = &tiles[tile];
+        px.tile = &rdp.tiles[tile];
     }
     if (zbuffer) {
-        unsigned z_offset = z_image.addr + (xs + y * color_image.width) * 2;
+        unsigned z_offset = rdp.z_image.addr + (xs + y * rdp.color_image.width) * 2;
         unsigned z_length = (xe - xs) * 2;
 
         if ((z_offset + z_length) > sizeof(state.dram)) {
@@ -1781,116 +1515,121 @@ void setConvert(u64 command, u64 const *params) {
 }
 
 void setScissor(u64 command, u64 const *params) {
-    scissor.xh = (command >> 44) & 0xfffu;
-    scissor.yh = (command >> 32) & 0xfffu;
-    scissor.xl = (command >> 12) & 0xfffu;
-    scissor.yl = (command >>  0) & 0xfffu;
+    rdp.scissor.xh = (command >> 44) & 0xfffu;
+    rdp.scissor.yh = (command >> 32) & 0xfffu;
+    rdp.scissor.xl = (command >> 12) & 0xfffu;
+    rdp.scissor.yl = (command >>  0) & 0xfffu;
 
-    debugger::debug(Debugger::RDP, "  xl: {}", (float)scissor.xl / 4.);
-    debugger::debug(Debugger::RDP, "  yl: {}", (float)scissor.yl / 4.);
-    debugger::debug(Debugger::RDP, "  xh: {}", (float)scissor.xh / 4.);
-    debugger::debug(Debugger::RDP, "  yh: {}", (float)scissor.yh / 4.);
+    debugger::debug(Debugger::RDP, "  xl: {}", (float)rdp.scissor.xl / 4.);
+    debugger::debug(Debugger::RDP, "  yl: {}", (float)rdp.scissor.yl / 4.);
+    debugger::debug(Debugger::RDP, "  xh: {}", (float)rdp.scissor.xh / 4.);
+    debugger::debug(Debugger::RDP, "  yh: {}", (float)rdp.scissor.yh / 4.);
 
     bool scissorField = (command & (1lu << 25)) != 0;
     bool oddEven = (command & (1lu << 25)) != 0;
 
-    scissor.skipOddLines = scissorField && !oddEven;
-    scissor.skipEvenLines = scissorField && oddEven;
+    rdp.scissor.skipOddLines = scissorField && !oddEven;
+    rdp.scissor.skipEvenLines = scissorField && oddEven;
 
-    if (scissor.xh > scissor.xl ||
-        scissor.yh > scissor.yl) {
+    if (rdp.scissor.xh > rdp.scissor.xl ||
+        rdp.scissor.yh > rdp.scissor.yl) {
         debugger::warn(Debugger::RDP, "invalid scissor coordinates");
         debugger::halt("set_scissor: invalid coordinates");
     }
 }
 
 void setPrimDepth(u64 command, u64 const *params) {
-    prim_z      = (u32)((command >> 16) & 0xffffu) << 3;
-    prim_deltaz = ((command >>  0) & 0xffffu);
+    rdp.prim_z      = (u32)((command >> 16) & 0xffffu) << 3;
+    rdp.prim_deltaz = ((command >>  0) & 0xffffu);
 
-    debugger::debug(Debugger::RDP, "  z: {}", (float)prim_z / 8.);
-    debugger::debug(Debugger::RDP, "  deltaz: {}", (i16)prim_deltaz);
+    debugger::debug(Debugger::RDP, "  z: {}", (float)rdp.prim_z / 8.);
+    debugger::debug(Debugger::RDP, "  deltaz: {}", (i16)rdp.prim_deltaz);
 }
 
 void setOtherModes(u64 command, u64 const *params) {
-    other_modes.atomic_prim = (command >> 55) & 0x1u;
-    other_modes.cycle_type = (enum cycle_type)((command >> 52) & 0x3u);
-    other_modes.persp_tex_en = (command >> 51) & 0x1u;
-    other_modes.detail_tex_en = (command >> 50) & 0x1u;
-    other_modes.sharpen_tex_en = (command >> 49) & 0x1u;
-    other_modes.tex_lod_en = (command >> 48) & 0x1u;
-    other_modes.tlut_en = (command >> 47) & 0x1u;
-    other_modes.tlut_type = (enum tlut_type)((command >> 46) & 0x1u);
-    other_modes.sample_type = (enum sample_type)((command >> 45) & 0x1u);
-    other_modes.mid_texel = (command >> 44) & 0x1u;
-    other_modes.bi_lerp_0 = (command >> 43) & 0x1u;
-    other_modes.bi_lerp_1 = (command >> 42) & 0x1u;
-    other_modes.convert_one = (command >> 41) & 0x1u;
-    other_modes.key_en = (command >> 40) & 0x1u;
-    other_modes.rgb_dither_sel = (enum rgb_dither_sel)((command >> 38) & 0x3u);
-    other_modes.alpha_dither_sel = (enum alpha_dither_sel)((command >> 36) & 0x3u);
-    other_modes.b_m1a_0 = (enum blender_src_sel)((command >> 30) & 0x3u);
-    other_modes.b_m1a_1 = (enum blender_src_sel)((command >> 28) & 0x3u);
-    other_modes.b_m1b_0 = (enum blender_src_sel)((command >> 26) & 0x3u);
-    other_modes.b_m1b_1 = (enum blender_src_sel)((command >> 24) & 0x3u);
-    other_modes.b_m2a_0 = (enum blender_src_sel)((command >> 22) & 0x3u);
-    other_modes.b_m2a_1 = (enum blender_src_sel)((command >> 20) & 0x3u);
-    other_modes.b_m2b_0 = (enum blender_src_sel)((command >> 18) & 0x3u);
-    other_modes.b_m2b_1 = (enum blender_src_sel)((command >> 16) & 0x3u);
-    other_modes.force_blend = (command >> 14) & 0x1u;
-    other_modes.alpha_cvg_select = (command >> 13) & 0x1u;
-    other_modes.cvg_times_alpha = (command >> 12) & 0x1u;
-    other_modes.z_mode = (enum z_mode)((command >> 10) & 0x3u);
-    other_modes.cvg_dest = (enum cvg_dest)((command >> 8) & 0x3u);
-    other_modes.color_on_cvg = (command >> 7) & 0x1u;
-    other_modes.image_read_en = (command >> 6) & 0x1u;
-    other_modes.z_update_en = (command >> 5) & 0x1u;
-    other_modes.z_compare_en = (command >> 4) & 0x1u;
-    other_modes.antialias_en = (command >> 3) & 0x1u;
-    other_modes.z_source_sel = (enum z_source_sel)((command >> 2) & 0x1u);
-    other_modes.dither_alpha_en = (command >> 1) & 0x1u;
-    other_modes.alpha_compare_en = (command >> 0) & 0x1u;
+    rdp.other_modes.atomic_prim = (command >> 55) & 0x1u;
+    rdp.other_modes.cycle_type = (enum cycle_type)((command >> 52) & 0x3u);
+    rdp.other_modes.persp_tex_en = (command >> 51) & 0x1u;
+    rdp.other_modes.detail_tex_en = (command >> 50) & 0x1u;
+    rdp.other_modes.sharpen_tex_en = (command >> 49) & 0x1u;
+    rdp.other_modes.tex_lod_en = (command >> 48) & 0x1u;
+    rdp.other_modes.tlut_en = (command >> 47) & 0x1u;
+    rdp.other_modes.tlut_type = (enum tlut_type)((command >> 46) & 0x1u);
+    rdp.other_modes.sample_type = (enum sample_type)((command >> 45) & 0x1u);
+    rdp.other_modes.mid_texel = (command >> 44) & 0x1u;
+    rdp.other_modes.bi_lerp_0 = (command >> 43) & 0x1u;
+    rdp.other_modes.bi_lerp_1 = (command >> 42) & 0x1u;
+    rdp.other_modes.convert_one = (command >> 41) & 0x1u;
+    rdp.other_modes.key_en = (command >> 40) & 0x1u;
+    rdp.other_modes.rgb_dither_sel = (enum rgb_dither_sel)((command >> 38) & 0x3u);
+    rdp.other_modes.alpha_dither_sel = (enum alpha_dither_sel)((command >> 36) & 0x3u);
+    rdp.other_modes.b_m1a_0 = (enum blender_src_sel)((command >> 30) & 0x3u);
+    rdp.other_modes.b_m1a_1 = (enum blender_src_sel)((command >> 28) & 0x3u);
+    rdp.other_modes.b_m1b_0 = (enum blender_src_sel)((command >> 26) & 0x3u);
+    rdp.other_modes.b_m1b_1 = (enum blender_src_sel)((command >> 24) & 0x3u);
+    rdp.other_modes.b_m2a_0 = (enum blender_src_sel)((command >> 22) & 0x3u);
+    rdp.other_modes.b_m2a_1 = (enum blender_src_sel)((command >> 20) & 0x3u);
+    rdp.other_modes.b_m2b_0 = (enum blender_src_sel)((command >> 18) & 0x3u);
+    rdp.other_modes.b_m2b_1 = (enum blender_src_sel)((command >> 16) & 0x3u);
+    rdp.other_modes.force_blend = (command >> 14) & 0x1u;
+    rdp.other_modes.alpha_cvg_select = (command >> 13) & 0x1u;
+    rdp.other_modes.cvg_times_alpha = (command >> 12) & 0x1u;
+    rdp.other_modes.z_mode = (enum z_mode)((command >> 10) & 0x3u);
+    rdp.other_modes.cvg_dest = (enum cvg_dest)((command >> 8) & 0x3u);
+    rdp.other_modes.color_on_cvg = (command >> 7) & 0x1u;
+    rdp.other_modes.image_read_en = (command >> 6) & 0x1u;
+    rdp.other_modes.z_update_en = (command >> 5) & 0x1u;
+    rdp.other_modes.z_compare_en = (command >> 4) & 0x1u;
+    rdp.other_modes.antialias_en = (command >> 3) & 0x1u;
+    rdp.other_modes.z_source_sel = (enum z_source_sel)((command >> 2) & 0x1u);
+    rdp.other_modes.dither_alpha_en = (command >> 1) & 0x1u;
+    rdp.other_modes.alpha_compare_en = (command >> 0) & 0x1u;
 
-    debugger::debug(Debugger::RDP, "  atomic_prim: {}", other_modes.atomic_prim);
-    debugger::info(Debugger::RDP, "  cycle_type: {}", other_modes.cycle_type);
-    debugger::debug(Debugger::RDP, "  persp_tex_en: {}", other_modes.persp_tex_en);
-    debugger::debug(Debugger::RDP, "  detail_tex_en: {}", other_modes.detail_tex_en);
-    debugger::debug(Debugger::RDP, "  sharpen_tex_en: {}", other_modes.sharpen_tex_en);
-    debugger::debug(Debugger::RDP, "  tex_lod_en: {}", other_modes.tex_lod_en);
-    debugger::debug(Debugger::RDP, "  tlut_en: {}", other_modes.tlut_en);
-    debugger::debug(Debugger::RDP, "  tlut_type: {}", other_modes.tlut_type);
-    debugger::debug(Debugger::RDP, "  sample_type: {}", other_modes.sample_type);
-    debugger::debug(Debugger::RDP, "  mid_texel: {}", other_modes.mid_texel);
-    debugger::debug(Debugger::RDP, "  bi_lerp_0: {}", other_modes.bi_lerp_0);
-    debugger::debug(Debugger::RDP, "  bi_lerp_1: {}", other_modes.bi_lerp_1);
-    debugger::debug(Debugger::RDP, "  convert_one: {}", other_modes.convert_one);
-    debugger::debug(Debugger::RDP, "  key_en: {}", other_modes.key_en);
-    debugger::debug(Debugger::RDP, "  rgb_dither_sel: {}", other_modes.rgb_dither_sel);
-    debugger::debug(Debugger::RDP, "  alpha_dither_sel: {}", other_modes.alpha_dither_sel);
-    debugger::debug(Debugger::RDP, "  b_m1a_0: {}", other_modes.b_m1a_0);
-    debugger::debug(Debugger::RDP, "  b_m1a_1: {}", other_modes.b_m1a_1);
-    debugger::debug(Debugger::RDP, "  b_m1b_0: {}", other_modes.b_m1b_0);
-    debugger::debug(Debugger::RDP, "  b_m1b_1: {}", other_modes.b_m1b_1);
-    debugger::debug(Debugger::RDP, "  b_m2a_0: {}", other_modes.b_m2a_0);
-    debugger::debug(Debugger::RDP, "  b_m2a_1: {}", other_modes.b_m2a_1);
-    debugger::debug(Debugger::RDP, "  b_m2b_0: {}", other_modes.b_m2b_0);
-    debugger::debug(Debugger::RDP, "  b_m2b_1: {}", other_modes.b_m2b_1);
-    debugger::debug(Debugger::RDP, "  force_blend: {}", other_modes.force_blend);
-    debugger::debug(Debugger::RDP, "  alpha_cvg_select: {}", other_modes.alpha_cvg_select);
-    debugger::debug(Debugger::RDP, "  cvg_times_alpha: {}", other_modes.cvg_times_alpha);
-    debugger::debug(Debugger::RDP, "  z_mode: {}", other_modes.z_mode);
-    debugger::debug(Debugger::RDP, "  cvg_dest: {}", other_modes.cvg_dest);
-    debugger::debug(Debugger::RDP, "  color_on_cvg: {}", other_modes.color_on_cvg);
-    debugger::debug(Debugger::RDP, "  image_read_en: {}", other_modes.image_read_en);
-    debugger::debug(Debugger::RDP, "  z_update_en: {}", other_modes.z_update_en);
-    debugger::debug(Debugger::RDP, "  z_compare_en: {}", other_modes.z_compare_en);
-    debugger::debug(Debugger::RDP, "  antialias_en: {}", other_modes.antialias_en);
-    debugger::debug(Debugger::RDP, "  z_source_sel: {}", other_modes.z_source_sel);
-    debugger::debug(Debugger::RDP, "  dither_alpha_en: {}", other_modes.dither_alpha_en);
-    debugger::debug(Debugger::RDP, "  alpha_compare_en: {}", other_modes.alpha_compare_en);
+    debugger::debug(Debugger::RDP, "  atomic_prim: {}", rdp.other_modes.atomic_prim);
+    debugger::info(Debugger::RDP, "  cycle_type: {}", rdp.other_modes.cycle_type);
+    debugger::debug(Debugger::RDP, "  persp_tex_en: {}", rdp.other_modes.persp_tex_en);
+    debugger::debug(Debugger::RDP, "  detail_tex_en: {}", rdp.other_modes.detail_tex_en);
+    debugger::debug(Debugger::RDP, "  sharpen_tex_en: {}", rdp.other_modes.sharpen_tex_en);
+    debugger::debug(Debugger::RDP, "  tex_lod_en: {}", rdp.other_modes.tex_lod_en);
+    debugger::debug(Debugger::RDP, "  tlut_en: {}", rdp.other_modes.tlut_en);
+    debugger::debug(Debugger::RDP, "  tlut_type: {}", rdp.other_modes.tlut_type);
+    debugger::debug(Debugger::RDP, "  sample_type: {}", rdp.other_modes.sample_type);
+    debugger::debug(Debugger::RDP, "  mid_texel: {}", rdp.other_modes.mid_texel);
+    debugger::debug(Debugger::RDP, "  bi_lerp_0: {}", rdp.other_modes.bi_lerp_0);
+    debugger::debug(Debugger::RDP, "  bi_lerp_1: {}", rdp.other_modes.bi_lerp_1);
+    debugger::debug(Debugger::RDP, "  convert_one: {}", rdp.other_modes.convert_one);
+    debugger::debug(Debugger::RDP, "  key_en: {}", rdp.other_modes.key_en);
+    debugger::debug(Debugger::RDP, "  rgb_dither_sel: {}", rdp.other_modes.rgb_dither_sel);
+    debugger::debug(Debugger::RDP, "  alpha_dither_sel: {}", rdp.other_modes.alpha_dither_sel);
+    debugger::debug(Debugger::RDP, "  b_m1a_0: {}", rdp.other_modes.b_m1a_0);
+    debugger::debug(Debugger::RDP, "  b_m1a_1: {}", rdp.other_modes.b_m1a_1);
+    debugger::debug(Debugger::RDP, "  b_m1b_0: {}", rdp.other_modes.b_m1b_0);
+    debugger::debug(Debugger::RDP, "  b_m1b_1: {}", rdp.other_modes.b_m1b_1);
+    debugger::debug(Debugger::RDP, "  b_m2a_0: {}", rdp.other_modes.b_m2a_0);
+    debugger::debug(Debugger::RDP, "  b_m2a_1: {}", rdp.other_modes.b_m2a_1);
+    debugger::debug(Debugger::RDP, "  b_m2b_0: {}", rdp.other_modes.b_m2b_0);
+    debugger::debug(Debugger::RDP, "  b_m2b_1: {}", rdp.other_modes.b_m2b_1);
+    debugger::debug(Debugger::RDP, "  force_blend: {}", rdp.other_modes.force_blend);
+    debugger::debug(Debugger::RDP, "  alpha_cvg_select: {}", rdp.other_modes.alpha_cvg_select);
+    debugger::debug(Debugger::RDP, "  cvg_times_alpha: {}", rdp.other_modes.cvg_times_alpha);
+    debugger::debug(Debugger::RDP, "  z_mode: {}", rdp.other_modes.z_mode);
+    debugger::debug(Debugger::RDP, "  cvg_dest: {}", rdp.other_modes.cvg_dest);
+    debugger::debug(Debugger::RDP, "  color_on_cvg: {}", rdp.other_modes.color_on_cvg);
+    debugger::debug(Debugger::RDP, "  image_read_en: {}", rdp.other_modes.image_read_en);
+    debugger::debug(Debugger::RDP, "  z_update_en: {}", rdp.other_modes.z_update_en);
+    debugger::debug(Debugger::RDP, "  z_compare_en: {}", rdp.other_modes.z_compare_en);
+    debugger::debug(Debugger::RDP, "  antialias_en: {}", rdp.other_modes.antialias_en);
+    debugger::debug(Debugger::RDP, "  z_source_sel: {}", rdp.other_modes.z_source_sel);
+    debugger::debug(Debugger::RDP, "  dither_alpha_en: {}", rdp.other_modes.dither_alpha_en);
+    debugger::debug(Debugger::RDP, "  alpha_compare_en: {}", rdp.other_modes.alpha_compare_en);
 
-    if (other_modes.cycle_type == CYCLE_TYPE_COPY)
-        other_modes.sample_type = SAMPLE_TYPE_4X1;
+    if (rdp.other_modes.cycle_type == CYCLE_TYPE_COPY)
+        rdp.other_modes.sample_type = SAMPLE_TYPE_4X1;
+
+    if (rdp.other_modes.cycle_type == CYCLE_TYPE_COPY)
+        debugger::halt("unsupported cycle type COPY");
+    if (rdp.other_modes.cycle_type == CYCLE_TYPE_2CYCLE)
+        debugger::halt("unsupported cycle type 2CYCLE");
 }
 
 void loadTlut(u64 command, u64 const *params) {
@@ -1900,18 +1639,18 @@ void loadTlut(u64 command, u64 const *params) {
     unsigned sh = (command >> 12) & 0xfffu;
     unsigned th = (command >>  0) & 0xfffu;
 
-    tiles[tile].sl = sl;
-    tiles[tile].tl = tl;
-    tiles[tile].sh = sh;
-    tiles[tile].th = th;
+    rdp.tiles[tile].sl = sl;
+    rdp.tiles[tile].tl = tl;
+    rdp.tiles[tile].sh = sh;
+    rdp.tiles[tile].th = th;
 
-    debugger::debug(Debugger::RDP, "  sl: {}", (float)tiles[tile].sl / 4.);
-    debugger::debug(Debugger::RDP, "  tl: {}", (float)tiles[tile].tl / 4.);
+    debugger::debug(Debugger::RDP, "  sl: {}", (float)rdp.tiles[tile].sl / 4.);
+    debugger::debug(Debugger::RDP, "  tl: {}", (float)rdp.tiles[tile].tl / 4.);
     debugger::debug(Debugger::RDP, "  tile: {}", tile);
-    debugger::debug(Debugger::RDP, "  sh: {}", (float)tiles[tile].sh / 4.);
-    debugger::debug(Debugger::RDP, "  th: {}", (float)tiles[tile].th / 4.);
+    debugger::debug(Debugger::RDP, "  sh: {}", (float)rdp.tiles[tile].sh / 4.);
+    debugger::debug(Debugger::RDP, "  th: {}", (float)rdp.tiles[tile].th / 4.);
 
-    if (texture_image.size != PIXEL_SIZE_16B) {
+    if (rdp.texture_image.size != PIXEL_SIZE_16B) {
         debugger::halt("load_tlut: invalid pixel size");
         return;
     }
@@ -1926,7 +1665,7 @@ void loadTlut(u64 command, u64 const *params) {
     }
 
     unsigned line_size = (sh - sl) << 1;
-    u8 *src = &state.dram[texture_image.addr];
+    u8 *src = &state.dram[rdp.texture_image.addr];
     u8 *dst = &state.tmem[0x800 + (sl << 1)];
 
     memcpy(dst,         src, line_size);
@@ -1942,10 +1681,10 @@ void setTileSize(u64 command, u64 const *params) {
     unsigned sh = (command >> 12) & 0xfffu;
     unsigned th = (command >>  0) & 0xfffu;
 
-    tiles[tile].sl = sl;
-    tiles[tile].tl = tl;
-    tiles[tile].sh = sh;
-    tiles[tile].th = th;
+    rdp.tiles[tile].sl = sl;
+    rdp.tiles[tile].tl = tl;
+    rdp.tiles[tile].sh = sh;
+    rdp.tiles[tile].th = th;
 
     debugger::debug(Debugger::RDP, "  sl: {}", (float)sl / 4.);
     debugger::debug(Debugger::RDP, "  tl: {}", (float)tl / 4.);
@@ -1961,10 +1700,10 @@ void loadBlock(u64 command, u64 const *params) {
     unsigned sh = (command >> 12) & 0xfffu;
     unsigned dxt = (command >>  0) & 0xfffu;
 
-    tiles[tile].sl = sl << 2;
-    tiles[tile].tl = tl << 2;
-    tiles[tile].sh = sh << 2;
-    tiles[tile].th = tl << 2;
+    rdp.tiles[tile].sl = sl << 2;
+    rdp.tiles[tile].tl = tl << 2;
+    rdp.tiles[tile].sh = sh << 2;
+    rdp.tiles[tile].th = tl << 2;
 
     debugger::debug(Debugger::RDP, "  sl: {}", sl);
     debugger::debug(Debugger::RDP, "  tl: {}", tl);
@@ -1972,19 +1711,19 @@ void loadBlock(u64 command, u64 const *params) {
     debugger::debug(Debugger::RDP, "  sh: {}", sh);
     debugger::debug(Debugger::RDP, "  dxt: {}", i32_fixpoint_to_float((u32)dxt, 11));
 
-    unsigned src_size = texture_image.size;
+    unsigned src_size = rdp.texture_image.size;
     if (src_size == PIXEL_SIZE_4B) {
         debugger::halt("Invalid texture format for loadBlock");
     }
 
     unsigned src_size_shift = src_size - 1;
     unsigned line_size = (sh - sl) << src_size_shift;
-    unsigned src_stride = texture_image.width << src_size_shift;
-    unsigned dst_stride = tiles[tile].line << 3;
+    unsigned src_stride = rdp.texture_image.width << src_size_shift;
+    unsigned dst_stride = rdp.tiles[tile].line << 3;
 
     line_size = (line_size + 7u) & ~7u; /* Rounded-up to 64bit boundary. */
-    u8 *src = &state.dram[texture_image.addr + (tl * src_stride) + (sl << src_size_shift)];
-    u8 *dst = &state.tmem[tiles[tile].tmem_addr << 3];
+    u8 *src = &state.dram[rdp.texture_image.addr + (tl * src_stride) + (sl << src_size_shift)];
+    u8 *dst = &state.tmem[rdp.tiles[tile].tmem_addr << 3];
 
     u32 t = 0;
     u32 t_int = 0;
@@ -2006,21 +1745,21 @@ void loadTile(u64 command, u64 const *params) {
     unsigned sh = (command >> 12) & 0xfffu;
     unsigned th = (command >>  0) & 0xfffu;
 
-    tiles[tile].sl = sl;
-    tiles[tile].tl = tl;
-    tiles[tile].sh = sh;
-    tiles[tile].th = th;
+    rdp.tiles[tile].sl = sl;
+    rdp.tiles[tile].tl = tl;
+    rdp.tiles[tile].sh = sh;
+    rdp.tiles[tile].th = th;
 
-    debugger::debug(Debugger::RDP, "  sl: {}", (float)tiles[tile].sl / 4.);
-    debugger::debug(Debugger::RDP, "  tl: {}", (float)tiles[tile].tl / 4.);
+    debugger::debug(Debugger::RDP, "  sl: {}", (float)rdp.tiles[tile].sl / 4.);
+    debugger::debug(Debugger::RDP, "  tl: {}", (float)rdp.tiles[tile].tl / 4.);
     debugger::debug(Debugger::RDP, "  tile: {}", tile);
-    debugger::debug(Debugger::RDP, "  sh: {}", (float)tiles[tile].sh / 4.);
-    debugger::debug(Debugger::RDP, "  th: {}", (float)tiles[tile].th / 4.);
+    debugger::debug(Debugger::RDP, "  sh: {}", (float)rdp.tiles[tile].sh / 4.);
+    debugger::debug(Debugger::RDP, "  th: {}", (float)rdp.tiles[tile].th / 4.);
 
-    unsigned src_size = texture_image.size;
-    unsigned dst_size = tiles[tile].size;
-    unsigned src_fmt = texture_image.format;
-    unsigned dst_fmt = tiles[tile].format;
+    unsigned src_size = rdp.texture_image.size;
+    unsigned dst_size = rdp.tiles[tile].size;
+    unsigned src_fmt = rdp.texture_image.format;
+    unsigned dst_fmt = rdp.tiles[tile].format;
 
     if (src_size != dst_size) {
         debugger::halt("Incompatible texture formats");
@@ -2040,20 +1779,20 @@ void loadTile(u64 command, u64 const *params) {
 
     unsigned src_size_shift = src_size - 1;
     unsigned line_size = (sh - sl) << src_size_shift;
-    unsigned src_stride = texture_image.width << src_size_shift;
-    unsigned dst_stride = tiles[tile].line << 3;
+    unsigned src_stride = rdp.texture_image.width << src_size_shift;
+    unsigned dst_stride = rdp.tiles[tile].line << 3;
 
     line_size = (line_size + 7u) & ~7u; /* Rounded-up to 64bit boundary. */
-    u8 *src = &state.dram[texture_image.addr + (tl * src_stride) + (sl << src_size_shift)];
-    u8 *dst = &state.tmem[tiles[tile].tmem_addr << 3];
+    u8 *src = &state.dram[rdp.texture_image.addr + (tl * src_stride) + (sl << src_size_shift)];
+    u8 *dst = &state.tmem[rdp.tiles[tile].tmem_addr << 3];
 
-    switch (texture_image.type) {
+    switch (rdp.texture_image.type) {
     case IMAGE_DATA_FORMAT_YUV_16:
         debugger::halt("Unsupported texture image data format YUV");
         break;
     /* Texels are split RG + BA between low and high texture memory addresses */
     case IMAGE_DATA_FORMAT_RGBA_8_8_8_8:
-        if (tiles[tile].tmem_addr >= HIGH_TMEM_ADDR) {
+        if (rdp.tiles[tile].tmem_addr >= HIGH_TMEM_ADDR) {
             debugger::halt("load_tile: RGBA_8_8_8_8 in high mem");
             return;
         }
@@ -2080,36 +1819,36 @@ void loadTile(u64 command, u64 const *params) {
 
 void setTile(u64 command, u64 const *params) {
     unsigned tile = (command >> 24) & 0x7u;
-    tiles[tile].format = (enum image_data_format)((command >> 53) & 0x7u);
-    tiles[tile].size = (enum pixel_size)((command >> 51) & 0x3u);
-    tiles[tile].line = (command >> 41) & 0x1ffu;
-    tiles[tile].tmem_addr = (command >> 32) & 0x1ffu;
-    tiles[tile].palette = (command >> 20) & 0xfu;
-    tiles[tile].clamp_t = (command >> 19) & 0x1u;
-    tiles[tile].mirror_t = (command >> 18) & 0x1u;
-    tiles[tile].mask_t = (command >> 14) & 0xfu;
-    tiles[tile].shift_t = (command >> 10) & 0xfu;
-    tiles[tile].clamp_s = (command >> 9) & 0x1u;
-    tiles[tile].mirror_s = (command >> 8) & 0x1u;
-    tiles[tile].mask_s = (command >> 4) & 0xfu;
-    tiles[tile].shift_s = (command >> 0) & 0xfu;
+    rdp.tiles[tile].format = (enum image_data_format)((command >> 53) & 0x7u);
+    rdp.tiles[tile].size = (enum pixel_size)((command >> 51) & 0x3u);
+    rdp.tiles[tile].line = (command >> 41) & 0x1ffu;
+    rdp.tiles[tile].tmem_addr = (command >> 32) & 0x1ffu;
+    rdp.tiles[tile].palette = (command >> 20) & 0xfu;
+    rdp.tiles[tile].clamp_t = (command >> 19) & 0x1u;
+    rdp.tiles[tile].mirror_t = (command >> 18) & 0x1u;
+    rdp.tiles[tile].mask_t = (command >> 14) & 0xfu;
+    rdp.tiles[tile].shift_t = (command >> 10) & 0xfu;
+    rdp.tiles[tile].clamp_s = (command >> 9) & 0x1u;
+    rdp.tiles[tile].mirror_s = (command >> 8) & 0x1u;
+    rdp.tiles[tile].mask_s = (command >> 4) & 0xfu;
+    rdp.tiles[tile].shift_s = (command >> 0) & 0xfu;
 
-    debugger::debug(Debugger::RDP, "  format: {}", tiles[tile].format);
-    debugger::debug(Debugger::RDP, "  size: {}", tiles[tile].size);
-    debugger::debug(Debugger::RDP, "  line: {}", tiles[tile].line);
-    debugger::debug(Debugger::RDP, "  tmem_addr: {:x}", tiles[tile].tmem_addr);
+    debugger::debug(Debugger::RDP, "  format: {}", rdp.tiles[tile].format);
+    debugger::debug(Debugger::RDP, "  size: {}", rdp.tiles[tile].size);
+    debugger::debug(Debugger::RDP, "  line: {}", rdp.tiles[tile].line);
+    debugger::debug(Debugger::RDP, "  tmem_addr: {:x}", rdp.tiles[tile].tmem_addr);
     debugger::debug(Debugger::RDP, "  tile: {}", tile);
-    debugger::debug(Debugger::RDP, "  palette: {}", tiles[tile].palette);
-    debugger::debug(Debugger::RDP, "  clamp_t: {}", tiles[tile].clamp_t);
-    debugger::debug(Debugger::RDP, "  mirror_t: {}", tiles[tile].mirror_t);
-    debugger::debug(Debugger::RDP, "  mask_t: {}", tiles[tile].mask_t);
-    debugger::debug(Debugger::RDP, "  shift_t: {}", tiles[tile].shift_t);
-    debugger::debug(Debugger::RDP, "  clamp_s: {}", tiles[tile].clamp_s);
-    debugger::debug(Debugger::RDP, "  mirror_s: {}", tiles[tile].mirror_s);
-    debugger::debug(Debugger::RDP, "  mask_s: {}", tiles[tile].mask_s);
-    debugger::debug(Debugger::RDP, "  shift_s: {}", tiles[tile].shift_s);
+    debugger::debug(Debugger::RDP, "  palette: {}", rdp.tiles[tile].palette);
+    debugger::debug(Debugger::RDP, "  clamp_t: {}", rdp.tiles[tile].clamp_t);
+    debugger::debug(Debugger::RDP, "  mirror_t: {}", rdp.tiles[tile].mirror_t);
+    debugger::debug(Debugger::RDP, "  mask_t: {}", rdp.tiles[tile].mask_t);
+    debugger::debug(Debugger::RDP, "  shift_t: {}", rdp.tiles[tile].shift_t);
+    debugger::debug(Debugger::RDP, "  clamp_s: {}", rdp.tiles[tile].clamp_s);
+    debugger::debug(Debugger::RDP, "  mirror_s: {}", rdp.tiles[tile].mirror_s);
+    debugger::debug(Debugger::RDP, "  mask_s: {}", rdp.tiles[tile].mask_s);
+    debugger::debug(Debugger::RDP, "  shift_s: {}", rdp.tiles[tile].shift_s);
 
-    tiles[tile].type = convert_image_data_format(tiles[tile].format, tiles[tile].size);
+    rdp.tiles[tile].type = convert_image_data_format(rdp.tiles[tile].format, rdp.tiles[tile].size);
 }
 
 /** @brief Implement the fill rectangle command. */
@@ -2132,7 +1871,7 @@ void fillRectangle(u64 command, u64 const *params) {
     }
 
     /* Expect rasterizer to be in Fill cycle type. */
-    if (other_modes.cycle_type == CYCLE_TYPE_1CYCLE) {
+    if (rdp.other_modes.cycle_type == CYCLE_TYPE_1CYCLE) {
         for (unsigned y = (yh >> 2); y <= (yl >> 2); y++) {
             Cycle1Mode::render_span(
                 true, 0, 0, y << 2, xh, xl,
@@ -2196,68 +1935,68 @@ void setEnvColor(u64 command, u64 const *params) {
 }
 
 void setCombineMode(u64 command, u64 const *params) {
-    combine_mode.sub_a_R_0 = (command >> 52) & 0xfu;
-    combine_mode.mul_R_0   = (command >> 47) & 0x1fu;
-    combine_mode.sub_a_A_0 = (command >> 44) & 0x7u;
-    combine_mode.mul_A_0   = (command >> 41) & 0x7u;
-    combine_mode.sub_a_R_1 = (command >> 37) & 0xfu;
-    combine_mode.mul_R_1   = (command >> 32) & 0x1fu;
-    combine_mode.sub_b_R_0 = (command >> 28) & 0xfu;
-    combine_mode.sub_b_R_1 = (command >> 24) & 0xfu;
-    combine_mode.sub_a_A_1 = (command >> 21) & 0x7u;
-    combine_mode.mul_A_1   = (command >> 18) & 0x7u;
-    combine_mode.add_R_0   = (command >> 15) & 0x7u;
-    combine_mode.sub_b_A_0 = (command >> 12) & 0x7u;
-    combine_mode.add_A_0   = (command >>  9) & 0x7u;
-    combine_mode.add_R_1   = (command >>  6) & 0x7u;
-    combine_mode.sub_b_A_1 = (command >>  3) & 0x7u;
-    combine_mode.add_A_1   = (command >>  0) & 0x7u;
+    rdp.combine_mode.sub_a_R_0 = (command >> 52) & 0xfu;
+    rdp.combine_mode.mul_R_0   = (command >> 47) & 0x1fu;
+    rdp.combine_mode.sub_a_A_0 = (command >> 44) & 0x7u;
+    rdp.combine_mode.mul_A_0   = (command >> 41) & 0x7u;
+    rdp.combine_mode.sub_a_R_1 = (command >> 37) & 0xfu;
+    rdp.combine_mode.mul_R_1   = (command >> 32) & 0x1fu;
+    rdp.combine_mode.sub_b_R_0 = (command >> 28) & 0xfu;
+    rdp.combine_mode.sub_b_R_1 = (command >> 24) & 0xfu;
+    rdp.combine_mode.sub_a_A_1 = (command >> 21) & 0x7u;
+    rdp.combine_mode.mul_A_1   = (command >> 18) & 0x7u;
+    rdp.combine_mode.add_R_0   = (command >> 15) & 0x7u;
+    rdp.combine_mode.sub_b_A_0 = (command >> 12) & 0x7u;
+    rdp.combine_mode.add_A_0   = (command >>  9) & 0x7u;
+    rdp.combine_mode.add_R_1   = (command >>  6) & 0x7u;
+    rdp.combine_mode.sub_b_A_1 = (command >>  3) & 0x7u;
+    rdp.combine_mode.add_A_1   = (command >>  0) & 0x7u;
 
-    debugger::debug(Debugger::RDP, "  sub_a_R_0: {}", combine_mode.sub_a_R_0);
-    debugger::debug(Debugger::RDP, "  sub_b_R_0: {}", combine_mode.sub_b_R_0);
-    debugger::debug(Debugger::RDP, "  mul_R_0: {}", combine_mode.mul_R_0);
-    debugger::debug(Debugger::RDP, "  add_R_0: {}", combine_mode.add_R_0);
-    debugger::debug(Debugger::RDP, "  sub_a_A_0: {}", combine_mode.sub_a_A_0);
-    debugger::debug(Debugger::RDP, "  sub_b_A_0: {}", combine_mode.sub_b_A_0);
-    debugger::debug(Debugger::RDP, "  mul_A_0: {}", combine_mode.mul_A_0);
-    debugger::debug(Debugger::RDP, "  add_A_0: {}", combine_mode.add_A_0);
-    debugger::debug(Debugger::RDP, "  sub_a_R_1: {}", combine_mode.sub_a_R_1);
-    debugger::debug(Debugger::RDP, "  sub_b_R_1: {}", combine_mode.sub_b_R_1);
-    debugger::debug(Debugger::RDP, "  mul_R_1: {}", combine_mode.mul_R_1);
-    debugger::debug(Debugger::RDP, "  add_R_1: {}", combine_mode.add_R_1);
-    debugger::debug(Debugger::RDP, "  sub_a_A_1: {}", combine_mode.sub_a_A_1);
-    debugger::debug(Debugger::RDP, "  sub_b_A_1: {}", combine_mode.sub_b_A_1);
-    debugger::debug(Debugger::RDP, "  mul_A_1: {}", combine_mode.mul_A_1);
-    debugger::debug(Debugger::RDP, "  add_A_1: {}", combine_mode.add_A_1);
+    debugger::debug(Debugger::RDP, "  sub_a_R_0: {}", rdp.combine_mode.sub_a_R_0);
+    debugger::debug(Debugger::RDP, "  sub_b_R_0: {}", rdp.combine_mode.sub_b_R_0);
+    debugger::debug(Debugger::RDP, "  mul_R_0: {}", rdp.combine_mode.mul_R_0);
+    debugger::debug(Debugger::RDP, "  add_R_0: {}", rdp.combine_mode.add_R_0);
+    debugger::debug(Debugger::RDP, "  sub_a_A_0: {}", rdp.combine_mode.sub_a_A_0);
+    debugger::debug(Debugger::RDP, "  sub_b_A_0: {}", rdp.combine_mode.sub_b_A_0);
+    debugger::debug(Debugger::RDP, "  mul_A_0: {}", rdp.combine_mode.mul_A_0);
+    debugger::debug(Debugger::RDP, "  add_A_0: {}", rdp.combine_mode.add_A_0);
+    debugger::debug(Debugger::RDP, "  sub_a_R_1: {}", rdp.combine_mode.sub_a_R_1);
+    debugger::debug(Debugger::RDP, "  sub_b_R_1: {}", rdp.combine_mode.sub_b_R_1);
+    debugger::debug(Debugger::RDP, "  mul_R_1: {}", rdp.combine_mode.mul_R_1);
+    debugger::debug(Debugger::RDP, "  add_R_1: {}", rdp.combine_mode.add_R_1);
+    debugger::debug(Debugger::RDP, "  sub_a_A_1: {}", rdp.combine_mode.sub_a_A_1);
+    debugger::debug(Debugger::RDP, "  sub_b_A_1: {}", rdp.combine_mode.sub_b_A_1);
+    debugger::debug(Debugger::RDP, "  mul_A_1: {}", rdp.combine_mode.mul_A_1);
+    debugger::debug(Debugger::RDP, "  add_A_1: {}", rdp.combine_mode.add_A_1);
 }
 
 void setTextureImage(u64 command, u64 const *params) {
-    texture_image.format = (enum image_data_format)((command >> 53) & 0x7u);
-    texture_image.size = (enum pixel_size)((command >> 51) & 0x3u);
-    texture_image.width = 1u + ((command >> 32) & 0x3ffu);
-    texture_image.addr = command & 0x3fffffflu;
+    rdp.texture_image.format = (enum image_data_format)((command >> 53) & 0x7u);
+    rdp.texture_image.size = (enum pixel_size)((command >> 51) & 0x3u);
+    rdp.texture_image.width = 1u + ((command >> 32) & 0x3ffu);
+    rdp.texture_image.addr = command & 0x3fffffflu;
 
-    debugger::debug(Debugger::RDP, "  format: {}", texture_image.format);
-    debugger::debug(Debugger::RDP, "  size: {}", texture_image.size);
-    debugger::debug(Debugger::RDP, "  width: {}", texture_image.width);
-    debugger::info(Debugger::RDP,  "  addr: {:#x}", texture_image.addr);
+    debugger::debug(Debugger::RDP, "  format: {}", rdp.texture_image.format);
+    debugger::debug(Debugger::RDP, "  size: {}", rdp.texture_image.size);
+    debugger::debug(Debugger::RDP, "  width: {}", rdp.texture_image.width);
+    debugger::info(Debugger::RDP,  "  addr: {:#x}", rdp.texture_image.addr);
 
-    if ((texture_image.addr % 8u) != 0) {
+    if ((rdp.texture_image.addr % 8u) != 0) {
         debugger::warn(Debugger::RDP, "set_texture_image: misaligned data address");
         debugger::halt("set_texture_image: invalid address");
         return;
     }
 
-    texture_image.type = convert_image_data_format(texture_image.format,
-                                                   texture_image.size);
+    rdp.texture_image.type = convert_image_data_format(rdp.texture_image.format,
+                                                   rdp.texture_image.size);
 }
 
 void setZImage(u64 command, u64 const *params) {
-    z_image.addr = command & 0x3fffffflu;
+    rdp.z_image.addr = command & 0x3fffffflu;
 
-    debugger::info(Debugger::RDP, "  addr: {:#x}", z_image.addr);
+    debugger::info(Debugger::RDP, "  addr: {:#x}", rdp.z_image.addr);
 
-    if ((z_image.addr % 8u) != 0) {
+    if ((rdp.z_image.addr % 8u) != 0) {
         debugger::warn(Debugger::RDP, "set_z_image: misaligned data address");
         debugger::halt("set_z_image: invalid address");
         return;
@@ -2265,29 +2004,29 @@ void setZImage(u64 command, u64 const *params) {
 }
 
 void setColorImage(u64 command, u64 const *params) {
-    color_image.format = (enum image_data_format)((command >> 53) & 0x7u);
-    color_image.size = (enum pixel_size)((command >> 51) & 0x3u);
-    color_image.width = 1u + ((command >> 32) & 0x3ffu);
-    color_image.addr = command & 0x3fffffflu;
+    rdp.color_image.format = (enum image_data_format)((command >> 53) & 0x7u);
+    rdp.color_image.size = (enum pixel_size)((command >> 51) & 0x3u);
+    rdp.color_image.width = 1u + ((command >> 32) & 0x3ffu);
+    rdp.color_image.addr = command & 0x3fffffflu;
 
-    debugger::debug(Debugger::RDP, "  format: {}", color_image.format);
-    debugger::debug(Debugger::RDP, "  size: {}", color_image.size);
-    debugger::debug(Debugger::RDP, "  width: {}", color_image.width);
-    debugger::info(Debugger::RDP,  "  addr: {:#x}", color_image.addr);
+    debugger::debug(Debugger::RDP, "  format: {}", rdp.color_image.format);
+    debugger::debug(Debugger::RDP, "  size: {}", rdp.color_image.size);
+    debugger::debug(Debugger::RDP, "  width: {}", rdp.color_image.width);
+    debugger::info(Debugger::RDP,  "  addr: {:#x}", rdp.color_image.addr);
 
-    if ((color_image.addr % 8u) != 0) {
+    if ((rdp.color_image.addr % 8u) != 0) {
         debugger::warn(Debugger::RDP, "set_color_image: misaligned data address");
         debugger::halt("set_color_image: invalid address");
         return;
     }
 
-    color_image.type = convert_image_data_format(color_image.format, color_image.size);
-    if (color_image.type != IMAGE_DATA_FORMAT_RGBA_5_5_5_1 &&
-        color_image.type != IMAGE_DATA_FORMAT_RGBA_8_8_8_8 &&
-        color_image.type != IMAGE_DATA_FORMAT_CI_8) {
+    rdp.color_image.type = convert_image_data_format(rdp.color_image.format, rdp.color_image.size);
+    if (rdp.color_image.type != IMAGE_DATA_FORMAT_RGBA_5_5_5_1 &&
+        rdp.color_image.type != IMAGE_DATA_FORMAT_RGBA_8_8_8_8 &&
+        rdp.color_image.type != IMAGE_DATA_FORMAT_CI_8) {
         debugger::warn(Debugger::RDP,
             "set_color_image: invalid image data format: {},{}",
-            color_image.format, color_image.size);
+            rdp.color_image.format, rdp.color_image.size);
         debugger::halt("set_color_image: invalid format");
         return;
     }
