@@ -983,7 +983,8 @@ static void render_span(bool left, unsigned level, unsigned tile,
                         struct texture_coefs const *texture,
                         struct zbuffer_coefs const *zbuffer) {
 
-    if (y < (i32)rdp.scissor.yh || y > (i32)rdp.scissor.yl || xe <= xs ||
+    if (y < (i32)rdp.scissor.yh || y >= (i32)rdp.scissor.yl ||
+        xe <= xs || rdp.scissor.xl == 0 ||
         (rdp.scissor.skipOddLines && ((y >> 2) % 2)) ||
         (rdp.scissor.skipEvenLines && !((y >> 2) % 2)))
         return;
@@ -992,7 +993,7 @@ static void render_span(bool left, unsigned level, unsigned tile,
     // from fixed point 10.2 format.
     y = y >> 2;
     xs = std::max(xs >> 14, (i32)rdp.scissor.xh) >> 2;
-    xe = std::min(xe >> 14, (i32)rdp.scissor.xl) >> 2;
+    xe = std::min(xe >> 14, (i32)rdp.scissor.xl - 1) >> 2;
     xs = std::max(xs, 0);
     xe = std::min(xe, (i32)rdp.color_image.width);
 
