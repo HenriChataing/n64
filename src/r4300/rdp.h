@@ -168,15 +168,15 @@ struct rdp {
     color_t     env_color;
 
     /* Primitive depth. */
-    u32         prim_z;
+    u32         prim_z;         /* 15.3 */
     u16         prim_deltaz;
 
     /* Current scissor box. */
     struct {
-        unsigned xh;
-        unsigned yh;
-        unsigned xl;
-        unsigned yl;
+        unsigned xh;            /* 10.2 */
+        unsigned yh;            /* 10.2 */
+        unsigned xl;            /* 10.2 */
+        unsigned yl;            /* 10.2 */
         bool skipOddLines;
         bool skipEvenLines;
     } scissor;
@@ -264,12 +264,12 @@ struct rdp {
         enum rgb_dither_sel rgb_dither_sel;
         enum alpha_dither_sel alpha_dither_sel;
         enum blender_src_sel b_m1a_0;
-        enum blender_src_sel b_m1a_1;
         enum blender_src_sel b_m1b_0;
-        enum blender_src_sel b_m1b_1;
         enum blender_src_sel b_m2a_0;
-        enum blender_src_sel b_m2a_1;
         enum blender_src_sel b_m2b_0;
+        enum blender_src_sel b_m1a_1;
+        enum blender_src_sel b_m1b_1;
+        enum blender_src_sel b_m2a_1;
         enum blender_src_sel b_m2b_1;
         bool force_blend;
         bool alpha_cvg_select;

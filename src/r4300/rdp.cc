@@ -137,7 +137,7 @@ static u8 noise() {
 
 static float i32_fixpoint_to_float(i32 val, int radix) {
     unsigned long div = 1lu << radix;
-    double fval = (i64)val;// val < 0 ? - : (i64)val;
+    double fval = (i64)val;
     return fval / (float)div;
 }
 
@@ -2185,7 +2185,7 @@ struct {
  */
 void write_DPC_END_REG(u32 value) {
     state.hwreg.DPC_END_REG = value & 0xfffffflu;
-    while (DPC_hasNext(1)) {
+    while (DPC_hasNext(1) && !debugger::debugger.halted) {
         u64 command = 0;
         DPC_read(&command, 1);
         u64 opcode = (command >> 56) & 0x3flu;
