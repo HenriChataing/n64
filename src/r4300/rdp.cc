@@ -179,72 +179,6 @@ static void print_pixel(pixel_t *px) {
         (int)px->mem_color.b, (int)px->mem_color.a);
 }
 
-namespace FillMode {
-
-/**
- * In fill mode most of the rendering pipeline is bypassed.
- * Pixels are written by two or four depending on the color format.
- */
-
-/** @brief Fills the line with coordinates (xs,y), (xe, y) with the
- * fill color. Input coordinates are in 10.2 fixedpoint format. */
-static void renderLine(unsigned y, unsigned xs, unsigned xe) {
-    if (y < rdp.scissor.yh || y >= rdp.scissor.yl ||
-        (rdp.scissor.skipOddLines && ((y >> 2) % 2)) ||
-        (rdp.scissor.skipEvenLines && !((y >> 2) % 2)))
-        return;
-
-    // Clip x coordinate and convert to integer values
-    // from fixed point 10.2 format.
-    y = y >> 2;
-    xs = std::max(xs, rdp.scissor.xh) >> 2;
-    xe = std::min(xe, rdp.scissor.xl) >> 2;
-
-    unsigned offset = rdp.color_image.addr +
-                      ((xs + y * rdp.color_image.width) << (rdp.color_image.size - 1));
-    unsigned length = (xe - xs) << (rdp.color_image.size - 1);
-
-    if ((offset + length) > sizeof(state.dram)) {
-        debugger::warn(Debugger::RDP,
-            "(fill) renderLine out-of-bounds, start:{}, length:{}",
-            offset, length);
-        debugger::halt("FillMode::renderLine out-of-bounds");
-        return;
-    }
-
-    if (rdp.color_image.type == IMAGE_DATA_FORMAT_RGBA_5_5_5_1) {
-        u32 filler = __builtin_bswap32(rdp.fill_color);
-        if (xs % 2) {
-            // Copy first half-word manually.
-            *(u16 *)(void *)&state.dram[offset] =
-                __builtin_bswap16(rdp.fill_color);
-            offset += 2; xs++;
-        }
-        // Now aligned to u32, can copy two half-words at a time.
-        u32 *base = (u32 *)(void *)&state.dram[offset];
-        unsigned x;
-        for (x = xs; (x+1) <= xe; x+=2, base++) {
-            *base = filler;
-        }
-        if (x <= xe) {
-            *(u16 *)base = filler;
-        }
-    }
-    else if (rdp.color_image.type == IMAGE_DATA_FORMAT_RGBA_8_8_8_8) {
-        u32 *base = (u32 *)(void *)&state.dram[offset];
-        for (unsigned x = xs; x < xe; x++, base++) {
-            *base = __builtin_bswap32(rdp.fill_color);
-        }
-    }
-    else {
-        debugger::halt("FillMode::renderLine unsupported image data format");
-    }
-}
-
-}; /* FillMode */
-
-namespace Cycle1Mode {
-
 /**
  * The pipeline in cycle1 mode is as follows (ref section 12.1.2)
  *
@@ -272,9 +206,10 @@ static void pipeline_tx_load(struct tile const *tile, unsigned s, unsigned t, co
 static void pipeline_tf(pixel_t *px);
 static void pipeline_cc(pixel_t *px);
 static void pipeline_bl(pixel_t *px);
+static void pipeline_mi_store(unsigned mem_color_addr, color_t color);
 static void pipeline_mi_store(pixel_t *px);
 static void pipeline_mi_load(pixel_t *px);
-static void pipeline_ctl(pixel_t *px);
+static void pipeline_ctl(pixel_t *px, unsigned tx = 0);
 
 /**
  * Execute the texture pipeline module TX.
@@ -829,38 +764,46 @@ static void pipeline_mi_load_z(pixel_t *px) {
 }
 
 /**
- * Write the blended color to the current color image.
- * The color is read from px->blended_color and written
- * to px->mem_color_addr.
+ * Write a colored pixel to the specified address in memory.
  */
-static void pipeline_mi_store(pixel_t *px) {
-    u8 *addr = &state.dram[px->mem_color_addr];
+static void pipeline_mi_store(unsigned mem_color_addr, color_t color) {
+    u8 *addr = &state.dram[mem_color_addr];
     switch (rdp.color_image.type) {
     case IMAGE_DATA_FORMAT_I_8:
         debugger::halt("pipeline_mi_store: unsupported image data type I_8");
         break;
     case IMAGE_DATA_FORMAT_RGBA_5_5_5_1: {
-        u16 r = px->blended_color.r >> 3;
-        u16 g = px->blended_color.g >> 3;
-        u16 b = px->blended_color.b >> 3;
-        u16 a = px->blended_color.a >> 7;
-        u16 color = (r << 11) | (g << 6) | (b << 1) | a;
-        *(u16 *)addr = __builtin_bswap16(color);
+        u16 r = color.r >> 3;
+        u16 g = color.g >> 3;
+        u16 b = color.b >> 3;
+        u16 a = color.a >> 7;
+        u16 rgba = (r << 11) | (g << 6) | (b << 1) | a;
+        *(u16 *)addr = __builtin_bswap16(rgba);
         break;
     }
     case IMAGE_DATA_FORMAT_RGBA_8_8_8_8: {
-        u32 color =
-            ((u32)px->blended_color.r << 24) |
-            ((u32)px->blended_color.g << 16) |
-            ((u32)px->blended_color.b << 8) |
-            px->blended_color.a;
-        *(u32 *)addr = __builtin_bswap32(color);
+        u32 rgba =
+            ((u32)color.r << 24) |
+            ((u32)color.g << 16) |
+            ((u32)color.b << 8)  |
+                  color.a;
+        *(u32 *)addr = __builtin_bswap32(rgba);
         break;
     }
     default:
         debugger::halt("pipeline_mi_store: unexpected image data type");
         break;
     }
+}
+
+/**
+ * Write the blended color to the current color image.
+ * The color is read from px->blended_color and written
+ * to px->mem_color_addr.
+ */
+static void pipeline_mi_store(pixel_t *px) {
+    if (px->color_write_en)
+        pipeline_mi_store(px->mem_color_addr, px->blended_color);
 }
 
 /**
@@ -941,9 +884,26 @@ static void pipeline_mi_store_z(pixel_t *px) {
 
 /** Execute the logic to generate the color write enable, z write enable,
  * and blend enable signals. */
-static void pipeline_ctl(pixel_t *px) {
+static void pipeline_ctl(pixel_t *px, unsigned tx) {
     bool compare_behind = false;
     bool compare_infront = false;
+    bool compare_alpha = false;
+
+    if (rdp.other_modes.alpha_compare_en) {
+        u8 comp_a0 = rdp.other_modes.cycle_type == CYCLE_TYPE_COPY ?
+            px->texel_colors[tx].a :
+            px->blended_color.a;
+
+        if (rdp.color_image.size == PIXEL_SIZE_8B) {
+            u8 comp_a1 = rdp.other_modes.dither_alpha_en ?
+                rand() % 256 :
+                rdp.blend_color.a;
+
+            compare_alpha = comp_a0 >= comp_a1;
+        } else {
+            compare_alpha = comp_a0 > 0;
+        }
+    }
 
     if (rdp.other_modes.z_compare_en) {
         pipeline_mi_load_z(px);
@@ -960,7 +920,6 @@ static void pipeline_ctl(pixel_t *px) {
         }
 
         u32 mem_z = px->mem_z;
-        // u16 mem_deltaz = px->mem_deltaz;
         u32 near = comp_z >= ((u32)comp_deltaz << 3) ?
             comp_z - ((u32)comp_deltaz << 3) : 0;
         u32 far = comp_z + ((u32)comp_deltaz << 3);
@@ -968,12 +927,163 @@ static void pipeline_ctl(pixel_t *px) {
         compare_infront = mem_z > far;
     }
 
-    px->color_write_en = !rdp.other_modes.z_compare_en || !compare_behind;
+    px->color_write_en = (!rdp.other_modes.z_compare_en || !compare_behind) &&
+                         (!rdp.other_modes.alpha_compare_en || compare_alpha);
     px->z_write_en     =  rdp.other_modes.z_update_en  && px->color_write_en;
     px->blend_en       =  rdp.other_modes.force_blend  ||
                          (rdp.other_modes.z_compare_en &&
                           !compare_behind && !compare_infront);
 }
+
+namespace FillMode {
+
+/**
+ * In fill mode most of the rendering pipeline is bypassed.
+ * Pixels are written by two or four depending on the color format.
+ */
+
+/** @brief Fills the line with coordinates (xs,y), (xe, y) with the
+ * fill color. Input coordinates are in 10.2 fixedpoint format. */
+static void render_span(unsigned y, unsigned xs, unsigned xe) {
+    if (y < rdp.scissor.yh || y >= rdp.scissor.yl ||
+        (rdp.scissor.skipOddLines && ((y >> 2) % 2)) ||
+        (rdp.scissor.skipEvenLines && !((y >> 2) % 2)))
+        return;
+
+    // Clip x coordinate and convert to integer values
+    // from fixed point 10.2 format.
+    y = y >> 2;
+    xs = std::max(xs, rdp.scissor.xh) >> 2;
+    xe = std::min(xe, rdp.scissor.xl) >> 2;
+
+    unsigned offset = rdp.color_image.addr +
+                      ((xs + y * rdp.color_image.width) << (rdp.color_image.size - 1));
+    unsigned length = (xe - xs) << (rdp.color_image.size - 1);
+
+    if ((offset + length) > sizeof(state.dram)) {
+        debugger::warn(Debugger::RDP,
+            "(fill) render_span out-of-bounds, start:{}, length:{}",
+            offset, length);
+        debugger::halt("FillMode::render_span out-of-bounds");
+        return;
+    }
+
+    if (rdp.color_image.type == IMAGE_DATA_FORMAT_RGBA_5_5_5_1) {
+        u32 filler = __builtin_bswap32(rdp.fill_color);
+        if (xs % 2) {
+            // Copy first half-word manually.
+            *(u16 *)(void *)&state.dram[offset] =
+                __builtin_bswap16(rdp.fill_color);
+            offset += 2; xs++;
+        }
+        // Now aligned to u32, can copy two half-words at a time.
+        u32 *base = (u32 *)(void *)&state.dram[offset];
+        unsigned x;
+        for (x = xs; (x+1) <= xe; x+=2, base++) {
+            *base = filler;
+        }
+        if (x <= xe) {
+            *(u16 *)base = filler;
+        }
+    }
+    else if (rdp.color_image.type == IMAGE_DATA_FORMAT_RGBA_8_8_8_8) {
+        u32 *base = (u32 *)(void *)&state.dram[offset];
+        for (unsigned x = xs; x < xe; x++, base++) {
+            *base = __builtin_bswap32(rdp.fill_color);
+        }
+    }
+    else {
+        debugger::halt("FillMode::render_span unsupported image data format");
+    }
+}
+
+}; /* FillMode */
+
+
+namespace CopyMode {
+
+/**
+ * In copy mode the color combiner is bypassed.
+ * Pixels are written four by four.
+ */
+
+/** @brief Fills the line with coordinates (xs,y), (xe, y) with the
+ * fill color. Input coordinates are in 10.2 fixedpoint format. */
+static void render_span(unsigned tile, i32 y, i32 xs, i32 xe,
+                        struct texture_coefs const *texture) {
+
+    if (y < (i32)rdp.scissor.yh || y >= (i32)rdp.scissor.yl ||
+        xe <= xs || rdp.scissor.xl == 0 ||
+        (rdp.scissor.skipOddLines && ((y >> 2) % 2)) ||
+        (rdp.scissor.skipEvenLines && !((y >> 2) % 2)))
+        return;
+
+    // TODO scissor to 4 pixel boundary.
+
+    // Clip x coordinate and convert to integer values
+    // from fixed point 10.2 format.
+    y = y >> 2;
+    xs = std::max(xs >> 14, (i32)rdp.scissor.xh) >> 2;
+    xe = std::min(xe >> 14, (i32)rdp.scissor.xl - 1) >> 2;
+    xs = std::max(xs, 0);
+    xe = std::min(xe, (i32)rdp.color_image.width);
+
+    unsigned offset = rdp.color_image.addr +
+        ((xs + y * rdp.color_image.width) << (rdp.color_image.size - 1));
+    unsigned length = (xe - xs) << (rdp.color_image.size - 1);
+
+    if ((offset + length) > sizeof(state.dram)) {
+        debugger::warn(Debugger::RDP,
+            "(copy) render_span out-of-bounds, start:{:x}, length:{}",
+            offset, length);
+        debugger::halt("(copy) render_span out-of-bounds");
+        return;
+    }
+    if (rdp.color_image.type == IMAGE_DATA_FORMAT_RGBA_8_8_8_8 ||
+        rdp.color_image.type == IMAGE_DATA_FORMAT_YUV_16) {
+        debugger::warn(Debugger::RDP,
+            "(copy) render_span invalid image data format");
+        debugger::halt("(copy) render_span invalid image data format");
+        return;
+    }
+
+    unsigned px_size = 1 << (rdp.color_image.size - 1);
+    pixel_t px = { 0 };
+    px.edge_coefs.y = y;
+    px.mem_color_addr = offset;
+    px.texture_coefs.s = texture->s;
+    px.texture_coefs.t = texture->t;
+    px.texture_coefs.w = texture->w;
+    px.tile = &rdp.tiles[tile];
+
+    for (px.edge_coefs.x = xs; px.edge_coefs.x < xe; px.edge_coefs.x += 4) {
+        pipeline_tx(&px);
+        pipeline_ctl(&px, 0);
+        if (px.color_write_en)
+            pipeline_mi_store(px.mem_color_addr, px.texel_colors[0]);
+        px.mem_color_addr += px_size;
+        pipeline_ctl(&px, 1);
+        if (px.color_write_en)
+            pipeline_mi_store(px.mem_color_addr, px.texel_colors[1]);
+        px.mem_color_addr += px_size;
+        pipeline_ctl(&px, 2);
+        if (px.color_write_en)
+            pipeline_mi_store(px.mem_color_addr, px.texel_colors[2]);
+        px.mem_color_addr += px_size;
+        pipeline_ctl(&px, 3);
+        if (px.color_write_en)
+            pipeline_mi_store(px.mem_color_addr, px.texel_colors[3]);
+        px.mem_color_addr += px_size;
+
+        px.texture_coefs.s += texture->dsdx;
+        px.texture_coefs.t += texture->dtdx;
+        px.texture_coefs.w += texture->dwdx;
+    }
+}
+
+}; /* CopyMode */
+
+namespace Cycle1Mode {
 
 /** @brief Fills the line with coordinates (xs,y), (xe, y) with the
  * fill color. Input coordinates are in 10.2 fixedpoint format. */
@@ -997,8 +1107,8 @@ static void render_span(bool left, unsigned level, unsigned tile,
     xs = std::max(xs, 0);
     xe = std::min(xe, (i32)rdp.color_image.width);
 
-    unsigned offset =
-        rdp.color_image.addr + ((xs + y * rdp.color_image.width) << (rdp.color_image.size - 1));
+    unsigned offset = rdp.color_image.addr +
+        ((xs + y * rdp.color_image.width) << (rdp.color_image.size - 1));
     unsigned length = (xe - xs) << (rdp.color_image.size - 1);
 
     if ((offset + length) > sizeof(state.dram)) {
@@ -1011,7 +1121,6 @@ static void render_span(bool left, unsigned level, unsigned tile,
 
     unsigned px_size = 1 << (rdp.color_image.size - 1);
     pixel_t px = { 0 };
-    px.mem_color_addr = offset;
     px.shade_color.a = 255;
     px.texel0_color.a = 255;
     px.lod_frac = 255;
@@ -1069,19 +1178,17 @@ static void render_span(bool left, unsigned level, unsigned tile,
                 px.zbuffer_coefs.z = z < 0 ? 0 : (u32)z >> 13;
             }
 
-            pipeline_ctl(&px);
-            if (px.color_write_en) {
-                if (texture) {
-                    pipeline_tx(&px);
-                    pipeline_tf(&px);
-                }
-                pipeline_cc(&px);
-                pipeline_mi_load(&px);
-                pipeline_bl(&px);
-                pipeline_mi_store(&px);
-                pipeline_mi_store_z(&px);
-                print_pixel(&px);
+            if (texture) {
+                pipeline_tx(&px);
+                pipeline_tf(&px);
             }
+            pipeline_cc(&px);
+            pipeline_mi_load(&px);
+            pipeline_bl(&px);
+            pipeline_ctl(&px);
+            pipeline_mi_store(&px);
+            pipeline_mi_store_z(&px);
+            print_pixel(&px);
 
             px.mem_color_addr += px_size;
             if (shade) {
@@ -1114,19 +1221,17 @@ static void render_span(bool left, unsigned level, unsigned tile,
                 px.zbuffer_coefs.z = z < 0 ? 0 : (u32)z >> 13;
             }
 
-            pipeline_ctl(&px);
-            if (px.color_write_en) {
-                if (texture) {
-                    pipeline_tx(&px);
-                    pipeline_tf(&px);
-                }
-                pipeline_cc(&px);
-                pipeline_mi_load(&px);
-                pipeline_bl(&px);
-                pipeline_mi_store(&px);
-                pipeline_mi_store_z(&px);
-                print_pixel(&px);
+            if (texture) {
+                pipeline_tx(&px);
+                pipeline_tf(&px);
             }
+            pipeline_cc(&px);
+            pipeline_mi_load(&px);
+            pipeline_bl(&px);
+            pipeline_ctl(&px);
+            pipeline_mi_store(&px);
+            pipeline_mi_store_z(&px);
+            print_pixel(&px);
 
             px.mem_color_addr -= px_size;
             if (shade) {
@@ -1287,6 +1392,9 @@ static void render_triangle(u64 command, u64 const *params,
     debugger::debug(Debugger::RDP, "  level: {}", level);
     debugger::debug(Debugger::RDP, "  tile: {}", tile);
 
+    if (rdp.other_modes.cycle_type != CYCLE_TYPE_1CYCLE)
+        debugger::halt("render_triangle: unsupported cycle type");
+
     read_edge_coefs(command, params, &edge);
     print_edge_coefs(&edge);
     params += 3;
@@ -1442,9 +1550,23 @@ void textureRectangle(u64 command, u64 const *params) {
     xh <<= 14;
     xl <<= 14;
 
-    for (unsigned y = yh; y < yl; y += 4) {
-        Cycle1Mode::render_span(true, 0, tile, y, xh, xl, NULL, &texture, NULL);
-        texture.t += texture.dtdy;
+    switch (rdp.other_modes.cycle_type) {
+    case CYCLE_TYPE_1CYCLE:
+        for (unsigned y = yh; y < yl; y += 4) {
+            Cycle1Mode::render_span(true, 0, tile, y, xh, xl, NULL, &texture, NULL);
+            texture.t += texture.dtdy;
+        }
+        break;
+    case CYCLE_TYPE_COPY:
+        for (unsigned y = yh; y < yl; y += 4) {
+            CopyMode::render_span(tile, y, xh, xl, &texture);
+            texture.t += texture.dtdy;
+        }
+        break;
+    default:
+        debugger::warn(Debugger::RDP,
+            "texture_rectangle: unsupported cycle type");
+        break;
     }
 }
 
@@ -1483,10 +1605,25 @@ void textureRectangleFlip(u64 command, u64 const *params) {
     xh <<= 14;
     xl <<= 14;
 
-    for (unsigned y = yh; y < yl; y += 4) {
-        Cycle1Mode::render_span(true, 0, tile, y, xh, xl, NULL, &texture, NULL);
-        texture.t += texture.dtdy;
-        texture.s += texture.dsdy;
+    switch (rdp.other_modes.cycle_type) {
+    case CYCLE_TYPE_1CYCLE:
+        for (unsigned y = yh; y < yl; y += 4) {
+            Cycle1Mode::render_span(true, 0, tile, y, xh, xl, NULL, &texture, NULL);
+            texture.t += texture.dtdy;
+            texture.s += texture.dsdy;
+        }
+        break;
+    case CYCLE_TYPE_COPY:
+        for (unsigned y = yh; y < yl; y += 4) {
+            CopyMode::render_span(tile, y, xh, xl, &texture);
+            texture.t += texture.dtdy;
+            texture.s += texture.dsdy;
+        }
+        break;
+    default:
+        debugger::warn(Debugger::RDP,
+            "texture_rectangle_flip: unsupported cycle type");
+        break;
     }
 }
 
@@ -1627,8 +1764,6 @@ void setOtherModes(u64 command, u64 const *params) {
     if (rdp.other_modes.cycle_type == CYCLE_TYPE_COPY)
         rdp.other_modes.sample_type = SAMPLE_TYPE_4X1;
 
-    if (rdp.other_modes.cycle_type == CYCLE_TYPE_COPY)
-        debugger::halt("unsupported cycle type COPY");
     if (rdp.other_modes.cycle_type == CYCLE_TYPE_2CYCLE)
         debugger::halt("unsupported cycle type 2CYCLE");
 }
@@ -1884,7 +2019,7 @@ void fillRectangle(u64 command, u64 const *params) {
          * TODO potential edge case : one-line scissorbox
          * */
         for (unsigned y = (yh >> 2); y <= (yl >> 2); y++)
-            FillMode::renderLine(y << 2, xh, xl);
+            FillMode::render_span(y << 2, xh, xl);
     }
 }
 
