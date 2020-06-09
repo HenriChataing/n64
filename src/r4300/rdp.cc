@@ -115,7 +115,8 @@ struct shade_coefs {
     i32 drdy, dgdy, dbdy, dady;
 };
 
-/** All coefficients are in signed S10.21 fixpoint format. */
+/** All s,t coefficients are in signed S10.21 fixpoint format,
+ * and w coefficients in S31 */
 struct texture_coefs {
     i32 s, t, w;
     i32 dsdx, dtdx, dwdx;
@@ -224,10 +225,12 @@ static void pipeline_tx(pixel_t *px) {
     struct tile const *tile = px->tile;
 
     /* Perform perspective correction if enabled.
-     * W is the normalized inverse depth. */
+     * W is the normalized inverse depth.
+     * s, t are in s10.21, w in s31, hence the result of the division
+     * must be shifted left by 31 to remain s10.21. */
     if (rdp.other_modes.persp_tex_en && w != 0) {
-        s /= w;
-        t /= w;
+        s = (i32) (((i64)s << 31) / (i64)w);
+        t = (i32) (((i64)t << 31) / (i64)w);
     }
     /* Apply shifts for different LODs. */
     if (tile->shift_s < 11) {
@@ -464,6 +467,8 @@ static void pipeline_tx_load(struct tile const *tile, unsigned s, unsigned t, co
         break;
     }
     default:
+        debugger::warn(Debugger::RDP,
+            "pipeline_tx_load: unexpected image data type {}", tile->type);
         debugger::halt("pipeline_tx_load: unexpected image data type");
         break;
     }
@@ -1039,11 +1044,11 @@ static void render_span(unsigned tile, i32 y, i32 xs, i32 xe,
         debugger::halt("(copy) render_span out-of-bounds");
         return;
     }
-    if (rdp.color_image.type == IMAGE_DATA_FORMAT_RGBA_8_8_8_8 ||
-        rdp.color_image.type == IMAGE_DATA_FORMAT_YUV_16) {
+    if (rdp.tiles[tile].type == IMAGE_DATA_FORMAT_RGBA_8_8_8_8 ||
+        rdp.tiles[tile].type == IMAGE_DATA_FORMAT_YUV_16) {
         debugger::warn(Debugger::RDP,
-            "(copy) render_span invalid image data format");
-        debugger::halt("(copy) render_span invalid image data format");
+            "(copy) render_span invalid tile data format");
+        debugger::halt("(copy) render_span invalid tile data format");
         return;
     }
 
@@ -1357,16 +1362,16 @@ static void print_shade_coefs(struct shade_coefs const *shade) {
 static void print_texture_coefs(struct texture_coefs const *texture) {
     debugger::debug(Debugger::RDP, "  s: {}", s10_21_to_float(texture->s));
     debugger::debug(Debugger::RDP, "  t: {}", s10_21_to_float(texture->t));
-    debugger::debug(Debugger::RDP, "  w: {}", s10_21_to_float(texture->w));
+    debugger::debug(Debugger::RDP, "  w: {}", i32_fixpoint_to_float(texture->w, 31));
     debugger::debug(Debugger::RDP, "  dsdx: {}", s10_21_to_float(texture->dsdx));
     debugger::debug(Debugger::RDP, "  dtdx: {}", s10_21_to_float(texture->dtdx));
-    debugger::debug(Debugger::RDP, "  dwdx: {}", s10_21_to_float(texture->dwdx));
+    debugger::debug(Debugger::RDP, "  dwdx: {}", i32_fixpoint_to_float(texture->dwdx, 31));
     debugger::debug(Debugger::RDP, "  dsde: {}", s10_21_to_float(texture->dsde));
     debugger::debug(Debugger::RDP, "  dtde: {}", s10_21_to_float(texture->dtde));
-    debugger::debug(Debugger::RDP, "  dwde: {}", s10_21_to_float(texture->dwde));
+    debugger::debug(Debugger::RDP, "  dwde: {}", i32_fixpoint_to_float(texture->dwde, 31));
     debugger::debug(Debugger::RDP, "  dsdy: {}", s10_21_to_float(texture->dsdy));
     debugger::debug(Debugger::RDP, "  dtdy: {}", s10_21_to_float(texture->dtdy));
-    debugger::debug(Debugger::RDP, "  dwdy: {}", s10_21_to_float(texture->dwdy));
+    debugger::debug(Debugger::RDP, "  dwdy: {}", i32_fixpoint_to_float(texture->dwdy, 31));
 }
 
 static void print_zbuffer_coefs(struct zbuffer_coefs const *zbuffer) {
@@ -1522,7 +1527,7 @@ void textureRectangle(u64 command, u64 const *params) {
     unsigned xh = (command >> 12) & 0xfffu;
     unsigned yh = (command >>  0) & 0xfffu;
 
-    /* Texture coordinates are in signed 5.10 fixed point format. */
+    /* Texture coordinates are in signed 10.5 or 5.10 fixed point format. */
     i32 s    = (i16)(u16)((params[0] >> 48) & 0xffffu);
     i32 t    = (i16)(u16)((params[0] >> 32) & 0xffffu);
     i32 dsdx = (i16)(u16)((params[0] >> 16) & 0xffffu);
@@ -1578,7 +1583,7 @@ void textureRectangleFlip(u64 command, u64 const *params) {
     unsigned xh = (command >> 12) & 0xfffu;
     unsigned yh = (command >>  0) & 0xfffu;
 
-    /* Texture coordinates are in the signed 5.10 fixed point format. */
+    /* Texture coordinates are in signed 10.5 or 5.10 fixed point format. */
     i32 s    = (i16)(u16)((params[0] >> 48) & 0xffffu);
     i32 t    = (i16)(u16)((params[0] >> 32) & 0xffffu);
     i32 dsdx = (i16)(u16)((params[0] >> 16) & 0xffffu);
@@ -1984,7 +1989,11 @@ void setTile(u64 command, u64 const *params) {
     debugger::debug(Debugger::RDP, "  mask_s: {}", rdp.tiles[tile].mask_s);
     debugger::debug(Debugger::RDP, "  shift_s: {}", rdp.tiles[tile].shift_s);
 
-    rdp.tiles[tile].type = convert_image_data_format(rdp.tiles[tile].format, rdp.tiles[tile].size);
+    rdp.tiles[tile].type = convert_image_data_format(
+        rdp.tiles[tile].format, rdp.tiles[tile].size);
+    if (rdp.tiles[tile].type == IMAGE_DATA_FORMAT_INVAL) {
+        debugger::halt("set_tile: invalid tile data format");
+    }
 }
 
 /** @brief Implement the fill rectangle command. */
