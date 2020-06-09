@@ -614,7 +614,8 @@ void eval_DSUB(u32 instr) {
 
 void eval_DSUBU(u32 instr) {
     RType(instr);
-    debugger::halt("DSUBU");
+    u64 res = state.reg.gpr[rs] - state.reg.gpr[rt];
+    state.reg.gpr[rd] = res;
 }
 
 void eval_JALR(u32 instr) {
@@ -1134,12 +1135,65 @@ void eval_LDC2(u32 instr) {
 
 void eval_LDL(u32 instr) {
     IType(instr, sign_extend);
-    debugger::halt("LDL");
+
+    // @todo only BigEndianMem & !ReverseEndian for now
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+
+    // Not calling checkAddressAlignment:
+    // this instruction specifically ignores the alignment
+    checkException(
+        translateAddress(vAddr, &pAddr, true),
+        vAddr, false, false, 0);
+
+    size_t count = 8 - (pAddr % 8);
+    unsigned int shift = 56;
+    u64 mask = (1llu << (64 - 8 * count)) - 1u;
+    u64 val = 0;
+
+    for (size_t nr = 0; nr < count; nr++, shift -= 8) {
+        u64 byte = 0;
+        if (!state.physmem.load(1, pAddr + nr, &byte)) {
+            takeException(BusError, vAddr, false, false, 0);
+            return;
+        }
+        val |= (byte << shift);
+    }
+
+    val = val | (state.reg.gpr[rt] & mask);
+    state.reg.gpr[rt] = val;
 }
 
 void eval_LDR(u32 instr) {
     IType(instr, sign_extend);
-    debugger::halt("LDR");
+
+    // @todo only BigEndianMem & !ReverseEndian for now
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+
+    // Not calling checkAddressAlignment:
+    // this instruction specifically ignores the alignment
+    checkException(
+        translateAddress(vAddr, &pAddr, true),
+        vAddr, false, false, 0);
+
+    size_t count = 1 + (pAddr % 8);
+    unsigned int shift = 0;
+    u64 mask = (1llu << (64 - 8 * count)) - 1u;
+    mask <<= 8 * count;
+    u64 val = 0;
+
+    for (size_t nr = 0; nr < count; nr++, shift += 8) {
+        u64 byte = 0;
+        if (!state.physmem.load(1, pAddr - nr, &byte)) {
+            takeException(BusError, vAddr, false, false);
+            return;
+        }
+        val |= (byte << shift);
+    }
+
+    val = val | (state.reg.gpr[rt] & mask);
+    state.reg.gpr[rt] = val;
 }
 
 void eval_LH(u32 instr) {
@@ -1388,12 +1442,52 @@ void eval_SDC2(u32 instr) {
 
 void eval_SDL(u32 instr) {
     IType(instr, sign_extend);
-    debugger::halt("SDL");
+
+    // @todo only BigEndianMem & !ReverseEndian for now
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+
+    // Not calling checkAddressAlignment:
+    // this instruction specifically ignores the alignment
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, false, false, 0);
+
+    size_t count = 8 - (pAddr % 8);
+    u64 val = state.reg.gpr[rt];
+    unsigned int shift = 56;
+    for (size_t nr = 0; nr < count; nr++, shift -= 8) {
+        u64 byte = (val >> shift) & 0xfflu;
+        if (!state.physmem.store(1, pAddr + nr, byte)) {
+            takeException(BusError, vAddr, false, false, 0);
+            return;
+        }
+    }
 }
 
 void eval_SDR(u32 instr) {
     IType(instr, sign_extend);
-    debugger::halt("SDR");
+
+    // @todo only BigEndianMem & !ReverseEndian for now
+    u64 vAddr = state.reg.gpr[rs] + imm;
+    u64 pAddr;
+
+    // Not calling checkAddressAlignment:
+    // this instruction specifically ignores the alignment
+    checkException(
+        translateAddress(vAddr, &pAddr, false),
+        vAddr, false, false, 0);
+
+    size_t count = 1 + (pAddr % 8);
+    u64 val = state.reg.gpr[rt];
+    unsigned int shift = 0;
+    for (size_t nr = 0; nr < count; nr++, shift += 8) {
+        u64 byte = (val >> shift) & 0xfflu;
+        if (!state.physmem.store(1, pAddr - nr, byte)) {
+            takeException(BusError, vAddr, false, false);
+            return;
+        }
+    }
 }
 
 void eval_SH(u32 instr) {
