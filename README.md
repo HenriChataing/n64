@@ -1,5 +1,5 @@
 
-# But why 
+# But why
 
 Because
 
@@ -7,5 +7,12 @@ Because
 
 ```
 ~# apt install libglfw3-dev libglew-dev libpng-dev
-~# python3 -m pip install gprof2dot 
+~# python3 -m pip install gprof2dot
+```
+
+# Build
+
+```
+~# git submodule update --init
+~# make
 ```
