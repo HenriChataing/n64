@@ -718,8 +718,6 @@ static void eval_VMACQ(u32 instr) {
     debugger::halt("VMACQ unsupported");
 }
 
-/// XXX TODO
-/// failure for N64/RSPTest/CP2/VMACF/RSPCP2VMACF.N64
 static void eval_VMACU(u32 instr) {
     u32 e = getElement(instr);
     u32 vt = getVt(instr);
@@ -733,8 +731,13 @@ static void eval_VMACU(u32 instr) {
         i32 res = (i16)state.rspreg.vr[vs].h[i] *
                   (i16)state.rspreg.vr[vt].h[j];
 
-        state.rspreg.vacc[i] += sign_extend<u64, u32>((u32)res << 1);
-        out.h[i] = clamp<u16, i32>((i32)(state.rspreg.vacc[i] >> 16));
+        state.rspreg.vacc[i] += (u32)res << 1;
+        state.rspreg.vacc[i] &= UINT32_C(0xffffffff);
+        // TODO not sure whether the top bits are cleared or preserved
+        // this will do for now.
+
+        u16 acc = (state.rspreg.vacc[i] >> 16);
+        out.h[i] = acc >= INT16_MAX ? UINT16_MAX : acc;
     }
 
     state.rspreg.vr[vd] = out;
