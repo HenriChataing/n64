@@ -316,7 +316,7 @@ static void pipeline_tx(pixel_t *px) {
  * copy loading a tile.
  */
 static void pipeline_palette_load(u8 ci, color_t *tx) {
-    u16 val = __builtin_bswap16(*(u16 *)&state.tmem[0x800 + (ci << 1)]);
+    u16 val = __builtin_bswap16(*(u16 *)&state.tmem[0x800 + (ci << 3)]);
     switch (rdp.other_modes.tlut_type) {
     /* I[15:8],A[7:0] =>
      * R [15:8]
@@ -1805,14 +1805,17 @@ void loadTlut(u64 command, u64 const *params) {
         return;
     }
 
-    unsigned line_size = (sh - sl) << 1;
-    u8 *src = &state.dram[rdp.texture_image.addr];
-    u8 *dst = &state.tmem[0x800 + (sl << 1)];
+    unsigned start = sl << 1;
+    unsigned end = sh << 1;
+    u16 *src = (u16 *)&state.dram[rdp.texture_image.addr + start];
+    u16 *dst = (u16 *)&state.tmem[rdp.tiles[tile].tmem_addr << 3];
 
-    memcpy(dst,         src, line_size);
-    memcpy(dst + 0x200, src, line_size);
-    memcpy(dst + 0x400, src, line_size);
-    memcpy(dst + 0x600, src, line_size);
+    for (unsigned i = start; i < end; i++, src++, dst+=4) {
+        dst[0] = *src;
+        dst[1] = *src;
+        dst[2] = *src;
+        dst[3] = *src;
+    }
 }
 
 void setTileSize(u64 command, u64 const *params) {
@@ -1991,9 +1994,6 @@ void setTile(u64 command, u64 const *params) {
 
     rdp.tiles[tile].type = convert_image_data_format(
         rdp.tiles[tile].format, rdp.tiles[tile].size);
-    if (rdp.tiles[tile].type == IMAGE_DATA_FORMAT_INVAL) {
-        debugger::halt("set_tile: invalid tile data format");
-    }
 }
 
 /** @brief Implement the fill rectangle command. */
