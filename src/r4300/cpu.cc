@@ -512,15 +512,7 @@ void eval_DIVU(u32 instr) {
     }
 }
 
-void eval_DMULT(u32 instr) {
-    RType(instr);
-    debugger::halt("DMULT");
-}
-
-void eval_DMULTU(u32 instr) {
-    RType(instr);
-    u64 x = state.reg.gpr[rs];
-    u64 y = state.reg.gpr[rt];
+static void mult_u64(u64 x, u64 y, u64 *hi, u64 *lo) {
     u64 a = x >> 32, b = x & 0xffffffffllu;
     u64 c = y >> 32, d = y & 0xffffffffllu;
 
@@ -531,8 +523,24 @@ void eval_DMULTU(u32 instr) {
 
     u64 mid34 = (bd >> 32) + (bc & 0xffffffffllu) + (ad & 0xffffffffllu);
 
-    state.reg.multHi = ac + (bc >> 32) + (ad >> 32) + (mid34 >> 32);
-    state.reg.multLo = (mid34 << 32) | (bd & 0xffffffffllu);
+    *hi = ac + (bc >> 32) + (ad >> 32) + (mid34 >> 32);
+    *lo = (mid34 << 32) | (bd & 0xffffffffllu);
+}
+
+void eval_DMULT(u32 instr) {
+    RType(instr);
+    mult_u64(state.reg.gpr[rs], state.reg.gpr[rt],
+             &state.reg.multHi, &state.reg.multLo);
+    if ((i64)state.reg.gpr[rs] < 0)
+        state.reg.multHi -= state.reg.gpr[rt];
+    if ((i64)state.reg.gpr[rt] < 0)
+        state.reg.multHi -= state.reg.gpr[rs];
+}
+
+void eval_DMULTU(u32 instr) {
+    RType(instr);
+    mult_u64(state.reg.gpr[rs], state.reg.gpr[rt],
+             &state.reg.multHi, &state.reg.multLo);
 }
 
 void eval_DSLL(u32 instr) {
