@@ -733,10 +733,10 @@ static void eval_VMACU(u32 instr) {
 
         state.rspreg.vacc[i] += (u32)res << 1;
         state.rspreg.vacc[i] &= UINT32_C(0xffffffff);
-        // TODO not sure whether the top bits are cleared or preserved
-        // this will do for now.
+        // TODO not sure whether the top bits are cleared or preserved.
+        // This will do for now.
 
-        u16 acc = (state.rspreg.vacc[i] >> 16);
+        u16 acc = state.rspreg.vacc[i] >> 16;
         out.h[i] = acc >= INT16_MAX ? UINT16_MAX : acc;
     }
 
@@ -776,7 +776,7 @@ static void eval_VMADL(u32 instr) {
         u32 res = (u32)state.rspreg.vr[vs].h[i] *
                   (u32)state.rspreg.vr[vt].h[j];
 
-        state.rspreg.vacc[i] += sign_extend<u64, u32>(res >> 16);
+        state.rspreg.vacc[i] += res >> 16;
         out.h[i] = state.rspreg.vacc[i];
     }
 
@@ -889,7 +889,7 @@ static void eval_VMUDL(u32 instr) {
         u32 res = (u32)state.rspreg.vr[vs].h[i] *
                   (u32)state.rspreg.vr[vt].h[j];
 
-        state.rspreg.vacc[i] = sign_extend<u64, u32>(res >> 16);
+        state.rspreg.vacc[i] = res >> 16;
         out.h[i] = res >> 16;
     }
 
@@ -1139,12 +1139,12 @@ static void eval_VRCP(u32 instr) {
               out_ < INT32_MIN ? INT32_MIN : out_;
     }
 
-    state.rspreg.divout = (u32)out;
     for (unsigned i = 0; i < 8; i++) {
         state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
-        state.rspreg.vacc[i] |= (u16)in;
+        state.rspreg.vacc[i] |= state.rspreg.vr[vt].h[i];
     }
-    state.rspreg.vr[vd].h[de] = (u16)(u32)out;
+    state.rspreg.divout = (u32)out;
+    state.rspreg.vr[vd].h[de] = (u32)out;
 }
 
 static void eval_VRCPH(u32 instr) {
@@ -1153,13 +1153,11 @@ static void eval_VRCPH(u32 instr) {
     u32 de = getVs(instr) & 0x7u;
     u32 vd = getVd(instr);
 
-    u16 in = state.rspreg.vr[vt].h[e];
-
-    state.rspreg.divin = (u32)in << 16;
     for (unsigned i = 0; i < 8; i++) {
         state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
-        state.rspreg.vacc[i] |= (u16)in;
+        state.rspreg.vacc[i] |= state.rspreg.vr[vt].h[i];
     }
+    state.rspreg.divin = (u32)state.rspreg.vr[vt].h[e] << 16;
     state.rspreg.vr[vd].h[de] = state.rspreg.divout >> 16;
 }
 
@@ -1187,12 +1185,12 @@ static void eval_VRCPL(u32 instr) {
               out_ < INT32_MIN ? INT32_MIN : out_;
     }
 
-    state.rspreg.divout = (u32)out;
     for (unsigned i = 0; i < 8; i++) {
         state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
-        state.rspreg.vacc[i] |= state.rspreg.vr[vt].h[e];
+        state.rspreg.vacc[i] |= state.rspreg.vr[vt].h[i];
     }
-    state.rspreg.vr[vd].h[de] = (u16)(u32)out;
+    state.rspreg.divout = (u32)out;
+    state.rspreg.vr[vd].h[de] = (u32)out;
 }
 
 static void eval_VRNDN(u32 instr) {
@@ -1227,12 +1225,12 @@ static void eval_VRSQ(u32 instr) {
               out_ < INT32_MIN ? INT32_MIN : out_;
     }
 
-    state.rspreg.divout = (u32)out;
     for (unsigned i = 0; i < 8; i++) {
         state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
-        state.rspreg.vacc[i] |= (u16)in;
+        state.rspreg.vacc[i] |= state.rspreg.vr[vt].h[i];
     }
-    state.rspreg.vr[vd].h[de] = (u16)(u32)out;
+    state.rspreg.divout = (u32)out;
+    state.rspreg.vr[vd].h[de] = (u32)out;
 }
 
 static void eval_VRSQH(u32 instr) {
@@ -1241,13 +1239,11 @@ static void eval_VRSQH(u32 instr) {
     u32 de = getVs(instr) & 0x7u;
     u32 vd = getVd(instr);
 
-    u16 in = state.rspreg.vr[vt].h[e];
-
-    state.rspreg.divin = (u32)in << 16;
     for (unsigned i = 0; i < 8; i++) {
         state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
-        state.rspreg.vacc[i] |= (u16)in;
+        state.rspreg.vacc[i] |= state.rspreg.vr[vt].h[i];
     }
+    state.rspreg.divin = (u32)state.rspreg.vr[vt].h[e] << 16;
     state.rspreg.vr[vd].h[de] = state.rspreg.divout >> 16;
 }
 
@@ -1275,11 +1271,11 @@ static void eval_VRSQL(u32 instr) {
               out_ < INT32_MIN ? INT32_MIN : out_;
     }
 
-    state.rspreg.divout = (u32)out;
     for (unsigned i = 0; i < 8; i++) {
         state.rspreg.vacc[i] &= ~UINT64_C(0xffff);
-        state.rspreg.vacc[i] |= state.rspreg.vr[vt].h[e];
+        state.rspreg.vacc[i] |= state.rspreg.vr[vt].h[i];
     }
+    state.rspreg.divout = (u32)out;
     state.rspreg.vr[vd].h[de] = (u16)(u32)out;
 }
 
