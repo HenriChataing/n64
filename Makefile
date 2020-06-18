@@ -51,7 +51,15 @@ OBJS      := \
     src/r4300/state.o \
     src/r4300/cop0.o \
     src/r4300/cop1.o \
-    src/r4300/hw.o \
+    src/r4300/hw/ai.o \
+    src/r4300/hw/cart.o \
+    src/r4300/hw/dpc.o \
+    src/r4300/hw/mi.o \
+    src/r4300/hw/pi.o \
+    src/r4300/hw/pif.o \
+    src/r4300/hw/ri.o \
+    src/r4300/hw/sp.o \
+    src/r4300/hw/vi.o \
     src/r4300/rsp.o \
     src/r4300/rdp.o \
     src/r4300/mmu.o \

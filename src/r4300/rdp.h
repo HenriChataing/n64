@@ -289,10 +289,6 @@ struct rdp {
 
 extern struct rdp rdp;
 
-void write_DPC_STATUS_REG(u32 value);
-void write_DPC_START_REG(u32 value);
-void write_DPC_END_REG(u32 value);
-
 };
 
 #endif /* _R4300_RDP_H_INCLUDED_ */

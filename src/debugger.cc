@@ -64,7 +64,7 @@ Debugger::Debugger()
     color[Debugger::RI] = fmt::color::wheat;
     color[Debugger::SI] = fmt::color::turquoise;
     color[Debugger::PIF] = fmt::color::tomato;
-    color[Debugger::Cart_2_1] = fmt::color::indian_red;
+    color[Debugger::Cart] = fmt::color::indian_red;
 }
 
 Debugger::~Debugger() {

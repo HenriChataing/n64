@@ -127,19 +127,19 @@ static void ShowRspCop2Registers(void) {
     for (unsigned e = 0; e < 8; e++) {
         ImGui::SameLine();
         ImGui::Text("%04" PRIx64,
-            (R4300::state.rspreg.vacc[e] >> 32) & UINT64_C(0xffff));
+            (R4300::state.rspreg.vacc[e].acc >> 32) & UINT64_C(0xffff));
     }
     ImGui::Text("       ");
     for (unsigned e = 0; e < 8; e++) {
         ImGui::SameLine();
         ImGui::Text("%04" PRIx64,
-            (R4300::state.rspreg.vacc[e] >> 16) & UINT64_C(0xffff));
+            (R4300::state.rspreg.vacc[e].acc >> 16) & UINT64_C(0xffff));
     }
     ImGui::Text("       ");
     for (unsigned e = 0; e < 8; e++) {
         ImGui::SameLine();
         ImGui::Text("%04" PRIx64,
-            R4300::state.rspreg.vacc[e] & UINT64_C(0xffff));
+            R4300::state.rspreg.vacc[e].acc & UINT64_C(0xffff));
     }
     for (unsigned int nr = 0; nr < 32; nr++) {
         ImGui::Text("vr%-2u   ", nr);
@@ -694,7 +694,7 @@ static void ShowSIRegisters(void) {
 static void ShowPIFInformation(void) {
 }
 
-static void ShowCart_2_1Information(void) {
+static void ShowCartInformation(void) {
 }
 
 struct Module {
@@ -722,7 +722,7 @@ static Module Modules[] = {
     { "HW::RI",         Debugger::RI,           ShowRIRegisters },
     { "HW::SI",         Debugger::SI,           ShowSIRegisters },
     { "HW::PIF",        Debugger::PIF,          ShowPIFInformation },
-    { "HW::Cart_2_1",   Debugger::Cart_2_1,     ShowCart_2_1Information },
+    { "HW::Cart"    ,   Debugger::Cart,         ShowCartInformation },
 };
 
 static void ShowScreen(bool *show_screen) {

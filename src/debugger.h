@@ -71,7 +71,7 @@ public:
         RI,
         SI,
         PIF,
-        Cart_2_1,
+        Cart,
 
         LabelCount,
     };

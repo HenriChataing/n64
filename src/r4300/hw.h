@@ -36,7 +36,10 @@ struct hwreg {
     u32 DPC_PIPE_BUSY_REG;
     u32 DPC_TMEM_REG;
 
-    // DPSPAN
+    u32 DPS_TBIST_REG;
+    u32 DPS_TEST_MODE_REG;
+    u32 DPS_BUFTEST_ADDR_REG;
+    u32 DPS_BUFTEST_DATA_REG;
 
     u32 MI_MODE_REG;
     u32 MI_VERSION_REG;
@@ -115,13 +118,70 @@ struct hwreg {
     } buttons;
 };
 
-void set_MI_INTR_REG(u32 bits);
-void clear_MI_INTR_REG(u32 bits);
+/* RdRam */
+bool read_RDRAM_REG(uint bytes, u64 addr, u64 *value);
+bool write_RDRAM_REG(uint bytes, u64 addr, u64 value);
+
+/* SP */
 void write_SP_RD_LEN_REG(u32 value);
 void write_SP_WR_LEN_REG(u32 value);
 void write_SP_STATUS_REG(u32 value);
 u32 read_SP_SEMAPHORE_REG();
+bool read_SP_REG(uint bytes, u64 addr, u64 *value);
+bool write_SP_REG(uint bytes, u64 addr, u64 value);
+
+/* DPCommand */
+void write_DPC_STATUS_REG(u32 value);
+void write_DPC_START_REG(u32 value);
+void write_DPC_END_REG(u32 value);
+bool read_DPC_REG(uint bytes, u64 addr, u64 *value);
+bool write_DPC_REG(uint bytes, u64 addr, u64 value);
+
+/* DPSpan */
+bool read_DPS_REG(uint bytes, u64 addr, u64 *value);
+bool write_DPS_REG(uint bytes, u64 addr, u64 value);
+
+/* MI */
+void set_MI_INTR_REG(u32 bits);
+void clear_MI_INTR_REG(u32 bits);
+bool read_MI_REG(uint bytes, u64 addr, u64 *value);
+bool write_MI_REG(uint bytes, u64 addr, u64 value);
+
+/* AI */
+bool read_AI_REG(uint bytes, u64 addr, u64 *value);
+bool write_AI_REG(uint bytes, u64 addr, u64 value);
+
+/* PI */
+bool read_PI_REG(uint bytes, u64 addr, u64 *value);
+bool write_PI_REG(uint bytes, u64 addr, u64 value);
+
+/* VI */
 void raise_VI_INTR(void);
+bool read_VI_REG(uint bytes, u64 addr, u64 *value);
+bool write_VI_REG(uint bytes, u64 addr, u64 value);
+
+/* RI */
+bool read_RI_REG(uint bytes, u64 addr, u64 *value);
+bool write_RI_REG(uint bytes, u64 addr, u64 value);
+
+/* SI */
+bool read_SI_REG(uint bytes, u64 addr, u64 *value);
+bool write_SI_REG(uint bytes, u64 addr, u64 value);
+
+/* Cartridge */
+bool read_CART_1_1(uint bytes, u64 addr, u64 *value);
+bool write_CART_1_1(uint bytes, u64 addr, u64 value);
+bool read_CART_1_3(uint bytes, u64 addr, u64 *value);
+bool write_CART_1_3(uint bytes, u64 addr, u64 value);
+bool read_CART_2_1(uint bytes, u64 addr, u64 *value);
+bool write_CART_2_1(uint bytes, u64 addr, u64 value);
+bool read_CART_2_2(uint bytes, u64 addr, u64 *value);
+bool write_CART_2_2(uint bytes, u64 addr, u64 value);
+
+/* PIF */
+bool read_PIF_RAM(uint bytes, u64 addr, u64 *value);
+bool write_PIF_RAM(uint bytes, u64 addr, u64 value);
+
 
 #define RDRAM_DEVICE_TYPE_18M   (UINT32_C(0xb2190020))
 #define RDRAM_DEVICE_TYPE_64M   (UINT32_C(0xb02a0020))
@@ -280,66 +340,6 @@ void raise_VI_INTR(void);
 #define SI_STATUS_DMA_ERROR     (UINT32_C(1) << 3)
 #define SI_STATUS_IO_BUSY       (UINT32_C(1) << 2)
 #define SI_STATUS_DMA_BUSY      (UINT32_C(1) << 0)
-
-namespace RdRam {
-bool read(uint bytes, u64 addr, u64 *value);
-bool write(uint bytes, u64 addr, u64 value);
-};
-
-namespace SP {
-bool read(uint bytes, u64 addr, u64 *value);
-bool write(uint bytes, u64 addr, u64 value);
-};
-
-namespace DPCommand {
-bool read(uint bytes, u64 addr, u64 *value);
-bool write(uint bytes, u64 addr, u64 value);
-};
-
-namespace DPSpan {
-bool read(uint bytes, u64 addr, u64 *value);
-bool write(uint bytes, u64 addr, u64 value);
-};
-
-namespace MI {
-bool read(uint bytes, u64 addr, u64 *value);
-bool write(uint bytes, u64 addr, u64 value);
-};
-
-namespace VI {
-bool read(uint bytes, u64 addr, u64 *value);
-bool write(uint bytes, u64 addr, u64 value);
-};
-
-namespace AI {
-bool read(uint bytes, u64 addr, u64 *value);
-bool write(uint bytes, u64 addr, u64 value);
-};
-
-namespace PI {
-bool read(uint bytes, u64 addr, u64 *value);
-bool write(uint bytes, u64 addr, u64 value);
-};
-
-namespace RI {
-bool read(uint bytes, u64 addr, u64 *value);
-bool write(uint bytes, u64 addr, u64 value);
-};
-
-namespace SI {
-bool read(uint bytes, u64 addr, u64 *value);
-bool write(uint bytes, u64 addr, u64 value);
-};
-
-namespace Cart_2_1 {
-bool read(uint bytes, u64 addr, u64 *value);
-bool write(uint bytes, u64 addr, u64 value);
-};
-
-namespace PIF {
-bool read(uint bytes, u64 addr, u64 *value);
-bool write(uint bytes, u64 addr, u64 value);
-};
 
 };
 

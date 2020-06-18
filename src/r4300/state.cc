@@ -34,22 +34,24 @@ State::State() : physmem(0, 0x100000000llu) {
     // importing the rom bytes for the select file.
     physmem.root.insertRam(  0x00000000llu, 0x400000, dram);   /* RDRAM ranges 0, 1 */
     physmem.root.insertIOmem(0x00400000llu, 0x400000, RAZ, WI);/* RDRAM ranges 2, 3 (extended) */
-    physmem.root.insertIOmem(0x03f00000llu, 0x100000, RdRam::read, RdRam::write); /* RDRAM Registers */
-    physmem.root.insertRam(  0x04000000llu, 0x1000, dmem);     /* SP DMEM */
-    physmem.root.insertRam(  0x04001000llu, 0x1000, imem);     /* SP IMEM */
-    physmem.root.insertIOmem(0x04040000llu, 0x80000, SP::read, SP::write); /* SP Registers */
-    physmem.root.insertIOmem(0x04100000llu, 0x100000, DPCommand::read, DPCommand::write); /* DP Command Registers */
-    physmem.root.insertIOmem(0x04200000llu, 0x100000, DPSpan::read, DPSpan::write); /* DP Span Registers */
-    physmem.root.insertIOmem(0x04300000llu, 0x100000, MI::read, MI::write); /* Mips Interface */
-    physmem.root.insertIOmem(0x04400000llu, 0x100000, VI::read, VI::write); /* Video Interface */
-    physmem.root.insertIOmem(0x04500000llu, 0x100000, AI::read, AI::write); /* Audio Interface */
-    physmem.root.insertIOmem(0x04600000llu, 0x100000, PI::read, PI::write); /* Peripheral Interface */
-    physmem.root.insertIOmem(0x04700000llu, 0x100000, RI::read, RI::write); /* RDRAM Interface */
-    physmem.root.insertIOmem(0x04800000llu, 0x100000, SI::read, SI::write); /* Serial Interface */
-    physmem.root.insertIOmem(0x05000000llu, 0x1000000, Cart_2_1::read, Cart_2_1::write);
+    physmem.root.insertIOmem(0x03f00000llu, 0x100000, read_RDRAM_REG, write_RDRAM_REG);
+    physmem.root.insertRam(  0x04000000llu, 0x1000,   dmem);     /* SP DMEM */
+    physmem.root.insertRam(  0x04001000llu, 0x1000,   imem);     /* SP IMEM */
+    physmem.root.insertIOmem(0x04040000llu, 0x80000,  read_SP_REG,    write_SP_REG);
+    physmem.root.insertIOmem(0x04100000llu, 0x100000, read_DPC_REG,   write_DPC_REG);
+    physmem.root.insertIOmem(0x04200000llu, 0x100000, read_DPS_REG,   write_DPS_REG);
+    physmem.root.insertIOmem(0x04300000llu, 0x100000, read_MI_REG,    write_MI_REG);
+    physmem.root.insertIOmem(0x04400000llu, 0x100000, read_VI_REG,    write_VI_REG);
+    physmem.root.insertIOmem(0x04500000llu, 0x100000, read_AI_REG,    write_AI_REG);
+    physmem.root.insertIOmem(0x04600000llu, 0x100000, read_PI_REG,    write_PI_REG);
+    physmem.root.insertIOmem(0x04700000llu, 0x100000, read_RI_REG,    write_RI_REG);
+    physmem.root.insertIOmem(0x04800000llu, 0x100000, read_SI_REG,    write_SI_REG);
+    physmem.root.insertIOmem(0x05000000llu, 0x1000000,    read_CART_2_1, write_CART_2_1);
+    physmem.root.insertIOmem(0x06000000llu, 0x2000000,    read_CART_1_1, write_CART_1_1);
+    physmem.root.insertIOmem(0x08000000llu, 0x8000000,    read_CART_2_2, write_CART_2_2);
     physmem.root.insertRom(  0x10000000llu, 0xfc00000, rom); /* Cartridge Domain 1 Address 2 */
-    physmem.root.insertIOmem(0x1fc00000llu, 0x100000, PIF::read, PIF::write);
-    physmem.root.insertIOmem(0x1fd00000llu, 0x60300000lu, RAZ, WI); /* Cartridge Domain 1 Address 3*/
+    physmem.root.insertIOmem(0x1fc00000llu, 0x100000,     read_PIF_RAM,  write_PIF_RAM);
+    physmem.root.insertIOmem(0x1fd00000llu, 0x60300000lu, read_CART_1_3, write_CART_1_3);
 }
 
 State::~State() {
