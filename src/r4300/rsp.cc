@@ -100,23 +100,17 @@ static inline u32 getVd(u32 instr) {
 
 static void loadVectorBytesAt(unsigned vr, unsigned element, u8 *addr,
                               unsigned count) {
-    for (unsigned i = 0; i < count; i++, element++, addr++) {
-#if __BYTE_ORDER__ == __BIG_ENDIAN
-        state.rspreg.vr[vr].b[element] = *addr;
-#else
-        state.rspreg.vr[vr].b[element ^ 1u] = *addr;
-#endif
+    for (unsigned i = 0; i < count && element < 16; i++, element++, addr++) {
+        unsigned le = __BYTE_ORDER__ == __LITTLE_ENDIAN;
+        state.rspreg.vr[vr].b[element ^ le] = *addr;
     }
 }
 
 static void loadVectorBytes(unsigned vr, unsigned element, unsigned addr,
                             unsigned count) {
-    for (unsigned i = 0; i < count; i++, element++, addr++) {
-#if __BYTE_ORDER__ == __BIG_ENDIAN
-        state.rspreg.vr[vr].b[element] = state.dmem[addr & 0xfffu];
-#else
-        state.rspreg.vr[vr].b[element ^ 1u] = state.dmem[addr & 0xfffu];
-#endif
+    for (unsigned i = 0; i < count && element < 16; i++, element++, addr++) {
+        unsigned le = __BYTE_ORDER__ == __LITTLE_ENDIAN;
+        state.rspreg.vr[vr].b[element ^ le] = state.dmem[addr & 0xfffu];
     }
 }
 
@@ -124,13 +118,26 @@ static void eval_LTV(u32 instr) {
     u32 base = (instr >> 21) & 0x1flu;
     u32 vt = (instr >> 16) & 0x1flu;
     u32 element = (instr >> 7) & 0xflu;
-    u32 offset = i7_to_i32(instr & 0x7flu);
-    u32 addr = state.rspreg.gpr[base] + (offset << 4);
+    u32 offset = instr & 0x7flu;
+    u32 addr = state.rspreg.gpr[base];
+
+    // Compose base address with offset. The bytes are loaded
+    // from the 16byte window starting at this base address.
+    // The load starts at the element slice offset, and wraps to the
+    // start address.
+    addr = addr + (offset << 4);
+    unsigned slice = element;
 
     for (unsigned i = 0; i < 8; i++) {
+        unsigned le = __BYTE_ORDER__ == __LITTLE_ENDIAN;
         unsigned vs = (vt & 0x18u) | ((i + (element >> 1)) & 0x7u);
-        unsigned slice = (i + (element >> 1)) & 0x7u;
-        loadVectorBytes(vs, 2 * i, addr + 2 * slice, 2);
+
+        state.rspreg.vr[vs].b[(2 * i) ^ le] =
+            state.dmem[(addr + (slice % 16)) & 0xfffu];
+        slice++;
+        state.rspreg.vr[vs].b[(2 * i + 1) ^ le] =
+            state.dmem[(addr + (slice % 16)) & 0xfffu];
+        slice++;
     }
 }
 
@@ -138,7 +145,7 @@ static void eval_LWV(u32 instr) {
     u32 base = (instr >> 21) & 0x1flu;
     u32 vt = (instr >> 16) & 0x1flu;
     u32 element = (instr >> 7) & 0xflu;
-    u32 offset = i7_to_i32(instr & 0x7flu);
+    u32 offset = instr & 0x7flu;
     u32 addr = state.rspreg.gpr[base] + (offset << 4);
 
     for (unsigned i = 0; i < 8; i++) {
@@ -147,25 +154,127 @@ static void eval_LWV(u32 instr) {
     }
 }
 
+static void eval_LRV(u32 instr) {
+    u32 base = (instr >> 21) & 0x1flu;
+    u32 vt = (instr >> 16) & 0x1flu;
+    u32 element = (instr >> 7) & 0xflu;
+    u32 offset = instr & 0x7flu;
+    u32 addr = state.rspreg.gpr[base];
+
+    if (element != 0)
+        debugger::undefined("LRV with non-zero element");
+
+    // Compose base address with offset. The bytes are loaded
+    // from the 16byte window starting at the base address aligned
+    // to 16byte boundary.
+    addr = addr + (offset << 4);
+    u32 addr_aligned = addr & 0xff0u;
+    u32 addr_offset  = addr & 0xfu;
+
+    loadVectorBytes(vt, element + 16 - addr_offset,
+                    addr_aligned, addr_offset);
+}
+
 static void eval_LPV(u32 instr) {
     u32 base = (instr >> 21) & 0x1flu;
     u32 vt = (instr >> 16) & 0x1flu;
-    u32 offset = i7_to_i32(instr & 0x7flu);
-    u32 addr = state.rspreg.gpr[base] + (offset << 3);
+    u32 element = (instr >> 7) & 0xflu;
+    u32 offset = instr & 0x7flu;
+    u32 addr = state.rspreg.gpr[base];
+
+    if (element != 0)
+        debugger::undefined("LPV with non-zero element");
+
+    // Compose base address with offset. The bytes are loaded
+    // from the 16byte window starting at the base address
+    // aligned to 8byte boundary.
+    addr = addr + (offset << 3);
+    u32 addr_aligned = addr & 0xff8u;
+    u32 addr_offset  = addr & 0x7u;
 
     for (unsigned i = 0; i < 8; i++) {
-        state.rspreg.vr[vt].h[i] = (u16)state.dmem[(addr + i) & 0xfffu] << 8;
+        unsigned slice = (addr_offset + i - element) % 16;
+        state.rspreg.vr[vt].h[i] =
+            (u16)state.dmem[(addr_aligned + slice) & 0xfffu] << 8;
     }
 }
 
 static void eval_LUV(u32 instr) {
     u32 base = (instr >> 21) & 0x1flu;
     u32 vt = (instr >> 16) & 0x1flu;
-    u32 offset = i7_to_i32(instr & 0x7flu);
-    u32 addr = state.rspreg.gpr[base] + (offset << 3);
+    u32 element = (instr >> 7) & 0xflu;
+    u32 offset = instr & 0x7flu;
+    u32 addr = state.rspreg.gpr[base];
+
+    if (element != 0)
+        debugger::undefined("LUV with non-zero element");
+
+    // Compose base address with offset. The bytes are loaded
+    // from the 16byte window starting at the base address
+    // aligned to 8byte boundary.
+    addr = addr + (offset << 3);
+    u32 addr_aligned = addr & 0xff8u;
+    u32 addr_offset  = addr & 0x7u;
 
     for (unsigned i = 0; i < 8; i++) {
-        state.rspreg.vr[vt].h[i] = (u16)state.dmem[(addr + i) & 0xfffu] << 7;
+        unsigned slice = (addr_offset + i - element) % 16;
+        state.rspreg.vr[vt].h[i] =
+            (u16)state.dmem[(addr_aligned + slice) & 0xfffu] << 7;
+    }
+}
+
+static void eval_LHV(u32 instr) {
+    u32 base = (instr >> 21) & 0x1flu;
+    u32 vt = (instr >> 16) & 0x1flu;
+    u32 element = (instr >> 7) & 0xflu;
+    u32 offset = instr & 0x7flu;
+    u32 addr = state.rspreg.gpr[base];
+
+    if (element != 0)
+        debugger::undefined("LHV with non-zero element");
+
+    // Compose base address with offset. The bytes are loaded
+    // from the 16byte window starting at the base address
+    // aligned to 8byte boundary.
+    addr = addr + (offset << 4);
+    u32 addr_aligned = addr & 0xff8u;
+    u32 addr_offset  = addr & 0x7u;
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned slice = (addr_offset + 2 * i - element) % 16;
+        state.rspreg.vr[vt].h[i] =
+            (u16)state.dmem[(addr_aligned + slice) & 0xfffu] << 7;
+    }
+}
+
+static void eval_LFV(u32 instr) {
+    u32 base = (instr >> 21) & 0x1flu;
+    u32 vt = (instr >> 16) & 0x1flu;
+    u32 element = (instr >> 7) & 0xflu;
+    u32 offset = instr & 0x7flu;
+    u32 addr = state.rspreg.gpr[base];
+
+    if (element != 0)
+        debugger::undefined("LFV with non-zero element");
+
+    debugger::halt("LFV TODO");
+
+    // Compose base address with offset. The bytes are loaded
+    // from the 16byte window starting at the base address
+    // aligned to 8byte boundary.
+    addr = addr + (offset << 4);
+    u32 addr_aligned = addr & 0xff8u;
+    u32 addr_offset  = addr & 0x7u;
+
+    for (unsigned i = 0; i < 4; i++) {
+        unsigned le = __BYTE_ORDER__ == __LITTLE_ENDIAN;
+        unsigned slice = (addr_offset + 4 * i) % 16;
+        unsigned index_hi = (element + 2 * i) % 16;
+        unsigned index_lo = (element + 2 * i + 1) % 16;
+
+        u16 val = (u16)state.dmem[(addr_aligned + slice) & 0xfffu] << 7;
+        state.rspreg.vr[vt].b[index_hi ^ le] = val >> 8;
+        state.rspreg.vr[vt].b[index_lo ^ le] = val;
     }
 }
 
@@ -196,21 +305,11 @@ static void eval_LWC2(u32 instr) {
             loadVectorBytes(vt, element, start, end - start);
             break;
         }
-        case UINT32_C(0x5): { /* LRV */
-            u32 end = addr + (offset << 4);
-            u32 start = (end & ~UINT32_C(15));
-            element = 16 - (end & UINT32_C(15));
-            loadVectorBytes(vt, element, start, end - start);
-            break;
-        }
+        case UINT32_C(0x5): eval_LRV(instr); break;
         case UINT32_C(0x6): eval_LPV(instr); break;
         case UINT32_C(0x7): eval_LUV(instr); break;
-        case UINT32_C(0x8): /* LHV */
-            debugger::halt("RSP::LHV not supported");
-            break;
-        case UINT32_C(0x9): /* LFV */
-            debugger::halt("RSP::LFV not supported");
-            break;
+        case UINT32_C(0x8): eval_LHV(instr); break;
+        case UINT32_C(0x9): eval_LFV(instr); break;
         case UINT32_C(0xa): eval_LWV(instr); break;
         case UINT32_C(0xb): eval_LTV(instr); break;
         default:
@@ -222,46 +321,144 @@ static void eval_LWC2(u32 instr) {
 static void storeVectorBytesAt(unsigned vr, unsigned element, u8 *addr,
                                unsigned count) {
     for (unsigned i = 0; i < count; i++, element++, addr++) {
-#if __BYTE_ORDER__ == __BIG_ENDIAN
-        *addr = state.rspreg.vr[vr].b[element];
-#else
-        *addr = state.rspreg.vr[vr].b[element ^ 1u];
-#endif
+        unsigned le = __BYTE_ORDER__ == __LITTLE_ENDIAN;
+        unsigned index = element % 16;
+        *addr = state.rspreg.vr[vr].b[index ^ le];
     }
 }
 
 static void storeVectorBytes(unsigned vr, unsigned element, unsigned addr,
                              unsigned count) {
     for (unsigned i = 0; i < count; i++, element++, addr++) {
-#if __BYTE_ORDER__ == __BIG_ENDIAN
-        state.dmem[addr & 0xfffu] = state.rspreg.vr[vr].b[element];
-#else
-        state.dmem[addr & 0xfffu] = state.rspreg.vr[vr].b[element ^ 1u];
-#endif
+        unsigned le = __BYTE_ORDER__ == __LITTLE_ENDIAN;
+        unsigned index = element % 16;
+        state.dmem[addr & 0xfffu] = state.rspreg.vr[vr].b[index ^ le];
+    }
+}
+
+static void eval_SRV(u32 instr) {
+    u32 base = (instr >> 21) & 0x1flu;
+    u32 vt = (instr >> 16) & 0x1flu;
+    u32 element = (instr >> 7) & 0xflu;
+    u32 offset = instr & 0x7flu;
+    u32 addr = state.rspreg.gpr[base];
+
+    if (element != 0)
+        debugger::undefined("SRV with non-zero element");
+
+    // Compose base address with offset. The bytes are loaded
+    // from the 16byte window starting at the base address aligned
+    // to 16byte boundary.
+    addr = addr + (offset << 4);
+    u32 addr_aligned = addr & 0xff0u;
+    u32 addr_offset  = addr & 0xfu;
+
+    storeVectorBytes(vt, element + 16 - addr_offset,
+                     addr_aligned, addr_offset);
+}
+
+static void eval_SPV_SUV(u32 instr, bool suv) {
+    u32 base = (instr >> 21) & 0x1flu;
+    u32 vt = (instr >> 16) & 0x1flu;
+    u32 element = (instr >> 7) & 0xflu;
+    u32 offset = instr & 0x7flu;
+    u32 addr = state.rspreg.gpr[base];
+
+    if (element != 0) {
+        debugger::undefined(
+            suv ? "SUV with non-zero element"
+                : "SPV with non-zero element");
+    }
+
+    // Compose base address with offset.
+    addr = addr + (offset << 3);
+
+    // This instruction is implemented conjointly with LUV;
+    // when using the byte element 8 the SUV behaviour
+    // with element 0 is observed instead.
+    if (suv) element += 8;
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned le = __BYTE_ORDER__ == __LITTLE_ENDIAN;
+        unsigned index = (element + i) % 16;
+        unsigned index_hi = (2 * index) % 16;
+        unsigned index_lo = (2 * index + 1) % 16;
+        unsigned rshift = index >= 8 ? 7 : 8;
+
+        u16 val = ((u16)state.rspreg.vr[vt].b[index_hi ^ le] << 8) |
+                   (u16)state.rspreg.vr[vt].b[index_lo ^ le];
+
+        state.dmem[(addr + i) & 0xfffu] = val >> rshift;
     }
 }
 
 static void eval_SPV(u32 instr) {
-    u32 base = (instr >> 21) & 0x1flu;
-    u32 vt = (instr >> 16) & 0x1flu;
-    u32 offset = i7_to_i32(instr & 0x7flu);
-    u32 addr = state.rspreg.gpr[base] + (offset << 3);
-
-    for (unsigned i = 0; i < 8; i++, addr++) {
-        u8 val = state.rspreg.vr[vt].h[i] >> 8;
-        state.dmem[addr & 0xfffu] = val;
-    }
+    eval_SPV_SUV(instr, false);
 }
 
 static void eval_SUV(u32 instr) {
+    eval_SPV_SUV(instr, true);
+}
+
+static void eval_SHV(u32 instr) {
     u32 base = (instr >> 21) & 0x1flu;
     u32 vt = (instr >> 16) & 0x1flu;
-    u32 offset = i7_to_i32(instr & 0x7flu);
-    u32 addr = state.rspreg.gpr[base] + (offset << 3);
+    u32 element = (instr >> 7) & 0xflu;
+    u32 offset = instr & 0x7flu;
+    u32 addr = state.rspreg.gpr[base];
 
-    for (unsigned i = 0; i < 8; i++, addr++) {
-        u8 val = state.rspreg.vr[vt].h[i] >> 7;
-        state.dmem[addr & 0xfffu] = val;
+    if (element != 0)
+        debugger::undefined("SHV with non-zero element");
+
+    // Compose base address with offset. The bytes are stored
+    // into the 16byte window starting at the base address aligned
+    // to 16byte boundary.
+    addr = addr + (offset << 4);
+    u32 addr_aligned = addr & 0xff8u;
+    u32 addr_offset  = addr & 0x7u;
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned le = __BYTE_ORDER__ == __LITTLE_ENDIAN;
+        unsigned index_hi = (element + 2 * i) % 16;
+        unsigned index_lo = (element + 2 * i + 1) % 16;
+        unsigned slice = (addr_offset + 2 * i) % 16;
+
+        u16 val = ((u16)state.rspreg.vr[vt].b[index_hi ^ le] << 8) |
+                   (u16)state.rspreg.vr[vt].b[index_lo ^ le];
+
+        state.dmem[(addr_aligned + slice) & 0xfffu] = val >> 7;
+    }
+}
+
+static void eval_SFV(u32 instr) {
+    u32 base = (instr >> 21) & 0x1flu;
+    u32 vt = (instr >> 16) & 0x1flu;
+    u32 element = (instr >> 7) & 0xflu;
+    u32 offset = instr & 0x7flu;
+    u32 addr = state.rspreg.gpr[base];
+
+    if (element != 0)
+        debugger::undefined("SFV with non-zero element");
+
+    debugger::halt("SFV TODO");
+
+    // Compose base address with offset. The bytes are stored
+    // into the 16byte window starting at the base address aligned
+    // to 16byte boundary.
+    addr = addr + (offset << 4);
+    u32 addr_aligned = addr & 0xff8u;
+    u32 addr_offset  = addr & 0x7u;
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned le = __BYTE_ORDER__ == __LITTLE_ENDIAN;
+        unsigned index_hi = (element + 2 * i) % 16;
+        unsigned index_lo = (element + 2 * i + 1) % 16;
+        unsigned slice = (addr_offset + 4 * i) % 16;
+
+        u16 val = ((u16)state.rspreg.vr[vt].b[index_hi ^ le] << 8) |
+                   (u16)state.rspreg.vr[vt].b[index_lo ^ le];
+
+        state.dmem[(addr_aligned + slice) & 0xfffu] = val >> 7;
     }
 }
 
@@ -269,12 +466,27 @@ static void eval_STV(u32 instr) {
     u32 base = (instr >> 21) & 0x1flu;
     u32 vt = (instr >> 16) & 0x1flu;
     u32 element = (instr >> 7) & 0xflu;
-    u32 offset = i7_to_i32(instr & 0x7flu);
-    u32 addr = state.rspreg.gpr[base] + (offset << 4);
+    u32 offset = instr & 0x7flu;
+    u32 addr = state.rspreg.gpr[base];
 
-    for (unsigned i = 0; i < 8; i++, addr += 2) {
+    // Compose base address with offset. The bytes are stored
+    // into the 16byte window starting at the base address aligned
+    // to 8byte boundary.
+    addr = addr + (offset << 4);
+    u32 addr_aligned = addr & 0xff8u;
+    u32 addr_offset  = addr & 0x7u;
+    unsigned slice = addr_offset;
+
+    for (unsigned i = 0; i < 8; i++) {
+        unsigned le = __BYTE_ORDER__ == __LITTLE_ENDIAN;
         unsigned vs = (vt & 0x18u) | ((i + (element >> 1)) & 0x7u);
-        storeVectorBytes(vs, 2 * i, addr, 2);
+
+        state.dmem[(addr_aligned + (slice % 16)) & 0xfffu] =
+            state.rspreg.vr[vs].b[(2 * i) ^ le];
+        slice++;
+        state.dmem[(addr_aligned + (slice % 16)) & 0xfffu] =
+            state.rspreg.vr[vs].b[(2 * i + 1) ^ le];
+        slice++;
     }
 }
 
@@ -282,12 +494,28 @@ static void eval_SWV(u32 instr) {
     u32 base = (instr >> 21) & 0x1flu;
     u32 vt = (instr >> 16) & 0x1flu;
     u32 element = (instr >> 7) & 0xflu;
-    u32 offset = i7_to_i32(instr & 0x7flu);
-    u32 addr = state.rspreg.gpr[base] + (offset << 4);
+    u32 offset = instr & 0x7flu;
+    u32 addr = state.rspreg.gpr[base];
+
+    // Compose base address with offset. The bytes are stored
+    // into the 16byte window starting at the base address aligned
+    // to 8byte boundary.
+    addr = addr + (offset << 4);
+    u32 addr_aligned = addr & 0xff8u;
+    u32 addr_offset  = addr & 0x7u;
+    unsigned slice = addr_offset;
 
     for (unsigned i = 0; i < 8; i++) {
-        unsigned slice = (i + 8u - (element >> 1)) & 0x7u;
-        storeVectorBytes(vt, 2 * i, addr + 2 * slice, 2);
+        unsigned le = __BYTE_ORDER__ == __LITTLE_ENDIAN;
+        unsigned index_hi = (2 * i + element) % 16;
+        unsigned index_lo = (2 * i + 1 + element) % 16;
+
+        state.dmem[(addr_aligned + (slice % 16)) & 0xfffu] =
+            state.rspreg.vr[vt].b[index_hi ^ le];
+        slice++;
+        state.dmem[(addr_aligned + (slice % 16)) & 0xfffu] =
+            state.rspreg.vr[vt].b[index_lo ^ le];
+        slice++;
     }
 }
 
@@ -318,21 +546,11 @@ static void eval_SWC2(u32 instr) {
             storeVectorBytes(vt, element, start, end - start);
             break;
         }
-        case UINT32_C(0x5): { /* SRV */
-            u32 end = addr + (offset << 4);
-            u32 start = (end & ~UINT32_C(15));
-            element = 16 - (end & UINT32_C(15));
-            storeVectorBytes(vt, element, start, end - start);
-            break;
-        }
+        case UINT32_C(0x5): eval_SRV(instr); break;
         case UINT32_C(0x6): eval_SPV(instr); break;
         case UINT32_C(0x7): eval_SUV(instr); break;
-        case UINT32_C(0x8): /* SHV */
-            debugger::halt("RSP::SHV not supported");
-            break;
-        case UINT32_C(0x9): /* SFV */
-            debugger::halt("RSP::SFV not supported");
-            break;
+        case UINT32_C(0x8): eval_SHV(instr); break;
+        case UINT32_C(0x9): eval_SFV(instr); break;
         case UINT32_C(0xa): eval_SWV(instr); break;
         case UINT32_C(0xb): eval_STV(instr); break;
         default:
@@ -634,7 +852,7 @@ static void eval_VEQ(u32 instr) {
     }
 
     state.rspreg.vco = 0;
-    state.rspreg.vce = 0;
+    state.rspreg.vce &= 0xff;
     state.rspreg.vr[vd] = out;
 }
 
@@ -668,7 +886,7 @@ static void eval_VGE(u32 instr) {
     }
 
     state.rspreg.vco = 0;
-    state.rspreg.vce = 0;
+    state.rspreg.vce &= 0xff;
     state.rspreg.vr[vd] = out;
 }
 
@@ -702,7 +920,7 @@ static void eval_VLT(u32 instr) {
     }
 
     state.rspreg.vco = 0;
-    state.rspreg.vce = 0;
+    state.rspreg.vce &= 0xff;
     state.rspreg.vr[vd] = out;
 }
 
@@ -858,6 +1076,7 @@ static void eval_VMRG(u32 instr) {
         out.h[i] = res;
     }
 
+    state.rspreg.vco = 0;
     state.rspreg.vr[vd] = out;
 }
 
@@ -1034,7 +1253,7 @@ static void eval_VNE(u32 instr) {
     }
 
     state.rspreg.vco = 0;
-    state.rspreg.vce = 0;
+    state.rspreg.vce &= 0xff;
     state.rspreg.vr[vd] = out;
 }
 
@@ -1178,7 +1397,7 @@ static void eval_VRCPL(u32 instr) {
         state.rspreg.divin &= ~UINT32_C(0xffff);
         state.rspreg.divin |= state.rspreg.vr[vt].h[e];
     } else {
-        debugger::halt("RCPL divin not loaded");
+        // debugger::halt("RCPL divin not loaded");
         state.rspreg.divin = sign_extend<u32, u16>(state.rspreg.vr[vt].h[e]);
     }
 
@@ -1235,7 +1454,9 @@ static void eval_VRSQ(u32 instr) {
 
     state.rspreg.divin = divin;
 
-    if (in == 0) {
+    if ((u16)in == UINT16_C(0x8000)) {
+        divout = 0xffff0000lu;
+    } else if (in == 0) {
         divout = INT32_MAX;
     } else {
         divout = load_RSQ_ROM(divin);
@@ -1274,7 +1495,6 @@ static void eval_VRSQL(u32 instr) {
         state.rspreg.divin &= ~UINT32_C(0xffff);
         state.rspreg.divin |= state.rspreg.vr[vt].h[e];
     } else {
-        debugger::halt("RSQ divin not loaded");
         state.rspreg.divin = sign_extend<u32, u16>(state.rspreg.vr[vt].h[e]);
     }
 
@@ -1282,7 +1502,9 @@ static void eval_VRSQL(u32 instr) {
     u32 divin = in < 0 ? (u32)(i32)-in : (u32)in;
     u32 divout;
 
-    if (in == 0) {
+    if ((u32)in == UINT32_C(0xffff8000)) {
+        divout = 0xffff0000lu;
+    } else if (in == 0) {
         divout = INT32_MAX;
     } else {
         divout = load_RSQ_ROM(divin);
@@ -1353,6 +1575,7 @@ static void eval_VSUB(u32 instr) {
     }
 
     state.rspreg.vr[vd] = out;
+    state.rspreg.vco = 0;
 }
 
 static void eval_VSUBC(u32 instr) {
@@ -1750,18 +1973,26 @@ void eval_MTC2(u32 instr) {
 void eval_CFC2(u32 instr) {
     u32 rt = Mips::getRt(instr);
     u32 rd = Mips::getRd(instr);
-    u32 val = 0;
+    u16 val = 0;
 
     switch (rd) {
     case 0: val = state.rspreg.vco; break;
     case 1: val = state.rspreg.vcc; break;
     case 2: val = state.rspreg.vce; break;
     }
-    state.rspreg.gpr[rt] = val;
+    state.rspreg.gpr[rt] = sign_extend<u64, u16>(val);
 }
 
 void eval_CTC2(u32 instr) {
-    debugger::halt("RSP::CTC2 unsupported");
+    u32 rt = Mips::getRt(instr);
+    u32 rd = Mips::getRd(instr);
+    u32 val = state.rspreg.gpr[rt];
+
+    switch (rd) {
+    case 0: state.rspreg.vco = val; break;
+    case 1: state.rspreg.vcc = val; break;
+    case 2: state.rspreg.vce = val; break;
+    }
 }
 
 void eval_J(u32 instr) {
