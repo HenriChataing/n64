@@ -1097,35 +1097,66 @@ static void render_span(i32 y, i32 xs, i32 xe,
 
 namespace Cycle1Mode {
 
-/** @brief Fills the line with coordinates (xs,y), (xe, y) with the
- * fill color. Input coordinates are in 10.2 fixedpoint format. */
-static void render_span(bool left, i32 y, i32 xs, i32 xe,
+/** @brief Renders the line composed of the four quarter lines
+ * with coordinates y, x. x contains the start and end bounds of each
+ * quarter line, in this order. The y coordinate is an integer, the x
+ * coordinates are in S15.16 format. */
+static void render_span(bool left, i32 y, i32 x[8],
                         struct shade_coefs const *shade,
                         struct texture_coefs const *texture,
                         struct zbuffer_coefs const *zbuffer) {
 
+    // Skip the line if outside the current scissor box's vertical range,
+    // or depending on the scissor field selection.
     if ((y << 2) <  rdp.scissor.yh ||
         (y << 2) >= rdp.scissor.yl ||
-        xe <= xs || rdp.scissor.xl == 0 ||
         (rdp.scissor.skip_odd  &&  (y % 2)) ||
         (rdp.scissor.skip_even && !(y % 2)))
         return;
 
-    // Clip x coordinate and convert to integer values
-    // from fixed point 15.16 format.
-    xs = std::max(xs >> 14, (i32)rdp.scissor.xh) >> 2;
-    xe = std::min(xe >> 14, (i32)rdp.scissor.xl - 1) >> 2;
-    xs = std::max(xs, 0);
-    xe = std::min(xe, (i32)rdp.color_image.width);
+    // Round the x coordinates up or down to the nearest quarter pixel,
+    // convert the result to S10.2 values and clamp to the scissor box
+    // (or screen limits, depending).
+    for (unsigned i = 0; i < 4; i++) {
+        i32 _xs = x[i];
+        i32 _xe = x[i + 4];
 
-    unsigned offset = rdp.color_image.addr +
-        ((xs + y * rdp.color_image.width) << (rdp.color_image.size - 1));
-    unsigned length = (xe - xs) << (rdp.color_image.size - 1);
+        if (_xs < 0)
+            _xs = 0;
+        if (_xe < 0)
+            _xe = 0;
 
-    if ((offset + length) > sizeof(state.dram)) {
+        _xs =  _xs >> 14;
+        _xe = (_xe + (1l << 14) - 1) >> 14;
+
+        if (_xs < rdp.scissor.xh)
+            _xs = rdp.scissor.xh;
+        if (_xe > rdp.scissor.xl - 1)
+            _xe = rdp.scissor.xl - 1;
+        if (_xe > ((i32)rdp.color_image.width << 2))
+            _xe = (i32)rdp.color_image.width << 2;
+
+        x[i]     = _xs;
+        x[i + 4] = _xe;
+    }
+
+    // Sort quarter line endings (start and end both) from lowest to highest.
+    unsigned x_rank[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    std::sort(x_rank, x_rank + 8,
+        [x] (unsigned i, unsigned j) -> bool { return x[i] < x[j]; });
+
+    // Compute the address in the color image of the current pixel line.
+    unsigned mem_color_base = rdp.color_image.addr +
+        ((y * rdp.color_image.width) << (rdp.color_image.size - 1));
+    unsigned mem_color_end = mem_color_base +
+        ((x[x_rank[7]] >> 2) << (rdp.color_image.size - 1));
+    unsigned mem_z_base = 0;
+    unsigned mem_z_end = 0;
+
+    if (mem_color_end > sizeof(state.dram)) {
         debugger::warn(Debugger::RDP,
-            "(cycle1) render_span out-of-bounds, start:{:x}, length:{}",
-            offset, length);
+            "(cycle1) render_span out-of-bounds, base:{}, end:{}",
+            mem_color_base, mem_color_end);
         debugger::halt("Cycle1Mode::render_span out-of-bounds");
         return;
     }
@@ -1134,9 +1165,9 @@ static void render_span(bool left, i32 y, i32 xs, i32 xe,
     pixel_t px = { 0 };
     px.shade_color.a = 255;
     px.texel0_color.a = 255;
+    px.combined_color.a = 255;
     px.lod_frac = 255;
     px.edge_coefs.y = y;
-    px.mem_color_addr = left ? offset : offset + length - px_size;
 
     i32 shade_r = 0;
     i32 shade_g = 0;
@@ -1157,26 +1188,24 @@ static void render_span(bool left, i32 y, i32 xs, i32 xe,
         px.tile = &rdp.tiles[texture->tile];
     }
     if (zbuffer) {
-        unsigned z_offset = rdp.z_image.addr + (xs + y * rdp.color_image.width) * 2;
-        unsigned z_length = (xe - xs) * 2;
-
-        if ((z_offset + z_length) > sizeof(state.dram)) {
+        mem_z_base = rdp.z_image.addr + 2 * y * rdp.color_image.width;
+        mem_z_end = mem_z_base + 2 * (x[x_rank[7]] >> 2);
+        if (mem_z_end > sizeof(state.dram)) {
             debugger::warn(Debugger::RDP,
-                "(cycle1) render_span zbuffer out-of-bounds, start:{}, length:{}",
-                offset, length);
+                "(cycle1) render_span zbuffer out-of-bounds, base:{}, end:{}",
+                mem_z_base, mem_z_end);
             debugger::halt("Cycle1Mode::render_span zbuffer out-of-bounds");
             return;
         }
 
-        px.mem_z_addr = left ? z_offset : z_offset + z_length - 2;
-        z = zbuffer->z;
         px.zbuffer_coefs.deltaz =
            ((zbuffer->dzdx > 0 ? (u32)zbuffer->dzdx : (u32)-zbuffer->dzdx) +
             (zbuffer->dzdy > 0 ? (u32)zbuffer->dzdy : (u32)-zbuffer->dzdy)) >> 16;
+        z = zbuffer->z;
     }
 
     if (left) {
-        for (px.edge_coefs.x = xs; px.edge_coefs.x < xe; px.edge_coefs.x++) {
+        for (px.edge_coefs.x = x[x_rank[0]] >> 2; px.edge_coefs.x < (x[x_rank[7]] >> 2); px.edge_coefs.x++) {
             if (shade) {
                 px.shade_color.r = shade_r >> 16;
                 px.shade_color.g = shade_g >> 16;
@@ -1186,8 +1215,12 @@ static void render_span(bool left, i32 y, i32 xs, i32 xe,
             if (zbuffer) {
                 /* Convert from S15.16 to U15.3
                  * TODO check clamp to 0 ? */
+                px.mem_z_addr = mem_z_base + 2 * px.edge_coefs.x;
                 px.zbuffer_coefs.z = z < 0 ? 0 : (u32)z >> 13;
             }
+
+            px.mem_color_addr = mem_color_base +
+                (px.edge_coefs.x << (rdp.color_image.size - 1));
 
             if (texture) {
                 pipeline_tx(&px);
@@ -1219,7 +1252,7 @@ static void render_span(bool left, i32 y, i32 xs, i32 xe,
             }
         }
     } else {
-        for (px.edge_coefs.x = xe; px.edge_coefs.x > xs; px.edge_coefs.x--) {
+        for (px.edge_coefs.x = x[x_rank[7]] >> 2; px.edge_coefs.x > (x[x_rank[0]] >> 2); px.edge_coefs.x--) {
             if (shade) {
                 px.shade_color.r = shade_r >> 16;
                 px.shade_color.g = shade_g >> 16;
@@ -1229,8 +1262,12 @@ static void render_span(bool left, i32 y, i32 xs, i32 xe,
             if (zbuffer) {
                 /* Convert from S15.16 to U15.3
                  * TODO check clamp to 0 ? */
+                px.mem_z_addr = mem_z_base + 2 * px.edge_coefs.x;
                 px.zbuffer_coefs.z = z < 0 ? 0 : (u32)z >> 13;
             }
+
+            px.mem_color_addr = mem_color_base +
+                (px.edge_coefs.x << (rdp.color_image.size - 1));
 
             if (texture) {
                 pipeline_tx(&px);
@@ -1437,7 +1474,8 @@ static void render_triangle(u64 command, u64 const *params,
     }
 
     for (y = edge.yh & ~3; y < edge.ym; y+=4) {
-        Cycle1Mode::render_span(left, y >> 2, xs, xe,
+        i32 x[8] = { xs, xs, xs, xs, xe, xe, xe, xe };
+        Cycle1Mode::render_span(left, y >> 2, x,
             has_shade ? &shade : NULL,
             has_texture ? &texture : NULL,
             has_zbuffer ? &zbuffer : NULL);
@@ -1470,7 +1508,8 @@ static void render_triangle(u64 command, u64 const *params,
     }
 
     for (           ; y < edge.yl; y+=4) {
-        Cycle1Mode::render_span(left, y >> 2, xs, xe,
+        i32 x[8] = { xs, xs, xs, xs, xe, xe, xe, xe };
+        Cycle1Mode::render_span(left, y >> 2, x,
             has_shade ? &shade : NULL,
             has_texture ? &texture : NULL,
             has_zbuffer ? &zbuffer : NULL);
@@ -1571,7 +1610,8 @@ void textureRectangle(u64 command, u64 const *params) {
     switch (rdp.other_modes.cycle_type) {
     case CYCLE_TYPE_1CYCLE:
         for (i32 y = yh; y < yl; y++) {
-            Cycle1Mode::render_span(true, y, xh, xl, NULL, &texture, NULL);
+            i32 x[8] = { xh, xh, xh, xh, xl, xl, xl, xl };
+            Cycle1Mode::render_span(true, y, x, NULL, &texture, NULL);
             texture.t += texture.dtdy;
         }
         break;
@@ -1631,7 +1671,8 @@ void textureRectangleFlip(u64 command, u64 const *params) {
     switch (rdp.other_modes.cycle_type) {
     case CYCLE_TYPE_1CYCLE:
         for (i32 y = yh; y < yl; y++) {
-            Cycle1Mode::render_span(true, y, xh, xl, NULL, &texture, NULL);
+            i32 x[8] = { xh, xh, xh, xh, xl, xl, xl, xl };
+            Cycle1Mode::render_span(true, y, x, NULL, &texture, NULL);
             texture.t += texture.dtdy;
             texture.s += texture.dsdy;
         }
@@ -2044,7 +2085,8 @@ void fillRectangle(u64 command, u64 const *params) {
     switch (rdp.other_modes.cycle_type) {
     case CYCLE_TYPE_1CYCLE:
         for (i32 y = yh; y < yl; y++) {
-            Cycle1Mode::render_span(true, y, xh, xl, NULL, NULL, NULL);
+            i32 x[8] = { xh, xh, xh, xh, xl, xl, xl, xl };
+            Cycle1Mode::render_span(true, y, x, NULL, NULL, NULL);
         }
         break;
     case CYCLE_TYPE_FILL:
