@@ -173,12 +173,12 @@ struct rdp {
 
     /* Current scissor box. */
     struct {
-        unsigned xh;            /* 10.2 */
-        unsigned yh;            /* 10.2 */
-        unsigned xl;            /* 10.2 */
-        unsigned yl;            /* 10.2 */
-        bool skipOddLines;
-        bool skipEvenLines;
+        i32 xh;                 /* 10.2 */
+        i32 yh;                 /* 10.2 */
+        i32 xl;                 /* 10.2 */
+        i32 yl;                 /* 10.2 */
+        bool skip_odd;
+        bool skip_even;
     } scissor;
 
     /* Coefficients for YUV->RGB color conversion,

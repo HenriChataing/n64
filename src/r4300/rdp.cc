@@ -947,19 +947,22 @@ namespace FillMode {
  * Pixels are written by two or four depending on the color format.
  */
 
-/** @brief Fills the line with coordinates (xs,y), (xe, y) with the
- * fill color. Input coordinates are in 10.2 fixedpoint format. */
-static void render_span(unsigned y, unsigned xs, unsigned xe) {
-    if (y < rdp.scissor.yh || y >= rdp.scissor.yl ||
-        (rdp.scissor.skipOddLines && ((y >> 2) % 2)) ||
-        (rdp.scissor.skipEvenLines && !((y >> 2) % 2)))
+/** @brief Fills the line with coordinates (xs, y), (xe, y) with the
+ * fill color. The y coordinate is an integer, the x coordinates are
+ * in S15.16 format. */
+static void render_span(i32 y, i32 xs, i32 xe) {
+
+    if ((y << 2) <  rdp.scissor.yh ||
+        (y << 2) >= rdp.scissor.yl ||
+        xe <= xs || rdp.scissor.xl == 0 ||
+        (rdp.scissor.skip_odd  &&  (y % 2)) ||
+        (rdp.scissor.skip_even && !(y % 2)))
         return;
 
     // Clip x coordinate and convert to integer values
-    // from fixed point 10.2 format.
-    y = y >> 2;
-    xs = std::max(xs, rdp.scissor.xh) >> 2;
-    xe = std::min(xe, rdp.scissor.xl) >> 2;
+    // from fixed point S15.16 format.
+    xs = std::max(xs >> 14, rdp.scissor.xh) >> 2;
+    xe = std::min(xe >> 14, rdp.scissor.xl) >> 2;
 
     unsigned offset = rdp.color_image.addr +
                       ((xs + y * rdp.color_image.width) << (rdp.color_image.size - 1));
@@ -983,7 +986,7 @@ static void render_span(unsigned y, unsigned xs, unsigned xe) {
         }
         // Now aligned to u32, can copy two half-words at a time.
         u32 *base = (u32 *)(void *)&state.dram[offset];
-        unsigned x;
+        i32 x;
         for (x = xs; (x+1) <= xe; x+=2, base++) {
             *base = filler;
         }
@@ -993,7 +996,7 @@ static void render_span(unsigned y, unsigned xs, unsigned xe) {
     }
     else if (rdp.color_image.type == IMAGE_DATA_FORMAT_RGBA_8_8_8_8) {
         u32 *base = (u32 *)(void *)&state.dram[offset];
-        for (unsigned x = xs; x < xe; x++, base++) {
+        for (i32 x = xs; x < xe; x++, base++) {
             *base = __builtin_bswap32(rdp.fill_color);
         }
     }
@@ -1012,24 +1015,25 @@ namespace CopyMode {
  * Pixels are written four by four.
  */
 
-/** @brief Fills the line with coordinates (xs,y), (xe, y) with the
- * fill color. Input coordinates are in 10.2 fixedpoint format. */
+/** @brief Renders the line with coordinates (xs,y), (xe, y).
+ * The y coordinate is an integer, the x coordinates are
+ * in S15.16 format. */
 static void render_span(unsigned tile, i32 y, i32 xs, i32 xe,
                         struct texture_coefs const *texture) {
 
-    if (y < (i32)rdp.scissor.yh || y >= (i32)rdp.scissor.yl ||
+    if ((y << 2) <  rdp.scissor.yh ||
+        (y << 2) >= rdp.scissor.yl ||
         xe <= xs || rdp.scissor.xl == 0 ||
-        (rdp.scissor.skipOddLines && ((y >> 2) % 2)) ||
-        (rdp.scissor.skipEvenLines && !((y >> 2) % 2)))
+        (rdp.scissor.skip_odd  &&  (y % 2)) ||
+        (rdp.scissor.skip_even && !(y % 2)))
         return;
 
     // TODO scissor to 4 pixel boundary.
 
     // Clip x coordinate and convert to integer values
-    // from fixed point 10.2 format.
-    y = y >> 2;
-    xs = std::max(xs >> 14, (i32)rdp.scissor.xh) >> 2;
-    xe = std::min(xe >> 14, (i32)rdp.scissor.xl - 1) >> 2;
+    // from fixed point S15.16 format.
+    xs = std::max(xs >> 14, rdp.scissor.xh) >> 2;
+    xe = std::min(xe >> 14, rdp.scissor.xl - 1) >> 2;
     xs = std::max(xs, 0);
     xe = std::min(xe, (i32)rdp.color_image.width);
 
@@ -1098,15 +1102,15 @@ static void render_span(bool left, unsigned level, unsigned tile,
                         struct texture_coefs const *texture,
                         struct zbuffer_coefs const *zbuffer) {
 
-    if (y < (i32)rdp.scissor.yh || y >= (i32)rdp.scissor.yl ||
+    if ((y << 2) <  rdp.scissor.yh ||
+        (y << 2) >= rdp.scissor.yl ||
         xe <= xs || rdp.scissor.xl == 0 ||
-        (rdp.scissor.skipOddLines && ((y >> 2) % 2)) ||
-        (rdp.scissor.skipEvenLines && !((y >> 2) % 2)))
+        (rdp.scissor.skip_odd  &&  (y % 2)) ||
+        (rdp.scissor.skip_even && !(y % 2)))
         return;
 
     // Clip x coordinate and convert to integer values
-    // from fixed point 10.2 format.
-    y = y >> 2;
+    // from fixed point 15.16 format.
     xs = std::max(xs >> 14, (i32)rdp.scissor.xh) >> 2;
     xe = std::min(xe >> 14, (i32)rdp.scissor.xl - 1) >> 2;
     xs = std::max(xs, 0);
@@ -1429,7 +1433,7 @@ static void render_triangle(u64 command, u64 const *params,
     }
 
     for (y = edge.yh & ~3; y < edge.ym; y+=4) {
-        Cycle1Mode::render_span(left, level, tile, y, xs, xe,
+        Cycle1Mode::render_span(left, level, tile, y >> 2, xs, xe,
             has_shade ? &shade : NULL,
             has_texture ? &texture : NULL,
             has_zbuffer ? &zbuffer : NULL);
@@ -1462,7 +1466,7 @@ static void render_triangle(u64 command, u64 const *params,
     }
 
     for (           ; y < edge.yl; y+=4) {
-        Cycle1Mode::render_span(left, level, tile, y, xs, xe,
+        Cycle1Mode::render_span(left, level, tile, y >> 2, xs, xe,
             has_shade ? &shade : NULL,
             has_texture ? &texture : NULL,
             has_zbuffer ? &zbuffer : NULL);
@@ -1521,11 +1525,11 @@ void shadeTextureZbuffTriangle(u64 command, u64 const *params) {
 
 void textureRectangle(u64 command, u64 const *params) {
     /* Input coordinates are in the 10.2 fixed point format. */
-    unsigned xl = (command >> 44) & 0xfffu;
-    unsigned yl = (command >> 32) & 0xfffu;
+    i32 xl = (command >> 44) & 0xfffu;
+    i32 yl = (command >> 32) & 0xfffu;
     unsigned tile = (command >> 24) & 0x7u;
-    unsigned xh = (command >> 12) & 0xfffu;
-    unsigned yh = (command >>  0) & 0xfffu;
+    i32 xh = (command >> 12) & 0xfffu;
+    i32 yh = (command >>  0) & 0xfffu;
 
     /* Texture coordinates are in signed 10.5 or 5.10 fixed point format. */
     i32 s    = (i16)(u16)((params[0] >> 48) & 0xffffu);
@@ -1555,15 +1559,19 @@ void textureRectangle(u64 command, u64 const *params) {
     xh <<= 14;
     xl <<= 14;
 
+    /* Convert y coordinates to integer values */
+    yh = yh >> 2;
+    yl = (yl + 3) >> 2;
+
     switch (rdp.other_modes.cycle_type) {
     case CYCLE_TYPE_1CYCLE:
-        for (unsigned y = yh; y < yl; y += 4) {
+        for (i32 y = yh; y < yl; y++) {
             Cycle1Mode::render_span(true, 0, tile, y, xh, xl, NULL, &texture, NULL);
             texture.t += texture.dtdy;
         }
         break;
     case CYCLE_TYPE_COPY:
-        for (unsigned y = yh; y < yl; y += 4) {
+        for (i32 y = yh; y < yl; y++) {
             CopyMode::render_span(tile, y, xh, xl, &texture);
             texture.t += texture.dtdy;
         }
@@ -1577,11 +1585,11 @@ void textureRectangle(u64 command, u64 const *params) {
 
 void textureRectangleFlip(u64 command, u64 const *params) {
     /* Input coordinates are in the 10.2 fixed point format. */
-    unsigned xl = (command >> 44) & 0xfffu;
-    unsigned yl = (command >> 32) & 0xfffu;
+    i32 xl = (command >> 44) & 0xfffu;
+    i32 yl = (command >> 32) & 0xfffu;
     unsigned tile = (command >> 24) & 0x7u;
-    unsigned xh = (command >> 12) & 0xfffu;
-    unsigned yh = (command >>  0) & 0xfffu;
+    i32 xh = (command >> 12) & 0xfffu;
+    i32 yh = (command >>  0) & 0xfffu;
 
     /* Texture coordinates are in signed 10.5 or 5.10 fixed point format. */
     i32 s    = (i16)(u16)((params[0] >> 48) & 0xffffu);
@@ -1610,16 +1618,20 @@ void textureRectangleFlip(u64 command, u64 const *params) {
     xh <<= 14;
     xl <<= 14;
 
+    /* Convert y coordinates to integer values */
+    yh = yh >> 2;
+    yl = (yl + 3) >> 2;
+
     switch (rdp.other_modes.cycle_type) {
     case CYCLE_TYPE_1CYCLE:
-        for (unsigned y = yh; y < yl; y += 4) {
+        for (i32 y = yh; y < yl; y++) {
             Cycle1Mode::render_span(true, 0, tile, y, xh, xl, NULL, &texture, NULL);
             texture.t += texture.dtdy;
             texture.s += texture.dsdy;
         }
         break;
     case CYCLE_TYPE_COPY:
-        for (unsigned y = yh; y < yl; y += 4) {
+        for (i32 y = yh; y < yl; y++) {
             CopyMode::render_span(tile, y, xh, xl, &texture);
             texture.t += texture.dtdy;
             texture.s += texture.dsdy;
@@ -1668,11 +1680,11 @@ void setScissor(u64 command, u64 const *params) {
     debugger::debug(Debugger::RDP, "  xh: {}", (float)rdp.scissor.xh / 4.);
     debugger::debug(Debugger::RDP, "  yh: {}", (float)rdp.scissor.yh / 4.);
 
-    bool scissorField = (command & (1lu << 25)) != 0;
-    bool oddEven = (command & (1lu << 25)) != 0;
+    bool scissor_field = (command & (1lu << 25)) != 0;
+    bool odd_even = (command & (1lu << 25)) != 0;
 
-    rdp.scissor.skipOddLines = scissorField && !oddEven;
-    rdp.scissor.skipEvenLines = scissorField && oddEven;
+    rdp.scissor.skip_odd  = scissor_field && !odd_even;
+    rdp.scissor.skip_even = scissor_field && odd_even;
 
     if (rdp.scissor.xh > rdp.scissor.xl ||
         rdp.scissor.yh > rdp.scissor.yl) {
@@ -1999,10 +2011,10 @@ void setTile(u64 command, u64 const *params) {
 /** @brief Implement the fill rectangle command. */
 void fillRectangle(u64 command, u64 const *params) {
     /* Input coordinates are in the 10.2 fixed point format. */
-    unsigned xl = (command >> 44) & 0xfffu;
-    unsigned yl = (command >> 32) & 0xfffu;
-    unsigned xh = (command >> 12) & 0xfffu;
-    unsigned yh = (command >>  0) & 0xfffu;
+    i32 xl = (command >> 44) & 0xfffu;
+    i32 yl = (command >> 32) & 0xfffu;
+    i32 xh = (command >> 12) & 0xfffu;
+    i32 yh = (command >>  0) & 0xfffu;
 
     debugger::debug(Debugger::RDP, "  xl: {}", (float)xl / 4.);
     debugger::debug(Debugger::RDP, "  yl: {}", (float)yl / 4.);
@@ -2015,20 +2027,34 @@ void fillRectangle(u64 command, u64 const *params) {
         return;
     }
 
-    /* Expect rasterizer to be in Fill cycle type. */
-    if (rdp.other_modes.cycle_type == CYCLE_TYPE_1CYCLE) {
-        for (unsigned y = (yh >> 2); y <= (yl >> 2); y++) {
+    /* Convert x coordinates to S15.16 format. */
+    xh <<= 14;
+    xl <<= 14;
+
+    /* Convert y coordinates to integer values. */
+    yh = yh >> 2;
+    yl = (yl + 3) >> 2;
+
+    switch (rdp.other_modes.cycle_type) {
+    case CYCLE_TYPE_1CYCLE:
+        for (i32 y = yh; y < yl; y++) {
             Cycle1Mode::render_span(
-                true, 0, 0, y << 2, xh, xl,
-                NULL, NULL, NULL);
+                true, 0, 0, y, xh, xl, NULL, NULL, NULL);
         }
-    } else {
+        break;
+    case CYCLE_TYPE_FILL:
         /* TODO in fill mode rectangles are scissored to the neareast
          * 4 pixel boundary
          * TODO potential edge case : one-line scissorbox
          * */
-        for (unsigned y = (yh >> 2); y <= (yl >> 2); y++)
-            FillMode::render_span(y << 2, xh, xl);
+        for (i32 y = yh; y < yl; y++) {
+            FillMode::render_span(y, xh, xl);
+        }
+        break;
+    default:
+        debugger::warn(Debugger::RDP,
+            "fill_rectangle: unsupported cycle type");
+        break;
     }
 }
 

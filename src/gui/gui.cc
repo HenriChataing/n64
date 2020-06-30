@@ -237,9 +237,9 @@ static void ShowRdpInformation(void) {
         ImGui::Text("xl: %.2f", u32_fixpoint_to_float(R4300::rdp.scissor.xl, 2));
         ImGui::Text("yl: %.2f", u32_fixpoint_to_float(R4300::rdp.scissor.yl, 2));
         ImGui::Text("skip_odd: %s",
-            bool_to_string(R4300::rdp.scissor.skipOddLines));
+            bool_to_string(R4300::rdp.scissor.skip_odd));
         ImGui::Text("skip_even: %s",
-            bool_to_string(R4300::rdp.scissor.skipEvenLines));
+            bool_to_string(R4300::rdp.scissor.skip_even));
         ImGui::TreePop();
     }
     ImGui::Separator();
