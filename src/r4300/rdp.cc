@@ -118,6 +118,8 @@ struct shade_coefs {
 /** All s,t coefficients are in signed S10.21 fixpoint format,
  * and w coefficients in S31 */
 struct texture_coefs {
+    unsigned tile;
+    unsigned level;
     i32 s, t, w;
     i32 dsdx, dtdx, dwdx;
     i32 dsde, dtde, dwde;
@@ -1018,7 +1020,7 @@ namespace CopyMode {
 /** @brief Renders the line with coordinates (xs,y), (xe, y).
  * The y coordinate is an integer, the x coordinates are
  * in S15.16 format. */
-static void render_span(unsigned tile, i32 y, i32 xs, i32 xe,
+static void render_span(i32 y, i32 xs, i32 xe,
                         struct texture_coefs const *texture) {
 
     if ((y << 2) <  rdp.scissor.yh ||
@@ -1040,6 +1042,7 @@ static void render_span(unsigned tile, i32 y, i32 xs, i32 xe,
     unsigned offset = rdp.color_image.addr +
         ((xs + y * rdp.color_image.width) << (rdp.color_image.size - 1));
     unsigned length = (xe - xs) << (rdp.color_image.size - 1);
+    struct tile *tile = &rdp.tiles[texture->tile];
 
     if ((offset + length) > sizeof(state.dram)) {
         debugger::warn(Debugger::RDP,
@@ -1048,8 +1051,8 @@ static void render_span(unsigned tile, i32 y, i32 xs, i32 xe,
         debugger::halt("(copy) render_span out-of-bounds");
         return;
     }
-    if (rdp.tiles[tile].type == IMAGE_DATA_FORMAT_RGBA_8_8_8_8 ||
-        rdp.tiles[tile].type == IMAGE_DATA_FORMAT_YUV_16) {
+    if (tile->type == IMAGE_DATA_FORMAT_RGBA_8_8_8_8 ||
+        tile->type == IMAGE_DATA_FORMAT_YUV_16) {
         debugger::warn(Debugger::RDP,
             "(copy) render_span invalid tile data format");
         debugger::halt("(copy) render_span invalid tile data format");
@@ -1063,7 +1066,7 @@ static void render_span(unsigned tile, i32 y, i32 xs, i32 xe,
     px.texture_coefs.s = texture->s;
     px.texture_coefs.t = texture->t;
     px.texture_coefs.w = texture->w;
-    px.tile = &rdp.tiles[tile];
+    px.tile = tile;
 
     for (px.edge_coefs.x = xs; px.edge_coefs.x < xe; px.edge_coefs.x += 4) {
         pipeline_tx(&px);
@@ -1096,8 +1099,7 @@ namespace Cycle1Mode {
 
 /** @brief Fills the line with coordinates (xs,y), (xe, y) with the
  * fill color. Input coordinates are in 10.2 fixedpoint format. */
-static void render_span(bool left, unsigned level, unsigned tile,
-                        i32 y, i32 xs, i32 xe,
+static void render_span(bool left, i32 y, i32 xs, i32 xe,
                         struct shade_coefs const *shade,
                         struct texture_coefs const *texture,
                         struct zbuffer_coefs const *zbuffer) {
@@ -1152,7 +1154,7 @@ static void render_span(bool left, unsigned level, unsigned tile,
         px.texture_coefs.s = texture->s;
         px.texture_coefs.t = texture->t;
         px.texture_coefs.w = texture->w;
-        px.tile = &rdp.tiles[tile];
+        px.tile = &rdp.tiles[texture->tile];
     }
     if (zbuffer) {
         unsigned z_offset = rdp.z_image.addr + (xs + y * rdp.color_image.width) * 2;
@@ -1416,6 +1418,8 @@ static void render_triangle(u64 command, u64 const *params,
     if (has_texture) {
         read_texture_coefs(params, &texture);
         print_texture_coefs(&texture);
+        texture.tile = tile;
+        texture.level = level;
         params += 8;
     }
     if (has_zbuffer) {
@@ -1433,7 +1437,7 @@ static void render_triangle(u64 command, u64 const *params,
     }
 
     for (y = edge.yh & ~3; y < edge.ym; y+=4) {
-        Cycle1Mode::render_span(left, level, tile, y >> 2, xs, xe,
+        Cycle1Mode::render_span(left, y >> 2, xs, xe,
             has_shade ? &shade : NULL,
             has_texture ? &texture : NULL,
             has_zbuffer ? &zbuffer : NULL);
@@ -1466,7 +1470,7 @@ static void render_triangle(u64 command, u64 const *params,
     }
 
     for (           ; y < edge.yl; y+=4) {
-        Cycle1Mode::render_span(left, level, tile, y >> 2, xs, xe,
+        Cycle1Mode::render_span(left, y >> 2, xs, xe,
             has_shade ? &shade : NULL,
             has_texture ? &texture : NULL,
             has_zbuffer ? &zbuffer : NULL);
@@ -1549,6 +1553,7 @@ void textureRectangle(u64 command, u64 const *params) {
 
     /* Convert texture coefficients from s10.5 or s5.10 to s10.21 */
     struct texture_coefs texture = {
+        tile, 0,
         s << 16,    t << 16,    0,
         dsdx << 11, 0,          0,
         0,          0,          0,
@@ -1566,13 +1571,13 @@ void textureRectangle(u64 command, u64 const *params) {
     switch (rdp.other_modes.cycle_type) {
     case CYCLE_TYPE_1CYCLE:
         for (i32 y = yh; y < yl; y++) {
-            Cycle1Mode::render_span(true, 0, tile, y, xh, xl, NULL, &texture, NULL);
+            Cycle1Mode::render_span(true, y, xh, xl, NULL, &texture, NULL);
             texture.t += texture.dtdy;
         }
         break;
     case CYCLE_TYPE_COPY:
         for (i32 y = yh; y < yl; y++) {
-            CopyMode::render_span(tile, y, xh, xl, &texture);
+            CopyMode::render_span(y, xh, xl, &texture);
             texture.t += texture.dtdy;
         }
         break;
@@ -1608,6 +1613,7 @@ void textureRectangleFlip(u64 command, u64 const *params) {
     debugger::debug(Debugger::RDP, "  dtdy: {}", (float)dtdy / 1024.);
 
     struct texture_coefs texture = {
+        tile, 0,
         s << 16,    t << 16,    0,
         0,          dtdy << 11, 0,
         0,          0,          0,
@@ -1625,14 +1631,14 @@ void textureRectangleFlip(u64 command, u64 const *params) {
     switch (rdp.other_modes.cycle_type) {
     case CYCLE_TYPE_1CYCLE:
         for (i32 y = yh; y < yl; y++) {
-            Cycle1Mode::render_span(true, 0, tile, y, xh, xl, NULL, &texture, NULL);
+            Cycle1Mode::render_span(true, y, xh, xl, NULL, &texture, NULL);
             texture.t += texture.dtdy;
             texture.s += texture.dsdy;
         }
         break;
     case CYCLE_TYPE_COPY:
         for (i32 y = yh; y < yl; y++) {
-            CopyMode::render_span(tile, y, xh, xl, &texture);
+            CopyMode::render_span(y, xh, xl, &texture);
             texture.t += texture.dtdy;
             texture.s += texture.dsdy;
         }
@@ -2038,8 +2044,7 @@ void fillRectangle(u64 command, u64 const *params) {
     switch (rdp.other_modes.cycle_type) {
     case CYCLE_TYPE_1CYCLE:
         for (i32 y = yh; y < yl; y++) {
-            Cycle1Mode::render_span(
-                true, 0, 0, y, xh, xl, NULL, NULL, NULL);
+            Cycle1Mode::render_span(true, y, xh, xl, NULL, NULL, NULL);
         }
         break;
     case CYCLE_TYPE_FILL:
