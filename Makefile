@@ -104,4 +104,27 @@ gprof2dot:
 clean:
 	@rm -rf $(OBJDIR) $(EXE)
 
+test: bin/rsp_test_suite
+	@./bin/rsp_test_suite
+
+bin/rsp_test_suite: CXXFLAGS += \
+    -std=c++17 \
+    -I$(SRCDIR) \
+    -I$(SRCDIR)/lib \
+    -I$(EXTDIR)/tomlplusplus/include \
+    -I$(EXTDIR)/fmt/include
+
+bin/rsp_test_suite: \
+    $(OBJDIR)/test/rsp_test_suite.o \
+    $(OBJDIR)/src/memory.o \
+    $(OBJDIR)/src/debugger.o \
+    $(OBJDIR)/src/r4300/rsp.o \
+    $(OBJDIR)/src/r4300/hw/sp.o \
+    $(OBJDIR)/external/fmt/src/format.o
+
+bin/rsp_test_suite:
+	@echo "  LD      $@"
+	@mkdir -p bin
+	$(Q)$(LD) -o $@ $(LDFLAGS) $^
+
 .PHONY: clean all
