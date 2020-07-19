@@ -8,6 +8,7 @@
 namespace R4300 {
 namespace Eval {
 
+void eval_Instr(u32 instr);
 void eval_Reserved(u32 instr);
 void eval_COP0(u32 instr);
 void eval_COP1(u32 instr);

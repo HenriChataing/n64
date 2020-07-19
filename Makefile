@@ -105,8 +105,11 @@ gprof2dot:
 clean:
 	@rm -rf $(OBJDIR) $(EXE)
 
-test: bin/rsp_test_suite
-	@./bin/rsp_test_suite
+# test: bin/rsp_test_suite
+# 	@./bin/rsp_test_suite
+
+test: bin/recompiler_test_suite
+	@./bin/recompiler_test_suite
 
 bin/rsp_test_suite: CXXFLAGS += \
     -std=c++17 \
@@ -124,6 +127,29 @@ bin/rsp_test_suite: \
     $(OBJDIR)/external/fmt/src/format.o
 
 bin/rsp_test_suite:
+	@echo "  LD      $@"
+	@mkdir -p bin
+	$(Q)$(LD) -o $@ $(LDFLAGS) $^
+
+bin/recompiler_test_suite: CFLAGS += \
+    -std=c11 \
+    -I$(SRCDIR)/src
+
+bin/recompiler_test_suite: CXXFLAGS += \
+    -std=c++11 \
+    -I$(SRCDIR)/src \
+    -I$(EXTDIR)/fmt/include
+
+bin/recompiler_test_suite: \
+    $(OBJDIR)/src/mips/cpu-disas.o \
+    $(OBJDIR)/external/fmt/src/format.o \
+    $(OBJDIR)/test/recompiler_test_suite.o \
+    $(OBJDIR)/test/recompiler/test_blocks.o \
+    $(OBJDIR)/src/recompiler/ir.o \
+    $(OBJDIR)/src/recompiler/passes/typecheck.o \
+    $(OBJDIR)/src/recompiler/target/mips.o
+
+bin/recompiler_test_suite:
 	@echo "  LD      $@"
 	@mkdir -p bin
 	$(Q)$(LD) -o $@ $(LDFLAGS) $^

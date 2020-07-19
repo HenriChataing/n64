@@ -1627,6 +1627,10 @@ void (*CPU_callbacks[64])(u32) = {
     eval_SCD,       eval_SDC1,      eval_SDC2,      eval_SD,
 };
 
+void eval_Instr(u32 instr) {
+    CPU_callbacks[Mips::getOpcode(instr)](instr);
+}
+
 /**
  * @brief Fetch and interpret a single instruction from the provided address.
  */
