@@ -278,16 +278,4 @@ bool AddressSpace::store(uint bytes, u64 addr, u64 value) {
     return root.store(bytes, addr, value);
 }
 
-bool AddressSpace::copy(u64 dst, u64 src, uint bytes)
-{
-    for (uint i = 0; i < bytes; i++) {
-        u64 val;
-        if (!root.load(1, src + i, &val))
-            return false;
-        if (!root.store(1, dst + i, val))
-            return false;
-    }
-    return true;
-}
-
 };

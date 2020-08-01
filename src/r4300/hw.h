@@ -187,7 +187,7 @@ bool write_PIF_RAM(uint bytes, u64 addr, u64 value);
 #define RDRAM_DEVICE_TYPE_64M   (UINT32_C(0xb02a0020))
 
 #define SP_MEM_ADDR_IMEM        (UINT32_C(1) << 12)
-#define SP_MEM_ADDR_MASK        (UINT32_C(0x1fff))
+#define SP_MEM_ADDR_MASK        (UINT32_C(0xfff))
 
 #define SP_DRAM_ADDR_MASK       (UINT32_C(0xfffffff))
 
@@ -195,6 +195,7 @@ bool write_PIF_RAM(uint bytes, u64 addr, u64 value);
 #define SP_RD_LEN_SKIP_MASK     (UINT32_C(0xfff))
 #define SP_RD_LEN_COUNT_SHIFT   (12)
 #define SP_RD_LEN_COUNT_MASK    (UINT32_C(0xff))
+#define SP_RD_LEN_LEN_SHIFT     (0)
 #define SP_RD_LEN_LEN_MASK      (UINT32_C(0xfff))
 
 #define SP_STATUS_SIGNAL7       (UINT32_C(1) << 14)

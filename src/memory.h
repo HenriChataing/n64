@@ -30,9 +30,8 @@ public:
     std::vector<Region *>subregions;
     Region *container;
 
-    virtual bool load(uint bytes, u64 addr, u64 *value);
-    virtual bool store(uint bytes, u64 addr, u64 value);
-    // virtual bool accept(uint bytes, u64 addr);
+    virtual bool load (uint bytes, u64 addr, u64 *value);
+    virtual bool store(uint bytes, u64 addr, u64  value);
 
     void print();
     void insert(Region *region);
@@ -57,7 +56,6 @@ public:
 
     bool load(uint bytes, u64 addr, u64 *value);
     bool store(uint bytes, u64 addr, u64 value);
-    bool copy(u64 dst, u64 src, uint bytes);
 };
 
 };

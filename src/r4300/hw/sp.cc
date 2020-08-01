@@ -85,20 +85,42 @@ const u32 SP_IBIST_REG =            UINT32_C(0x04080004);
 void write_SP_RD_LEN_REG(u32 value) {
     debugger::info(Debugger::SP, "SP_RD_LEN_REG <- {:08x}", value);
     state.hwreg.SP_RD_LEN_REG = value;
-    u32 len = 1u + (value & SP_RD_LEN_LEN_MASK);
-    u32 count = 1u + ((value >> SP_RD_LEN_COUNT_SHIFT) & SP_RD_LEN_COUNT_MASK);
-    u32 skip = (value >> SP_RD_LEN_SKIP_SHIFT) & SP_RD_LEN_SKIP_MASK;
-    u32 offset = state.hwreg.SP_MEM_ADDR_REG & SP_MEM_ADDR_MASK;
-    u64 dst_base = 0x04000000llu + offset;
-    u64 src_base = state.hwreg.SP_DRAM_ADDR_REG & SP_DRAM_ADDR_MASK;
-    // @todo skip+len must be aligned to 8
+    u32 len   = (value >> SP_RD_LEN_LEN_SHIFT)   & SP_RD_LEN_LEN_MASK;
+    u32 count = (value >> SP_RD_LEN_COUNT_SHIFT) & SP_RD_LEN_COUNT_MASK;
+    u32 skip  = (value >> SP_RD_LEN_SKIP_SHIFT)  & SP_RD_LEN_SKIP_MASK;
+    u32 dst = state.hwreg.SP_MEM_ADDR_REG  & SP_MEM_ADDR_MASK;
+    u64 src = state.hwreg.SP_DRAM_ADDR_REG & SP_DRAM_ADDR_MASK;
+    u8 *dst_ptr =
+        (state.hwreg.SP_MEM_ADDR_REG & SP_MEM_ADDR_IMEM) ?
+            state.imem : state.dmem;
+
+    // DMA length and line count are encoded as (value - 1).
+    // The amount of data transferred must be a multiple of 8 bytes (64 bits),
+    // hence the lower three bits of length are ignored and
+    // assumed to be all 1’s.
+    len   = 1 + (len | 0x7);
+    count = 1 + count;
+
     // @todo clear/set DMA busy+full bits.
-    for (; count > 0; count--, src_base += len + skip, dst_base += len) {
-        // @todo access memory buffers directly
-        //  it is an error if DRAM_ADDR is not inside the Ram.
-        state.physmem.copy(dst_base, src_base, len);
+    // @todo wrapping over the end of dmem/imem ?
+    for (; count > 0; count--, src += len + skip, dst += len) {
+        // Check that the source range fits in the cartridge memory.
+        if ((src + len) > 0x400000lu) {
+            debugger::warn(Debugger::SP,
+                "SP_RD_LEN_REG source range invalid: {:08x}+{:08x}",
+                src, len);
+            return;
+        }
+        // Check that the destination range fits in the dmem / imem memory.
+        if ((dst + len) > 0x1000) {
+            debugger::warn(Debugger::SP,
+                "SP_RD_LEN_REG destination range invalid: {:08x}+{:08x}",
+                dst, len);
+            return;
+        }
+        // Perform the slice copy.
+        memcpy(&dst_ptr[dst], &state.dram[src], len);
     }
-    // set_MI_INTR_REG(MI_INTR_SP);
 }
 
 /**
@@ -107,21 +129,42 @@ void write_SP_RD_LEN_REG(u32 value) {
  */
 void write_SP_WR_LEN_REG(u32 value) {
     debugger::info(Debugger::SP, "SP_WR_LEN_REG <- {:08x}", value);
-    state.hwreg.SP_RD_LEN_REG = value;
-    u32 len = 1u + (value & SP_RD_LEN_LEN_MASK);
-    u32 count = 1u + ((value >> SP_RD_LEN_COUNT_SHIFT) & SP_RD_LEN_COUNT_MASK);
-    u32 skip = (value >> SP_RD_LEN_SKIP_SHIFT) & SP_RD_LEN_SKIP_MASK;
-    u32 offset = state.hwreg.SP_MEM_ADDR_REG & SP_MEM_ADDR_MASK;
-    u64 dst_base = state.hwreg.SP_DRAM_ADDR_REG & SP_DRAM_ADDR_MASK;
-    u64 src_base = 0x04000000llu + offset;
-    // @todo skip+len must be aligned to 8
+    state.hwreg.SP_WR_LEN_REG = value;
+    u32 len   = (value >> SP_RD_LEN_LEN_SHIFT)   & SP_RD_LEN_LEN_MASK;
+    u32 count = (value >> SP_RD_LEN_COUNT_SHIFT) & SP_RD_LEN_COUNT_MASK;
+    u32 skip  = (value >> SP_RD_LEN_SKIP_SHIFT)  & SP_RD_LEN_SKIP_MASK;
+    u32 src = state.hwreg.SP_MEM_ADDR_REG  & SP_MEM_ADDR_MASK;
+    u64 dst = state.hwreg.SP_DRAM_ADDR_REG & SP_DRAM_ADDR_MASK;
+    u8 *src_ptr =
+        (state.hwreg.SP_MEM_ADDR_REG & SP_MEM_ADDR_IMEM) ?
+            state.imem : state.dmem;
+
+    // DMA length and line count are encoded as (value - 1).
+    // The amount of data transferred must be a multiple of 8 bytes (64 bits),
+    // hence the lower three bits of length are ignored and
+    // assumed to be all 1’s.
+    len   = 1 + (len | 0x7);
+    count = 1 + count;
+
     // @todo clear/set DMA busy+full bits.
-    for (; count > 0; count--, src_base += len, dst_base += len + skip) {
-        // @todo access memory buffers directly
-        //  it is an error if DRAM_ADDR is not inside the Ram.
-        state.physmem.copy(dst_base, src_base, len);
+    for (; count > 0; count--, src += len, dst += len + skip) {
+        // Check that the destination range fits in the cartridge memory.
+        if ((dst + len) > 0x400000lu) {
+            debugger::warn(Debugger::SP,
+                "SP_WR_LEN_REG destination range invalid: {:08x}+{:08x}",
+                dst, len);
+            return;
+        }
+        // Check that the source range fits in the dmem / imem memory.
+        if ((src + len) > 0x1000) {
+            debugger::warn(Debugger::SP,
+                "SP_WR_LEN_REG source range invalid: {:08x}+{:08x}",
+                src, len);
+            return;
+        }
+        // Perform the slice copy.
+        memcpy(&state.dram[dst], &src_ptr[src], len);
     }
-    // set_MI_INTR_REG(MI_INTR_SP);
 }
 
 /**
@@ -290,7 +333,8 @@ bool write_SP_REG(uint bytes, u64 addr, u64 value)
     switch (addr) {
     case SP_MEM_ADDR_REG:
         debugger::info(Debugger::SP, "SP_MEM_ADDR_REG <- {:08x}", value);
-        state.hwreg.SP_MEM_ADDR_REG = value & SP_MEM_ADDR_MASK;
+        state.hwreg.SP_MEM_ADDR_REG =
+            value & (SP_MEM_ADDR_MASK | SP_MEM_ADDR_IMEM);
         return true;
     case SP_DRAM_ADDR_REG:
         debugger::info(Debugger::SP, "SP_DRAM_ADDR_REG <- {:08x}", value);

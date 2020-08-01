@@ -117,7 +117,7 @@ void State::reset() {
     cp1reg.setFprAliases(true);
 
     // Copy the cart boot code to the beginning of the physical RAM.
-    physmem.copy(0x04000000llu, 0x10000000llu, 0x1000);
+    memcpy(dmem, rom, 0x1000);
     reg.pc = 0xffffffffa4000040llu;
 
     // Set HW config registers.

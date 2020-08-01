@@ -87,7 +87,7 @@ static void write_PI_RD_LEN_REG(u32 value) {
     }
 
     // Perform the actual copy.
-    state.physmem.copy(dst, src, len);
+    // memcpy(&state.rom[dst - 0x10000000llu], &state.dram[src], len);
     state.hwreg.PI_STATUS_REG = 0;
     set_MI_INTR_REG(MI_INTR_PI);
 }
@@ -105,7 +105,7 @@ static void write_PI_WR_LEN_REG(u32 value) {
 
     // Check that the destination range fits in the dram memory, and in
     // particular does not overflow.
-    if ((dst + len) <= dst ||
+    if ((u32)(dst + len) <= dst ||
         (dst + len) > 0x400000llu) {
         debugger::warn(Debugger::PI,
             "PI_WR_LEN_REG destination range invalid: {:08x}+{:08x}",
@@ -115,7 +115,7 @@ static void write_PI_WR_LEN_REG(u32 value) {
 
     // Check that the source range fits in the cartridge memory, and in
     // particular does not overflow.
-    if ((src + len) <= src ||
+    if ((u32)(src + len) <= src ||
         src < 0x10000000llu ||
         (src + len) > 0x1fc00000llu) {
         debugger::warn(Debugger::PI,
@@ -125,7 +125,7 @@ static void write_PI_WR_LEN_REG(u32 value) {
     }
 
     // Perform the actual copy.
-    state.physmem.copy(dst, src, len);
+    memcpy(&state.dram[dst], &state.rom[src - 0x10000000llu], len);
     state.hwreg.PI_STATUS_REG = 0;
     set_MI_INTR_REG(MI_INTR_PI);
 }
