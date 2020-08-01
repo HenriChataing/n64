@@ -83,9 +83,7 @@ static Exception loadb(u64 addr, u8 *val) {
         *val = state.dram[addr];
         return Exception::None;
     }
-    u64 val64;
-    if (state.physmem.load(1, addr, &val64)) {
-        *val = val64;
+    if (state.bus->load_u8(addr, val)) {
         return Exception::None;
     }
     return Exception::BusError;
@@ -100,12 +98,9 @@ static Exception loadh(u64 addr, u16 *val) {
         *val = __builtin_bswap16(*(u16 *)&state.dram[addr]);
         return Exception::None;
     }
-    u64 val64;
-    if (state.physmem.load(2, addr, &val64)) {
-        *val = val64;
+    if (state.bus->load_u16(addr, val)) {
         return Exception::None;
     }
-
     return Exception::BusError;
 }
 
@@ -118,12 +113,9 @@ static Exception loadw(u64 addr, u32 *val) {
         *val = __builtin_bswap32(*(u32 *)&state.dram[addr]);
         return Exception::None;
     }
-    u64 val64;
-    if (state.physmem.load(4, addr, &val64)) {
-        *val = val64;
+    if (state.bus->load_u32(addr, val)) {
         return Exception::None;
     }
-
     return Exception::BusError;
 }
 
@@ -1112,7 +1104,7 @@ void eval_LD(u32 instr) {
         translateAddress(vAddr, &pAddr, false),
         vAddr, false, true, 0);
     checkException(
-        state.physmem.load(8, pAddr, &val) ? None : BusError,
+        state.bus->load_u64(pAddr, &val) ? None : BusError,
         vAddr, false, true, 0);
 
     state.reg.gpr[rt] = val;
@@ -1130,7 +1122,7 @@ void eval_LDC1(u32 instr) {
         translateAddress(vAddr, &pAddr, false),
         vAddr, false, true, 0);
     checkException(
-        state.physmem.load(8, pAddr, &val) ? None : BusError,
+        state.bus->load_u64(pAddr, &val) ? None : BusError,
         vAddr, false, true, 0);
 
     state.cp1reg.fpr_d[rt]->l = val;
@@ -1160,12 +1152,12 @@ void eval_LDL(u32 instr) {
     u64 val = 0;
 
     for (size_t nr = 0; nr < count; nr++, shift -= 8) {
-        u64 byte = 0;
-        if (!state.physmem.load(1, pAddr + nr, &byte)) {
+        u8 byte = 0;
+        if (!state.bus->load_u8(pAddr + nr, &byte)) {
             takeException(BusError, vAddr, false, false, 0);
             return;
         }
-        val |= (byte << shift);
+        val |= ((u64)byte << shift);
     }
 
     val = val | (state.reg.gpr[rt] & mask);
@@ -1192,12 +1184,12 @@ void eval_LDR(u32 instr) {
     u64 val = 0;
 
     for (size_t nr = 0; nr < count; nr++, shift += 8) {
-        u64 byte = 0;
-        if (!state.physmem.load(1, pAddr - nr, &byte)) {
+        u8 byte = 0;
+        if (!state.bus->load_u8(pAddr - nr, &byte)) {
             takeException(BusError, vAddr, false, false);
             return;
         }
-        val |= (byte << shift);
+        val |= ((u64)byte << shift);
     }
 
     val = val | (state.reg.gpr[rt] & mask);
@@ -1321,12 +1313,12 @@ void eval_LWL(u32 instr) {
     u64 val = 0;
 
     for (size_t nr = 0; nr < count; nr++, shift -= 8) {
-        u64 byte = 0;
-        if (!state.physmem.load(1, pAddr + nr, &byte)) {
+        u8 byte = 0;
+        if (!state.bus->load_u8(pAddr + nr, &byte)) {
             takeException(BusError, vAddr, false, false, 0);
             return;
         }
-        val |= (byte << shift);
+        val |= ((u64)byte << shift);
     }
 
     val = val | (state.reg.gpr[rt] & mask);
@@ -1353,12 +1345,12 @@ void eval_LWR(u32 instr) {
     u64 val = 0;
 
     for (size_t nr = 0; nr < count; nr++, shift += 8) {
-        u64 byte = 0;
-        if (!state.physmem.load(1, pAddr - nr, &byte)) {
+        u8 byte = 0;
+        if (!state.bus->load_u8(pAddr - nr, &byte)) {
             takeException(BusError, vAddr, false, false);
             return;
         }
-        val |= (byte << shift);
+        val |= ((u64)byte << shift);
     }
 
     val = val | (state.reg.gpr[rt] & mask);
@@ -1398,7 +1390,7 @@ void eval_SB(u32 instr) {
         translateAddress(vAddr, &pAddr, false),
         vAddr, false, false, 0);
     checkException(
-        state.physmem.store(1, pAddr, state.reg.gpr[rt]) ? None : BusError,
+        state.bus->store_u8(pAddr, state.reg.gpr[rt]) ? None : BusError,
         vAddr, false, false, 0);
 }
 
@@ -1423,7 +1415,7 @@ void eval_SD(u32 instr) {
         translateAddress(vAddr, &pAddr, false),
         vAddr, false, false, 0);
     checkException(
-        state.physmem.store(8, pAddr, state.reg.gpr[rt]) ? None : BusError,
+        state.bus->store_u64(pAddr, state.reg.gpr[rt]) ? None : BusError,
         vAddr, false, false, 0);
 }
 
@@ -1439,7 +1431,7 @@ void eval_SDC1(u32 instr) {
         translateAddress(vAddr, &pAddr, false),
         vAddr, false, false, 0);
     checkException(
-        state.physmem.store(8, pAddr, state.cp1reg.fpr_d[rt]->l) ? None : BusError,
+        state.bus->store_u64(pAddr, state.cp1reg.fpr_d[rt]->l) ? None : BusError,
         vAddr, false, false, 0);
 }
 
@@ -1466,7 +1458,7 @@ void eval_SDL(u32 instr) {
     unsigned int shift = 56;
     for (size_t nr = 0; nr < count; nr++, shift -= 8) {
         u64 byte = (val >> shift) & 0xfflu;
-        if (!state.physmem.store(1, pAddr + nr, byte)) {
+        if (!state.bus->store_u8(pAddr + nr, byte)) {
             takeException(BusError, vAddr, false, false, 0);
             return;
         }
@@ -1491,7 +1483,7 @@ void eval_SDR(u32 instr) {
     unsigned int shift = 0;
     for (size_t nr = 0; nr < count; nr++, shift += 8) {
         u64 byte = (val >> shift) & 0xfflu;
-        if (!state.physmem.store(1, pAddr - nr, byte)) {
+        if (!state.bus->store_u8(pAddr - nr, byte)) {
             takeException(BusError, vAddr, false, false);
             return;
         }
@@ -1509,7 +1501,7 @@ void eval_SH(u32 instr) {
         translateAddress(vAddr, &pAddr, false),
         vAddr, false, false, 0);
     checkException(
-        state.physmem.store(2, pAddr, state.reg.gpr[rt]) ? None : BusError,
+        state.bus->store_u16(pAddr, state.reg.gpr[rt]) ? None : BusError,
         vAddr, false, false, 0);
 }
 
@@ -1534,7 +1526,7 @@ void eval_SW(u32 instr) {
         translateAddress(vAddr, &pAddr, false),
         vAddr, false, false, 0);
     checkException(
-        state.physmem.store(4, pAddr, state.reg.gpr[rt]) ? None : BusError,
+        state.bus->store_u32(pAddr, state.reg.gpr[rt]) ? None : BusError,
         vAddr, false, false, 0);
 }
 
@@ -1550,7 +1542,7 @@ void eval_SWC1(u32 instr) {
         translateAddress(vAddr, &pAddr, false),
         vAddr, false, false, 0);
     checkException(
-        state.physmem.store(4, pAddr, state.cp1reg.fpr_s[rt]->w) ? None : BusError,
+        state.bus->store_u32(pAddr, state.cp1reg.fpr_s[rt]->w) ? None : BusError,
         vAddr, false, false, 0);
 }
 
@@ -1582,7 +1574,7 @@ void eval_SWL(u32 instr) {
     unsigned int shift = 24;
     for (size_t nr = 0; nr < count; nr++, shift -= 8) {
         u64 byte = (val >> shift) & 0xfflu;
-        if (!state.physmem.store(1, pAddr + nr, byte)) {
+        if (!state.bus->store_u8(pAddr + nr, byte)) {
             takeException(BusError, vAddr, false, false, 0);
             return;
         }
@@ -1607,7 +1599,7 @@ void eval_SWR(u32 instr) {
     unsigned int shift = 0;
     for (size_t nr = 0; nr < count; nr++, shift += 8) {
         u64 byte = (val >> shift) & 0xfflu;
-        if (!state.physmem.store(1, pAddr - nr, byte)) {
+        if (!state.bus->store_u8(pAddr - nr, byte)) {
             takeException(BusError, vAddr, false, false);
             return;
         }

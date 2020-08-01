@@ -34,7 +34,7 @@ public:
     alignas(u64) u8 pifram[0x40];
     alignas(u64) u8 rom[0xfc00000];
 
-    Memory::AddressSpace physmem;
+    Memory::Bus *bus;
     ulong cycles;
 
     enum Action {

@@ -43,21 +43,53 @@ public:
 
 protected:
     void adjustEndianness(uint bytes, u64 *value);
-    Region *lookup(u64 addr);
 };
 
-class AddressSpace
+class Bus
 {
 public:
-    AddressSpace(u64 address, u64 size);
-    ~AddressSpace();
+    Bus(unsigned bits) : root(0, 1llu << bits) {}
+    ~Bus() {}
 
     Region root;
 
-    bool load(uint bytes, u64 addr, u64 *value);
-    bool store(uint bytes, u64 addr, u64 value);
+    virtual bool load(unsigned bytes, u64 addr, u64 *val) {
+        return root.load(bytes, addr, val);
+    }
+    virtual bool store(unsigned bytes, u64 addr, u64 val) {
+        return root.store(bytes, addr, val);
+    }
+
+    inline bool load_u8(u64 addr, u8 *val) {
+        u64 val64; bool res = load(1, addr, &val64);
+        *val = val64; return res;
+    }
+    inline bool load_u16(u64 addr, u16 *val) {
+        u64 val64; bool res = load(2, addr, &val64);
+        *val = val64; return res;
+    }
+    inline bool load_u32(u64 addr, u32 *val) {
+        u64 val64; bool res = load(4, addr, &val64);
+        *val = val64; return res;
+    }
+    inline bool load_u64(u64 addr, u64 *val) {
+        return load(8, addr, val);
+    }
+
+    inline bool store_u8(u64 addr, u8 val) {
+        return store(1, addr, val);
+    }
+    inline bool store_u16(u64 addr, u16 val) {
+        return store(2, addr, val);
+    }
+    inline bool store_u32(u64 addr, u32 val) {
+        return store(4, addr, val);
+    }
+    inline bool store_u64(u64 addr, u64 val) {
+        return store(8, addr, val);
+    }
 };
 
-};
+}; /* namespace Memory */
 
 #endif /* _MEMORY_H_INCLUDED_ */

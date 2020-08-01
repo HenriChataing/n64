@@ -96,20 +96,6 @@ void Region::adjustEndianness(uint bytes, u64 *value)
     }
 }
 
-Region *Region::lookup(u64 addr)
-{
-    if (addr >= size)
-        return NULL;
-    for (Region *sub : subregions) {
-        if (addr < sub->address)
-            continue;
-        if (addr >= sub->address + sub->size)
-            break;
-        return sub->lookup(addr);
-    }
-    return this;
-}
-
 void Region::insert(Region *region)
 {
     std::vector<Region *>::iterator it = subregions.begin();
@@ -262,20 +248,6 @@ void Region::insertIOmem(u64 addr, u64 size,
                          IOmemRegion::Writer write)
 {
     insert(new IOmemRegion(addr, size, read, write, this));
-}
-
-AddressSpace::AddressSpace(u64 address, u64 size) : root(address, size) {
-}
-
-AddressSpace::~AddressSpace() {
-}
-
-bool AddressSpace::load(uint bytes, u64 addr, u64 *value) {
-    return root.load(bytes, addr, value);
-}
-
-bool AddressSpace::store(uint bytes, u64 addr, u64 value) {
-    return root.store(bytes, addr, value);
 }
 
 };
