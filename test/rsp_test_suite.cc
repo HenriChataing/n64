@@ -17,7 +17,7 @@ using namespace R4300;
 
 State state;
 
-State::State() : physmem(0, 0) {
+State::State() {
     // No need to create the physical memory address space for this machine,
     // as the RSP does not use the main bus, but can address a limited
     // range of memory.

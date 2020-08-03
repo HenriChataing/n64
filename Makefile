@@ -45,6 +45,7 @@ OBJS      := \
     src/main.o \
     src/memory.o \
     src/debugger.o \
+    src/interpreter.o \
     src/mips/cpu-disas.o \
     src/mips/rsp-disas.o \
     src/r4300/cpu.o \

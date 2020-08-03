@@ -49,7 +49,7 @@ class Bus
 {
 public:
     Bus(unsigned bits) : root(0, 1llu << bits) {}
-    ~Bus() {}
+    virtual ~Bus() {}
 
     Region root;
 
