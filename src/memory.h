@@ -90,6 +90,46 @@ public:
     }
 };
 
+/** Type of bus access. */
+enum BusAccess {
+    Load,
+    Store,
+};
+
+/** Bus access log. */
+struct BusLog {
+    BusAccess access;
+    unsigned bytes;
+    u64 address;
+    u64 value;
+    bool result;
+
+    BusLog(BusAccess access, unsigned bytes, u64 address, u64 value, bool result) :
+        access(access), bytes(bytes), address(address), value(value), result(result) {}
+};
+
+/** Derive the Bus class to log all load and store memory accesses. */
+class LoggingBus: public Memory::Bus
+{
+public:
+    LoggingBus(unsigned bits) : Bus(bits) {}
+    virtual ~LoggingBus() {}
+
+    std::vector<BusLog> log;
+    void clear() { log.clear(); }
+
+    virtual bool load(unsigned bytes, u64 addr, u64 *val) {
+        bool res = root.load(bytes, addr, val);
+        log.push_back(BusLog(Load, bytes, addr, res ? *val : 0, res));
+        return res;
+    }
+    virtual bool store(unsigned bytes, u64 addr, u64 val) {
+        bool res = root.store(bytes, addr, val);
+        log.push_back(BusLog(Store, bytes, addr, val, res));
+        return res;
+    }
+};
+
 }; /* namespace Memory */
 
 #endif /* _MEMORY_H_INCLUDED_ */

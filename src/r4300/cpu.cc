@@ -77,48 +77,6 @@ namespace Eval {
 
 using namespace R4300::Eval;
 
-/** Load a byte from the provided physical address. */
-static Exception loadb(u64 addr, u8 *val) {
-    if (addr <  0x00400000lu) {
-        *val = state.dram[addr];
-        return Exception::None;
-    }
-    if (state.bus->load_u8(addr, val)) {
-        return Exception::None;
-    }
-    return Exception::BusError;
-}
-
-/** Load a half-word from the provided physical address. */
-static Exception loadh(u64 addr, u16 *val) {
-    if ((addr & 0x1) != 0) {
-        return Exception::AddressError;
-    }
-    if (addr <  0x00400000lu) {
-        *val = __builtin_bswap16(*(u16 *)&state.dram[addr]);
-        return Exception::None;
-    }
-    if (state.bus->load_u16(addr, val)) {
-        return Exception::None;
-    }
-    return Exception::BusError;
-}
-
-/** Load a word from the provided physical address. */
-static Exception loadw(u64 addr, u32 *val) {
-    if ((addr & 0x3) != 0) {
-        return Exception::AddressError;
-    }
-    if (addr <  0x00400000lu) {
-        *val = __builtin_bswap32(*(u32 *)&state.dram[addr]);
-        return Exception::None;
-    }
-    if (state.bus->load_u32(addr, val)) {
-        return Exception::None;
-    }
-    return Exception::BusError;
-}
-
 /**
  * @brief Preprocessor template for I-type instructions.
  *
@@ -1070,7 +1028,7 @@ void eval_LB(u32 instr) {
         translateAddress(vAddr, &pAddr, false),
         vAddr, false, true, 0);
     checkException(
-        loadb(pAddr, &val),
+        state.bus->load_u8(pAddr, &val) ? None : BusError,
         vAddr, false, true, 0);
 
     state.reg.gpr[rt] = sign_extend<u64, u8>(val);
@@ -1087,7 +1045,7 @@ void eval_LBU(u32 instr) {
         translateAddress(vAddr, &pAddr, false),
         vAddr, false, true, 0);
     checkException(
-        loadb(pAddr, &val),
+        state.bus->load_u8(pAddr, &val) ? None : BusError,
         vAddr, false, true, 0);
 
     state.reg.gpr[rt] = zero_extend<u64, u8>(val);
@@ -1208,7 +1166,7 @@ void eval_LH(u32 instr) {
         translateAddress(vAddr, &pAddr, false),
         vAddr, false, true, 0);
     checkException(
-        loadh(pAddr, &val),
+        state.bus->load_u16(pAddr, &val) ? None : BusError,
         vAddr, false, true, 0);
 
     state.reg.gpr[rt] = sign_extend<u64, u16>(val);
@@ -1226,7 +1184,7 @@ void eval_LHU(u32 instr) {
         translateAddress(vAddr, &pAddr, false),
         vAddr, false, true, 0);
     checkException(
-        loadh(pAddr, &val),
+        state.bus->load_u16(pAddr, &val) ? None : BusError,
         vAddr, false, true, 0);
 
     state.reg.gpr[rt] = zero_extend<u64, u16>(val);
@@ -1259,7 +1217,7 @@ void eval_LW(u32 instr) {
         translateAddress(vAddr, &pAddr, false),
         vAddr, false, true, 0);
     checkException(
-        loadw(pAddr, &val),
+        state.bus->load_u32(pAddr, &val) ? None : BusError,
         vAddr, false, true, 0);
 
     state.reg.gpr[rt] = sign_extend<u64, u32>(val);
@@ -1278,7 +1236,7 @@ void eval_LWC1(u32 instr) {
         translateAddress(vAddr, &pAddr, false),
         vAddr, false, true, 0);
     checkException(
-        loadw(pAddr, &val),
+        state.bus->load_u32(pAddr, &val) ? None : BusError,
         vAddr, false, true, 0);
 
     state.cp1reg.fpr_s[rt]->w = val;
@@ -1369,7 +1327,7 @@ void eval_LWU(u32 instr) {
         translateAddress(vAddr, &pAddr, false),
         vAddr, false, true, 0);
     checkException(
-        loadw(pAddr, &val),
+        state.bus->load_u32(pAddr, &val) ? None : BusError,
         vAddr, false, true, 0);
 
     state.reg.gpr[rt] = zero_extend<u64, u32>(val);
@@ -1684,7 +1642,7 @@ static void eval()
         translateAddress(vAddr, &pAddr, false),
         vAddr, true, true, 0);
     checkException(
-        loadw(pAddr, &instr),
+        state.bus->load_u32(pAddr, &instr) ? None : BusError,
         vAddr, true, true, 0);
 
     debugger::debugger.cpuTrace.put(Debugger::TraceEntry(vAddr, instr));
