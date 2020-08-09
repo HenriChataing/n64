@@ -1,0 +1,52 @@
+start_address = "0xffffffff802e1d78"
+
+asm_code = """
+    div.d    f22, f26, f20
+    or       a2, s5, zero
+    cvt.s.d  f6, f0
+    swc1     cr6, 0x0(s1)
+    jal      0xffffffff802e1bf8
+    mov.d    f12, f22
+"""
+
+bin_code = [
+    0x4634d583, 0x02a03025, 0x462001a0, 0xe6260000,
+    0x0c0b86fe, 0x4620b306,
+]
+
+[[test]]
+end_address = "0xffffffff802e1bf8"
+trace = [
+    { type = "store_u32", address = 0x0021d584, value = 0x3fff9419 },
+]
+
+[[test]]
+end_address = "0xffffffff802e1bf8"
+trace = [
+    { type = "store_u32", address = 0x0021c714, value = 0x3fd70f13 },
+]
+
+[[test]]
+end_address = "0xffffffff802e1bf8"
+trace = [
+    { type = "store_u32", address = 0x0021c8a4, value = 0x3fe38e74 },
+]
+
+[[test]]
+end_address = "0xffffffff802e1bf8"
+trace = [
+    { type = "store_u32", address = 0x0021ca34, value = 0x3fea8483 },
+]
+
+[[test]]
+end_address = "0xffffffff802e1bf8"
+trace = [
+    { type = "store_u32", address = 0x0021cbc4, value = 0x3fef6acf },
+]
+
+[[test]]
+end_address = "0xffffffff802e1bf8"
+trace = [
+    { type = "store_u32", address = 0x0021cd54, value = 0x3ff3385b },
+]
+

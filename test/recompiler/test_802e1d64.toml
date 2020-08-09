@@ -1,0 +1,45 @@
+start_address = "0xffffffff802e1d64"
+
+asm_code = """
+    mtc1     v0, cr4
+    or       a2, s5, zero
+    cvt.d.w  f20, f4
+    jal      0xffffffff802e1bf8
+    mov.d    f12, f20
+"""
+
+bin_code = [
+    0x44822000, 0x02a03025, 0x46802521, 0x0c0b86fe,
+    0x4620a306,
+]
+
+[[test]]
+end_address = "0xffffffff802e1bf8"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1bf8"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1bf8"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1bf8"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1bf8"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1bf8"
+trace = [
+]
+

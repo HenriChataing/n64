@@ -1,0 +1,46 @@
+start_address = "0xffffffff8026ed98"
+
+asm_code = """
+    beql     t1, zero, 0xffffffff8026edb8
+    lhu      t2, 0x0(a3)
+"""
+
+bin_code = [
+    0x51200007, 0x94ea0000,
+]
+
+[[test]]
+end_address = "0xffffffff8026eda0"
+trace = [
+    { type = "load_u16", address = 0x001bb486, value = 0x000081ff },
+]
+
+[[test]]
+end_address = "0xffffffff8026eda0"
+trace = [
+    { type = "load_u16", address = 0x001bb506, value = 0x0000fcc3 },
+]
+
+[[test]]
+end_address = "0xffffffff8026eda0"
+trace = [
+    { type = "load_u16", address = 0x001bb57a, value = 0x0000f01f },
+]
+
+[[test]]
+end_address = "0xffffffff8026eda0"
+trace = [
+    { type = "load_u16", address = 0x001bb5f8, value = 0x00002841 },
+]
+
+[[test]]
+end_address = "0xffffffff8026eda0"
+trace = [
+    { type = "load_u16", address = 0x001bb666, value = 0x0000201b },
+]
+
+[[test]]
+end_address = "0xffffffff8026eda0"
+trace = [
+]
+

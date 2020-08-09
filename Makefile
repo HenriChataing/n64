@@ -136,12 +136,18 @@ bin/recompiler_test_suite: CFLAGS += \
     -I$(SRCDIR)/src
 
 bin/recompiler_test_suite: CXXFLAGS += \
-    -std=c++11 \
+    -std=c++17 \
     -I$(SRCDIR)/src \
+    -I$(EXTDIR)/tomlplusplus/include \
     -I$(EXTDIR)/fmt/include
 
 bin/recompiler_test_suite: \
-    $(OBJDIR)/src/mips/cpu-disas.o \
+    $(OBJDIR)/src/debugger.o \
+    $(OBJDIR)/src/memory.o \
+    $(OBJDIR)/src/r4300/mmu.o \
+    $(OBJDIR)/src/r4300/cpu.o \
+    $(OBJDIR)/src/r4300/cop0.o \
+    $(OBJDIR)/src/r4300/cop1.o \
     $(OBJDIR)/external/fmt/src/format.o \
     $(OBJDIR)/test/recompiler_test_suite.o \
     $(OBJDIR)/test/recompiler/test_blocks.o \

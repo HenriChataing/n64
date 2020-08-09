@@ -1,0 +1,68 @@
+start_address = "0xffffffff802dfad0"
+
+asm_code = """
+    lbu      t3, 0x0(a2)
+    andi     t4, t3, 0xff7f
+    sb       t4, 0x0(a2)
+    lw       v1, 0x0(t0)
+    addiu    v0, v0, 0x1
+    addiu    a1, a1, 0xc0
+    slt      at, v0, v1
+    bne      at, zero, 0xffffffff802dfa70
+    nop
+"""
+
+bin_code = [
+    0x90cb0000, 0x316cff7f, 0xa0cc0000, 0x8d030000,
+    0x24420001, 0x24a500c0, 0x0043082a, 0x1420ffe0,
+    0x00000000,
+]
+
+[[test]]
+end_address = "0xffffffff802dfaf4"
+trace = [
+    { type = "load_u8", address = 0x001d2b70, value = 0x00000000 },
+    { type = "store_u8", address = 0x001d2b70, value = 0x00000000 },
+    { type = "load_u32", address = 0x00229808, value = 0x00000010 },
+]
+
+[[test]]
+end_address = "0xffffffff802dfaf4"
+trace = [
+    { type = "load_u8", address = 0x001d2cb0, value = 0x00000000 },
+    { type = "store_u8", address = 0x001d2cb0, value = 0x00000000 },
+    { type = "load_u32", address = 0x00229808, value = 0x00000010 },
+]
+
+[[test]]
+end_address = "0xffffffff802dfaf4"
+trace = [
+    { type = "load_u8", address = 0x001d2df0, value = 0x00000000 },
+    { type = "store_u8", address = 0x001d2df0, value = 0x00000000 },
+    { type = "load_u32", address = 0x00229808, value = 0x00000010 },
+]
+
+[[test]]
+end_address = "0xffffffff802dfaf4"
+trace = [
+    { type = "load_u8", address = 0x001d2a30, value = 0x00000000 },
+    { type = "store_u8", address = 0x001d2a30, value = 0x00000000 },
+    { type = "load_u32", address = 0x00229808, value = 0x00000010 },
+]
+
+[[test]]
+end_address = "0xffffffff802dfaf4"
+trace = [
+    { type = "load_u8", address = 0x001d2b70, value = 0x00000000 },
+    { type = "store_u8", address = 0x001d2b70, value = 0x00000000 },
+    { type = "load_u32", address = 0x00229808, value = 0x00000010 },
+]
+
+[[test]]
+end_address = "0xffffffff802dfaf4"
+trace = [
+    { type = "load_u8", address = 0x001d2cb0, value = 0x00000000 },
+    { type = "store_u8", address = 0x001d2cb0, value = 0x00000000 },
+    { type = "load_u32", address = 0x00229808, value = 0x00000010 },
+]
+

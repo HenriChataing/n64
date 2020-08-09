@@ -1,0 +1,65 @@
+start_address = "0xffffffff802f400c"
+
+asm_code = """
+    lw       t8, 0x0(a0)
+    lw       t7, 0x4(a1)
+    or       t9, a0, zero
+    lw       t6, 0x4(t8)
+    slt      at, t6, t7
+    bne      at, zero, 0xffffffff802f4040
+    nop
+"""
+
+bin_code = [
+    0x8c980000, 0x8caf0004, 0x0080c825, 0x8f0e0004,
+    0x01cf082a, 0x14200007, 0x00000000,
+]
+
+[[test]]
+end_address = "0xffffffff802f4028"
+trace = [
+    { type = "load_u32", address = 0x00302ef8, value = 0x80333790 },
+    { type = "load_u32", address = 0x003089e4, value = 0x00000000 },
+    { type = "load_u32", address = 0x00333794, value = 0x000000fe },
+]
+
+[[test]]
+end_address = "0xffffffff802f4028"
+trace = [
+    { type = "load_u32", address = 0x00302ef8, value = 0x80308b90 },
+    { type = "load_u32", address = 0x00308d44, value = 0x0000000a },
+    { type = "load_u32", address = 0x00308b94, value = 0x00000064 },
+]
+
+[[test]]
+end_address = "0xffffffff802f4028"
+trace = [
+    { type = "load_u32", address = 0x00302ef8, value = 0x803349b0 },
+    { type = "load_u32", address = 0x00308ef4, value = 0x00000014 },
+    { type = "load_u32", address = 0x003349b4, value = 0x00000096 },
+]
+
+[[test]]
+end_address = "0xffffffff802f4028"
+trace = [
+    { type = "load_u32", address = 0x00309108, value = 0x80302ef0 },
+    { type = "load_u32", address = 0x00308b94, value = 0x00000064 },
+    { type = "load_u32", address = 0x00302ef4, value = 0xffffffff },
+]
+
+[[test]]
+end_address = "0xffffffff802f4028"
+trace = [
+    { type = "load_u32", address = 0x00302ef8, value = 0x80308b90 },
+    { type = "load_u32", address = 0x003089e4, value = 0x00000000 },
+    { type = "load_u32", address = 0x00308b94, value = 0x00000064 },
+]
+
+[[test]]
+end_address = "0xffffffff802f4028"
+trace = [
+    { type = "load_u32", address = 0x00302ef8, value = 0x803349b0 },
+    { type = "load_u32", address = 0x00308ef4, value = 0x00000014 },
+    { type = "load_u32", address = 0x003349b4, value = 0x00000096 },
+]
+

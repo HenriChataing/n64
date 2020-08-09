@@ -1,0 +1,41 @@
+start_address = "0xffffffff802e1bbc"
+
+asm_code = """
+    beq      t8, zero, 0xffffffff802e1bcc
+    nop
+"""
+
+bin_code = [
+    0x13000003, 0x00000000,
+]
+
+[[test]]
+end_address = "0xffffffff802e1bc4"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1bc4"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1bc4"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1bc4"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1bc4"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1bc4"
+trace = [
+]
+

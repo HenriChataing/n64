@@ -1,0 +1,41 @@
+start_address = "0xffffffff802e1ca0"
+
+asm_code = """
+    bne      s0, s1, 0xffffffff802e1c60
+    mov.d    f20, f0
+"""
+
+bin_code = [
+    0x1611ffef, 0x46200506,
+]
+
+[[test]]
+end_address = "0xffffffff802e1ca8"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1ca8"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1ca8"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1ca8"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1ca8"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1ca8"
+trace = [
+]
+

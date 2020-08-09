@@ -1,0 +1,55 @@
+start_address = "0xffffffff802e1b70"
+
+asm_code = """
+    mul.d    f0, f12, f12
+    addiu    v0, a2, 0xfff7
+    mtc1     a2, cr8
+    andi     t6, v0, 0x1
+    andi     t7, v0, 0x2
+    andi     t8, v0, 0x4
+    andi     t9, v0, 0x8
+    cvt.d.w  f10, f8
+    mul.d    f2, f0, f0
+    nop
+    mul.d    f14, f2, f2
+    beq      t6, zero, 0xffffffff802e1bac
+    mov.d    f16, f14
+"""
+
+bin_code = [
+    0x462c6002, 0x24c2fff7, 0x44864000, 0x304e0001,
+    0x304f0002, 0x30580004, 0x30590008, 0x468042a1,
+    0x46200082, 0x00000000, 0x46221382, 0x11c00003,
+    0x46207406,
+]
+
+[[test]]
+end_address = "0xffffffff802e1ba4"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1ba4"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1ba4"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1ba4"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1ba4"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e1ba4"
+trace = [
+]
+

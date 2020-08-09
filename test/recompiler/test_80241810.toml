@@ -1,0 +1,57 @@
+start_address = "0xffffffff80241810"
+
+asm_code = """
+    addi     t1, t1, -8
+    sw       zero, 0x0(t0)
+    sw       zero, 0x4(t0)
+    bne      t1, zero, 0xffffffff80241810
+    addi     t0, t0, 8
+"""
+
+bin_code = [
+    0x2129fff8, 0xad000000, 0xad000004, 0x1520fffc,
+    0x21080008,
+]
+
+[[test]]
+end_address = "0xffffffff80241824"
+trace = [
+    { type = "store_u32", address = 0x00309d90, value = 0x00000000 },
+    { type = "store_u32", address = 0x00309d94, value = 0x00000000 },
+]
+
+[[test]]
+end_address = "0xffffffff80241824"
+trace = [
+    { type = "store_u32", address = 0x0030a0b0, value = 0x00000000 },
+    { type = "store_u32", address = 0x0030a0b4, value = 0x00000000 },
+]
+
+[[test]]
+end_address = "0xffffffff80241824"
+trace = [
+    { type = "store_u32", address = 0x0030a3d0, value = 0x00000000 },
+    { type = "store_u32", address = 0x0030a3d4, value = 0x00000000 },
+]
+
+[[test]]
+end_address = "0xffffffff80241824"
+trace = [
+    { type = "store_u32", address = 0x0030a6f0, value = 0x00000000 },
+    { type = "store_u32", address = 0x0030a6f4, value = 0x00000000 },
+]
+
+[[test]]
+end_address = "0xffffffff80241824"
+trace = [
+    { type = "store_u32", address = 0x0030aa10, value = 0x00000000 },
+    { type = "store_u32", address = 0x0030aa14, value = 0x00000000 },
+]
+
+[[test]]
+end_address = "0xffffffff80241824"
+trace = [
+    { type = "store_u32", address = 0x0030ad30, value = 0x00000000 },
+    { type = "store_u32", address = 0x0030ad34, value = 0x00000000 },
+]
+

@@ -1,0 +1,22 @@
+start_address = "0xffffffff802e96a4"
+
+asm_code = """
+    srl      t7, t6, 31
+    bnel     s1, t7, 0xffffffff802e96c4
+    addiu    s0, s0, 0x148
+"""
+
+bin_code = [
+    0x000e7fc2, 0x562f0006, 0x26100148,
+]
+
+[[test]]
+end_address = "0xffffffff802e96b0"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e96b0"
+trace = [
+]
+

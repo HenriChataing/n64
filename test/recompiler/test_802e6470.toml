@@ -1,0 +1,41 @@
+start_address = "0xffffffff802e6470"
+
+asm_code = """
+    bgez     t6, 0xffffffff802e6490
+    addiu    t0, zero, 0x80
+"""
+
+bin_code = [
+    0x05c10007, 0x24080080,
+]
+
+[[test]]
+end_address = "0xffffffff802e6478"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e6478"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e6478"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e6478"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e6478"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e6478"
+trace = [
+]
+
