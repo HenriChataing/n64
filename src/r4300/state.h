@@ -3,7 +3,6 @@
 #define _R4300_STATE_H_INCLUDED_
 
 #include <iostream>
-#include <iterator>
 
 #include <r4300/cpu.h>
 #include <r4300/rsp.h>
@@ -69,12 +68,9 @@ public:
     u8 loadHiddenBits(u32 addr);
     void storeHiddenBits(u32 addr, u8 val);
 
-    void getMemoryLog(std::vector<Memory::LoggingBus::BusLog> &log) {
+    void getMemoryLog(std::vector<Memory::BusLog> &log) {
         Memory::LoggingBus *bus = dynamic_cast<Memory::LoggingBus *>(this->bus);
-        if (bus) {
-            std::copy(bus->log.begin(), bus->log.end(),
-                std::back_inserter(log));
-        }
+        if (bus) bus->copy(log);
     }
 };
 

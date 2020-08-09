@@ -32,7 +32,7 @@ static bool WI(unsigned bytes, u64 addr, u64 val) {
 State::State() {
     // Create the physical memory address space for this machine
     // importing the rom bytes for the select file.
-    bus = new Memory::Bus(32);
+    bus = new Memory::LoggingBus(32);
     bus->root.insertRam(  0x00000000llu, 0x400000, dram);   /* RDRAM ranges 0, 1 */
     bus->root.insertIOmem(0x00400000llu, 0x400000, RAZ, WI);/* RDRAM ranges 2, 3 (extended) */
     bus->root.insertIOmem(0x03f00000llu, 0x100000, read_RDRAM_REG, write_RDRAM_REG);
