@@ -64,6 +64,7 @@ OBJS      := \
     src/r4300/rsp.o \
     src/r4300/rdp.o \
     src/r4300/mmu.o \
+    src/r4300/export.o \
     src/gui/gui.o \
     src/gui/graphics.o \
     src/gui/imgui_impl_glfw.o \

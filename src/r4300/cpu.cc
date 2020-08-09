@@ -1,11 +1,13 @@
 
 #include <iomanip>
 #include <iostream>
+#include <fstream>
 
 #include <mips/asm.h>
 #include <r4300/cpu.h>
 #include <r4300/hw.h>
 #include <r4300/state.h>
+#include <r4300/export.h>
 #include <debugger.h>
 
 #include "eval.h"
@@ -364,6 +366,7 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
     }                                                                          \
 })
 
+u64 captureEnd;
 
 void eval_Reserved(u32 instr) {
     debugger::halt("CPU reserved instruction");
@@ -777,6 +780,7 @@ void eval_XOR(u32 instr) {
 
 void eval_BGEZ(u32 instr) {
     IType(instr, sign_extend);
+    captureEnd = state.reg.pc + 8;
     if ((i64)state.reg.gpr[rs] >= 0) {
         state.cpu.nextAction = State::Action::Delay;
         state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
@@ -785,6 +789,7 @@ void eval_BGEZ(u32 instr) {
 
 void eval_BGEZL(u32 instr) {
     IType(instr, sign_extend);
+    captureEnd = state.reg.pc + 8;
     if ((i64)state.reg.gpr[rs] >= 0) {
         state.cpu.nextAction = State::Action::Delay;
         state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
@@ -795,6 +800,7 @@ void eval_BGEZL(u32 instr) {
 
 void eval_BLTZ(u32 instr) {
     IType(instr, sign_extend);
+    captureEnd = state.reg.pc + 8;
     if ((i64)state.reg.gpr[rs] < 0) {
         state.cpu.nextAction = State::Action::Delay;
         state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
@@ -803,6 +809,7 @@ void eval_BLTZ(u32 instr) {
 
 void eval_BLTZL(u32 instr) {
     IType(instr, sign_extend);
+    captureEnd = state.reg.pc + 8;
     if ((i64)state.reg.gpr[rs] < 0) {
         state.cpu.nextAction = State::Action::Delay;
         state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
@@ -813,6 +820,7 @@ void eval_BLTZL(u32 instr) {
 
 void eval_BGEZAL(u32 instr) {
     IType(instr, sign_extend);
+    captureEnd = state.reg.pc + 8;
     i64 r = state.reg.gpr[rs];
     state.reg.gpr[31] = state.reg.pc + 8;
     if (r >= 0) {
@@ -823,6 +831,7 @@ void eval_BGEZAL(u32 instr) {
 
 void eval_BGEZALL(u32 instr) {
     IType(instr, sign_extend);
+    captureEnd = state.reg.pc + 8;
     i64 r = state.reg.gpr[rs];
     state.reg.gpr[31] = state.reg.pc + 8;
     if (r >= 0) {
@@ -835,6 +844,7 @@ void eval_BGEZALL(u32 instr) {
 
 void eval_BLTZAL(u32 instr) {
     IType(instr, sign_extend);
+    captureEnd = state.reg.pc + 8;
     i64 r = state.reg.gpr[rs];
     state.reg.gpr[31] = state.reg.pc + 8;
     if (r < 0) {
@@ -845,6 +855,7 @@ void eval_BLTZAL(u32 instr) {
 
 void eval_BLTZALL(u32 instr) {
     IType(instr, sign_extend);
+    captureEnd = state.reg.pc + 8;
     i64 r = state.reg.gpr[rs];
     state.reg.gpr[31] = state.reg.pc + 8;
     if (r < 0) {
@@ -910,6 +921,7 @@ void eval_ANDI(u32 instr) {
 
 void eval_BEQ(u32 instr) {
     IType(instr, sign_extend);
+    captureEnd = state.reg.pc + 8;
     if (state.reg.gpr[rt] == state.reg.gpr[rs]) {
         state.cpu.nextAction = State::Action::Delay;
         state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
@@ -918,6 +930,7 @@ void eval_BEQ(u32 instr) {
 
 void eval_BEQL(u32 instr) {
     IType(instr, sign_extend);
+    captureEnd = state.reg.pc + 8;
     if (state.reg.gpr[rt] == state.reg.gpr[rs]) {
         state.cpu.nextAction = State::Action::Delay;
         state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
@@ -928,6 +941,7 @@ void eval_BEQL(u32 instr) {
 
 void eval_BGTZ(u32 instr) {
     IType(instr, sign_extend);
+    captureEnd = state.reg.pc + 8;
     if ((i64)state.reg.gpr[rs] > 0) {
         state.cpu.nextAction = State::Action::Delay;
         state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
@@ -936,6 +950,7 @@ void eval_BGTZ(u32 instr) {
 
 void eval_BGTZL(u32 instr) {
     IType(instr, sign_extend);
+    captureEnd = state.reg.pc + 8;
     if ((i64)state.reg.gpr[rs] > 0) {
         state.cpu.nextAction = State::Action::Delay;
         state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
@@ -946,6 +961,7 @@ void eval_BGTZL(u32 instr) {
 
 void eval_BLEZ(u32 instr) {
     IType(instr, sign_extend);
+    captureEnd = state.reg.pc + 8;
     if ((i64)state.reg.gpr[rs] <= 0) {
         state.cpu.nextAction = State::Action::Delay;
         state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
@@ -954,6 +970,7 @@ void eval_BLEZ(u32 instr) {
 
 void eval_BLEZL(u32 instr) {
     IType(instr, sign_extend);
+    captureEnd = state.reg.pc + 8;
     if ((i64)state.reg.gpr[rs] <= 0) {
         state.cpu.nextAction = State::Action::Delay;
         state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
@@ -964,6 +981,7 @@ void eval_BLEZL(u32 instr) {
 
 void eval_BNE(u32 instr) {
     IType(instr, sign_extend);
+    captureEnd = state.reg.pc + 8;
     if (state.reg.gpr[rt] != state.reg.gpr[rs]) {
         state.cpu.nextAction = State::Action::Delay;
         state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
@@ -972,6 +990,7 @@ void eval_BNE(u32 instr) {
 
 void eval_BNEL(u32 instr) {
     IType(instr, sign_extend);
+    captureEnd = state.reg.pc + 8;
     if (state.reg.gpr[rt] != state.reg.gpr[rs]) {
         state.cpu.nextAction = State::Action::Delay;
         state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
@@ -1656,6 +1675,158 @@ static void eval()
     }
 }
 
+static std::map<u64, unsigned> blockStart;
+static unsigned captureCount;
+static bool captureRunning = false;
+static u64  captureStart;
+static struct cpureg captureCpuPre;
+static struct cp0reg captureCp0Pre;
+static struct cp1reg captureCp1Pre;
+
+void startCapture(void) {
+    if (captureCount > 1000) {
+        return;
+    }
+    if (blockStart.find(state.reg.pc) == blockStart.end()) {
+        blockStart[state.reg.pc] = 1;
+        return;
+    }
+
+    unsigned count = blockStart[state.reg.pc] + 1;
+    blockStart[state.reg.pc] = count;
+    if (count < 1000 || count > 1500 || (count % 100)) {
+        return;
+    }
+
+    debugger::warn(Debugger::CPU, "starting capture for address {:x}",
+        state.reg.pc);
+
+    captureRunning = true;
+    captureStart = state.reg.pc;
+    captureEnd = -1llu;
+    captureCpuPre = state.reg;
+    captureCp0Pre = state.cp0reg;
+    captureCp1Pre = state.cp1reg;
+    Memory::LoggingBus *bus = dynamic_cast<Memory::LoggingBus *>(state.bus);
+    bus->capture(true);
+}
+
+void stopCapture(u64 finalAddress) {
+    if (!captureRunning)
+        return;
+
+    Memory::LoggingBus *bus = dynamic_cast<Memory::LoggingBus *>(state.bus);
+    std::string filename =
+        fmt::format("test/recompiler/test_{:08x}.toml",
+            captureStart & 0xfffffffflu);
+    std::string filename_pre =
+        fmt::format("test/recompiler/test_{:08x}.input",
+            captureStart & 0xfffffffflu);
+    std::string filename_post =
+        fmt::format("test/recompiler/test_{:08x}.output",
+            captureStart & 0xfffffffflu);
+    std::FILE *of, *pref, *postf;
+    bool exists;
+
+    debugger::warn(Debugger::CPU, "saving capture for address {:x}",
+        captureStart);
+
+    of = std::fopen(filename.c_str(), "r");
+    exists = of != NULL;
+    if (of) std::fclose(of);
+
+    of = std::fopen(filename.c_str(), "a");
+    pref = std::fopen(filename_pre.c_str(), "ab");
+    postf = std::fopen(filename_post.c_str(), "ab");
+
+    if (of == NULL || pref == NULL || postf == NULL) {
+        debugger::error(Debugger::CPU, "cannot open capture files\n");
+        debugger::halt("failed to open capture files");
+        return;
+    }
+
+    if (!exists) {
+        fmt::print(of, "start_address = \"0x{:016x}\"\n\n", captureStart);
+
+        std::string asm_code;
+        std::string bin_code;
+
+        u64 address = captureStart;
+        unsigned count = 0;
+        for (Memory::BusLog entry: bus->log) {
+            debugger::warn(Debugger::CPU,
+                "  {}_{}(0x{:x}, 0x{:x})",
+                entry.access == Memory::BusAccess::Load ? "load" : "store",
+                entry.bytes * 8, entry.address, entry.value);
+
+            if (entry.access == Memory::BusAccess::Load && entry.bytes == 4 &&
+                (entry.address & 0xffffffflu) == (address & 0xffffffflu)) {
+                if ((count % 4) == 0) bin_code += "\n   ";
+                bin_code += fmt::format(" 0x{:08x},", entry.value);
+                asm_code += "    " + Mips::CPU::disas(address, entry.value) + "\n";
+                address += 4;
+                count++;
+            }
+        }
+        if (address == state.reg.pc) {
+            // Missing instruction fetch for the suppressed delay instruction
+            // of a branch likely.
+            u32 instr;
+            u64 phys_address;
+            translateAddress(address, &phys_address, false);
+            bus->load_u32(address, &instr);
+            if ((count % 4) == 0) bin_code += "\n   ";
+            bin_code += fmt::format(" 0x{:08x},", instr);
+            asm_code += "    " + Mips::CPU::disas(address, instr) + "\n";
+            address += 4;
+            count++;
+        }
+        if (address != (state.reg.pc + 4)) {
+            debugger::warn(Debugger::CPU,
+                "incomplete memory trace: missing instruction fetches {}/{}/{}",
+                count, bus->log.size(), state.reg.pc - captureStart + 4);
+            debugger::halt(
+                "incomplete memory trace: missing instruction fetches");
+        }
+
+        fmt::print(of, "asm_code = \"\"\"\n{}\"\"\"\n\n", asm_code);
+        fmt::print(of, "bin_code = [{}\n]\n\n", bin_code);
+    }
+
+    fmt::print(of, "[[test]]\n");
+    fmt::print(of, "end_address = \"0x{:016x}\"\n", finalAddress);
+    fmt::print(of, "trace = [\n");
+    u64 address = captureStart;
+    for (Memory::BusLog entry: bus->log) {
+        if (entry.access == Memory::BusAccess::Load && entry.bytes == 4 &&
+            (entry.address & 0xffffffflu) == (address & 0xffffffflu)) {
+            address += 4;
+        } else {
+            fmt::print(of,
+                "    {{ type = \"{}_u{}\", address = \"0x{:08x}\", value = \"0x{:x}\" }},\n",
+                entry.access == Memory::BusAccess::Load ? "load" : "store",
+                entry.bytes * 8, entry.address, entry.value);
+        }
+    }
+    fmt::print(of, "]\n\n");
+
+    serializeCpuRegisters(pref, captureCpuPre);
+    serializeCp0Registers(pref, captureCp0Pre);
+    serializeCp1Registers(pref, captureCp1Pre);
+
+    serializeCpuRegisters(postf, state.reg);
+    serializeCp0Registers(postf, state.cp0reg);
+    serializeCp1Registers(postf, state.cp1reg);
+
+    std::fclose(of);
+    std::fclose(pref);
+    std::fclose(postf);
+    bus->capture(false);
+    bus->clear();
+    captureRunning = false;
+    captureCount++;
+}
+
 /**
  * @brief Fetch and interpret a single instruction from memory.
  * @return true if the instruction caused an exception
@@ -1664,6 +1835,10 @@ void step()
 {
     if (state.cycles >= state.cpu.nextEvent) {
         state.handleEvent();
+    }
+    if (state.cpu.nextAction != State::Action::Jump &&
+        (state.reg.pc + 4) >= captureEnd) {
+        stopCapture(state.reg.pc + 4);
     }
 
     switch (state.cpu.nextAction) {
@@ -1681,9 +1856,11 @@ void step()
             break;
 
         case State::Action::Jump:
+            stopCapture(state.cpu.nextPc);
             state.reg.pc = state.cpu.nextPc;
             state.cpu.nextAction = State::Action::Continue;
             state.cpu.delaySlot = false;
+            startCapture();
             eval();
             break;
     }

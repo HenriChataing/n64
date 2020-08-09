@@ -141,6 +141,9 @@ void eval_BC1(u32 instr) {
         break;
     }
 
+    extern u64 captureEnd;
+    captureEnd = state.reg.pc + 8;
+
     if (taken) {
         state.cpu.nextAction = State::Action::Delay;
         state.cpu.nextPc = state.reg.pc + 4 + (i64)(offset << 2);

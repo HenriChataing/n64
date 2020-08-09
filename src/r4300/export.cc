@@ -1,18 +1,19 @@
 
 #include <r4300/export.h>
+#include <debugger.h>
 
 using namespace R4300;
 namespace R4300 {
 
 static void serialize_u32(FILE *of, u32 v) {
     u8 bytes[] = { (u8)(v >> 24), (u8)(v >> 16), (u8)(v >> 8),  (u8)(v >> 0), };
-    std::fwrite(&bytes, 1, sizeof(bytes), of);
+    std::fwrite(bytes, sizeof(bytes), 1, of);
 }
 
 static void deserialize_u32(FILE *of, u32 &v) {
     u8 bytes[4] = { 0 };
-    size_t res = std::fread(bytes, 1, sizeof(bytes), of);
-    if (res == sizeof(bytes)) {
+    size_t res = std::fread(bytes, sizeof(bytes), 1, of);
+    if (res == 1) {
         v = ((u32)bytes[0] << 24) |
             ((u32)bytes[1] << 16) |
             ((u32)bytes[2] << 8) |
@@ -27,13 +28,13 @@ static void serialize_u64(FILE *of, u64 v) {
         (u8)(v >> 56), (u8)(v >> 48), (u8)(v >> 40), (u8)(v >> 32),
         (u8)(v >> 24), (u8)(v >> 16), (u8)(v >> 8),  (u8)(v >> 0),
     };
-    std::fwrite(&bytes, 1, sizeof(bytes), of);
+    std::fwrite(bytes, sizeof(bytes), 1, of);
 }
 
 static void deserialize_u64(FILE *of, u64 &v) {
     u8 bytes[8] = { 0 };
-    size_t res = std::fread(bytes, 1, sizeof(bytes), of);
-    if (res == sizeof(bytes)) {
+    size_t res = std::fread(bytes, sizeof(bytes), 1, of);
+    if (res == 1) {
         v = ((u64)bytes[0] << 56) | ((u64)bytes[1] << 48) |
             ((u64)bytes[2] << 40) | ((u64)bytes[3] << 32) |
             ((u64)bytes[4] << 24) | ((u64)bytes[5] << 16) |
