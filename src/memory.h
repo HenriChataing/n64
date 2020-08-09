@@ -4,6 +4,7 @@
 
 #include <cstdlib>
 #include <cassert>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -104,6 +105,8 @@ struct BusLog {
     u64 value;
     bool result;
 
+    BusLog() :
+        access(Memory::Load), bytes(0), address(0), value(0), result(0) {}
     BusLog(BusAccess access, unsigned bytes, u64 address, u64 value, bool result) :
         access(access), bytes(bytes), address(address), value(value), result(result) {}
 };
@@ -112,22 +115,31 @@ struct BusLog {
 class LoggingBus: public Memory::Bus
 {
 public:
-    LoggingBus(unsigned bits) : Bus(bits) {}
+    LoggingBus(unsigned bits) : Bus(bits), _capture(false) {}
     virtual ~LoggingBus() {}
 
     std::vector<BusLog> log;
+
+    void capture(bool enabled) { this->_capture = enabled; }
+    void copy(std::vector<BusLog> &log) {
+        std::copy(this->log.begin(), this->log.end(),
+            std::back_inserter(log));
+    }
     void clear() { log.clear(); }
 
     virtual bool load(unsigned bytes, u64 addr, u64 *val) {
         bool res = root.load(bytes, addr, val);
-        log.push_back(BusLog(Load, bytes, addr, res ? *val : 0, res));
+        if (_capture) log.push_back(BusLog(Load, bytes, addr, res ? *val : 0, res));
         return res;
     }
     virtual bool store(unsigned bytes, u64 addr, u64 val) {
         bool res = root.store(bytes, addr, val);
-        log.push_back(BusLog(Store, bytes, addr, val, res));
+        if (_capture) log.push_back(BusLog(Store, bytes, addr, val, res));
         return res;
     }
+
+private:
+    bool _capture;
 };
 
 }; /* namespace Memory */
