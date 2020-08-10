@@ -11,81 +11,51 @@ extern "C" void interpreter(uint32_t instr) {
 }
 
 extern "C" bool cpu_load_u8(uintmax_t vAddr, uint8_t *value) {
-    uint64_t value64;
     uint64_t pAddr;
-    if (R4300::translateAddress(vAddr, &pAddr, false) != R4300::Exception::None)
-        return false;
-    if (R4300::state.bus->load(1, pAddr, &value64) != R4300::Exception::None)
-        return false;
-    *value = value64;
-    return true;
+    return R4300::translateAddress(vAddr, &pAddr, false) != R4300::Exception::None &&
+           R4300::state.bus->load_u8(pAddr, value);
 }
 
 extern "C" bool cpu_load_u16(uintmax_t vAddr, uint16_t *value) {
-    uint64_t value64;
     uint64_t pAddr;
-    if (R4300::translateAddress(vAddr, &pAddr, false) != R4300::Exception::None)
-        return false;
-    if (R4300::state.bus->load(2, pAddr, &value64) != R4300::Exception::None)
-        return false;
-    *value = value64;
-    return true;
+    return R4300::translateAddress(vAddr, &pAddr, false) != R4300::Exception::None &&
+           R4300::state.bus->load_u16(pAddr, value);
 }
 
 extern "C" bool cpu_load_u32(uintmax_t vAddr, uint32_t *value) {
-    uint64_t value64;
     uint64_t pAddr;
-    if (R4300::translateAddress(vAddr, &pAddr, false) != R4300::Exception::None)
-        return false;
-    if (R4300::state.bus->load(4, pAddr, &value64) != R4300::Exception::None)
-        return false;
-    *value = value64;
-    return true;
+    return R4300::translateAddress(vAddr, &pAddr, false) != R4300::Exception::None &&
+           R4300::state.bus->load_u32(pAddr, value);
 }
 
 extern "C" bool cpu_load_u64(uintmax_t vAddr, uint64_t *value) {
     uint64_t pAddr;
-    if (R4300::translateAddress(vAddr, &pAddr, false) != R4300::Exception::None)
-        return false;
-    if (R4300::state.bus->load(8, pAddr, value) != R4300::Exception::None)
-        return false;
-    return true;
+    return R4300::translateAddress(vAddr, &pAddr, false) != R4300::Exception::None &&
+           R4300::state.bus->load_u64(pAddr, value);
 }
 
 extern "C" bool cpu_store_u8(uintmax_t vAddr, uint8_t value) {
     uint64_t pAddr;
-    if (R4300::translateAddress(vAddr, &pAddr, false) != R4300::Exception::None)
-        return false;
-    if (R4300::state.bus->store(1, pAddr, value) != R4300::Exception::None)
-        return false;
-    return true;
+    return R4300::translateAddress(vAddr, &pAddr, false) != R4300::Exception::None &&
+           R4300::state.bus->store_u8(pAddr, value);
 }
 
 extern "C" bool cpu_store_u16(uintmax_t vAddr, uint16_t value) {
     uint64_t pAddr;
-    if (R4300::translateAddress(vAddr, &pAddr, false) != R4300::Exception::None)
-        return false;
-    if (R4300::state.bus->store(2, pAddr, value) != R4300::Exception::None)
-        return false;
-    return true;
+    return R4300::translateAddress(vAddr, &pAddr, false) != R4300::Exception::None &&
+           R4300::state.bus->store_u16(pAddr, value);
 }
 
 extern "C" bool cpu_store_u32(uintmax_t vAddr, uint32_t value) {
     uint64_t pAddr;
-    if (R4300::translateAddress(vAddr, &pAddr, false) != R4300::Exception::None)
-        return false;
-    if (R4300::state.bus->store(4, pAddr, value) != R4300::Exception::None)
-        return false;
-    return true;
+    return R4300::translateAddress(vAddr, &pAddr, false) != R4300::Exception::None &&
+           R4300::state.bus->store_u32(pAddr, value);
 }
 
 extern "C" bool cpu_store_u64(uintmax_t vAddr, uint64_t value) {
     uint64_t pAddr;
-    if (R4300::translateAddress(vAddr, &pAddr, false) != R4300::Exception::None)
-        return false;
-    if (R4300::state.bus->store(8, pAddr, value) != R4300::Exception::None)
-        return false;
-    return true;
+    return R4300::translateAddress(vAddr, &pAddr, false) != R4300::Exception::None &&
+           R4300::state.bus->store_u64(pAddr, value);
 }
 
 #define IR_DISAS_BRANCH_ENABLE 0
