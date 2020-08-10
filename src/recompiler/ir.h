@@ -62,8 +62,11 @@ typedef struct ir_memory_backend {
 typedef struct ir_recompiler_backend ir_recompiler_backend_t;
 
 /** Allocate a recompiler backend. */
-ir_recompiler_backend_t *ir_create_recompiler_backend(ir_memory_backend_t *memory,
-                                                      unsigned nr_registers);
+ir_recompiler_backend_t *
+ir_create_recompiler_backend(ir_memory_backend_t *memory,
+                             unsigned nr_registers,
+                             unsigned nr_blocks,
+                             unsigned nr_instrs);
 
 /** Bind a register to a physical memory location. */
 void ir_bind_register(ir_recompiler_backend_t *backend,
@@ -75,6 +78,16 @@ void ir_bind_register_u32(ir_recompiler_backend_t *backend,
 void ir_bind_register_u64(ir_recompiler_backend_t *backend,
                           ir_register_t register_,
                           uint64_t *ptr);
+
+typedef struct ir_graph ir_graph_t;
+typedef struct ir_block ir_block_t;
+typedef struct ir_instr ir_instr_t;
+
+void        ir_reset_backend(ir_recompiler_backend_t *backend);
+ir_var_t    ir_alloc_var(ir_recompiler_backend_t *backend);
+ir_instr_t *ir_alloc_instr(ir_recompiler_backend_t *backend);
+ir_block_t *ir_alloc_block(ir_recompiler_backend_t *backend);
+ir_graph_t *ir_make_graph(ir_recompiler_backend_t *backend);
 
 /** Type of constant values. */
 typedef union ir_const {
@@ -123,7 +136,16 @@ static inline ir_value_t ir_make_var(ir_var_t var, ir_type_t type) {
 #ifndef __cplusplus
 #endif /* __cplusplus */
 
-typedef struct ir_instr ir_instr_t;
+typedef struct ir_graph {
+    ir_block_t *blocks;
+    unsigned nr_blocks;
+} ir_graph_t;
+
+typedef struct ir_block {
+    unsigned label;
+    ir_instr_t *instrs;
+    unsigned nr_instrs;
+} ir_block_t;
 
 /** List instructions defined by the intermediate representation. */
 typedef enum ir_instr_kind {
@@ -185,7 +207,7 @@ typedef enum ir_call_flag {
 } ir_call_flag_t;
 
 typedef struct ir_br {
-    ir_instr_t         *target;
+    ir_block_t         *target;
     ir_value_t          cond;
 } ir_br_t;
 
@@ -260,7 +282,11 @@ typedef struct ir_instr {
 
 /** Type alias for instruction code continuation. Contains the emplacement
  * where to write the pointer to the next generated instruction. */
-typedef ir_instr_t **ir_instr_cont_t;
+typedef struct ir_instr_cont {
+    ir_recompiler_backend_t *backend;
+    ir_block_t              *block;
+    ir_instr_t             **next;
+} ir_instr_cont_t;
 
 #ifndef __cplusplus
 
@@ -270,7 +296,7 @@ ir_instr_t ir_make_exit(void) {
 }
 
 static inline
-ir_instr_t ir_make_br(ir_value_t cond, ir_instr_t *target) {
+ir_instr_t ir_make_br(ir_value_t cond, ir_block_t *target) {
     return (ir_instr_t){ .kind = IR_BR,
         .br = { .cond = cond, .target = target, } };
 }
@@ -351,10 +377,6 @@ ir_instr_t ir_make_cvt(ir_var_t res,
 }
 
 #endif /* __cplusplus */
-
-ir_var_t ir_alloc_var(void);
-ir_instr_t *ir_alloc_instr(void);
-void ir_free_instr(ir_instr_t *instr);
 
 int ir_print_type(char *buf, size_t len, ir_type_t const *type);
 int ir_print_value(char *buf, size_t len, ir_value_t const *value);

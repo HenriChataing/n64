@@ -11,16 +11,16 @@ extern "C" {
 
 /**
  * Perform a type checking pass on a generated instruction tree.
- * @param entry     Entry point of a non-looping instruction graph.
- * @param instr     Pointer to a buffer where to write the faulty instruction
+ * @param graph     Pointer to the instruction graph.
+ * @param err_instr Pointer to a buffer where to write the faulty instruction
  *                  in case of typing failure.
- * @param errmsg    Buffer to render an error message into
+ * @param err_msg   Buffer to render an error message into
  *                  in case of typing failure.
- * @param errmsg_len    Size in bytes of \p msg
+ * @param err_msg_len    Size in bytes of \p msg
  * @return          True iff the graph is well-typed.
  */
-bool ir_typecheck(ir_instr_t const *entry, ir_instr_t const **errinstr,
-                  char *errmsg, size_t errmsg_len);
+bool ir_typecheck(ir_graph_t const *graph, ir_instr_t const **err_instr,
+                  char *err_msg, size_t err_msg_len);
 
 #ifdef __cplusplus
 };

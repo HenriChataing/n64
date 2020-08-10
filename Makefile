@@ -150,7 +150,6 @@ bin/recompiler_test_suite: \
     $(OBJDIR)/src/r4300/cop1.o \
     $(OBJDIR)/external/fmt/src/format.o \
     $(OBJDIR)/test/recompiler_test_suite.o \
-    $(OBJDIR)/test/recompiler/test_blocks.o \
     $(OBJDIR)/src/recompiler/ir.o \
     $(OBJDIR)/src/recompiler/passes/typecheck.o \
     $(OBJDIR)/src/recompiler/target/mips.o

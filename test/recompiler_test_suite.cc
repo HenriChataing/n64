@@ -71,7 +71,7 @@ struct test_header {
     std::string asm_code;
     unsigned char *bin_code;
     size_t bin_code_len;
-    ir_instr_t *entry;
+    ir_graph_t *graph;
 };
 
 struct test_case {
@@ -103,11 +103,16 @@ void print_ir_disassembly(struct test_header &test) {
     fmt::print("------------- ir disassembly --------------\n");
 
     ir_instr_t const *instr;
+    ir_block_t const *block;
     char line[128];
 
-    for (instr = test.entry; instr != NULL; instr = instr->next) {
-        ir_print_instr(line, sizeof(line), instr);
-        puts(line);
+    for (unsigned label = 0; label < test.graph->nr_blocks; label++) {
+        fmt::print(".L{}:\n", label);
+        block = &test.graph->blocks[label];
+        for (instr = block->instrs; instr != NULL; instr = instr->next) {
+            ir_print_instr(line, sizeof(line), instr);
+            fmt::print("    {}\n", line);
+        }
     }
 }
 
@@ -115,7 +120,7 @@ bool print_typecheck(struct test_header &test, bool log_success) {
 
     ir_instr_t const *instr;
     char line[128];
-    bool success = ir_typecheck(test.entry, &instr, line, sizeof(line));
+    bool success = ir_typecheck(test.graph, &instr, line, sizeof(line));
 
     if (success && log_success)  {
         fmt::print("------------- ir typecheck ----------------\n");
@@ -292,7 +297,10 @@ static int parse_test_case(toml::node const *test_case,
     return 0;
 }
 
-int run_test_suite(std::string const &test_suite_name, struct test_statistics *stats) {
+int run_test_suite(ir_recompiler_backend_t *backend,
+                   std::string const &test_suite_name,
+                   struct test_statistics *stats,
+                   bool verbose) {
     std::string test_filename   =
         "test/recompiler/" + test_suite_name + ".toml";
     std::string input_filename  =
@@ -353,7 +361,8 @@ int run_test_suite(std::string const &test_suite_name, struct test_statistics *s
     header.bin_code_len = bin_code_len;
     header.asm_code = **asm_code_node.as_string();
 
-    header.entry = ir_mips_disassemble(header.start_address,
+    ir_reset_backend(backend);
+    header.graph = ir_mips_disassemble(backend, header.start_address,
                                        header.bin_code, header.bin_code_len);
 
     if (!print_typecheck(header, false)) {
@@ -362,6 +371,11 @@ int run_test_suite(std::string const &test_suite_name, struct test_statistics *s
         print_ir_disassembly(header);
         stats->total_failed += nr_tests;
         return -1;
+    }
+    if (verbose) {
+        print_input_info(header);
+        print_raw_disassembly(header);
+        print_ir_disassembly(header);
     }
 
     size_t input_size = (34*8) + (12*4 + 8*8) + (32*8+2*4);
@@ -455,6 +469,7 @@ int main(int argc, char **argv) {
     std::vector<std::string> test_suites = list_test_suites();
     struct test_statistics test_stats = {};
     bool stop_at_first_fail = true;
+    ir_recompiler_backend_t *backend = ir_mips_recompiler_backend();
 
     if (mode == RANDOM) {
         selected = std::rand() % test_suites.size();
@@ -462,12 +477,12 @@ int main(int argc, char **argv) {
 
     if (mode == ALL) {
         for (unsigned nr = 0; nr < test_suites.size(); nr++) {
-            run_test_suite(test_suites[nr], &test_stats);
+            run_test_suite(backend, test_suites[nr], &test_stats, false);
             if (stop_at_first_fail && test_stats.total_failed)
                 break;
         }
     } else {
-        run_test_suite(test_suites[selected], &test_stats);
+        run_test_suite(backend, test_suites[selected], &test_stats, true);
     }
 
     unsigned total_tests =

@@ -41,7 +41,8 @@ ir_recompiler_backend_t *ir_mips_recompiler_backend(void);
  * - the target instruction is one of : JR, JALR, ERET, i.e. instructions
  *   with variable, context dependant target addresses.
  */
-ir_instr_t *ir_mips_disassemble(uint64_t address, unsigned char *ptr, size_t len);
+ir_graph_t *ir_mips_disassemble(ir_recompiler_backend_t *backend,
+                                uint64_t address, unsigned char *ptr, size_t len);
 
 /**
  * @brief Compile the provide IR bytecode to x86_64 assembly.

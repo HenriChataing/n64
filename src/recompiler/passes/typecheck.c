@@ -9,18 +9,6 @@
 #define IR_TYPECHECK_QUEUE_SIZE 8
 #define IR_TYPECHECK_VAR_MAX 4096
 
-static struct {
-    ir_instr_t const *queue[IR_TYPECHECK_QUEUE_SIZE];
-    unsigned length;
-} ir_typecheck_queue;
-
-static void typecheck_push(ir_instr_t const *instr) {
-    ir_typecheck_queue.queue[ir_typecheck_queue.length++] = instr;
-}
-
-static void typecheck_pop (ir_instr_t const **instr) {
-    *instr = ir_typecheck_queue.queue[--ir_typecheck_queue.length];
-}
 
 static ir_type_t ir_var_types[IR_TYPECHECK_VAR_MAX];
 static char *ir_error_msg;
@@ -90,7 +78,6 @@ static bool ir_typecheck_call(ir_instr_t const *instr) {
         return false;
     }
 
-    typecheck_push(instr->next);
     return true;
 }
 
@@ -108,7 +95,6 @@ static bool ir_typecheck_unop(ir_instr_t const *instr) {
         return false;
     }
 
-    typecheck_push(instr->next);
     return true;
 }
 
@@ -133,7 +119,6 @@ static bool ir_typecheck_binop(ir_instr_t const *instr) {
         return false;
     }
 
-    typecheck_push(instr->next);
     return true;
 }
 
@@ -158,7 +143,6 @@ static bool ir_typecheck_icmp(ir_instr_t const *instr) {
         return false;
     }
 
-    typecheck_push(instr->next);
     return true;
 }
 
@@ -170,7 +154,6 @@ static bool ir_typecheck_load(ir_instr_t const *instr) {
         return false;
     }
 
-    typecheck_push(instr->next);
     return true;
 }
 
@@ -180,7 +163,6 @@ static bool ir_typecheck_store(ir_instr_t const *instr) {
         return false;
     }
 
-    typecheck_push(instr->next);
     return true;
 }
 
@@ -189,7 +171,6 @@ static bool ir_typecheck_read(ir_instr_t const *instr) {
         return false;
     }
 
-    typecheck_push(instr->next);
     return true;
 }
 
@@ -198,7 +179,6 @@ static bool ir_typecheck_write(ir_instr_t const *instr) {
         return false;
     }
 
-    typecheck_push(instr->next);
     return true;
 }
 
@@ -210,7 +190,6 @@ static bool ir_typecheck_cvt(ir_instr_t const *instr) {
         return false;
     }
 
-    typecheck_push(instr->next);
     return true;
 }
 
@@ -219,11 +198,7 @@ static bool ir_typecheck_instr(ir_instr_t const *instr) {
     switch (instr->kind) {
     case IR_EXIT:       return true;
     case IR_BR:
-        if (!ir_typecheck_value(&instr->br.cond, ir_make_iN(1)))
-            return false;
-        typecheck_push(instr->br.target);
-        typecheck_push(instr->next);
-        return true;
+        return ir_typecheck_value(&instr->br.cond, ir_make_iN(1));
     case IR_CALL:
         return ir_typecheck_call(instr);
     case IR_NOT:
@@ -262,22 +237,28 @@ static bool ir_typecheck_instr(ir_instr_t const *instr) {
     return false;
 }
 
-bool ir_typecheck(ir_instr_t const *entry, ir_instr_t const **errinstr,
-                  char *errmsg, size_t errmsg_len) {
-    /* Set the default type i0 for all variables. */
-    memset(ir_var_types, 0, sizeof(ir_var_types));
-    ir_error_msg = errmsg;
-    ir_error_msg_len = errmsg_len;
-
-    ir_instr_t const *instr = NULL;
-    typecheck_push(entry);
-    while (ir_typecheck_queue.length) {
-        typecheck_pop(&instr);
-        if (!instr || !ir_typecheck_instr(instr)) {
-            *errinstr = instr;
+static bool ir_typecheck_block(ir_block_t const *block,
+                               ir_instr_t const **err_instr) {
+    for (ir_instr_t *instr = block->instrs; instr != NULL; instr = instr->next) {
+        if (!ir_typecheck_instr(instr)) {
+            *err_instr = instr;
             return false;
         }
     }
+    return true;
+}
 
+bool ir_typecheck(ir_graph_t const *graph, ir_instr_t const **err_instr,
+                  char *err_msg, size_t err_msg_len) {
+    /* Set the default type i0 for all variables. */
+    memset(ir_var_types, 0, sizeof(ir_var_types));
+    ir_error_msg = err_msg;
+    ir_error_msg_len = err_msg_len;
+
+    for (unsigned nr = 0; nr < graph->nr_blocks; nr++) {
+        if (!ir_typecheck_block(&graph->blocks[nr], err_instr)) {
+            return false;
+        }
+    }
     return true;
 }

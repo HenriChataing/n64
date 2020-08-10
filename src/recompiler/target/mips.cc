@@ -4,6 +4,9 @@
 #include <r4300/eval.h>
 #include <r4300/state.h>
 
+#define IR_BLOCK_MAX 16
+#define IR_INSTR_MAX 1024
+
 /* Stand-in interpreter, default callback when the instruction cannot
  * be translated to IR. */
 extern "C" void interpreter(uint32_t instr) {
@@ -160,6 +163,7 @@ static void disas_map  (uint64_t address, ir_instr_t *instr) {
 }
 
 static bool disas_fetch(uint64_t address, ir_instr_cont_t cont) {
+#if 0
     unsigned offset = (address - ir_disas_region.start) / 4;
     if (ir_disas_map.map[offset]) {
         *cont = ir_disas_map.map[offset];
@@ -167,6 +171,8 @@ static bool disas_fetch(uint64_t address, ir_instr_cont_t cont) {
     } else {
         return false;
     }
+#endif
+    return false;
 }
 
 static bool disas_check_address(uint64_t address) {
@@ -1623,10 +1629,10 @@ static void (*CPU_callbacks[64])(ir_instr_cont_t *, uint64_t, uint32_t) = {
 
 static ir_instr_t *disas_instr(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_instr_t *entry = NULL;
-    ir_instr_cont_t entryc = &entry;
+    ir_instr_cont_t entryc = { c->backend, c->block, &entry };
     CPU_callbacks[(instr >> 26) & 0x3fu](&entryc, address, instr);
-    **c = entry;
-    *c = entryc;
+    *c->next = entry;
+    c->next = entryc.next;
     return entry;
 }
 
@@ -1648,7 +1654,8 @@ ir_recompiler_backend_t *ir_mips_recompiler_backend(void) {
         cpu_store_u64,
     };
     ir_recompiler_backend_t *backend =
-        ir_create_recompiler_backend(&memory_backend, REG_MAX);
+        ir_create_recompiler_backend(&memory_backend, REG_MAX,
+                                     IR_BLOCK_MAX, IR_INSTR_MAX);
     for (unsigned i = 1; i < 32; i++) {
         ir_bind_register_u64(backend, i, &R4300::state.reg.gpr[i]);
     }
@@ -1658,7 +1665,8 @@ ir_recompiler_backend_t *ir_mips_recompiler_backend(void) {
     return backend;
 }
 
-ir_instr_t *ir_mips_disassemble(uint64_t address, unsigned char *ptr, size_t len) {
+ir_graph_t *ir_mips_disassemble(ir_recompiler_backend_t *backend,
+                                uint64_t address, unsigned char *ptr, size_t len) {
     if (len > (IR_DISAS_MAP_SIZE * sizeof(uint32_t)))
         len = (IR_DISAS_MAP_SIZE * sizeof(uint32_t));
 
@@ -1666,9 +1674,10 @@ ir_instr_t *ir_mips_disassemble(uint64_t address, unsigned char *ptr, size_t len
     ir_disas_region.end   = address + len;
     ir_disas_region.ptr   = ptr;
 
-    ir_instr_t *entrypoint = NULL;
-    ir_instr_cont_t cont;
-    disas_push(address, &entrypoint);
+    ir_block_t *block      = ir_alloc_block(backend);
+    ir_instr_cont_t cont = { backend, block, &block->instrs };
+
+    disas_push(address, cont);
     while (ir_disas_queue.length) {
         disas_pop(&address, &cont);
         if (!disas_check_address(address)) {
@@ -1689,5 +1698,5 @@ ir_instr_t *ir_mips_disassemble(uint64_t address, unsigned char *ptr, size_t len
         }
     }
 
-    return entrypoint;
+    return ir_make_graph(backend);
 }
