@@ -8,11 +8,103 @@
 #include <toml++/toml.h>
 #include <fmt/format.h>
 
+#include <r4300/export.h>
 #include <recompiler/ir.h>
 #include <recompiler/passes.h>
 #include <recompiler/target/mips.h>
 #include <mips/asm.h>
 #include <debugger.h>
+
+namespace Memory {
+using namespace Memory;
+
+/** Implement a bus replaying memory accesses previously recorded with the
+ * LoggingBus. An exception is raised if an attempt is made at :
+ *  - accessing an unrecorded memory location
+ *  - making out-of-order memory accesses
+ */
+class ReplayBus: public Memory::Bus
+{
+public:
+    ReplayBus(unsigned bits) : Bus(bits) {}
+    virtual ~ReplayBus() {}
+
+    std::vector<BusLog> log;
+    unsigned index;
+
+    void reset(std::vector<BusLog> &log) {
+        this->log.clear();
+        this->index = 0;
+        std::copy(log.begin(), log.end(),
+            std::back_inserter(this->log));
+    }
+
+    virtual bool load(unsigned bytes, u64 addr, u64 *val) {
+        if (index >= log.size()) {
+            fmt::print(fmt::emphasis::italic,
+                "unexpected memory access: outside recorded trace\n");
+            return false;
+        }
+        if (log[index].access != Memory::Load ||
+            log[index].bytes != bytes ||
+            log[index].address != addr) {
+            fmt::print(fmt::emphasis::italic,
+                "unexpected memory access:\n");
+            fmt::print(fmt::emphasis::italic,
+                "    played:  load_u{}(0x{:x})\n",
+                bytes * 8, addr);
+            if (log[index].access == Memory::Store) {
+                fmt::print(fmt::emphasis::italic,
+                    "    exected: store_u{}(0x{:x}, 0x{:x})\n",
+                    log[index].bytes * 8,
+                    log[index].address,
+                    log[index].value);
+            } else {
+                fmt::print(fmt::emphasis::italic,
+                    "    exected: load_u{}(0x{:x})\n",
+                    log[index].bytes * 8,
+                    log[index].address);
+            }
+            return false;
+        }
+        *val = log[index++].value;
+        return true;
+    }
+    virtual bool store(unsigned bytes, u64 addr, u64 val) {
+        if (index >= log.size()) {
+            fmt::print(fmt::emphasis::italic,
+                "unexpected memory access: outside recorded trace\n");
+            return false;
+        }
+        if (log[index].access != Memory::Store ||
+            log[index].bytes != bytes ||
+            log[index].address != addr ||
+            log[index].value != val) {
+            fmt::print(fmt::emphasis::italic,
+                "unexpected memory access:\n");
+            fmt::print(fmt::emphasis::italic,
+                "    played:  store_u{}(0x{:x}, 0x{:x})\n",
+                bytes * 8, addr, val);
+            if (log[index].access == Memory::Store) {
+                fmt::print(fmt::emphasis::italic,
+                    "    exected: store_u{}(0x{:x}, 0x{:x})\n",
+                    log[index].bytes * 8,
+                    log[index].address,
+                    log[index].value);
+            } else {
+                fmt::print(fmt::emphasis::italic,
+                    "    exected: load_u{}(0x{:x})\n",
+                    log[index].bytes * 8,
+                    log[index].address);
+            }
+            return false;
+        }
+        index++;
+        return true;
+    }
+};
+
+}; /* Memory */
 
 /* Define stubs for used, but unrequired machine features. */
 namespace R4300 {
@@ -20,11 +112,71 @@ using namespace R4300;
 
 State state;
 
+static inline bool match_register(uintmax_t left, uintmax_t right,
+                                  const std::string &name) {
+    if (left != right) {
+        fmt::print(fmt::emphasis::italic,
+            "    {>8}: {:<16x} - {:x}", name, left, right);
+        return false;
+    } else {
+        return true;
+    }
+}
+
+bool match_cpureg(const cpureg &left, const cpureg &right) {
+    bool equal = true;
+    for (unsigned nr = 0; nr < 32; nr++) {
+        equal &= match_register(left.gpr[nr], right.gpr[nr],
+            fmt::format("r{}", nr));
+    }
+    return match_register(left.pc, right.pc, "pc") &&
+           match_register(left.multLo, right.multLo, "multlo") &&
+           match_register(left.multHi, right.multHi, "multhi") && equal;
+}
+
+bool match_cp0reg(const cp0reg &left, const cp0reg &right) {
+    return match_register(left.index, right.index, "index") &&
+           match_register(left.random, right.random, "random") &&
+           match_register(left.entrylo0, right.entrylo0, "entrylo0") &&
+           match_register(left.entrylo1, right.entrylo1, "entrylo1") &&
+           match_register(left.context, right.context, "context") &&
+           match_register(left.pagemask, right.pagemask, "pagemask") &&
+           match_register(left.wired, right.wired, "wired") &&
+           match_register(left.badvaddr, right.badvaddr, "badvaddr") &&
+           match_register(left.count, right.count, "count") &&
+           match_register(left.entryhi, right.entryhi, "entryhi") &&
+           match_register(left.compare, right.compare, "compare") &&
+           match_register(left.sr, right.sr, "sr") &&
+           match_register(left.cause, right.cause, "cause") &&
+           match_register(left.epc, right.epc, "epc") &&
+           match_register(left.prid, right.prid, "prid") &&
+           match_register(left.config, right.config, "config") &&
+           match_register(left.lladdr, right.lladdr, "lladdr") &&
+           match_register(left.watchlo, right.watchlo, "watchlo") &&
+           match_register(left.watchhi, right.watchhi, "watchhi") &&
+           match_register(left.xcontext, right.xcontext, "xcontext") &&
+           match_register(left.perr, right.perr, "perr") &&
+           match_register(left.cacheerr, right.cacheerr, "cacheerr") &&
+           match_register(left.taglo, right.taglo, "taglo") &&
+           match_register(left.taghi, right.taghi, "taghi") &&
+           match_register(left.errorepc, right.errorepc, "errorepc");
+}
+
+bool match_cp1reg(const cp1reg &left, const cp1reg &right) {
+    bool equal = true;
+    for (unsigned nr = 0; nr < 32; nr++) {
+        equal &= match_register(left.fpr[nr], right.fpr[nr],
+            fmt::format("fpr{}", nr));
+    }
+    return match_register(left.fcr0, right.fcr0, "fcr0") &&
+           match_register(left.fcr31, right.fcr31, "fcr31") && equal;
+}
+
 State::State() {
     // No need to create the physical memory address space for this machine,
     // memory loads and stores are implemented by replaying, in order, the
     // memory accesses of the original execution trace.
-    bus = new Memory::LoggingBus(32);
+    bus = new Memory::ReplayBus(32);
 }
 
 State::~State() {
@@ -137,6 +289,41 @@ bool print_typecheck(struct test_header &test, bool log_success) {
     return success;
 }
 
+bool print_run(struct test_header &test,
+               ir_recompiler_backend_t const *backend, bool log_success) {
+
+    ir_instr_t const *instr;
+    char line[128] = { 0 };
+    bool success = ir_run(backend, test.graph, &instr, line, sizeof(line));
+
+    if (success && log_success)  {
+        fmt::print("---------------- ir run -------------------\n");
+        fmt::print("run success!\n");
+    } else if (!success) {
+        fmt::print("---------------- ir run -------------------\n");
+        if (line[0] != '\n') {
+            fmt::print(fmt::emphasis::italic, "run failure:\n");
+            fmt::print(fmt::emphasis::italic, "    {}\n", line);
+            fmt::print(fmt::emphasis::italic, "in instruction:\n");
+        } else {
+            fmt::print(fmt::emphasis::italic, "run failure in instruction:\n");
+        }
+        ir_print_instr(line, sizeof(line), instr);
+        fmt::print(fmt::emphasis::italic, "    {}\n", line);
+
+        ir_const_t const *vars;
+        unsigned nr_vars;
+        ir_run_vars(&vars, &nr_vars);
+
+        fmt::print(fmt::emphasis::italic, "variable values:\n");
+        for (unsigned nr = 0; nr < nr_vars; nr++) {
+            fmt::print(fmt::emphasis::italic,
+                "    %{} = 0x{:x}\n", nr, vars[nr].int_);
+        }
+    }
+
+    return success;
+}
 
 int load_file(std::string filename, u8 *buffer, size_t *size, bool exact) {
     FILE *fd = fopen(filename.c_str(), "r");
@@ -378,7 +565,10 @@ int run_test_suite(ir_recompiler_backend_t *backend,
         print_ir_disassembly(header);
     }
 
-    size_t input_size = (34*8) + (12*4 + 8*8) + (32*8+2*4);
+    size_t input_size =
+        R4300::serializedCpuRegistersSize() +
+        R4300::serializedCp0RegistersSize() +
+        R4300::serializedCp1RegistersSize();
     size_t output_size = input_size;
     size_t full_input_size = input_size * nr_tests;
     size_t full_output_size = output_size * nr_tests;
@@ -388,9 +578,12 @@ int run_test_suite(ir_recompiler_backend_t *backend,
 
     uint8_t *input  = new uint8_t[full_input_size];
     uint8_t *output = new uint8_t[full_output_size];
+    uint8_t *input_cur = input;
+    uint8_t *output_cur = output;
+    bool any_failed = false;
 
-    if (load_file(input_filename, input, &input_size, true) < 0 ||
-        load_file(output_filename, output, &output_size, true) < 0) {
+    if (load_file(input_filename, input, &full_input_size, true) < 0 ||
+        load_file(output_filename, output, &full_output_size, true) < 0) {
         delete input;
         delete output;
         return -1;
@@ -407,14 +600,48 @@ int run_test_suite(ir_recompiler_backend_t *backend,
             continue;
         }
 
-        fmt::print("+ [test {}/{}] {}:- -- ",
-            nr + 1, nr_tests, test_suite_name);
+        Memory::ReplayBus *bus = dynamic_cast<Memory::ReplayBus*>(R4300::state.bus);
 
-        // fmt::print(fmt::fg(fmt::color::tomato), "FAILED\n");
-        // fmt::print(fmt::fg(fmt::color::dark_orange), "HALTED\n");
+        R4300::deserializeCpuRegisters(input_cur, R4300::state.reg);
+        input_cur += R4300::serializedCpuRegistersSize();
+        R4300::deserializeCp0Registers(input_cur, R4300::state.cp0reg);
+        input_cur += R4300::serializedCp0RegistersSize();
+        R4300::deserializeCp1Registers(input_cur, R4300::state.cp1reg);
+        input_cur += R4300::serializedCp1RegistersSize();
 
-        fmt::print(fmt::fg(fmt::color::chartreuse), "PASS\n");
-        stats->total_pass++;
+        R4300::cpureg reg;
+        R4300::cp0reg cp0reg;
+        R4300::cp1reg cp1reg;
+        R4300::deserializeCpuRegisters(output_cur, reg);
+        output_cur += R4300::serializedCpuRegistersSize();
+        R4300::deserializeCp0Registers(output_cur, cp0reg);
+        output_cur += R4300::serializedCp0RegistersSize();
+        R4300::deserializeCp1Registers(output_cur, cp1reg);
+        output_cur += R4300::serializedCp1RegistersSize();
+
+        bus->reset(test.trace);
+
+        if (!print_run(header, backend, false) ||
+            !match_cpureg(reg,    R4300::state.reg) ||
+            !match_cp0reg(cp0reg, R4300::state.cp0reg) ||
+            !match_cp1reg(cp1reg, R4300::state.cp1reg)) {
+            fmt::print("+ [test {}/{}] {}:- -- ",
+                nr + 1, nr_tests, test_suite_name);
+            fmt::print(fmt::fg(fmt::color::tomato), "FAILED\n");
+            any_failed = true;
+            stats->total_failed++;
+        }  else {
+            fmt::print("+ [test {}/{}] {}:- -- ",
+                nr + 1, nr_tests, test_suite_name);
+            fmt::print(fmt::fg(fmt::color::chartreuse), "PASS\n");
+            stats->total_pass++;
+        }
+    }
+
+    if (any_failed) {
+        print_input_info(header);
+        print_raw_disassembly(header);
+        print_ir_disassembly(header);
     }
 
     delete input;
