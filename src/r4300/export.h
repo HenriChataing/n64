@@ -17,6 +17,9 @@ size_t serializedCp1RegistersSize(void);
 void deserializeCpuRegisters(FILE *of, struct cpureg &reg);
 void deserializeCp0Registers(FILE *of, struct cp0reg &reg);
 void deserializeCp1Registers(FILE *of, struct cp1reg &reg);
+void deserializeCpuRegisters(unsigned char const *ptr, struct cpureg &reg);
+void deserializeCp0Registers(unsigned char const *ptr, struct cp0reg &reg);
+void deserializeCp1Registers(unsigned char const *ptr, struct cp1reg &reg);
 
 }; /* R4300 */
 
