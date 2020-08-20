@@ -144,6 +144,7 @@ bin/recompiler_test_suite: CXXFLAGS += \
 bin/recompiler_test_suite: \
     $(OBJDIR)/src/debugger.o \
     $(OBJDIR)/src/memory.o \
+    $(OBJDIR)/src/r4300/export.o \
     $(OBJDIR)/src/r4300/mmu.o \
     $(OBJDIR)/src/r4300/cpu.o \
     $(OBJDIR)/src/r4300/cop0.o \
@@ -152,6 +153,7 @@ bin/recompiler_test_suite: \
     $(OBJDIR)/test/recompiler_test_suite.o \
     $(OBJDIR)/src/recompiler/ir.o \
     $(OBJDIR)/src/recompiler/passes/typecheck.o \
+    $(OBJDIR)/src/recompiler/passes/run.o \
     $(OBJDIR)/src/recompiler/target/mips.o
 
 bin/recompiler_test_suite:
