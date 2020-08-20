@@ -6,9 +6,7 @@
 #include <recompiler/ir.h>
 #include <recompiler/passes.h>
 
-#define IR_TYPECHECK_QUEUE_SIZE 8
 #define IR_TYPECHECK_VAR_MAX 4096
-
 
 static ir_type_t ir_var_types[IR_TYPECHECK_VAR_MAX];
 static char *ir_error_msg;
