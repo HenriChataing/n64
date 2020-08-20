@@ -5,31 +5,6 @@
 #include <stdio.h>
 #include <recompiler/ir.h>
 
-/** Saves information about a machine register : bit width and host memory
- * location. If `type` is i0, or `ptr` is NULL the register is considered
- * not implemented, and compiled as a zero value. */
-typedef struct ir_register_backend {
-    ir_type_t               type;
-    void *                  ptr;
-} ir_register_backend_t;
-
-struct ir_recompiler_backend {
-    /* Machine abstraction. */
-    ir_memory_backend_t     memory;
-    ir_register_backend_t  *registers;
-    unsigned                nr_registers;
-
-    /* Resources. */
-    ir_graph_t              graph;
-    ir_block_t             *blocks;
-    unsigned                nr_blocks;
-    unsigned                cur_block;
-    ir_instr_t             *instrs;
-    unsigned                nr_instrs;
-    unsigned                cur_instr;
-    ir_var_t                cur_var;
-};
-
 ir_recompiler_backend_t *
 ir_create_recompiler_backend(ir_memory_backend_t *memory,
                              unsigned nr_registers,
@@ -59,6 +34,7 @@ ir_create_recompiler_backend(ir_memory_backend_t *memory,
         goto failure;
     }
 
+    backend->memory = *memory;
     backend->cur_block = 0;
     backend->cur_instr = 0;
     return backend;

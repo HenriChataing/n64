@@ -46,39 +46,7 @@ typedef unsigned ir_register_t;
 /** Type of pseudo variables. */
 typedef unsigned ir_var_t;
 
-/** Machine memory interface. */
-typedef struct ir_memory_backend {
-    bool (*load_u8  )(uintmax_t, uint8_t  *value);
-    bool (*load_u16 )(uintmax_t, uint16_t *value);
-    bool (*load_u32 )(uintmax_t, uint32_t *value);
-    bool (*load_u64 )(uintmax_t, uint64_t *value);
-    bool (*store_u8 )(uintmax_t, uint8_t   value);
-    bool (*store_u16)(uintmax_t, uint16_t  value);
-    bool (*store_u32)(uintmax_t, uint32_t  value);
-    bool (*store_u64)(uintmax_t, uint64_t  value);
-} ir_memory_backend_t;
-
-/** Recompiler backend. */
 typedef struct ir_recompiler_backend ir_recompiler_backend_t;
-
-/** Allocate a recompiler backend. */
-ir_recompiler_backend_t *
-ir_create_recompiler_backend(ir_memory_backend_t *memory,
-                             unsigned nr_registers,
-                             unsigned nr_blocks,
-                             unsigned nr_instrs);
-
-/** Bind a register to a physical memory location. */
-void ir_bind_register(ir_recompiler_backend_t *backend,
-                      ir_register_t register_,
-                      ir_type_t type, void *ptr);
-void ir_bind_register_u32(ir_recompiler_backend_t *backend,
-                          ir_register_t register_,
-                          uint32_t *ptr);
-void ir_bind_register_u64(ir_recompiler_backend_t *backend,
-                          ir_register_t register_,
-                          uint64_t *ptr);
-
 typedef struct ir_graph ir_graph_t;
 typedef struct ir_block ir_block_t;
 typedef struct ir_instr ir_instr_t;
@@ -111,6 +79,11 @@ static inline ir_value_t ir_make_const(ir_type_t type, ir_const_t const_) {
     return (ir_value_t){ IR_CONST, type, { const_ } };
 }
 
+/** @brief Create a u8 constant value representation. */
+static inline ir_value_t ir_make_const_u8(uint8_t const_) {
+    return ir_make_const(ir_make_iN(8), (ir_const_t){ .int_ = const_ });
+}
+
 /** @brief Create a u16 constant value representation. */
 static inline ir_value_t ir_make_const_u16(uint16_t const_) {
     return ir_make_const(ir_make_iN(16), (ir_const_t){ .int_ = const_ });
@@ -132,9 +105,6 @@ static inline ir_value_t ir_make_var(ir_var_t var, ir_type_t type) {
     value.var = var;
     return value;
 }
-
-#ifndef __cplusplus
-#endif /* __cplusplus */
 
 typedef struct ir_graph {
     ir_block_t *blocks;
@@ -439,6 +409,64 @@ ir_value_t ir_append_zext(ir_instr_cont_t *cont,
                           ir_value_t value) {
     return ir_append_cvt(cont, type, IR_ZEXT, value);
 }
+
+/** Machine memory interface. */
+typedef struct ir_memory_backend {
+    bool (*load_u8  )(uintmax_t, uint8_t  *value);
+    bool (*load_u16 )(uintmax_t, uint16_t *value);
+    bool (*load_u32 )(uintmax_t, uint32_t *value);
+    bool (*load_u64 )(uintmax_t, uint64_t *value);
+    bool (*store_u8 )(uintmax_t, uint8_t   value);
+    bool (*store_u16)(uintmax_t, uint16_t  value);
+    bool (*store_u32)(uintmax_t, uint32_t  value);
+    bool (*store_u64)(uintmax_t, uint64_t  value);
+} ir_memory_backend_t;
+
+/** Saves information about a machine register : bit width and host memory
+ * location. If `type` is i0, or `ptr` is NULL the register is considered
+ * not implemented, and compiled as a zero value. */
+typedef struct ir_register_backend {
+    ir_type_t           type;
+    void *              ptr;
+} ir_register_backend_t;
+
+/** Recompiler backend.
+ * Saves information about the machine memory and registers,
+ * as well as interrnal data structures. */
+typedef struct ir_recompiler_backend {
+    /* Machine abstraction. */
+    ir_memory_backend_t     memory;
+    ir_register_backend_t  *registers;
+    unsigned                nr_registers;
+
+    /* Resources. */
+    ir_graph_t              graph;
+    ir_block_t             *blocks;
+    unsigned                nr_blocks;
+    unsigned                cur_block;
+    ir_instr_t             *instrs;
+    unsigned                nr_instrs;
+    unsigned                cur_instr;
+    ir_var_t                cur_var;
+} ir_recompiler_backend_t;
+
+/** Allocate a recompiler backend. */
+ir_recompiler_backend_t *
+ir_create_recompiler_backend(ir_memory_backend_t *memory,
+                             unsigned nr_registers,
+                             unsigned nr_blocks,
+                             unsigned nr_instrs);
+
+/** Bind a register to a physical memory location. */
+void ir_bind_register(ir_recompiler_backend_t *backend,
+                      ir_register_t register_,
+                      ir_type_t type, void *ptr);
+void ir_bind_register_u32(ir_recompiler_backend_t *backend,
+                          ir_register_t register_,
+                          uint32_t *ptr);
+void ir_bind_register_u64(ir_recompiler_backend_t *backend,
+                          ir_register_t register_,
+                          uint64_t *ptr);
 
 #ifdef __cplusplus
 }; /* extern "C" */
