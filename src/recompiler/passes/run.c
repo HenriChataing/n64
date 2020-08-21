@@ -95,10 +95,9 @@ static bool ir_run_binop(ir_instr_t const *instr) {
 }
 
 static bool ir_run_icmp(ir_instr_t const *instr) {
-    unsigned width  = instr->binop.left.type.width;
-    uintmax_t left  = ir_eval_value(instr->binop.left).int_;
-    uintmax_t right = ir_eval_value(instr->binop.right).int_;
-    uintmax_t mask  = ir_make_mask(width);
+    unsigned width  = instr->icmp.left.type.width;
+    uintmax_t left  = ir_eval_value(instr->icmp.left).int_;
+    uintmax_t right = ir_eval_value(instr->icmp.right).int_;
     uintmax_t sign_bit   = 1llu << (width - 1);
     uintmax_t sign_width = CHAR_BIT * sizeof(uintmax_t) - width;
     uintmax_t sign_ext   = ((1llu << sign_width) - 1) << width;
@@ -122,7 +121,7 @@ static bool ir_run_icmp(ir_instr_t const *instr) {
         return false;
     }
 
-    ir_var_values[instr->res] = (ir_const_t){ .int_ = res & mask };
+    ir_var_values[instr->res] = (ir_const_t){ .int_ = res };
     return true;
 }
 
