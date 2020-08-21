@@ -1,0 +1,17 @@
+start_address = "0xffffffff802f1170"
+
+asm_code = """
+    andi     t2, t1, 0xf
+    beq      t2, zero, 0xffffffff802f1190
+    nop
+"""
+
+bin_code = [
+    0x312a000f, 0x11400006, 0x00000000,
+]
+
+[[test]]
+end_address = "0xffffffff802f117c"
+trace = [
+]
+

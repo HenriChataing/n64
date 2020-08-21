@@ -1,0 +1,21 @@
+start_address = "0xffffffff802e13b8"
+
+asm_code = """
+    bgez     t9, 0xffffffff802e1430
+    or       v0, a0, zero
+"""
+
+bin_code = [
+    0x0721001d, 0x00801025,
+]
+
+[[test]]
+end_address = "0xffffffff802e13c0"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e13c0"
+trace = [
+]
+

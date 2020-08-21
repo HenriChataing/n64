@@ -1,0 +1,28 @@
+start_address = "0xffffffff802e1008"
+
+asm_code = """
+    lbu      t8, 0x0(s1)
+    or       s2, v0, zero
+    or       a0, v0, zero
+    andi     t6, t8, 0x1
+    beq      t6, zero, 0xffffffff802e1038
+    or       a1, s1, zero
+"""
+
+bin_code = [
+    0x92380000, 0x00409025, 0x00402025, 0x330e0001,
+    0x11c00007, 0x02202825,
+]
+
+[[test]]
+end_address = "0xffffffff802e1020"
+trace = [
+    { type = "load_u8", address = "0x001d2de0", value = "0x82" },
+]
+
+[[test]]
+end_address = "0xffffffff802e1020"
+trace = [
+    { type = "load_u8", address = "0x001d2de0", value = "0x82" },
+]
+

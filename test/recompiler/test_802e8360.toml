@@ -12,12 +12,36 @@ bin_code = [
 [[test]]
 end_address = "0xffffffff802e8368"
 trace = [
-    { type = "load_u8", address = 0x00200073, value = 0x000000b8 },
+    { type = "load_u8", address = "0x00200073", value = "0xb8" },
 ]
 
 [[test]]
 end_address = "0xffffffff802e8368"
 trace = [
-    { type = "load_u8", address = 0x00200073, value = 0x000000b8 },
+    { type = "load_u8", address = "0x00200073", value = "0xb8" },
+]
+
+[[test]]
+end_address = "0xffffffff802e8368"
+trace = [
+    { type = "load_u8", address = "0x00200073", value = "0xb8" },
+]
+
+[[test]]
+end_address = "0xffffffff802e8368"
+trace = [
+    { type = "load_u8", address = "0x00200073", value = "0xb8" },
+]
+
+[[test]]
+end_address = "0xffffffff802e8368"
+trace = [
+    { type = "load_u8", address = "0x00200073", value = "0xb8" },
+]
+
+[[test]]
+end_address = "0xffffffff802e8368"
+trace = [
+    { type = "load_u8", address = "0x00200073", value = "0xb8" },
 ]
 

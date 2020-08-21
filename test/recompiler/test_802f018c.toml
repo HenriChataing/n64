@@ -1,0 +1,42 @@
+start_address = "0xffffffff802f018c"
+
+asm_code = """
+    addiu    at, zero, 0xffff
+    bne      t9, at, 0xffffffff802f01a4
+    lui      at, 0x8000
+"""
+
+bin_code = [
+    0x2401ffff, 0x17210004, 0x3c018000,
+]
+
+[[test]]
+end_address = "0xffffffff802f0198"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802f0198"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802f0198"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802f0198"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802f0198"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802f0198"
+trace = [
+]
+

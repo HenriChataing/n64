@@ -1,0 +1,17 @@
+start_address = "0xffffffff802e653c"
+
+asm_code = """
+    sll      t9, v0, 9
+    bltzl    t9, 0xffffffff802e6554
+    lh       s5, -0x7ca0(v0)
+"""
+
+bin_code = [
+    0x0002ca40, 0x07220004, 0x84558360,
+]
+
+[[test]]
+end_address = "0xffffffff802e6548"
+trace = [
+]
+

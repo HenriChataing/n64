@@ -2,11 +2,26 @@ start_address = "0xffffffff802e96c4"
 
 asm_code = """
     bnel     s0, s2, 0xffffffff802e96a4
-    nop
+    lh       s5, -0x7ca0(v0)
 """
 
 bin_code = [
-    0x5612fff7, 0x00000000,
+    0x5612fff7, 0x84558360,
+]
+
+[[test]]
+end_address = "0xffffffff802e96cc"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e96cc"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e96cc"
+trace = [
 ]
 
 [[test]]

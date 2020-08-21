@@ -1,0 +1,23 @@
+start_address = "0xffffffff802e69c4"
+
+asm_code = """
+    jal      0xffffffff802e67d8
+    sw       a0, 0x18(sp)
+"""
+
+bin_code = [
+    0x0c0b99f6, 0xafa40018,
+]
+
+[[test]]
+end_address = "0xffffffff802e67d8"
+trace = [
+    { type = "store_u32", address = "0x00200060", value = "0x801d170c" },
+]
+
+[[test]]
+end_address = "0xffffffff802e67d8"
+trace = [
+    { type = "store_u32", address = "0x00200060", value = "0x801d170c" },
+]
+

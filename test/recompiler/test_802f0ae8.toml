@@ -1,0 +1,31 @@
+start_address = "0xffffffff802f0ae8"
+
+asm_code = """
+    lw       t8, 0x18(sp)
+    lw       t0, 0x18(sp)
+    lui      at, 0x8033
+    sll      t9, t8, 2
+    addu     at, at, t9
+    addiu    t7, zero, 0xff
+    sw       t7, 0x5b80(at)
+    addiu    t1, t0, 0x1
+    slti     at, t1, 16
+    bne      at, zero, 0xffffffff802f0ae8
+    sw       t1, 0x18(sp)
+"""
+
+bin_code = [
+    0x8fb80018, 0x8fa80018, 0x3c018033, 0x0018c880,
+    0x00390821, 0x240f00ff, 0xac2f5b80, 0x25090001,
+    0x29210010, 0x1420fff6, 0xafa90018,
+]
+
+[[test]]
+end_address = "0xffffffff802f0b14"
+trace = [
+    { type = "load_u32", address = "0x002021b0", value = "0xa" },
+    { type = "load_u32", address = "0x002021b0", value = "0xa" },
+    { type = "store_u32", address = "0x00335ba8", value = "0xff" },
+    { type = "store_u32", address = "0x002021b0", value = "0xb" },
+]
+

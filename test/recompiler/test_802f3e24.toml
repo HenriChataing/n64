@@ -1,0 +1,23 @@
+start_address = "0xffffffff802f3e24"
+
+asm_code = """
+    lui      t2, 0x8033
+    addiu    t2, t2, 0x36d0
+    addu     t2, t2, a0
+    lw       t1, 0x0(t2)
+    or       s2, ra, zero
+    beq      t1, zero, 0xffffffff802f3ed0
+    nop
+"""
+
+bin_code = [
+    0x3c0a8033, 0x254a36d0, 0x01445021, 0x8d490000,
+    0x03e09025, 0x11200025, 0x00000000,
+]
+
+[[test]]
+end_address = "0xffffffff802f3e40"
+trace = [
+    { type = "load_u32", address = "0x003336f0", value = "0x80309108" },
+]
+

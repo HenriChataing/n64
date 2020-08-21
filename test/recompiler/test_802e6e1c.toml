@@ -1,0 +1,30 @@
+start_address = "0xffffffff802e6e1c"
+
+asm_code = """
+    nop
+    c.lt.s   f12, f2
+    nop
+    bc1fl    0xffffffff802e6e3c
+    mov.s    f0, f2
+"""
+
+bin_code = [
+    0x00000000, 0x4602603c, 0x00000000, 0x45020004,
+    0x46001006,
+]
+
+[[test]]
+end_address = "0xffffffff802e6e30"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e6e30"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e6e30"
+trace = [
+]
+

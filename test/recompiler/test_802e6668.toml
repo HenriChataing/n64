@@ -1,0 +1,40 @@
+start_address = "0xffffffff802e6668"
+
+asm_code = """
+    lw       t4, 0x0(s3)
+    or       s0, zero, zero
+    or       s1, s3, zero
+    sll      t6, t4, 5
+    bgez     t6, 0xffffffff802e6690
+    addiu    s4, zero, 0x40
+"""
+
+bin_code = [
+    0x8e6c0000, 0x00008025, 0x02608825, 0x000c7140,
+    0x05c10005, 0x24140040,
+]
+
+[[test]]
+end_address = "0xffffffff802e6680"
+trace = [
+    { type = "load_u32", address = "0x00223ff8", value = "0xc0000060" },
+]
+
+[[test]]
+end_address = "0xffffffff802e6680"
+trace = [
+    { type = "load_u32", address = "0x00223ff8", value = "0xc0000060" },
+]
+
+[[test]]
+end_address = "0xffffffff802e6680"
+trace = [
+    { type = "load_u32", address = "0x00223ff8", value = "0xc0000060" },
+]
+
+[[test]]
+end_address = "0xffffffff802e6680"
+trace = [
+    { type = "load_u32", address = "0x00223ff8", value = "0xc0000060" },
+]
+

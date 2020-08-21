@@ -18,42 +18,42 @@ bin_code = [
 [[test]]
 end_address = "0xffffffff802e47c8"
 trace = [
-    { type = "store_u32", address = 0x0021e0e4, value = 0x00000000 },
-    { type = "store_u32", address = 0x0021e0e0, value = 0x00000000 },
+    { type = "store_u32", address = "0x0021e0e4", value = "0x0" },
+    { type = "store_u32", address = "0x0021e0e0", value = "0x0" },
 ]
 
 [[test]]
 end_address = "0xffffffff802e47c8"
 trace = [
-    { type = "store_u32", address = 0x0021e404, value = 0x00000000 },
-    { type = "store_u32", address = 0x0021e400, value = 0x00000000 },
+    { type = "store_u32", address = "0x0021e404", value = "0x0" },
+    { type = "store_u32", address = "0x0021e400", value = "0x0" },
 ]
 
 [[test]]
 end_address = "0xffffffff802e47c8"
 trace = [
-    { type = "store_u32", address = 0x0021e724, value = 0x00000000 },
-    { type = "store_u32", address = 0x0021e720, value = 0x00000000 },
+    { type = "store_u32", address = "0x0021e724", value = "0x0" },
+    { type = "store_u32", address = "0x0021e720", value = "0x0" },
 ]
 
 [[test]]
 end_address = "0xffffffff802e47c8"
 trace = [
-    { type = "store_u32", address = 0x0021ea44, value = 0x00000000 },
-    { type = "store_u32", address = 0x0021ea40, value = 0x00000000 },
+    { type = "store_u32", address = "0x0021ea44", value = "0x0" },
+    { type = "store_u32", address = "0x0021ea40", value = "0x0" },
 ]
 
 [[test]]
 end_address = "0xffffffff802e47c8"
 trace = [
-    { type = "store_u32", address = 0x0021ed64, value = 0x00000000 },
-    { type = "store_u32", address = 0x0021ed60, value = 0x00000000 },
+    { type = "store_u32", address = "0x0021ed64", value = "0x0" },
+    { type = "store_u32", address = "0x0021ed60", value = "0x0" },
 ]
 
 [[test]]
 end_address = "0xffffffff802e47c8"
 trace = [
-    { type = "store_u32", address = 0x0021f084, value = 0x00000000 },
-    { type = "store_u32", address = 0x0021f080, value = 0x00000000 },
+    { type = "store_u32", address = "0x0021f084", value = "0x0" },
+    { type = "store_u32", address = "0x0021f080", value = "0x0" },
 ]
 

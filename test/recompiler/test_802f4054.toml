@@ -14,48 +14,48 @@ bin_code = [
 [[test]]
 end_address = "0xffffffff802f4070"
 trace = [
-    { type = "load_u32", address = 0x00302ef8, value = 0x80308ef0 },
-    { type = "load_u32", address = 0x00308ef0, value = 0x803089e0 },
-    { type = "store_u32", address = 0x00302ef8, value = 0x803089e0 },
+    { type = "load_u32", address = "0x00302ef8", value = "0x80308ef0" },
+    { type = "load_u32", address = "0x00308ef0", value = "0x803089e0" },
+    { type = "store_u32", address = "0x00302ef8", value = "0x803089e0" },
 ]
 
 [[test]]
 end_address = "0xffffffff802f4070"
 trace = [
-    { type = "load_u32", address = 0x00302ef8, value = 0x80308ef0 },
-    { type = "load_u32", address = 0x00308ef0, value = 0x803089e0 },
-    { type = "store_u32", address = 0x00302ef8, value = 0x803089e0 },
+    { type = "load_u32", address = "0x00302ef8", value = "0x80308ef0" },
+    { type = "load_u32", address = "0x00308ef0", value = "0x803089e0" },
+    { type = "store_u32", address = "0x00302ef8", value = "0x803089e0" },
 ]
 
 [[test]]
 end_address = "0xffffffff802f4070"
 trace = [
-    { type = "load_u32", address = 0x00302ef8, value = 0x803089e0 },
-    { type = "load_u32", address = 0x003089e0, value = 0x80302ef0 },
-    { type = "store_u32", address = 0x00302ef8, value = 0x80302ef0 },
+    { type = "load_u32", address = "0x00302ef8", value = "0x803089e0" },
+    { type = "load_u32", address = "0x003089e0", value = "0x80302ef0" },
+    { type = "store_u32", address = "0x00302ef8", value = "0x80302ef0" },
 ]
 
 [[test]]
 end_address = "0xffffffff802f4070"
 trace = [
-    { type = "load_u32", address = 0x00302ef8, value = 0x80308d40 },
-    { type = "load_u32", address = 0x00308d40, value = 0x803089e0 },
-    { type = "store_u32", address = 0x00302ef8, value = 0x803089e0 },
+    { type = "load_u32", address = "0x00302ef8", value = "0x80308d40" },
+    { type = "load_u32", address = "0x00308d40", value = "0x803089e0" },
+    { type = "store_u32", address = "0x00302ef8", value = "0x803089e0" },
 ]
 
 [[test]]
 end_address = "0xffffffff802f4070"
 trace = [
-    { type = "load_u32", address = 0x00302ef8, value = 0x803349b0 },
-    { type = "load_u32", address = 0x003349b0, value = 0x80308ef0 },
-    { type = "store_u32", address = 0x00302ef8, value = 0x80308ef0 },
+    { type = "load_u32", address = "0x00302ef8", value = "0x803349b0" },
+    { type = "load_u32", address = "0x003349b0", value = "0x80308ef0" },
+    { type = "store_u32", address = "0x00302ef8", value = "0x80308ef0" },
 ]
 
 [[test]]
 end_address = "0xffffffff802f4070"
 trace = [
-    { type = "load_u32", address = 0x00302ef8, value = 0x80308ef0 },
-    { type = "load_u32", address = 0x00308ef0, value = 0x80308d40 },
-    { type = "store_u32", address = 0x00302ef8, value = 0x80308d40 },
+    { type = "load_u32", address = "0x00302ef8", value = "0x80308ef0" },
+    { type = "load_u32", address = "0x00308ef0", value = "0x80308d40" },
+    { type = "store_u32", address = "0x00302ef8", value = "0x80308d40" },
 ]
 

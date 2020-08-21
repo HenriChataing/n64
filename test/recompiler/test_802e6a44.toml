@@ -1,0 +1,26 @@
+start_address = "0xffffffff802e6a44"
+
+asm_code = """
+    beql     t7, zero, 0xffffffff802e6a74
+    lh       s5, -0x7ca0(v0)
+"""
+
+bin_code = [
+    0x51e0000b, 0x84558360,
+]
+
+[[test]]
+end_address = "0xffffffff802e6a4c"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e6a4c"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e6a4c"
+trace = [
+]
+

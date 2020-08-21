@@ -1,0 +1,42 @@
+start_address = "0xffffffff802e08a4"
+
+asm_code = """
+    lw       t6, 0x130(sp)
+    beql     t6, a1, 0xffffffff802e0914
+    lh       s5, -0x7ca0(v0)
+"""
+
+bin_code = [
+    0x8fae0130, 0x51c5001a, 0x84558360,
+]
+
+[[test]]
+end_address = "0xffffffff802e08b0"
+trace = [
+    { type = "load_u32", address = "0x00200038", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff802e08b0"
+trace = [
+    { type = "load_u32", address = "0x00200038", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff802e08b0"
+trace = [
+    { type = "load_u32", address = "0x00200038", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff802e08b0"
+trace = [
+    { type = "load_u32", address = "0x00200038", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff802e08b0"
+trace = [
+    { type = "load_u32", address = "0x00200038", value = "0x0" },
+]
+

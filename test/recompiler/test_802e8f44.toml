@@ -1,0 +1,48 @@
+start_address = "0xffffffff802e8f44"
+
+asm_code = """
+    lbu      t0, 0x4(s1)
+    lui      t1, 0x8022
+    addiu    t1, t1, 0x2c58
+    addu     v0, t0, t1
+    lbu      t2, 0x0(v0)
+    addiu    a0, zero, 0x2
+    slti     t3, t2, 2
+    bne      t3, zero, 0xffffffff802e8f88
+    nop
+"""
+
+bin_code = [
+    0x92280004, 0x3c098022, 0x25292c58, 0x01091021,
+    0x904a0000, 0x24040002, 0x294b0002, 0x15600009,
+    0x00000000,
+]
+
+[[test]]
+end_address = "0xffffffff802e8f68"
+trace = [
+    { type = "load_u8", address = "0x00223ffc", value = "0x0" },
+    { type = "load_u8", address = "0x00222c58", value = "0x2" },
+]
+
+[[test]]
+end_address = "0xffffffff802e8f68"
+trace = [
+    { type = "load_u8", address = "0x00223ffc", value = "0x0" },
+    { type = "load_u8", address = "0x00222c58", value = "0x2" },
+]
+
+[[test]]
+end_address = "0xffffffff802e8f68"
+trace = [
+    { type = "load_u8", address = "0x00223ffc", value = "0x0" },
+    { type = "load_u8", address = "0x00222c58", value = "0x2" },
+]
+
+[[test]]
+end_address = "0xffffffff802e8f68"
+trace = [
+    { type = "load_u8", address = "0x00223ffc", value = "0x0" },
+    { type = "load_u8", address = "0x00222c58", value = "0x2" },
+]
+

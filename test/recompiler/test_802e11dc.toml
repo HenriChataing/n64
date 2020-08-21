@@ -1,0 +1,23 @@
+start_address = "0xffffffff802e11dc"
+
+asm_code = """
+    bne      t5, zero, 0xffffffff802e11f4
+    sw       t5, 0x8(sp)
+"""
+
+bin_code = [
+    0x15a00005, 0xafad0008,
+]
+
+[[test]]
+end_address = "0xffffffff802e11e4"
+trace = [
+    { type = "store_u32", address = "0x001ffe50", value = "0x2a0" },
+]
+
+[[test]]
+end_address = "0xffffffff802e11e4"
+trace = [
+    { type = "store_u32", address = "0x001ffe50", value = "0x2a0" },
+]
+

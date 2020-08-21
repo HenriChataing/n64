@@ -1,0 +1,65 @@
+start_address = "0xffffffff802e355c"
+
+asm_code = """
+    addiu    sp, sp, 0xffb8
+    sw       s1, 0x28(sp)
+    sw       s0, 0x24(sp)
+    or       s0, a1, zero
+    or       s1, a0, zero
+    sw       ra, 0x2c(sp)
+    sw       a3, 0x54(sp)
+    bne      a2, zero, 0xffffffff802e35a0
+    or       t1, zero, zero
+"""
+
+bin_code = [
+    0x27bdffb8, 0xafb10028, 0xafb00024, 0x00a08025,
+    0x00808825, 0xafbf002c, 0xafa70054, 0x14c00009,
+    0x00004825,
+]
+
+[[test]]
+end_address = "0xffffffff802e3580"
+trace = [
+    { type = "store_u32", address = "0x001ffee8", value = "0x40" },
+    { type = "store_u32", address = "0x001ffee4", value = "0x24" },
+    { type = "store_u32", address = "0x001ffeec", value = "0x802e0a7c" },
+    { type = "store_u32", address = "0x001fff14", value = "0x801d15d1" },
+]
+
+[[test]]
+end_address = "0xffffffff802e3580"
+trace = [
+    { type = "store_u32", address = "0x001ffee8", value = "0x40" },
+    { type = "store_u32", address = "0x001ffee4", value = "0x24" },
+    { type = "store_u32", address = "0x001ffeec", value = "0x802e0a7c" },
+    { type = "store_u32", address = "0x001fff14", value = "0x801d15d1" },
+]
+
+[[test]]
+end_address = "0xffffffff802e3580"
+trace = [
+    { type = "store_u32", address = "0x001ffee8", value = "0x40" },
+    { type = "store_u32", address = "0x001ffee4", value = "0x24" },
+    { type = "store_u32", address = "0x001ffeec", value = "0x802e0a7c" },
+    { type = "store_u32", address = "0x001fff14", value = "0x801d15d1" },
+]
+
+[[test]]
+end_address = "0xffffffff802e3580"
+trace = [
+    { type = "store_u32", address = "0x001ffee8", value = "0x40" },
+    { type = "store_u32", address = "0x001ffee4", value = "0x24" },
+    { type = "store_u32", address = "0x001ffeec", value = "0x802e0a7c" },
+    { type = "store_u32", address = "0x001fff14", value = "0x801d15d1" },
+]
+
+[[test]]
+end_address = "0xffffffff802e3580"
+trace = [
+    { type = "store_u32", address = "0x001ffee8", value = "0x40" },
+    { type = "store_u32", address = "0x001ffee4", value = "0x24" },
+    { type = "store_u32", address = "0x001ffeec", value = "0x802e0a7c" },
+    { type = "store_u32", address = "0x001fff14", value = "0x801d15d1" },
+]
+

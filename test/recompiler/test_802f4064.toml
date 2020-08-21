@@ -35,3 +35,8 @@ end_address = "0xffffffff802f4054"
 trace = [
 ]
 
+[[test]]
+end_address = "0xffffffff802f4054"
+trace = [
+]
+

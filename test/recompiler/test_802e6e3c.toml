@@ -1,0 +1,26 @@
+start_address = "0xffffffff802e6e3c"
+
+asm_code = """
+    jr       ra
+    nop
+"""
+
+bin_code = [
+    0x03e00008, 0x00000000,
+]
+
+[[test]]
+end_address = "0xffffffff802e53c8"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e53c8"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e53c8"
+trace = [
+]
+

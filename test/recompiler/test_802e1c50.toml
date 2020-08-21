@@ -19,42 +19,42 @@ bin_code = [
 [[test]]
 end_address = "0xffffffff802e1b70"
 trace = [
-    { type = "load_u64", address = 0x00306600, value = 0x3e7ad7f29abcaf48 },
-    { type = "store_u64", address = 0x00200050, value = 0x3f28acb90f6bf3aa },
+    { type = "load_u64", address = "0x00306600", value = "0x3e7ad7f29abcaf48" },
+    { type = "store_u64", address = "0x00200050", value = "0x3f28acb90f6bf3aa" },
 ]
 
 [[test]]
 end_address = "0xffffffff802e1b70"
 trace = [
-    { type = "load_u64", address = 0x00306600, value = 0x3e7ad7f29abcaf48 },
-    { type = "store_u64", address = 0x00200050, value = 0x3f2661ec6a5122f9 },
+    { type = "load_u64", address = "0x00306600", value = "0x3e7ad7f29abcaf48" },
+    { type = "store_u64", address = "0x00200050", value = "0x3f2661ec6a5122f9" },
 ]
 
 [[test]]
 end_address = "0xffffffff802e1b70"
 trace = [
-    { type = "load_u64", address = 0x00306600, value = 0x3e7ad7f29abcaf48 },
-    { type = "store_u64", address = 0x00200050, value = 0x3f249539e3b2d067 },
+    { type = "load_u64", address = "0x00306600", value = "0x3e7ad7f29abcaf48" },
+    { type = "store_u64", address = "0x00200050", value = "0x3f249539e3b2d067" },
 ]
 
 [[test]]
 end_address = "0xffffffff802e1b70"
 trace = [
-    { type = "load_u64", address = 0x00306600, value = 0x3e7ad7f29abcaf48 },
-    { type = "store_u64", address = 0x00200050, value = 0x3f22f684bda12f68 },
+    { type = "load_u64", address = "0x00306600", value = "0x3e7ad7f29abcaf48" },
+    { type = "store_u64", address = "0x00200050", value = "0x3f22f684bda12f68" },
 ]
 
 [[test]]
 end_address = "0xffffffff802e1b70"
 trace = [
-    { type = "load_u64", address = 0x00306600, value = 0x3e7ad7f29abcaf48 },
-    { type = "store_u64", address = 0x00200050, value = 0x3f219453808ca29c },
+    { type = "load_u64", address = "0x00306600", value = "0x3e7ad7f29abcaf48" },
+    { type = "store_u64", address = "0x00200050", value = "0x3f219453808ca29c" },
 ]
 
 [[test]]
 end_address = "0xffffffff802e1b70"
 trace = [
-    { type = "load_u64", address = 0x00306600, value = 0x3e7ad7f29abcaf48 },
-    { type = "store_u64", address = 0x00200050, value = 0x3f2073260a47f7c6 },
+    { type = "load_u64", address = "0x00306600", value = "0x3e7ad7f29abcaf48" },
+    { type = "store_u64", address = "0x00200050", value = "0x3f2073260a47f7c6" },
 ]
 

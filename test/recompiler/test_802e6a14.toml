@@ -1,0 +1,41 @@
+start_address = "0xffffffff802e6a14"
+
+asm_code = """
+    addiu    sp, sp, 0xffe8
+    sw       ra, 0x14(sp)
+    lbu      t6, 0x7c(a0)
+    or       a1, a0, zero
+    addiu    a0, a0, 0x7c
+    beql     t6, zero, 0xffffffff802e6a44
+    lbu      t7, 0xa0(a1)
+"""
+
+bin_code = [
+    0x27bdffe8, 0xafbf0014, 0x908e007c, 0x00802825,
+    0x2484007c, 0x51c00006, 0x90af00a0,
+]
+
+[[test]]
+end_address = "0xffffffff802e6a30"
+trace = [
+    { type = "store_u32", address = "0x00200074", value = "0x802e53d4" },
+    { type = "load_u8", address = "0x001d16fc", value = "0x0" },
+    { type = "load_u8", address = "0x001d1720", value = "0x1" },
+]
+
+[[test]]
+end_address = "0xffffffff802e6a30"
+trace = [
+    { type = "store_u32", address = "0x00200074", value = "0x802e53d4" },
+    { type = "load_u8", address = "0x001d16fc", value = "0x0" },
+    { type = "load_u8", address = "0x001d1720", value = "0x1" },
+]
+
+[[test]]
+end_address = "0xffffffff802e6a30"
+trace = [
+    { type = "store_u32", address = "0x00200074", value = "0x802e53d4" },
+    { type = "load_u8", address = "0x001d16fc", value = "0x0" },
+    { type = "load_u8", address = "0x001d1720", value = "0x1" },
+]
+

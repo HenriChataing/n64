@@ -1,0 +1,51 @@
+start_address = "0xffffffff80370434"
+
+asm_code = """
+    addiu    v1, v1, 0x1
+    slti     at, v1, 14
+    swc1     cr0, 0x0(v0)
+    bne      at, zero, 0xffffffff80370434
+    addiu    v0, v0, 0x4
+"""
+
+bin_code = [
+    0x24630001, 0x2861000e, 0xe4400000, 0x1420fffc,
+    0x24420004,
+]
+
+[[test]]
+end_address = "0xffffffff80370448"
+trace = [
+    { type = "store_u32", address = "0x00309ddc", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff80370448"
+trace = [
+    { type = "store_u32", address = "0x00309dcc", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff80370448"
+trace = [
+    { type = "store_u32", address = "0x00309dbc", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff80370448"
+trace = [
+    { type = "store_u32", address = "0x00201ff8", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff80370448"
+trace = [
+    { type = "store_u32", address = "0x00201fe8", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff80370448"
+trace = [
+    { type = "store_u32", address = "0x00201fd8", value = "0x0" },
+]
+

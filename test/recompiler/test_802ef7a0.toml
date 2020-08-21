@@ -16,42 +16,42 @@ bin_code = [
 [[test]]
 end_address = "0xffffffff802ef7b4"
 trace = [
-    { type = "load_u32", address = 0x001fe1c0, value = 0x80309108 },
-    { type = "load_u32", address = 0x00309110, value = 0x00000000 },
+    { type = "load_u32", address = "0x001fe1c0", value = "0x80309108" },
+    { type = "load_u32", address = "0x00309110", value = "0x0" },
 ]
 
 [[test]]
 end_address = "0xffffffff802ef7b4"
 trace = [
-    { type = "load_u32", address = 0x00202080, value = 0x80228f78 },
-    { type = "load_u32", address = 0x00228f80, value = 0x00000001 },
+    { type = "load_u32", address = "0x00202080", value = "0x80228f78" },
+    { type = "load_u32", address = "0x00228f80", value = "0x1" },
 ]
 
 [[test]]
 end_address = "0xffffffff802ef7b4"
 trace = [
-    { type = "load_u32", address = 0x00335b08, value = 0x803090f0 },
-    { type = "load_u32", address = 0x003090f8, value = 0x00000000 },
+    { type = "load_u32", address = "0x00335b08", value = "0x803090f0" },
+    { type = "load_u32", address = "0x003090f8", value = "0x0" },
 ]
 
 [[test]]
 end_address = "0xffffffff802ef7b4"
 trace = [
-    { type = "load_u32", address = 0x00335b08, value = 0x80335b60 },
-    { type = "load_u32", address = 0x00335b68, value = 0x00000001 },
+    { type = "load_u32", address = "0x00335b08", value = "0x80335b60" },
+    { type = "load_u32", address = "0x00335b68", value = "0x1" },
 ]
 
 [[test]]
 end_address = "0xffffffff802ef7b4"
 trace = [
-    { type = "load_u32", address = 0x00200170, value = 0x80332e58 },
-    { type = "load_u32", address = 0x00332e60, value = 0x00000000 },
+    { type = "load_u32", address = "0x00200170", value = "0x80332e58" },
+    { type = "load_u32", address = "0x00332e60", value = "0x0" },
 ]
 
 [[test]]
 end_address = "0xffffffff802ef7b4"
 trace = [
-    { type = "load_u32", address = 0x002021a0, value = 0x803092e8 },
-    { type = "load_u32", address = 0x003092f0, value = 0x00000000 },
+    { type = "load_u32", address = "0x002021a0", value = "0x803092e8" },
+    { type = "load_u32", address = "0x003092f0", value = "0x0" },
 ]
 

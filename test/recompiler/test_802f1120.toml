@@ -1,0 +1,16 @@
+start_address = "0xffffffff802f1120"
+
+asm_code = """
+    blez     a1, zero, 0xffffffff802f11a0
+    nop
+"""
+
+bin_code = [
+    0x18a0001f, 0x00000000,
+]
+
+[[test]]
+end_address = "0xffffffff802f1128"
+trace = [
+]
+

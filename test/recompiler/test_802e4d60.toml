@@ -1,0 +1,24 @@
+start_address = "0xffffffff802e4d60"
+
+asm_code = """
+    sll      t4, t3, 1
+    bgezl    t4, 0xffffffff802e4d80
+    lbu      t6, 0x0(v0)
+"""
+
+bin_code = [
+    0x000b6040, 0x05830006, 0x904e0000,
+]
+
+[[test]]
+end_address = "0xffffffff802e4d6c"
+trace = [
+    { type = "load_u8", address = "0x001d1730", value = "0x82" },
+]
+
+[[test]]
+end_address = "0xffffffff802e4d6c"
+trace = [
+    { type = "load_u8", address = "0x001d1730", value = "0x82" },
+]
+

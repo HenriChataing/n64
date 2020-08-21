@@ -1,0 +1,26 @@
+start_address = "0xffffffff802e53c0"
+
+asm_code = """
+    jal      0xffffffff802e6b88
+    addiu    a0, s1, 0x28
+"""
+
+bin_code = [
+    0x0c0b9ae2, 0x26240028,
+]
+
+[[test]]
+end_address = "0xffffffff802e6b88"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e6b88"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e6b88"
+trace = [
+]
+

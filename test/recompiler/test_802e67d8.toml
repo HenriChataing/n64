@@ -1,0 +1,50 @@
+start_address = "0xffffffff802e67d8"
+
+asm_code = """
+    lwc1     cr4, 0x10(a0)
+    lw       t6, 0x4(a0)
+    lw       t2, 0x8(a0)
+    trunc.w.s f6, f4
+    mfc1     t8, cr6
+    nop
+    addu     t9, t6, t8
+    srl      t0, t9, 10
+    andi     t1, t0, 0x3f
+    sll      t3, t1, 1
+    sw       t9, 0x4(a0)
+    addu     t4, t2, t3
+    lh       v0, 0x0(t4)
+    sra      t5, v0, 8
+    sll      t7, t5, 16
+    jr       ra
+    sra      v0, t7, 16
+"""
+
+bin_code = [
+    0xc4840010, 0x8c8e0004, 0x8c8a0008, 0x4600218d,
+    0x44183000, 0x00000000, 0x01d8c821, 0x00194282,
+    0x3109003f, 0x00095840, 0xac990004, 0x014b6021,
+    0x85820000, 0x00026a03, 0x000d7c00, 0x03e00008,
+    0x000f1403,
+]
+
+[[test]]
+end_address = "0xffffffff802e69cc"
+trace = [
+    { type = "load_u32", address = "0x001d171c", value = "0x44f00000" },
+    { type = "load_u32", address = "0x001d1710", value = "0xa4100" },
+    { type = "load_u32", address = "0x001d1714", value = "0x80301134" },
+    { type = "store_u32", address = "0x001d1710", value = "0xa4880" },
+    { type = "load_u16", address = "0x00301158", value = "0x7d89" },
+]
+
+[[test]]
+end_address = "0xffffffff802e69cc"
+trace = [
+    { type = "load_u32", address = "0x001d171c", value = "0x44f00000" },
+    { type = "load_u32", address = "0x001d1710", value = "0xbb800" },
+    { type = "load_u32", address = "0x001d1714", value = "0x80301134" },
+    { type = "store_u32", address = "0x001d1710", value = "0xbbf80" },
+    { type = "load_u16", address = "0x00301192", value = "0x809f" },
+]
+

@@ -1,0 +1,25 @@
+start_address = "0xffffffff802e4d80"
+
+asm_code = """
+    andi     t9, t6, 0xffef
+    sb       t9, 0x0(v0)
+    jr       ra
+    nop
+"""
+
+bin_code = [
+    0x31d9ffef, 0xa0590000, 0x03e00008, 0x00000000,
+]
+
+[[test]]
+end_address = "0xffffffff802e5480"
+trace = [
+    { type = "store_u8", address = "0x001d1730", value = "0x82" },
+]
+
+[[test]]
+end_address = "0xffffffff802e5480"
+trace = [
+    { type = "store_u8", address = "0x001d1730", value = "0x82" },
+]
+

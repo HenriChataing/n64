@@ -14,36 +14,36 @@ bin_code = [
 [[test]]
 end_address = "0xffffffff802e1b70"
 trace = [
-    { type = "store_u64", address = 0x00200050, value = 0x3f60000000000000 },
+    { type = "store_u64", address = "0x00200050", value = "0x3f60000000000000" },
 ]
 
 [[test]]
 end_address = "0xffffffff802e1b70"
 trace = [
-    { type = "store_u64", address = 0x00200050, value = 0x4082000000000000 },
+    { type = "store_u64", address = "0x00200050", value = "0x4082000000000000" },
 ]
 
 [[test]]
 end_address = "0xffffffff802e1b70"
 trace = [
-    { type = "store_u64", address = 0x00200050, value = 0x3f5999999999999a },
+    { type = "store_u64", address = "0x00200050", value = "0x3f5999999999999a" },
 ]
 
 [[test]]
 end_address = "0xffffffff802e1b70"
 trace = [
-    { type = "store_u64", address = 0x00200050, value = 0x3f5745d1745d1746 },
+    { type = "store_u64", address = "0x00200050", value = "0x3f5745d1745d1746" },
 ]
 
 [[test]]
 end_address = "0xffffffff802e1b70"
 trace = [
-    { type = "store_u64", address = 0x00200050, value = 0x3f5642c8590b2164 },
+    { type = "store_u64", address = "0x00200050", value = "0x3f5642c8590b2164" },
 ]
 
 [[test]]
 end_address = "0xffffffff802e1b70"
 trace = [
-    { type = "store_u64", address = 0x00200050, value = 0x3f547ae147ae147b },
+    { type = "store_u64", address = "0x00200050", value = "0x3f547ae147ae147b" },
 ]
 

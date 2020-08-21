@@ -1,0 +1,55 @@
+start_address = "0xffffffff802e1038"
+
+asm_code = """
+    or       v0, s2, zero
+    lw       ra, 0x4c(sp)
+    lw       s0, 0x28(sp)
+    lw       s1, 0x2c(sp)
+    lw       s2, 0x30(sp)
+    lw       s3, 0x34(sp)
+    lw       s4, 0x38(sp)
+    lw       s5, 0x3c(sp)
+    lw       s6, 0x40(sp)
+    lw       s7, 0x44(sp)
+    lw       fp, 0x48(sp)
+    jr       ra
+    addiu    sp, sp, 0x148
+"""
+
+bin_code = [
+    0x02401025, 0x8fbf004c, 0x8fb00028, 0x8fb1002c,
+    0x8fb20030, 0x8fb30034, 0x8fb40038, 0x8fb5003c,
+    0x8fb60040, 0x8fb70044, 0x8fbe0048, 0x03e00008,
+    0x27bd0148,
+]
+
+[[test]]
+end_address = "0xffffffff802e0518"
+trace = [
+    { type = "load_u32", address = "0x001fff54", value = "0x802e0518" },
+    { type = "load_u32", address = "0x001fff30", value = "0x802000d5" },
+    { type = "load_u32", address = "0x001fff34", value = "0x1" },
+    { type = "load_u32", address = "0x001fff38", value = "0x2" },
+    { type = "load_u32", address = "0x001fff3c", value = "0x0" },
+    { type = "load_u32", address = "0x001fff40", value = "0x801d33a0" },
+    { type = "load_u32", address = "0x001fff44", value = "0x8021c5e4" },
+    { type = "load_u32", address = "0x001fff48", value = "0xc0" },
+    { type = "load_u32", address = "0x001fff4c", value = "0x80223d60" },
+    { type = "load_u32", address = "0x001fff50", value = "0x4" },
+]
+
+[[test]]
+end_address = "0xffffffff802e0518"
+trace = [
+    { type = "load_u32", address = "0x001fff54", value = "0x802e0518" },
+    { type = "load_u32", address = "0x001fff30", value = "0x802000d5" },
+    { type = "load_u32", address = "0x001fff34", value = "0x1" },
+    { type = "load_u32", address = "0x001fff38", value = "0x2" },
+    { type = "load_u32", address = "0x001fff3c", value = "0x0" },
+    { type = "load_u32", address = "0x001fff40", value = "0x801d33a0" },
+    { type = "load_u32", address = "0x001fff44", value = "0x8021c5e4" },
+    { type = "load_u32", address = "0x001fff48", value = "0xc0" },
+    { type = "load_u32", address = "0x001fff4c", value = "0x80223d60" },
+    { type = "load_u32", address = "0x001fff50", value = "0x4" },
+]
+
