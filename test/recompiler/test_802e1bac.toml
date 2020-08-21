@@ -20,12 +20,12 @@ trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e1bb4"
+end_address = "0xffffffff802e1bbc"
 trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e1bb4"
+end_address = "0xffffffff802e1bbc"
 trace = [
 ]
 

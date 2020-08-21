@@ -4,11 +4,11 @@ asm_code = """
     addu     t9, t7, t3
     sw       t9, 0x8(s7)
     bnel     fp, t4, 0xffffffff802e0934
-    lh       s5, -0x7ca0(v0)
+    swc1     cr9, 0x10c0(t9)
 """
 
 bin_code = [
-    0x01ebc821, 0xaef90008, 0x57ccfefc, 0x84558360,
+    0x01ebc821, 0xaef90008, 0x57ccfefc, 0xe72910c0,
 ]
 
 [[test]]

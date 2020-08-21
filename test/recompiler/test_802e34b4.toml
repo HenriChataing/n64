@@ -15,42 +15,42 @@ bin_code = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e34cc"
+end_address = "0xffffffff802e3484"
 trace = [
     { type = "load_u32", address = "0x002295b4", value = "0x2e" },
     { type = "load_u8", address = "0x002291de", value = "0x0" },
 ]
 
 [[test]]
-end_address = "0xffffffff802e34cc"
+end_address = "0xffffffff802e3484"
 trace = [
     { type = "load_u32", address = "0x002295b4", value = "0x2e" },
     { type = "load_u8", address = "0x0022925e", value = "0x0" },
 ]
 
 [[test]]
-end_address = "0xffffffff802e34cc"
+end_address = "0xffffffff802e3484"
 trace = [
     { type = "load_u32", address = "0x002295b4", value = "0x2e" },
     { type = "load_u8", address = "0x00228ffe", value = "0x0" },
 ]
 
 [[test]]
-end_address = "0xffffffff802e34cc"
+end_address = "0xffffffff802e3484"
 trace = [
     { type = "load_u32", address = "0x002295b4", value = "0x2e" },
     { type = "load_u8", address = "0x0022907e", value = "0x0" },
 ]
 
 [[test]]
-end_address = "0xffffffff802e34cc"
+end_address = "0xffffffff802e3484"
 trace = [
     { type = "load_u32", address = "0x002295b4", value = "0x2e" },
     { type = "load_u8", address = "0x002290fe", value = "0x0" },
 ]
 
 [[test]]
-end_address = "0xffffffff802e34cc"
+end_address = "0xffffffff802e3484"
 trace = [
     { type = "load_u32", address = "0x002295b4", value = "0x2e" },
     { type = "load_u8", address = "0x0022917e", value = "0x0" },

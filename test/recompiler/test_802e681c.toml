@@ -15,14 +15,14 @@ bin_code = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e6834"
+end_address = "0xffffffff802e6840"
 trace = [
     { type = "store_u32", address = "0x0020005c", value = "0x802e6a68" },
     { type = "load_u16", address = "0x001d1726", value = "0x0" },
 ]
 
 [[test]]
-end_address = "0xffffffff802e6834"
+end_address = "0xffffffff802e6840"
 trace = [
     { type = "store_u32", address = "0x0020005c", value = "0x802e6a68" },
     { type = "load_u16", address = "0x001d1726", value = "0x0" },

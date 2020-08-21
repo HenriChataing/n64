@@ -40,7 +40,7 @@ trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802f4028"
+end_address = "0xffffffff802f4040"
 trace = [
     { type = "load_u32", address = "0x00309108", value = "0x80302ef0" },
     { type = "load_u32", address = "0x00308b94", value = "0x64" },

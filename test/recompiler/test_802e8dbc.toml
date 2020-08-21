@@ -10,7 +10,12 @@ bin_code = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e8dc4"
+end_address = "0xffffffff802e8da4"
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff802e8da4"
 trace = [
 ]
 
@@ -20,17 +25,12 @@ trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e8dc4"
+end_address = "0xffffffff802e8da4"
 trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e8dc4"
-trace = [
-]
-
-[[test]]
-end_address = "0xffffffff802e8dc4"
+end_address = "0xffffffff802e8da4"
 trace = [
 ]
 

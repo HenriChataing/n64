@@ -20,13 +20,13 @@ trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff80000144"
+end_address = "0xffffffff80000148"
 trace = [
     { type = "load_u32", address = "0x00242930", value = "0x10400004" },
 ]
 
 [[test]]
-end_address = "0xffffffff80000144"
+end_address = "0xffffffff80000148"
 trace = [
     { type = "load_u32", address = "0x00242ac0", value = "0x8c450044" },
 ]
@@ -38,7 +38,7 @@ trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff80000144"
+end_address = "0xffffffff80000148"
 trace = [
     { type = "load_u32", address = "0x00242de0", value = "0x3c058031" },
 ]

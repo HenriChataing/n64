@@ -10,7 +10,7 @@ bin_code = [
 ]
 
 [[test]]
-end_address = "0xffffffff802f6a30"
+end_address = "0xffffffff802f6a3c"
 trace = [
     { type = "store_u32", address = "0x0020208c", value = "0x0" },
 ]

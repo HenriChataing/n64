@@ -20,7 +20,7 @@ bin_code = [
 ]
 
 [[test]]
-end_address = "0xffffffff802f133c"
+end_address = "0xffffffff802f1314"
 trace = [
     { type = "store_u32", address = "0x00377ba0", value = "0x0" },
     { type = "store_u32", address = "0x00377ba4", value = "0x0" },
@@ -33,7 +33,7 @@ trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802f133c"
+end_address = "0xffffffff802f1314"
 trace = [
     { type = "store_u32", address = "0x00378820", value = "0x0" },
     { type = "store_u32", address = "0x00378824", value = "0x0" },
@@ -46,7 +46,7 @@ trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802f133c"
+end_address = "0xffffffff802f1314"
 trace = [
     { type = "store_u32", address = "0x003794a0", value = "0x0" },
     { type = "store_u32", address = "0x003794a4", value = "0x0" },
@@ -59,7 +59,7 @@ trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802f133c"
+end_address = "0xffffffff802f1314"
 trace = [
     { type = "store_u32", address = "0x0037a120", value = "0x0" },
     { type = "store_u32", address = "0x0037a124", value = "0x0" },
@@ -72,7 +72,7 @@ trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802f133c"
+end_address = "0xffffffff802f1314"
 trace = [
     { type = "store_u32", address = "0x0037ada0", value = "0x0" },
     { type = "store_u32", address = "0x0037ada4", value = "0x0" },
@@ -85,7 +85,7 @@ trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802f133c"
+end_address = "0xffffffff802f1314"
 trace = [
     { type = "store_u32", address = "0x0037ba20", value = "0x0" },
     { type = "store_u32", address = "0x0037ba24", value = "0x0" },

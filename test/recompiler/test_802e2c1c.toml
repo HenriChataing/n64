@@ -25,7 +25,7 @@ bin_code = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e2c54"
+end_address = "0xffffffff802e2c1c"
 trace = [
     { type = "load_u32", address = "0x002298e0", value = "0x801cf540" },
     { type = "store_u16", address = "0x001cff40", value = "0x0" },

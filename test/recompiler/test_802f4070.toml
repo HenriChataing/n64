@@ -286,7 +286,7 @@ trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802f414c"
+end_address = "0xffffffff802f4194"
 trace = [
     { type = "store_u32", address = "0x00302f00", value = "0x80308b90" },
     { type = "store_u16", address = "0x00308ba0", value = "0x4" },

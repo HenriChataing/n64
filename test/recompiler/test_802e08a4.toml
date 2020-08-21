@@ -3,11 +3,11 @@ start_address = "0xffffffff802e08a4"
 asm_code = """
     lw       t6, 0x130(sp)
     beql     t6, a1, 0xffffffff802e0914
-    lh       s5, -0x7ca0(v0)
+    swc1     cr9, 0x10c0(t9)
 """
 
 bin_code = [
-    0x8fae0130, 0x51c5001a, 0x84558360,
+    0x8fae0130, 0x51c5001a, 0xe72910c0,
 ]
 
 [[test]]

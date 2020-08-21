@@ -6,12 +6,12 @@ asm_code = """
     xor      t7, s5, a0
     sltu     t7, zero, t7
     bnel     s2, t7, 0xffffffff802e66cc
-    lh       s5, -0x7ca0(v0)
+    swc1     cr9, 0x10c0(t9)
 """
 
 bin_code = [
     0x24120001, 0x8e240030, 0x02a47826, 0x000f782b,
-    0x564f000a, 0x84558360,
+    0x564f000a, 0xe72910c0,
 ]
 
 [[test]]

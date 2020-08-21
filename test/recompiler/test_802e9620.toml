@@ -15,7 +15,7 @@ bin_code = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e9638"
+end_address = "0xffffffff802e9650"
 trace = [
     { type = "load_u32", address = "0x00224050", value = "0x80228748" },
 ]
@@ -27,13 +27,13 @@ trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e9638"
+end_address = "0xffffffff802e9650"
 trace = [
     { type = "load_u32", address = "0x00223dd4", value = "0x80228748" },
 ]
 
 [[test]]
-end_address = "0xffffffff802e9638"
+end_address = "0xffffffff802e9650"
 trace = [
     { type = "load_u32", address = "0x00224050", value = "0x80228748" },
 ]
@@ -45,7 +45,7 @@ trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e9638"
+end_address = "0xffffffff802e9650"
 trace = [
     { type = "load_u32", address = "0x00223dd4", value = "0x80228748" },
 ]

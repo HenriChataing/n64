@@ -32,7 +32,7 @@ bin_code = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e0740"
+end_address = "0xffffffff802e074c"
 trace = [
     { type = "store_u32", address = "0x001fff54", value = "0x802e0518" },
     { type = "store_u32", address = "0x001fff50", value = "0x3" },
@@ -52,7 +52,7 @@ trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e0740"
+end_address = "0xffffffff802e074c"
 trace = [
     { type = "store_u32", address = "0x001fff54", value = "0x802e0518" },
     { type = "store_u32", address = "0x001fff50", value = "0x3" },

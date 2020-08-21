@@ -15,13 +15,13 @@ bin_code = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e1350"
+end_address = "0xffffffff802e13b8"
 trace = [
     { type = "load_u32", address = "0x001d2de0", value = "0x82000a00" },
 ]
 
 [[test]]
-end_address = "0xffffffff802e1350"
+end_address = "0xffffffff802e13b8"
 trace = [
     { type = "load_u32", address = "0x001d2de0", value = "0x82000a00" },
 ]

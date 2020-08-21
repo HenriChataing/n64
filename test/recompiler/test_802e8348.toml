@@ -11,32 +11,32 @@ bin_code = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e8354"
+end_address = "0xffffffff802e8360"
 trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e8354"
+end_address = "0xffffffff802e8360"
 trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e8354"
+end_address = "0xffffffff802e8360"
 trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e8354"
+end_address = "0xffffffff802e8360"
 trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e8354"
+end_address = "0xffffffff802e8360"
 trace = [
 ]
 
 [[test]]
-end_address = "0xffffffff802e8354"
+end_address = "0xffffffff802e8360"
 trace = [
 ]
 
