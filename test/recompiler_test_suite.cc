@@ -112,64 +112,106 @@ using namespace R4300;
 
 State state;
 
-static inline bool match_register(uintmax_t left, uintmax_t right,
-                                  const std::string &name) {
+static inline void print_register_diff(uintmax_t left, uintmax_t right,
+                                       const std::string &name) {
     if (left != right) {
         fmt::print(fmt::emphasis::italic,
-            "    {>8}: {:<16x} - {:x}", name, left, right);
-        return false;
-    } else {
-        return true;
+            "    {:<8}: {:<16x} - {:x}\n", name, left, right);
     }
 }
 
 bool match_cpureg(const cpureg &left, const cpureg &right) {
-    bool equal = true;
     for (unsigned nr = 0; nr < 32; nr++) {
-        equal &= match_register(left.gpr[nr], right.gpr[nr],
+        if (left.gpr[nr] != right.gpr[nr])
+            return false;
+    }
+    return left.pc == right.pc &&
+           left.multLo == right.multLo &&
+           left.multHi == right.multHi;
+}
+
+void print_cpureg_diff(const cpureg &left, const cpureg &right) {
+    for (unsigned nr = 0; nr < 32; nr++) {
+        print_register_diff(left.gpr[nr], right.gpr[nr],
             fmt::format("r{}", nr));
     }
-    return match_register(left.pc, right.pc, "pc") &&
-           match_register(left.multLo, right.multLo, "multlo") &&
-           match_register(left.multHi, right.multHi, "multhi") && equal;
+    print_register_diff(left.pc, right.pc, "pc");
+    print_register_diff(left.multLo, right.multLo, "multlo");
+    print_register_diff(left.multHi, right.multHi, "multhi");
 }
 
 bool match_cp0reg(const cp0reg &left, const cp0reg &right) {
-    return match_register(left.index, right.index, "index") &&
-           match_register(left.random, right.random, "random") &&
-           match_register(left.entrylo0, right.entrylo0, "entrylo0") &&
-           match_register(left.entrylo1, right.entrylo1, "entrylo1") &&
-           match_register(left.context, right.context, "context") &&
-           match_register(left.pagemask, right.pagemask, "pagemask") &&
-           match_register(left.wired, right.wired, "wired") &&
-           match_register(left.badvaddr, right.badvaddr, "badvaddr") &&
-           match_register(left.count, right.count, "count") &&
-           match_register(left.entryhi, right.entryhi, "entryhi") &&
-           match_register(left.compare, right.compare, "compare") &&
-           match_register(left.sr, right.sr, "sr") &&
-           match_register(left.cause, right.cause, "cause") &&
-           match_register(left.epc, right.epc, "epc") &&
-           match_register(left.prid, right.prid, "prid") &&
-           match_register(left.config, right.config, "config") &&
-           match_register(left.lladdr, right.lladdr, "lladdr") &&
-           match_register(left.watchlo, right.watchlo, "watchlo") &&
-           match_register(left.watchhi, right.watchhi, "watchhi") &&
-           match_register(left.xcontext, right.xcontext, "xcontext") &&
-           match_register(left.perr, right.perr, "perr") &&
-           match_register(left.cacheerr, right.cacheerr, "cacheerr") &&
-           match_register(left.taglo, right.taglo, "taglo") &&
-           match_register(left.taghi, right.taghi, "taghi") &&
-           match_register(left.errorepc, right.errorepc, "errorepc");
+    return left.index == right.index &&
+           left.random == right.random &&
+           left.entrylo0 == right.entrylo0 &&
+           left.entrylo1 == right.entrylo1 &&
+           left.context == right.context &&
+           left.pagemask == right.pagemask &&
+           left.wired == right.wired &&
+           left.badvaddr == right.badvaddr &&
+           left.count == right.count &&
+           left.entryhi == right.entryhi &&
+           left.compare == right.compare &&
+           left.sr == right.sr &&
+           left.cause == right.cause &&
+           left.epc == right.epc &&
+           left.prid == right.prid &&
+           left.config == right.config &&
+           left.lladdr == right.lladdr &&
+           left.watchlo == right.watchlo &&
+           left.watchhi == right.watchhi &&
+           left.xcontext == right.xcontext &&
+           left.perr == right.perr &&
+           left.cacheerr == right.cacheerr &&
+           left.taglo == right.taglo &&
+           left.taghi == right.taghi &&
+           left.errorepc == right.errorepc;
+}
+
+void print_cp0reg_diff(const cp0reg &left, const cp0reg &right) {
+    print_register_diff(left.index, right.index, "index");
+    print_register_diff(left.random, right.random, "random");
+    print_register_diff(left.entrylo0, right.entrylo0, "entrylo0");
+    print_register_diff(left.entrylo1, right.entrylo1, "entrylo1");
+    print_register_diff(left.context, right.context, "context");
+    print_register_diff(left.pagemask, right.pagemask, "pagemask");
+    print_register_diff(left.wired, right.wired, "wired");
+    print_register_diff(left.badvaddr, right.badvaddr, "badvaddr");
+    print_register_diff(left.count, right.count, "count");
+    print_register_diff(left.entryhi, right.entryhi, "entryhi");
+    print_register_diff(left.compare, right.compare, "compare");
+    print_register_diff(left.sr, right.sr, "sr");
+    print_register_diff(left.cause, right.cause, "cause");
+    print_register_diff(left.epc, right.epc, "epc");
+    print_register_diff(left.prid, right.prid, "prid");
+    print_register_diff(left.config, right.config, "config");
+    print_register_diff(left.lladdr, right.lladdr, "lladdr");
+    print_register_diff(left.watchlo, right.watchlo, "watchlo");
+    print_register_diff(left.watchhi, right.watchhi, "watchhi");
+    print_register_diff(left.xcontext, right.xcontext, "xcontext");
+    print_register_diff(left.perr, right.perr, "perr");
+    print_register_diff(left.cacheerr, right.cacheerr, "cacheerr");
+    print_register_diff(left.taglo, right.taglo, "taglo");
+    print_register_diff(left.taghi, right.taghi, "taghi");
+    print_register_diff(left.errorepc, right.errorepc, "errorepc");
 }
 
 bool match_cp1reg(const cp1reg &left, const cp1reg &right) {
-    bool equal = true;
     for (unsigned nr = 0; nr < 32; nr++) {
-        equal &= match_register(left.fpr[nr], right.fpr[nr],
+        if (left.fpr[nr] != right.fpr[nr])
+            return false;
+    }
+    return left.fcr0 == right.fcr0 &&
+           left.fcr31 == right.fcr31;
+}
+
+void print_cp1reg_diff(const cp1reg &left, const cp1reg &right) {
+    for (unsigned nr = 0; nr < 32; nr++) {
+        print_register_diff(left.fpr[nr], right.fpr[nr],
             fmt::format("fpr{}", nr));
     }
-    return match_register(left.fcr0, right.fcr0, "fcr0") &&
-           match_register(left.fcr31, right.fcr31, "fcr31") && equal;
+    print_register_diff(left.fcr0, right.fcr0, "fcr0");
+    print_register_diff(left.fcr31, right.fcr31, "fcr31");
 }
 
 State::State() {
@@ -290,17 +332,13 @@ bool print_typecheck(struct test_header &test, bool log_success) {
 }
 
 bool print_run(struct test_header &test,
-               ir_recompiler_backend_t const *backend, bool log_success) {
+               ir_recompiler_backend_t const *backend) {
 
     ir_instr_t const *instr;
     char line[128] = { 0 };
     bool success = ir_run(backend, test.graph, &instr, line, sizeof(line));
 
-    if (success && log_success)  {
-        fmt::print("---------------- ir run -------------------\n");
-        fmt::print("run success!\n");
-    } else if (!success) {
-        fmt::print("---------------- ir run -------------------\n");
+    if (!success) {
         if (line[0] != '\n') {
             fmt::print(fmt::emphasis::italic, "run failure:\n");
             fmt::print(fmt::emphasis::italic, "    {}\n", line);
@@ -310,19 +348,21 @@ bool print_run(struct test_header &test,
         }
         ir_print_instr(line, sizeof(line), instr);
         fmt::print(fmt::emphasis::italic, "    {}\n", line);
-
-        ir_const_t const *vars;
-        unsigned nr_vars;
-        ir_run_vars(&vars, &nr_vars);
-
-        fmt::print(fmt::emphasis::italic, "variable values:\n");
-        for (unsigned nr = 0; nr < nr_vars; nr++) {
-            fmt::print(fmt::emphasis::italic,
-                "    %{} = 0x{:x}\n", nr, vars[nr].int_);
-        }
     }
 
     return success;
+}
+
+void print_run_vars(void) {
+    ir_const_t const *vars;
+    unsigned nr_vars;
+    ir_run_vars(&vars, &nr_vars);
+
+    fmt::print(fmt::emphasis::italic, "variable values:\n");
+    for (unsigned nr = 0; nr < nr_vars; nr++) {
+        fmt::print(fmt::emphasis::italic,
+            "    %{} = 0x{:x}\n", nr, vars[nr].int_);
+    }
 }
 
 int load_file(std::string filename, u8 *buffer, size_t *size, bool exact) {
@@ -388,20 +428,20 @@ static int parse_trace_entry(toml::node const *trace_node,
             "cannot identify string node 'type' of test entry");
         return -1;
     }
-    if (!address_node || !address_node.is_integer()) {
+    if (!address_node || !address_node.is_string()) {
         debugger::error(Debugger::CPU,
-            "cannot identify integer node 'address' of test entry");
+            "cannot identify string node 'address' of test entry");
         return -1;
     }
-    if (!value_node || !value_node.is_integer()) {
+    if (!value_node || !value_node.is_string()) {
         debugger::error(Debugger::CPU,
-            "cannot identify integer node 'value' of test entry");
+            "cannot identify string node 'value' of test entry");
         return -1;
     }
 
     std::string type = **(type_node.as_string());
-    int64_t address = address_node.as_integer()->get();
-    int64_t value = value_node.as_integer()->get();
+    uint64_t address = strtoull((**address_node.as_string()).c_str(), NULL, 0);
+    uint64_t value = strtoull((**value_node.as_string()).c_str(), NULL, 0);
     unsigned bytes;
     Memory::BusAccess access;
 
@@ -443,8 +483,8 @@ static int parse_trace_entry(toml::node const *trace_node,
         return -1;
     }
 
-    entry.address = (uint64_t)address;
-    entry.value = (uint64_t)value;
+    entry.address = address;
+    entry.value = value;
     entry.access = access;
     entry.bytes = bytes;
     return 0;
@@ -609,9 +649,9 @@ int run_test_suite(ir_recompiler_backend_t *backend,
         R4300::deserializeCp1Registers(input_cur, R4300::state.cp1reg);
         input_cur += R4300::serializedCp1RegistersSize();
 
-        R4300::cpureg reg;
-        R4300::cp0reg cp0reg;
-        R4300::cp1reg cp1reg;
+        R4300::cpureg reg = { 0 };
+        R4300::cp0reg cp0reg = { 0 };
+        R4300::cp1reg cp1reg = { 0 };
         R4300::deserializeCpuRegisters(output_cur, reg);
         output_cur += R4300::serializedCpuRegistersSize();
         R4300::deserializeCp0Registers(output_cur, cp0reg);
@@ -619,12 +659,22 @@ int run_test_suite(ir_recompiler_backend_t *backend,
         R4300::deserializeCp1Registers(output_cur, cp1reg);
         output_cur += R4300::serializedCp1RegistersSize();
 
+        reg.pc = test.end_address;
         bus->reset(test.trace);
+        bool run_success;
 
-        if (!print_run(header, backend, false) ||
+        if (!(run_success = print_run(header, backend)) ||
             !match_cpureg(reg,    R4300::state.reg) ||
             !match_cp0reg(cp0reg, R4300::state.cp0reg) ||
             !match_cp1reg(cp1reg, R4300::state.cp1reg)) {
+            print_run_vars();
+            if (run_success) {
+                fmt::print(fmt::emphasis::italic,
+                    "register differences (expected, computed):\n");
+                print_cpureg_diff(reg, R4300::state.reg);
+                print_cp0reg_diff(cp0reg, R4300::state.cp0reg);
+                print_cp1reg_diff(cp1reg, R4300::state.cp1reg);
+            }
             fmt::print("+ [test {}/{}] {}:- -- ",
                 nr + 1, nr_tests, test_suite_name);
             fmt::print(fmt::fg(fmt::color::tomato), "FAILED\n");
@@ -638,7 +688,7 @@ int run_test_suite(ir_recompiler_backend_t *backend,
         }
     }
 
-    if (any_failed) {
+    if (any_failed && !verbose) {
         print_input_info(header);
         print_raw_disassembly(header);
         print_ir_disassembly(header);
