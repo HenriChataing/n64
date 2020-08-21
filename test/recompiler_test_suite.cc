@@ -659,6 +659,7 @@ int run_test_suite(ir_recompiler_backend_t *backend,
         R4300::deserializeCp1Registers(output_cur, cp1reg);
         output_cur += R4300::serializedCp1RegistersSize();
 
+        R4300::state.cp1reg.setFprAliases(R4300::state.cp0reg.FR());
         reg.pc = test.end_address;
         bus->reset(test.trace);
         bool run_success;
@@ -745,7 +746,7 @@ int main(int argc, char **argv) {
 
     std::vector<std::string> test_suites = list_test_suites();
     struct test_statistics test_stats = {};
-    bool stop_at_first_fail = true;
+    bool stop_at_first_fail = false;
     ir_recompiler_backend_t *backend = ir_mips_recompiler_backend();
 
     if (mode == RANDOM) {
