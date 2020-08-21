@@ -44,6 +44,21 @@ static bool ir_run_br(ir_instr_t const *instr,
 }
 
 static bool ir_run_call(ir_instr_t const *instr) {
+    if (instr->call.nr_params == 0) {
+        instr->call.func();
+        return true;
+    }
+    if (instr->call.nr_params == 1) {
+        ir_const_t const_ = ir_eval_value(instr->call.params[0]);
+        switch (instr->call.params[0].type.width) {
+        case 8:  instr->call.func((uint8_t)const_.int_);  return true;
+        case 16: instr->call.func((uint16_t)const_.int_); return true;
+        case 32: instr->call.func((uint32_t)const_.int_); return true;
+        case 64: instr->call.func((uint64_t)const_.int_); return true;
+        default:
+            break;
+        }
+    }
     snprintf(ir_error_msg, ir_error_msg_len,
         "function call unsupported in IR run");
     return false;
