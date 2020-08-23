@@ -81,7 +81,8 @@ static bool ir_run_unop(ir_instr_t const *instr) {
 static bool ir_run_binop(ir_instr_t const *instr) {
     uintmax_t left  = ir_eval_value(instr->binop.left).int_;
     uintmax_t right = ir_eval_value(instr->binop.right).int_;
-    uintmax_t mask  = ir_make_mask(instr->binop.left.type.width);
+    unsigned width = instr->binop.left.type.width;
+    uintmax_t mask  = ir_make_mask(width);
     uintmax_t res;
 
     switch (instr->kind) {
@@ -98,9 +99,12 @@ static bool ir_run_binop(ir_instr_t const *instr) {
     case IR_XOR:    res = left ^ right; break;
     case IR_SLL:    res = left << right; break;
     case IR_SRL:    res = left >> right; break;
-    case IR_SRA:
-        // res = left >> right;
-        // break;
+    case IR_SRA: {
+        uintmax_t sign_bit = 1lu << (width - 1);
+        uintmax_t sign_ext = ir_make_mask(right) << (width - right);
+        res = (left & sign_bit) ? (left >> right) | sign_ext : (left >> right);
+        break;
+    }
     default:
         return false;
     }
