@@ -259,7 +259,8 @@ static void disas_branch_likely(ir_instr_cont_t *c, ir_value_t cond,
 /* Reserved opcodes */
 
 static void disas_Reserved(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    (void)instr; (void)c;
+    (void)instr;
+    disas_push(address + 4, *c);
 }
 
 /* SPECIAL opcodes */
@@ -291,7 +292,8 @@ static void disas_AND(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 }
 
 static void disas_BREAK(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    (void)instr; (void)c;
+    (void)instr;
+    disas_push(address + 4, *c);
 }
 
 static void disas_DADD(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
@@ -711,7 +713,8 @@ static void disas_SUBU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 }
 
 static void disas_SYNC(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    (void)instr; (void)c;
+    (void)instr;
+    disas_push(address + 4, *c);
 }
 
 static void disas_SYSCALL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
@@ -722,27 +725,33 @@ static void disas_SYSCALL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) 
 }
 
 static void disas_TEQ(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    (void)instr; (void)c;
+    (void)instr;
+    disas_push(address + 4, *c);
 }
 
 static void disas_TGE(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    (void)instr; (void)c;
+    (void)instr;
+    disas_push(address + 4, *c);
 }
 
 static void disas_TGEU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    (void)instr; (void)c;
+    (void)instr;
+    disas_push(address + 4, *c);
 }
 
 static void disas_TLT(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    (void)instr; (void)c;
+    (void)instr;
+    disas_push(address + 4, *c);
 }
 
 static void disas_TLTU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    (void)instr; (void)c;
+    (void)instr;
+    disas_push(address + 4, *c);
 }
 
 static void disas_TNE(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    (void)instr; (void)c;
+    (void)instr;
+    disas_push(address + 4, *c);
 }
 
 static void disas_XOR(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
@@ -833,27 +842,33 @@ static void disas_BLTZALL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) 
 }
 
 static void disas_TEQI(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    (void)instr; (void)c;
+    (void)instr;
+    disas_push(address + 4, *c);
 }
 
 static void disas_TGEI(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    (void)instr; (void)c;
+    (void)instr;
+    disas_push(address + 4, *c);
 }
 
 static void disas_TGEIU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    (void)instr; (void)c;
+    (void)instr;
+    disas_push(address + 4, *c);
 }
 
 static void disas_TLTI(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    (void)instr; (void)c;
+    (void)instr;
+    disas_push(address + 4, *c);
 }
 
 static void disas_TLTIU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    (void)instr; (void)c;
+    (void)instr;
+    disas_push(address + 4, *c);
 }
 
 static void disas_TNEI(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    (void)instr; (void)c;
+    (void)instr;
+    disas_push(address + 4, *c);
 }
 
 /* Other opcodes */
@@ -960,7 +975,8 @@ static void disas_BNEL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 }
 
 static void disas_CACHE(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    (void)instr; (void)c;
+    (void)instr;
+    disas_push(address + 4, *c);
 }
 
 static void disas_COP0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
@@ -969,10 +985,87 @@ static void disas_COP0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     // takeR4300::Exception(CoprocessorUnusable, 0, false, false, 2);
 }
 
-static void disas_COP1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    ir_mips_append_interpreter(c, address, instr);
+static void disas_CFC1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
+    ir_register_t rd;
+    switch (mips_get_rd(instr)) {
+    case 0:  rd = REG_FCR0; break;
+    case 31: rd = REG_FCR31; break;
+    default:
+        disas_push(address + 4, *c);
+        return;
+    }
+
+    ir_value_t vd = ir_append_read(c, ir_make_iN(32), rd);
+    vd = ir_append_zext(c, ir_make_iN(64), vd);
+    ir_append_write(c, mips_get_rt(instr), vd);
     disas_push(address + 4, *c);
+}
+
+static void disas_CTC1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
+    ir_register_t rd;
+    switch (mips_get_rd(instr)) {
+    case 0:  rd = REG_FCR0; break;
+    case 31: rd = REG_FCR31; break;
+    default:
+        disas_push(address + 4, *c);
+        return;
+    }
+
+    ir_value_t vt = ir_mips_append_read(c, mips_get_rt(instr));
+    vt = ir_append_trunc(c, ir_make_iN(32), vt);
+    ir_append_write(c, rd, vt);
+    disas_push(address + 4, *c);
+}
+
+static void disas_BC1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
+    if (!disas_guard_branch_delay(c, address))
+        return;
+
+    unsigned opcode = mips_get_rt(instr);
+    ir_icmp_kind_t op;
+    bool likely;
+
+    switch (opcode) {
+    case 0:
+    case 2:
+        op = IR_EQ;
+        likely = opcode == 2;
+        break;
+    case 1:
+    case 3:
+        op = IR_NE;
+        likely = opcode == 3;
+        break;
+    default:
+        printf("unexpected BC1 opcode %u\n", opcode);
+        // throw "nope";
+        disas_push(address + 4, *c);
+        return;
+    }
+
+    ir_value_t fcr31   = ir_append_read(c, ir_make_iN(32), REG_FCR31);
+    ir_value_t fcr31_c = ir_append_binop(c, IR_AND, fcr31, ir_make_const_u32(FCR31_C));
+    ir_value_t cond    = ir_append_icmp(c, op, fcr31_c, ir_make_const_u32(0));
+
+    if (likely) {
+        disas_branch_likely(c, cond, address, instr);
+    } else {
+        disas_branch(c, cond, address, instr);
+    }
+}
+
+static void disas_COP1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     // takeR4300::Exception(CoprocessorUnusable, 0, false, false, 3);
+    unsigned fmt = mips_get_rs(instr);
+    switch (fmt) {
+    case 2: disas_CFC1(c, address, instr); break;
+    case 6: disas_CTC1(c, address, instr); break;
+    case 8: disas_BC1(c, address, instr); break;
+    default:
+        ir_mips_append_interpreter(c, address, instr);
+        disas_push(address + 4, *c);
+        break;
+    }
 }
 
 static void disas_COP2(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
@@ -1632,8 +1725,15 @@ static ir_instr_t *disas_instr(ir_instr_cont_t *c, uint64_t address, uint32_t in
     ir_instr_t *entry = NULL;
     ir_instr_cont_t entryc = { c->backend, c->block, &entry };
     CPU_callbacks[(instr >> 26) & 0x3fu](&entryc, address, instr);
-    *c->next = entry;
-    c->next = entryc.next;
+    if (entry == NULL) {
+        /* The instruction is void, edit the last queue entry
+         * (there would be a continuation in this case) to put back the
+         * correct pointer */
+        ir_disas_queue.queue[ir_disas_queue.length - 1].cont = *c;
+    } else {
+        *c->next = entry;
+        c->next = entryc.next;
+    }
     return entry;
 }
 
@@ -1660,9 +1760,38 @@ ir_recompiler_backend_t *ir_mips_recompiler_backend(void) {
     for (unsigned i = 1; i < 32; i++) {
         ir_bind_register_u64(backend, i, &R4300::state.reg.gpr[i]);
     }
-    ir_bind_register_u64(backend, REG_PC, &R4300::state.reg.pc);
-    ir_bind_register_u64(backend, REG_MULTHI, &R4300::state.reg.multHi);
-    ir_bind_register_u64(backend, REG_MULTLO, &R4300::state.reg.multLo);
+
+    ir_bind_register_u64(backend, REG_PC,       &R4300::state.reg.pc);
+    ir_bind_register_u64(backend, REG_MULTHI,   &R4300::state.reg.multHi);
+    ir_bind_register_u64(backend, REG_MULTLO,   &R4300::state.reg.multLo);
+    ir_bind_register_u32(backend, REG_INDEX,    &R4300::state.cp0reg.index);
+    ir_bind_register_u32(backend, REG_RANDOM,   &R4300::state.cp0reg.random);
+    ir_bind_register_u64(backend, REG_ENTRYLO0, &R4300::state.cp0reg.entrylo0);
+    ir_bind_register_u64(backend, REG_ENTRYLO1, &R4300::state.cp0reg.entrylo1);
+    ir_bind_register_u64(backend, REG_CONTEXT,  &R4300::state.cp0reg.context);
+    ir_bind_register_u32(backend, REG_PAGEMASK, &R4300::state.cp0reg.pagemask);
+    ir_bind_register_u32(backend, REG_WIRED,    &R4300::state.cp0reg.wired);
+    ir_bind_register_u64(backend, REG_BADVADDR, &R4300::state.cp0reg.badvaddr);
+    ir_bind_register_u32(backend, REG_COUNT,    &R4300::state.cp0reg.count);
+    ir_bind_register_u64(backend, REG_ENTRYHI,  &R4300::state.cp0reg.entryhi);
+    ir_bind_register_u32(backend, REG_COMPARE,  &R4300::state.cp0reg.compare);
+    ir_bind_register_u32(backend, REG_SR,       &R4300::state.cp0reg.sr);
+    ir_bind_register_u32(backend, REG_CAUSE,    &R4300::state.cp0reg.cause);
+    ir_bind_register_u64(backend, REG_EPC,      &R4300::state.cp0reg.epc);
+    ir_bind_register_u32(backend, REG_PRID,     &R4300::state.cp0reg.prid);
+    ir_bind_register_u32(backend, REG_CONFIG,   &R4300::state.cp0reg.config);
+    ir_bind_register_u32(backend, REG_LLADDR,   &R4300::state.cp0reg.lladdr);
+    ir_bind_register_u32(backend, REG_WATCHLO,  &R4300::state.cp0reg.watchlo);
+    ir_bind_register_u32(backend, REG_WATCHHI,  &R4300::state.cp0reg.watchhi);
+    ir_bind_register_u64(backend, REG_XCONTEXT, &R4300::state.cp0reg.xcontext);
+    ir_bind_register_u32(backend, REG_PERR,     &R4300::state.cp0reg.perr);
+    ir_bind_register_u32(backend, REG_CACHEERR, &R4300::state.cp0reg.cacheerr);
+    ir_bind_register_u32(backend, REG_TAGLO,    &R4300::state.cp0reg.taglo);
+    ir_bind_register_u32(backend, REG_TAGHI,    &R4300::state.cp0reg.taghi);
+    ir_bind_register_u64(backend, REG_ERROREPC, &R4300::state.cp0reg.errorepc);
+
+    ir_bind_register_u32(backend, REG_FCR0,     &R4300::state.cp1reg.fcr0);
+    ir_bind_register_u32(backend, REG_FCR31,    &R4300::state.cp1reg.fcr31);
     return backend;
 }
 
