@@ -270,6 +270,8 @@ struct test_header {
 
 struct test_case {
     uint64_t end_address;
+    uint64_t start_cycles;
+    uint64_t end_cycles;
     std::vector<Memory::BusLog> trace;
     unsigned char *input;
     unsigned char *output;
@@ -490,21 +492,30 @@ static int parse_trace_entry(toml::node const *trace_node,
     return 0;
 }
 
-static int parse_test_case(toml::node const *test_case,
-                           uint64_t *end_address,
-                           std::vector<Memory::BusLog> &trace) {
-    if (!test_case->is_table()) {
+static int parse_test_case(toml::node const *test_node,
+                           test_case &test) {
+    if (!test_node->is_table()) {
         debugger::error(Debugger::CPU, "test entry is not a table node");
         return -1;
     }
 
-    toml::table const *test_table = test_case->as_table();
+    toml::table const *test_table = test_node->as_table();
     auto end_address_node = (*test_table)["end_address"];
+    auto start_cycles_node = (*test_table)["start_cycles"];
+    auto end_cycles_node = (*test_table)["end_cycles"];
     auto trace_node = (*test_table)["trace"];
     toml::array const *trace_array;
 
     if (!end_address_node || !end_address_node.is_string()) {
-        debugger::error(Debugger::CPU, "cannot identify test integer node 'end_address'");
+        debugger::error(Debugger::CPU, "cannot identify test string node 'end_address'");
+        return -1;
+    }
+    if (!start_cycles_node || !start_cycles_node.is_integer()) {
+        debugger::error(Debugger::CPU, "cannot identify test integer node 'start_cycles'");
+        return -1;
+    }
+    if (!end_cycles_node || !end_cycles_node.is_integer()) {
+        debugger::error(Debugger::CPU, "cannot identify test integer node 'end_cycles'");
         return -1;
     }
     if (!trace_node || !trace_node.is_array()) {
@@ -512,14 +523,17 @@ static int parse_test_case(toml::node const *test_case,
         return -1;
     }
 
-    *end_address = strtoull((**end_address_node.as_string()).c_str(), NULL, 0);
+    test.end_address = strtoull((**end_address_node.as_string()).c_str(), NULL, 0);
+    test.start_cycles =  start_cycles_node.as_integer()->get();
+    test.end_cycles =  end_cycles_node.as_integer()->get();
+
     trace_array = trace_node.as_array();
     for (unsigned i = 0; i < trace_array->size(); i++) {
         Memory::BusLog entry;
         if (parse_trace_entry(trace_array->get(i), entry) < 0) {
             return -1;
         }
-        trace.push_back(entry);
+        test.trace.push_back(entry);
     }
     return 0;
 }
@@ -631,7 +645,7 @@ int run_test_suite(ir_recompiler_backend_t *backend,
 
     for (unsigned nr = 0; nr < nr_tests; nr++) {
         struct test_case test;
-        if (parse_test_case(test_array->get(nr), &test.end_address, test.trace) < 0) {
+        if (parse_test_case(test_array->get(nr), test) < 0) {
             fmt::print("+ [test {}/{}] {}:?? -- SKIPPED\n",
                 nr + 1, nr_tests, test_suite_name);
             fmt::print(fmt::emphasis::italic,
@@ -659,6 +673,7 @@ int run_test_suite(ir_recompiler_backend_t *backend,
         R4300::deserializeCp1Registers(output_cur, cp1reg);
         output_cur += R4300::serializedCp1RegistersSize();
 
+        R4300::state.cycles = test.start_cycles;
         R4300::state.cp1reg.setFprAliases(R4300::state.cp0reg.FR());
         reg.pc = test.end_address;
         bus->reset(test.trace);
@@ -667,7 +682,8 @@ int run_test_suite(ir_recompiler_backend_t *backend,
         if (!(run_success = print_run(header, backend)) ||
             !match_cpureg(reg,    R4300::state.reg) ||
             !match_cp0reg(cp0reg, R4300::state.cp0reg) ||
-            !match_cp1reg(cp1reg, R4300::state.cp1reg)) {
+            !match_cp1reg(cp1reg, R4300::state.cp1reg) ||
+            R4300::state.cycles != test.end_cycles) {
             print_run_vars();
             if (run_success) {
                 fmt::print(fmt::emphasis::italic,
@@ -675,6 +691,11 @@ int run_test_suite(ir_recompiler_backend_t *backend,
                 print_cpureg_diff(reg, R4300::state.reg);
                 print_cp0reg_diff(cp0reg, R4300::state.cp0reg);
                 print_cp1reg_diff(cp1reg, R4300::state.cp1reg);
+                if (R4300::state.cycles != test.end_cycles) {
+                    fmt::print(fmt::emphasis::italic,
+                        "    cycles: {:<16} - {:}\n",
+                        test.end_cycles, R4300::state.cycles);
+                }
             }
             fmt::print("+ [test {}/{}] {}:- -- ",
                 nr + 1, nr_tests, test_suite_name);
