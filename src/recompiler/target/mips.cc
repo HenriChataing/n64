@@ -979,10 +979,367 @@ static void disas_CACHE(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     disas_push(address + 4, *c);
 }
 
-static void disas_COP0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    ir_mips_append_interpreter(c, address, instr);
+enum Register {
+    Index = 0,
+    Random = 1,
+    EntryLo0 = 2,
+    EntryLo1 = 3,
+    Context = 4,
+    PageMask = 5,
+    Wired = 6,
+    BadVAddr = 8,
+    Count = 9,
+    EntryHi = 10,
+    Compare = 11,
+    SR = 12,
+    Cause = 13,
+    EPC = 14,
+    PrId = 15,
+    Config = 16,
+    LLAddr = 17,
+    WatchLo = 18,
+    WatchHi = 19,
+    XContext = 20,
+    PErr = 26,
+    CacheErr = 27,
+    TagLo = 28,
+    TagHi = 29,
+    ErrorEPC = 30,
+};
+
+static void disas_MFC0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
+    ir_value_t vd;
+    switch (mips_get_rd(instr)) {
+    case Index:     vd = ir_append_read_i32(c, REG_INDEX); break;
+    case Random:    vd = ir_append_read_i32(c, REG_RANDOM); break;
+    case EntryLo0:
+        vd = ir_append_trunc_i32(c,
+             ir_append_read_i64(c, REG_ENTRYLO0));
+        break;
+    case EntryLo1:
+        vd = ir_append_trunc_i32(c,
+             ir_append_read_i64(c, REG_ENTRYLO1));
+        break;
+    case Context:
+        vd = ir_append_trunc_i32(c,
+             ir_append_read_i64(c, REG_CONTEXT));
+        break;
+    case PageMask:  vd = ir_append_read_i32(c, REG_PAGEMASK); break;
+    case Wired:     vd = ir_append_read_i32(c, REG_WIRED); break;
+    case BadVAddr:
+        vd = ir_append_trunc_i32(c,
+             ir_append_read_i64(c, REG_BADVADDR));
+        break;
+    case Count:     vd = ir_append_read_i32(c, REG_COUNT); break;
+    case EntryHi:
+        vd = ir_append_trunc_i32(c,
+             ir_append_read_i64(c, REG_ENTRYHI));
+        break;
+    case Compare:   vd = ir_append_read_i32(c, REG_COMPARE); break;
+    case SR:        vd = ir_append_read_i32(c, REG_SR); break;
+    case Cause:     vd = ir_append_read_i32(c, REG_CAUSE); break;
+    case EPC:
+        vd = ir_append_trunc_i32(c,
+             ir_append_read_i64(c, REG_EPC));
+        break;
+    case PrId:      vd = ir_append_read_i32(c, REG_PRID); break;
+    case Config:    vd = ir_append_read_i32(c, REG_CONFIG); break;
+    case LLAddr:    vd = ir_append_read_i32(c, REG_LLADDR); break;
+    case WatchLo:   vd = ir_append_read_i32(c, REG_WATCHLO); break;
+    case WatchHi:   vd = ir_append_read_i32(c, REG_WATCHHI); break;
+    case XContext:
+        vd = ir_append_trunc_i32(c,
+             ir_append_read_i64(c, REG_XCONTEXT));
+        break;
+    case PErr:      vd = ir_append_read_i32(c, REG_PERR); break;
+    case CacheErr:  vd = ir_append_read_i32(c, REG_CACHEERR); break;
+    case TagLo:     vd = ir_append_read_i32(c, REG_TAGLO); break;
+    case TagHi:     vd = ir_append_read_i32(c, REG_TAGHI); break;
+    case ErrorEPC:
+        vd = ir_append_trunc_i32(c,
+             ir_append_read_i64(c, REG_ERROREPC));
+        break;
+    default:
+        vd = ir_make_const_u32(0);
+        break;
+    }
+
+    ir_mips_append_write(c, mips_get_rt(instr), ir_append_sext_i64(c, vd));
     disas_push(address + 4, *c);
-    // takeR4300::Exception(CoprocessorUnusable, 0, false, false, 2);
+}
+
+static void disas_DMFC0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
+    ir_value_t vd;
+    switch (mips_get_rd(instr)) {
+    /* 64 bit registers */
+    case EntryLo0:  vd = ir_append_read_i64(c, REG_ENTRYLO0); break;
+    case EntryLo1:  vd = ir_append_read_i64(c, REG_ENTRYLO1); break;
+    case Context:   vd = ir_append_read_i64(c, REG_CONTEXT); break;
+    case BadVAddr:  vd = ir_append_read_i64(c, REG_BADVADDR); break;
+    case EntryHi:   vd = ir_append_read_i64(c, REG_ENTRYHI); break;
+    case EPC:       vd = ir_append_read_i64(c, REG_EPC); break;
+    case XContext:  vd = ir_append_read_i64(c, REG_XCONTEXT); break;
+    case ErrorEPC:  vd = ir_append_read_i64(c, REG_ERROREPC); break;
+    /* 32-bit registers */
+    case Count:
+        vd = ir_append_zext_i64(c,
+             ir_append_read_i32(c, REG_COUNT));
+        break;
+    default:
+        vd = ir_make_const_u64(0);
+        break;
+    }
+
+    ir_mips_append_write(c, mips_get_rt(instr), vd);
+    disas_push(address + 4, *c);
+}
+
+#if 0
+static void disas_MTC0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
+    u32 rt = Mips::getRt(instr);
+    u32 rd = Mips::getRd(instr);
+    u32 val = state.reg.gpr[rt];
+
+    debugger::info(Debugger::COP0, "{} <- {:08x}", Cop0RegisterNames[rd], val);
+
+    switch (rd) {
+        case Index:     state.cp0reg.index = val & UINT32_C(0x3f); break;
+        case Random:
+            state.cp0reg.random = val;
+            debugger::halt("MTC0 random");
+            break;
+        case EntryLo0:  state.cp0reg.entrylo0 = sign_extend<u64, u32>(val); break;
+        case EntryLo1:  state.cp0reg.entrylo1 = sign_extend<u64, u32>(val); break;
+        case Context:
+            state.cp0reg.context = sign_extend<u64, u32>(val);
+            break;
+        case PageMask:  state.cp0reg.pagemask = val & UINT32_C(0x01ffe000); break;
+        case Wired:
+            state.cp0reg.wired = val & UINT32_C(0x3f);
+            if (state.cp0reg.wired >= tlbEntryCount)
+                debugger::halt("COP0::wired invalid value");
+            state.cp0reg.random = tlbEntryCount - 1;
+            break;
+        case BadVAddr:  state.cp0reg.badvaddr = sign_extend<u64, u32>(val); break;
+        case Count:
+            state.cp0reg.count = val;
+            state.cp0reg.lastCounterUpdate = state.cycles;
+            scheduleCounterEvent();
+            break;
+        case EntryHi:   state.cp0reg.entryhi = sign_extend<u64, u32>(val); break;
+        case Compare:
+            state.cp0reg.compare = val;
+            state.cp0reg.cause &= ~CAUSE_IP7;
+            scheduleCounterEvent();
+            break;
+        case SR:
+            if ((val & STATUS_FR) != (state.cp0reg.sr & STATUS_FR)) {
+                state.cp1reg.setFprAliases((val & STATUS_FR) != 0);
+            }
+            if (val & STATUS_RE) {
+                debugger::halt("COP0::sr RE bit set");
+            }
+            // TODO check all config bits
+            state.cp0reg.sr = val;
+            checkInterrupt();
+            break;
+        case Cause:
+            state.cp0reg.cause =
+                (state.cp0reg.cause & ~CAUSE_IP_MASK) |
+                (val                &  CAUSE_IP_MASK);
+            // Interrupts bit 0 and 1 can be used to raise
+            // software interrupts.
+            // TODO mask unimplemented bits (only NMI, IRQ, SWI0, SWI1
+            // are actually writable).
+            checkInterrupt();
+            break;
+        case EPC:       state.cp0reg.epc = sign_extend<u64, u32>(val); break;
+        case PrId:
+            state.cp0reg.prid = val;
+            debugger::halt("MTC0 prid");
+            break;
+        case Config:
+            state.cp0reg.config = val;
+            debugger::halt("MTC0 config");
+            break;
+        case LLAddr:
+            state.cp0reg.lladdr = val;
+            debugger::halt("MTC0 lladdr");
+            break;
+        case WatchLo:
+            state.cp0reg.watchlo = val;
+            debugger::halt("MTC0 watchlo");
+            break;
+        case WatchHi:
+            state.cp0reg.watchhi = val;
+            debugger::halt("MTC0 watchhi");
+            break;
+        case XContext:
+            state.cp0reg.xcontext = sign_extend<u64, u32>(val);
+            debugger::halt("MTC0 xcontext");
+            break;
+        case PErr:
+            state.cp0reg.perr = val;
+            debugger::halt("MTC0 perr");
+            break;
+        case CacheErr:
+            state.cp0reg.cacheerr = val;
+            debugger::halt("MTC0 cacheerr");
+            break;
+        case TagLo:     state.cp0reg.taglo = val; break;
+        case TagHi:     state.cp0reg.taghi = val; break;
+        case ErrorEPC:  state.cp0reg.errorepc = sign_extend<u64, u32>(val); break;
+        default:
+            std::string reason = "MTC0 ";
+            debugger::halt(reason + Cop0RegisterNames[rd]);
+            break;
+    }
+}
+
+static void disas_DMTC0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
+    u32 rt = Mips::getRt(instr);
+    u32 rd = Mips::getRd(instr);
+    u64 val = state.reg.gpr[rt];
+
+    debugger::info(Debugger::COP0, "{} <- {:08x}", Cop0RegisterNames[rd], val);
+
+    switch (rd) {
+        case EntryLo0:  state.cp0reg.entrylo0 = val; break;
+        case EntryLo1:  state.cp0reg.entrylo1 = val; break;
+        case Context:
+            state.cp0reg.context = val;
+            debugger::halt("DMTC0 context");
+            break;
+        case BadVAddr:  state.cp0reg.badvaddr = val; break;
+        case EntryHi:   state.cp0reg.entryhi = val; break;
+        case EPC:       state.cp0reg.epc = val; break;
+        case XContext:
+            state.cp0reg.xcontext = val;
+            debugger::halt("DMTC0 xcontext");
+            break;
+        case ErrorEPC:  state.cp0reg.errorepc = val; break;
+        default:
+            std::string reason = "DMTC0 ";
+            debugger::halt(reason + Cop0RegisterNames[rd] + " (undefined)");
+            break;
+    }
+}
+
+#endif
+
+static void disas_CFC0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
+    (void)instr;
+    disas_push(address + 4, *c);
+}
+
+static void disas_CTC0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
+    (void)instr;
+    disas_push(address + 4, *c);
+}
+
+#if 0
+static void disas_TLBR(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
+    (void)instr;
+    unsigned index = state.cp0reg.index & UINT32_C(0x3f);
+    if (index >= tlbEntryCount) {
+        debugger::halt("TLBR bad index");
+        return;
+    }
+    state.cp0reg.pagemask = state.tlb[index].pageMask & UINT32_C(0x01ffe000);
+    state.cp0reg.entryhi = state.tlb[index].entryHi;
+    state.cp0reg.entrylo0 = state.tlb[index].entryLo0;
+    state.cp0reg.entrylo1 = state.tlb[index].entryLo1;
+}
+
+static void disas_TLBW(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
+    u32 funct = Mips::getFunct(instr);
+    unsigned index;
+
+    if (funct == Mips::Cop0::TLBWI) {
+        index = state.cp0reg.index & UINT32_C(0x3f);
+        if (index >= tlbEntryCount) {
+            debugger::halt("TLBWI bad index");
+            return;
+        }
+    } else {
+        index = state.cp0reg.random;
+        state.cp0reg.random =
+            index == state.cp0reg.wired ? tlbEntryCount - 1 : index - 1;
+    }
+
+    state.tlb[index].pageMask = state.cp0reg.pagemask;
+    state.tlb[index].entryHi = state.cp0reg.entryhi;
+    state.tlb[index].entryLo0 = state.cp0reg.entrylo0;
+    state.tlb[index].entryLo1 = state.cp0reg.entrylo1;
+
+    state.tlb[index].asid = state.cp0reg.entryhi & UINT64_C(0xff);
+    state.tlb[index].global =
+        (state.cp0reg.entrylo0 & UINT64_C(1)) &&
+        (state.cp0reg.entrylo1 & UINT64_C(1));
+}
+
+static void disas_TLBP(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
+    (void)instr;
+    unsigned index;
+    state.cp0reg.index = INDEX_P;
+    if (probeTLB(state.cp0reg.entryhi, &index)) {
+        state.cp0reg.index = index;
+    }
+}
+
+#endif
+
+static void disas_ERET(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
+    ir_value_t  sr, erl, pc;
+    ir_instr_cont_t target;
+
+    sr  = ir_append_read_i32(c, REG_SR);
+    erl = ir_append_binop(c, IR_AND, sr, ir_make_const_u32(STATUS_ERL));
+    ir_append_br(c,
+        ir_append_icmp(c, IR_EQ, erl, ir_make_const_u32(0)), &target);
+
+    /* ERL == 1 */
+    ir_append_write(c, REG_SR,
+        ir_append_binop(c, IR_AND, sr, ir_make_const_u32(~STATUS_ERL)));
+    pc = ir_append_read_i64(c, REG_ERROREPC);
+    ir_append_write(c, REG_PC, pc);
+    ir_append_exit(c);
+
+    /* ERL == 0 */
+    ir_append_write(&target, REG_SR,
+        ir_append_binop(&target, IR_AND, sr, ir_make_const_u32(~STATUS_EXL)));
+    pc = ir_append_read_i64(&target, REG_EPC);
+    ir_append_write(&target, REG_PC, pc);
+    ir_append_exit(&target);
+}
+
+static void disas_COP0(ir_instr_cont_t *c, uint64_t address, uint32_t instr)
+{
+    switch (mips_get_rs(instr)) {
+    case 0:  disas_MFC0(c, address, instr); break;
+    case 1:  disas_DMFC0(c, address, instr); break;
+    // case 2:    eval_CFC0(instr); break;
+    // case 4:    eval_MTC0(instr); break;
+    // case 5 :   eval_DMTC0(instr); break;
+    // case 6:    eval_CTC0(instr); break;
+    case 0x10u:
+        switch (instr & 0x3fu) {
+        // case 1: eval_TLBR(instr); break;
+        // case 2: eval_TLBW(instr); break;
+        // case 6: eval_TLBW(instr); break;
+        // case 8: eval_TLBP(instr); break;
+        case 0x18:  disas_ERET(c, address, instr); break;
+        default:
+            ir_mips_append_interpreter(c, address, instr);
+            disas_push(address + 4, *c);
+            break;
+        }
+        break;
+    default:
+        ir_mips_append_interpreter(c, address, instr);
+        disas_push(address + 4, *c);
+        break;
+    }
 }
 
 static void disas_CFC1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
