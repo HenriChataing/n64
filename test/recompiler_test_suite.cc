@@ -728,7 +728,7 @@ enum {
 int main(int argc, char **argv) {
     std::srand(std::time(nullptr));
     int mode = RANDOM;
-    long selected = 0;
+    unsigned long selected = 0;
 
     if (argc > 1) {
         if (strcmp(argv[1], "all") == 0) {
@@ -738,9 +738,7 @@ int main(int argc, char **argv) {
             mode = RANDOM;
         }
         else {
-            char *end = NULL;
-            selected = strtol(argv[1], &end, 0);
-            mode = (end != argv[1]) ? SELECTED : RANDOM;
+            mode = SELECTED;
         }
     }
 
@@ -748,6 +746,18 @@ int main(int argc, char **argv) {
     struct test_statistics test_stats = {};
     bool stop_at_first_fail = false;
     ir_recompiler_backend_t *backend = ir_mips_recompiler_backend();
+
+    if (mode == SELECTED) {
+        for (; selected < test_suites.size(); selected++) {
+            if (test_suites[selected] == argv[1])
+                break;
+        }
+        if (selected == test_suites.size()) {
+            fmt::print(fmt::fg(fmt::color::tomato),
+                "the selected test suite '{}' does not exist\n", argv[1]);
+            return 1;
+        }
+    }
 
     if (mode == RANDOM) {
         selected = std::rand() % test_suites.size();
@@ -775,5 +785,5 @@ int main(int argc, char **argv) {
         test_stats.total_halted,
         test_stats.total_failed,
         test_stats.total_skipped);
-    return total_tests == test_stats.total_pass;
+    return total_tests != test_stats.total_pass;
 }
