@@ -195,11 +195,12 @@ ir_value_t ir_append_load(ir_instr_cont_t *cont,
 }
 
 void       ir_append_store(ir_instr_cont_t *cont,
+                           ir_type_t type,
                            ir_value_t address,
                            ir_value_t value)
 {
     ir_instr_t *next = ir_alloc_instr(cont->backend);
-    *next = ir_make_store(address, value);
+    *next = ir_make_store(type, address, value);
     *cont->next = next;
     cont->next = &next->next;
 }
@@ -217,11 +218,12 @@ ir_value_t ir_append_read(ir_instr_cont_t *cont,
 }
 
 void       ir_append_write(ir_instr_cont_t *cont,
+                           ir_type_t type,
                            ir_register_t register_,
                            ir_value_t value)
 {
     ir_instr_t *next = ir_alloc_instr(cont->backend);
-    *next = ir_make_write(register_, value);
+    *next = ir_make_write(type, register_, value);
     *cont->next = next;
     cont->next = &next->next;
 }

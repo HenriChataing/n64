@@ -316,9 +316,10 @@ ir_instr_t ir_make_load(ir_var_t res,
 }
 
 static inline
-ir_instr_t ir_make_store(ir_value_t address,
+ir_instr_t ir_make_store(ir_type_t type,
+                         ir_value_t address,
                          ir_value_t value) {
-    return (ir_instr_t){ .kind = IR_STORE,
+    return (ir_instr_t){ .kind = IR_STORE, .type = type,
         .store = { .address = address, .value = value, } };
 }
 
@@ -331,9 +332,10 @@ ir_instr_t ir_make_read(ir_var_t res,
 }
 
 static inline
-ir_instr_t ir_make_write(ir_register_t register_,
+ir_instr_t ir_make_write(ir_type_t type,
+                         ir_register_t register_,
                          ir_value_t value) {
-    return (ir_instr_t){ .kind = IR_WRITE,
+    return (ir_instr_t){ .kind = IR_WRITE, .type = type,
         .write = { .register_ = register_, .value = value, } };
 }
 
@@ -376,12 +378,14 @@ ir_value_t ir_append_load(ir_instr_cont_t *cont,
                           ir_type_t type,
                           ir_value_t address);
 void       ir_append_store(ir_instr_cont_t *cont,
+                           ir_type_t type,
                            ir_value_t address,
                            ir_value_t value);
 ir_value_t ir_append_read(ir_instr_cont_t *cont,
                           ir_type_t type,
                           ir_register_t register_);
 void       ir_append_write(ir_instr_cont_t *cont,
+                           ir_type_t type,
                            ir_register_t register_,
                            ir_value_t value);
 ir_value_t ir_append_cvt(ir_instr_cont_t *cont,
@@ -389,29 +393,28 @@ ir_value_t ir_append_cvt(ir_instr_cont_t *cont,
                          ir_instr_kind_t op,
                          ir_value_t value);
 
-static inline
-ir_value_t ir_append_load_i8(ir_instr_cont_t *cont,
-                             ir_value_t address) {
-    return ir_append_load(cont, ir_make_iN(8), address);
+#define _define_append_load_iN(N) \
+static inline \
+ir_value_t ir_append_load_i##N(ir_instr_cont_t *cont, ir_value_t address) { \
+    return ir_append_load(cont, ir_make_iN(N), address); \
 }
 
-static inline
-ir_value_t ir_append_load_i16(ir_instr_cont_t *cont,
-                              ir_value_t address) {
-    return ir_append_load(cont, ir_make_iN(16), address);
+_define_append_load_iN(8);
+_define_append_load_iN(16);
+_define_append_load_iN(32);
+_define_append_load_iN(64);
+
+#define _define_append_store_iN(N) \
+static inline \
+void ir_append_store_i##N(ir_instr_cont_t *cont, ir_value_t address, \
+                          ir_value_t value) { \
+    ir_append_store(cont, ir_make_iN(N), address, value); \
 }
 
-static inline
-ir_value_t ir_append_load_i32(ir_instr_cont_t *cont,
-                              ir_value_t address) {
-    return ir_append_load(cont, ir_make_iN(32), address);
-}
-
-static inline
-ir_value_t ir_append_load_i64(ir_instr_cont_t *cont,
-                              ir_value_t address) {
-    return ir_append_load(cont, ir_make_iN(64), address);
-}
+_define_append_store_iN(8);
+_define_append_store_iN(16);
+_define_append_store_iN(32);
+_define_append_store_iN(64);
 
 static inline
 ir_value_t ir_append_read_i32(ir_instr_cont_t *cont,
@@ -423,6 +426,20 @@ static inline
 ir_value_t ir_append_read_i64(ir_instr_cont_t *cont,
                               ir_register_t register_) {
     return ir_append_read(cont, ir_make_iN(64), register_);
+}
+
+static inline
+void      ir_append_write_i32(ir_instr_cont_t *cont,
+                              ir_register_t register_,
+                              ir_value_t value) {
+    return ir_append_write(cont, ir_make_iN(32), register_, value);
+}
+
+static inline
+void      ir_append_write_i64(ir_instr_cont_t *cont,
+                              ir_register_t register_,
+                              ir_value_t value) {
+    return ir_append_write(cont, ir_make_iN(64), register_, value);
 }
 
 static inline

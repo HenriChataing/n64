@@ -108,13 +108,13 @@ static inline ir_value_t ir_mips_append_read(ir_instr_cont_t *c,
 static inline void ir_mips_append_write(ir_instr_cont_t *c,
                                         ir_register_t register_,
                                         ir_value_t value) {
-    if (register_) ir_append_write(c, register_, value);
+    if (register_) ir_append_write_i64(c, register_, value);
 }
 
 static inline void ir_mips_append_interpreter(ir_instr_cont_t *c,
                                               uint64_t address,
                                               uint32_t instr) {
-    ir_append_write(c, REG_PC, ir_make_const_u64(address));
+    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
     ir_append_call(c, ir_make_iN(0), (ir_callback_t)interpreter,
                    1, ir_make_const_u32(instr));
 }
@@ -189,7 +189,7 @@ static bool disas_guard_branch_delay(ir_instr_cont_t *c, uint64_t address) {
     } else {
         /* The address is outside the specified region,
          * emit a emulation exit to return to the interpreter. */
-        ir_mips_append_write(c, REG_PC, ir_make_const_u64(address));
+        ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
         ir_append_exit(c);
         return false;
     }
@@ -220,10 +220,10 @@ static void disas_branch(ir_instr_cont_t *c, ir_value_t cond,
     disas_push(address + 4 + (imm << 2), br);
     disas_push(address + 8, *c);
 #else
-    ir_append_write(c, REG_PC,
+    ir_append_write_i64(c, REG_PC,
         ir_make_const_u64(address + 8));
     ir_append_exit(c);
-    ir_append_write(&br, REG_PC,
+    ir_append_write_i64(&br, REG_PC,
         ir_make_const_u64(address + 4 + (imm << 2)));
     ir_append_exit(&br);
 #endif /* DISAS_BRANCH_ENABLE */
@@ -247,10 +247,10 @@ static void disas_branch_likely(ir_instr_cont_t *c, ir_value_t cond,
     disas_push(address + 4 + (imm << 2), br);
     disas_push(address + 8, *c);
 #else
-    ir_append_write(c, REG_PC,
+    ir_append_write_i64(c, REG_PC,
         ir_make_const_u64(address + 8));
     ir_append_exit(c);
-    ir_append_write(&br, REG_PC,
+    ir_append_write_i64(&br, REG_PC,
         ir_make_const_u64(address + 4 + (imm << 2)));
     ir_append_exit(&br);
 #endif /* DISAS_BRANCH_ENABLE */
@@ -1291,26 +1291,26 @@ static void disas_TLBP(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 
 static void disas_ERET(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_value_t  sr, erl, pc;
-    ir_instr_cont_t target;
+    ir_instr_cont_t br;
 
     sr  = ir_append_read_i32(c, REG_SR);
     erl = ir_append_binop(c, IR_AND, sr, ir_make_const_u32(STATUS_ERL));
     ir_append_br(c,
-        ir_append_icmp(c, IR_EQ, erl, ir_make_const_u32(0)), &target);
+        ir_append_icmp(c, IR_EQ, erl, ir_make_const_u32(0)), &br);
 
     /* ERL == 1 */
-    ir_append_write(c, REG_SR,
+    ir_append_write_i32(c, REG_SR,
         ir_append_binop(c, IR_AND, sr, ir_make_const_u32(~STATUS_ERL)));
     pc = ir_append_read_i64(c, REG_ERROREPC);
-    ir_append_write(c, REG_PC, pc);
+    ir_append_write_i64(c, REG_PC, pc);
     ir_append_exit(c);
 
     /* ERL == 0 */
-    ir_append_write(&target, REG_SR,
-        ir_append_binop(&target, IR_AND, sr, ir_make_const_u32(~STATUS_EXL)));
-    pc = ir_append_read_i64(&target, REG_EPC);
-    ir_append_write(&target, REG_PC, pc);
-    ir_append_exit(&target);
+    ir_append_write_i32(&br, REG_SR,
+        ir_append_binop(&br, IR_AND, sr, ir_make_const_u32(~STATUS_EXL)));
+    pc = ir_append_read_i64(&br, REG_EPC);
+    ir_append_write_i64(&br, REG_PC, pc);
+    ir_append_exit(&br);
 }
 
 static void disas_COP0(ir_instr_cont_t *c, uint64_t address, uint32_t instr)
@@ -1354,7 +1354,7 @@ static void disas_CFC1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 
     ir_value_t vd = ir_append_read_i32(c, rd);
     vd = ir_append_zext_i64(c, vd);
-    ir_append_write(c, mips_get_rt(instr), vd);
+    ir_mips_append_write(c, mips_get_rt(instr), vd);
     disas_push(address + 4, *c);
 }
 
@@ -1370,7 +1370,7 @@ static void disas_CTC1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 
     ir_value_t vt = ir_mips_append_read(c, mips_get_rt(instr));
     vt = ir_append_trunc_i32(c, vt);
-    ir_append_write(c, rd, vt);
+    ir_mips_append_write(c, rd, vt);
     disas_push(address + 4, *c);
 }
 
@@ -1775,7 +1775,7 @@ static void disas_SB(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_append_binop(c, IR_ADD, vs, imm);
     vt = ir_mips_append_read(c, mips_get_rt(instr));
     vt = ir_append_trunc_i8(c, vt);
-    ir_append_store(c, vs, vt);
+    ir_append_store_i8(c, vs, vt);
     disas_push(address + 4, *c);
 }
 
@@ -1799,7 +1799,7 @@ static void disas_SD(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
     vt = ir_mips_append_read(c, mips_get_rt(instr));
-    ir_append_store(c, vs, vt);
+    ir_append_store_i64(c, vs, vt);
     disas_push(address + 4, *c);
 }
 
@@ -1889,7 +1889,7 @@ static void disas_SH(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_append_binop(c, IR_ADD, vs, imm);
     vt = ir_mips_append_read(c, mips_get_rt(instr));
     vt = ir_append_trunc_i16(c, vt);
-    ir_append_store(c, vs, vt);
+    ir_append_store_i16(c, vs, vt);
     disas_push(address + 4, *c);
 }
 
@@ -1920,7 +1920,7 @@ static void disas_SW(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_append_binop(c, IR_ADD, vs, imm);
     vt = ir_mips_append_read(c, mips_get_rt(instr));
     vt = ir_append_trunc_i32(c, vt);
-    ir_append_store(c, vs, vt);
+    ir_append_store_i32(c, vs, vt);
     disas_push(address + 4, *c);
 }
 
@@ -2168,7 +2168,7 @@ ir_graph_t *ir_mips_disassemble(ir_recompiler_backend_t *backend,
         if (!disas_check_address(address)) {
             /* The address is outside the specified region,
              * emit a emulation exit to return to the interpreter. */
-            ir_append_write(&cont, REG_PC, ir_make_const_u64(address));
+            ir_append_write_i64(&cont, REG_PC, ir_make_const_u64(address));
             ir_append_exit(&cont);
         }
         else if (!disas_fetch(address, cont)) {

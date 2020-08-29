@@ -157,7 +157,7 @@ static bool ir_typecheck_load(ir_instr_t const *instr) {
 
 static bool ir_typecheck_store(ir_instr_t const *instr) {
     if (!ir_typecheck_value(&instr->store.address, instr->store.address.type) ||
-        !ir_typecheck_value(&instr->store.value, instr->store.value.type))  {
+        !ir_typecheck_value(&instr->store.value, instr->type))  {
         return false;
     }
 
@@ -173,7 +173,7 @@ static bool ir_typecheck_read(ir_instr_t const *instr) {
 }
 
 static bool ir_typecheck_write(ir_instr_t const *instr) {
-    if (!ir_typecheck_value(&instr->write.value, instr->write.value.type))  {
+    if (!ir_typecheck_value(&instr->write.value, instr->type))  {
         return false;
     }
 

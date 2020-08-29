@@ -185,7 +185,7 @@ static bool ir_run_store(ir_recompiler_backend_t const *backend,
     uintmax_t address = ir_eval_value(instr->store.address).int_;
     uintmax_t value   = ir_eval_value(instr->store.value).int_;
 
-    switch (instr->store.value.type.width) {
+    switch (instr->type.width) {
     case 8:     return memory->store_u8(address, value);
     case 16:    return memory->store_u16(address, value);
     case 32:    return memory->store_u32(address, value);
