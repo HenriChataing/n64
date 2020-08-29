@@ -31,6 +31,8 @@ typedef enum ir_mips_register {
     REG_ERROREPC,
     /* COP1 registers. */
     REG_FCR0,       REG_FCR31,
+    /* State globals. */
+    REG_CYCLES,
     REG_MAX,
 } ir_mips_register_t;
 

@@ -111,10 +111,27 @@ static inline void ir_mips_append_write(ir_instr_cont_t *c,
     if (register_) ir_append_write_i64(c, register_, value);
 }
 
+/** Number of cycle increments applied so far. */
+static unsigned ir_disas_cycles;
+
+static inline void ir_mips_incr_cycles(void) {
+    ir_disas_cycles++;
+}
+
+static inline void ir_mips_commit_cycles(ir_instr_cont_t *c) {
+    if (ir_disas_cycles) {
+        ir_value_t v = ir_append_read_i64(c, REG_CYCLES);
+        ir_append_write_i64(c, REG_CYCLES,
+            ir_append_binop(c, IR_ADD, v, ir_make_const_u64(ir_disas_cycles)));
+        ir_disas_cycles = 0;
+    }
+}
+
 static inline void ir_mips_append_interpreter(ir_instr_cont_t *c,
                                               uint64_t address,
                                               uint32_t instr) {
     ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
+    ir_mips_commit_cycles(c);
     ir_append_call(c, ir_make_iN(0), (ir_callback_t)interpreter,
                    1, ir_make_const_u32(instr));
 }
@@ -190,6 +207,7 @@ static bool disas_guard_branch_delay(ir_instr_cont_t *c, uint64_t address) {
         /* The address is outside the specified region,
          * emit a emulation exit to return to the interpreter. */
         ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
+        ir_mips_commit_cycles(c);
         ir_append_exit(c);
         return false;
     }
@@ -215,6 +233,7 @@ static void disas_branch(ir_instr_cont_t *c, ir_value_t cond,
     uint64_t imm = mips_get_imm_u64(instr);
     ir_instr_cont_t br;
     append_instr(c, address + 4, disas_read_instr(address + 4));
+    ir_mips_commit_cycles(c);
     ir_append_br(c, cond, &br);
 #if IR_DISAS_BRANCH_ENABLE
     disas_push(address + 4 + (imm << 2), br);
@@ -240,6 +259,7 @@ static void disas_branch_likely(ir_instr_cont_t *c, ir_value_t cond,
                                 uint64_t address, uint32_t instr) {
     uint64_t imm = mips_get_imm_u64(instr);
     ir_instr_cont_t br;
+    ir_mips_commit_cycles(c);
     ir_append_br(c, cond, &br);
     append_instr(&br, address + 4, disas_read_instr(address + 4));
 
@@ -252,6 +272,7 @@ static void disas_branch_likely(ir_instr_cont_t *c, ir_value_t cond,
     ir_append_exit(c);
     ir_append_write_i64(&br, REG_PC,
         ir_make_const_u64(address + 4 + (imm << 2)));
+    ir_mips_commit_cycles(&br);
     ir_append_exit(&br);
 #endif /* DISAS_BRANCH_ENABLE */
 }
@@ -491,6 +512,7 @@ static void disas_JALR(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_mips_append_write(c, mips_get_rd(instr), ir_make_const_u64(address + 8));
     append_instr(c, address + 4, disas_read_instr(address + 4));
     ir_mips_append_write(c, REG_PC, vs);
+    ir_mips_commit_cycles(c);
     ir_append_exit(c);
 }
 
@@ -501,6 +523,7 @@ static void disas_JR(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     append_instr(c, address + 4, disas_read_instr(address + 4));
     ir_mips_append_write(c, REG_PC, vs);
+    ir_mips_commit_cycles(c);
     ir_append_exit(c);
 }
 
@@ -1303,6 +1326,7 @@ static void disas_ERET(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
         ir_append_binop(c, IR_AND, sr, ir_make_const_u32(~STATUS_ERL)));
     pc = ir_append_read_i64(c, REG_ERROREPC);
     ir_append_write_i64(c, REG_PC, pc);
+    ir_mips_commit_cycles(c);
     ir_append_exit(c);
 
     /* ERL == 0 */
@@ -1310,6 +1334,7 @@ static void disas_ERET(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
         ir_append_binop(&br, IR_AND, sr, ir_make_const_u32(~STATUS_EXL)));
     pc = ir_append_read_i64(&br, REG_EPC);
     ir_append_write_i64(&br, REG_PC, pc);
+    ir_mips_commit_cycles(&br);
     ir_append_exit(&br);
 }
 
@@ -1454,6 +1479,7 @@ static void disas_J(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     target = (address & 0xfffffffff0000000llu) | (target << 2);
     append_instr(c, address + 4, disas_read_instr(address + 4));
     ir_mips_append_write(c, REG_PC, ir_make_const_u64(target));
+    ir_mips_commit_cycles(c);
     ir_append_exit(c);
 }
 
@@ -1463,6 +1489,7 @@ static void disas_JAL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_mips_append_write(c, REG_RA, ir_make_const_u64(address + 8));
     append_instr(c, address + 4, disas_read_instr(address + 4));
     ir_mips_append_write(c, REG_PC, ir_make_const_u64(target));
+    ir_mips_commit_cycles(c);
     ir_append_exit(c);
 }
 
@@ -2077,6 +2104,7 @@ static void (*CPU_callbacks[64])(ir_instr_cont_t *, uint64_t, uint32_t) = {
 };
 
 static ir_instr_t *disas_instr(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
+    ir_mips_incr_cycles();
     ir_instr_t *entry = NULL;
     ir_instr_cont_t entryc = { c->backend, c->block, &entry };
     CPU_callbacks[(instr >> 26) & 0x3fu](&entryc, address, instr);
@@ -2147,6 +2175,8 @@ ir_recompiler_backend_t *ir_mips_recompiler_backend(void) {
 
     ir_bind_register_u32(backend, REG_FCR0,     &R4300::state.cp1reg.fcr0);
     ir_bind_register_u32(backend, REG_FCR31,    &R4300::state.cp1reg.fcr31);
+
+    ir_bind_register_u64(backend, REG_CYCLES,   &R4300::state.cycles);
     return backend;
 }
 
@@ -2169,6 +2199,7 @@ ir_graph_t *ir_mips_disassemble(ir_recompiler_backend_t *backend,
             /* The address is outside the specified region,
              * emit a emulation exit to return to the interpreter. */
             ir_append_write_i64(&cont, REG_PC, ir_make_const_u64(address));
+            ir_mips_commit_cycles(&cont);
             ir_append_exit(&cont);
         }
         else if (!disas_fetch(address, cont)) {
