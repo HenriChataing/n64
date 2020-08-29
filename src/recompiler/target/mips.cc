@@ -1318,6 +1318,7 @@ static void disas_ERET(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 
     sr  = ir_append_read_i32(c, REG_SR);
     erl = ir_append_binop(c, IR_AND, sr, ir_make_const_u32(STATUS_ERL));
+    ir_mips_commit_cycles(c);
     ir_append_br(c,
         ir_append_icmp(c, IR_EQ, erl, ir_make_const_u32(0)), &br);
 
@@ -1326,7 +1327,6 @@ static void disas_ERET(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
         ir_append_binop(c, IR_AND, sr, ir_make_const_u32(~STATUS_ERL)));
     pc = ir_append_read_i64(c, REG_ERROREPC);
     ir_append_write_i64(c, REG_PC, pc);
-    ir_mips_commit_cycles(c);
     ir_append_exit(c);
 
     /* ERL == 0 */
@@ -1334,7 +1334,6 @@ static void disas_ERET(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
         ir_append_binop(&br, IR_AND, sr, ir_make_const_u32(~STATUS_EXL)));
     pc = ir_append_read_i64(&br, REG_EPC);
     ir_append_write_i64(&br, REG_PC, pc);
-    ir_mips_commit_cycles(&br);
     ir_append_exit(&br);
 }
 
@@ -1395,7 +1394,7 @@ static void disas_CTC1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 
     ir_value_t vt = ir_mips_append_read(c, mips_get_rt(instr));
     vt = ir_append_trunc_i32(c, vt);
-    ir_mips_append_write(c, rd, vt);
+    ir_append_write_i32(c, rd, vt);
     disas_push(address + 4, *c);
 }
 
