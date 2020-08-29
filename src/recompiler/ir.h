@@ -390,10 +390,64 @@ ir_value_t ir_append_cvt(ir_instr_cont_t *cont,
                          ir_value_t value);
 
 static inline
+ir_value_t ir_append_load_i8(ir_instr_cont_t *cont,
+                             ir_value_t address) {
+    return ir_append_load(cont, ir_make_iN(8), address);
+}
+
+static inline
+ir_value_t ir_append_load_i16(ir_instr_cont_t *cont,
+                              ir_value_t address) {
+    return ir_append_load(cont, ir_make_iN(16), address);
+}
+
+static inline
+ir_value_t ir_append_load_i32(ir_instr_cont_t *cont,
+                              ir_value_t address) {
+    return ir_append_load(cont, ir_make_iN(32), address);
+}
+
+static inline
+ir_value_t ir_append_load_i64(ir_instr_cont_t *cont,
+                              ir_value_t address) {
+    return ir_append_load(cont, ir_make_iN(64), address);
+}
+
+static inline
+ir_value_t ir_append_read_i32(ir_instr_cont_t *cont,
+                              ir_register_t register_) {
+    return ir_append_read(cont, ir_make_iN(32), register_);
+}
+
+static inline
+ir_value_t ir_append_read_i64(ir_instr_cont_t *cont,
+                              ir_register_t register_) {
+    return ir_append_read(cont, ir_make_iN(64), register_);
+}
+
+static inline
 ir_value_t ir_append_trunc(ir_instr_cont_t *cont,
                            ir_type_t type,
                            ir_value_t value) {
     return ir_append_cvt(cont, type, IR_TRUNC, value);
+}
+
+static inline
+ir_value_t ir_append_trunc_i8(ir_instr_cont_t *cont,
+                               ir_value_t value) {
+    return ir_append_cvt(cont, ir_make_iN(8), IR_TRUNC, value);
+}
+
+static inline
+ir_value_t ir_append_trunc_i16(ir_instr_cont_t *cont,
+                               ir_value_t value) {
+    return ir_append_cvt(cont, ir_make_iN(16), IR_TRUNC, value);
+}
+
+static inline
+ir_value_t ir_append_trunc_i32(ir_instr_cont_t *cont,
+                               ir_value_t value) {
+    return ir_append_cvt(cont, ir_make_iN(32), IR_TRUNC, value);
 }
 
 static inline
@@ -404,10 +458,22 @@ ir_value_t ir_append_sext(ir_instr_cont_t *cont,
 }
 
 static inline
+ir_value_t ir_append_sext_i64(ir_instr_cont_t *cont,
+                              ir_value_t value) {
+    return ir_append_cvt(cont, ir_make_iN(64), IR_SEXT, value);
+}
+
+static inline
 ir_value_t ir_append_zext(ir_instr_cont_t *cont,
                           ir_type_t type,
                           ir_value_t value) {
     return ir_append_cvt(cont, type, IR_ZEXT, value);
+}
+
+static inline
+ir_value_t ir_append_zext_i64(ir_instr_cont_t *cont,
+                              ir_value_t value) {
+    return ir_append_cvt(cont, ir_make_iN(64), IR_ZEXT, value);
 }
 
 /** Machine memory interface. */

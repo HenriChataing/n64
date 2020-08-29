@@ -101,7 +101,7 @@ static inline uint32_t mips_get_target(uint32_t instr) {
 
 static inline ir_value_t ir_mips_append_read(ir_instr_cont_t *c,
                                              ir_register_t register_) {
-    return register_ ? ir_append_read(c, ir_make_iN(64), register_)
+    return register_ ? ir_append_read_i64(c, register_)
                      : ir_make_const_u64(0);
 }
 
@@ -269,11 +269,11 @@ static void disas_ADD(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     // TODO integer overflow exception
     ir_value_t vs, vt, vd;
     vs = ir_mips_append_read(c, mips_get_rs(instr));
-    vs = ir_append_trunc(c, ir_make_iN(32), vs);
+    vs = ir_append_trunc_i32(c, vs);
     vt = ir_mips_append_read(c, mips_get_rt(instr));
-    vt = ir_append_trunc(c, ir_make_iN(32), vt);
+    vt = ir_append_trunc_i32(c, vt);
     vd = ir_append_binop(c, IR_ADD, vs, vt);
-    vd = ir_append_sext(c,  ir_make_iN(64), vd);
+    vd = ir_append_sext_i64(c, vd);
     ir_mips_append_write(c, mips_get_rd(instr), vd);
     disas_push(address + 4, *c);
 }
@@ -506,14 +506,14 @@ static void disas_JR(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 
 static void disas_MFHI(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_value_t vd;
-    vd = ir_append_read(c, ir_make_iN(64), REG_MULTHI);
+    vd = ir_append_read_i64(c, REG_MULTHI);
     ir_mips_append_write(c, mips_get_rd(instr), vd);
     disas_push(address + 4, *c);
 }
 
 static void disas_MFLO(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_value_t vd;
-    vd = ir_append_read(c, ir_make_iN(64), REG_MULTLO);
+    vd = ir_append_read_i64(c, REG_MULTLO);
     ir_mips_append_write(c, mips_get_rd(instr), vd);
     disas_push(address + 4, *c);
 }
@@ -555,12 +555,12 @@ static void disas_MULT(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vd = ir_append_binop(c, IR_SMUL, vs, vt);
 
     multhi = ir_append_binop(c, IR_SRL, vd, ir_make_const_u64(32));
-    multhi = ir_append_trunc(c, ir_make_iN(32), multhi);
-    multhi = ir_append_zext(c, ir_make_iN(64), multhi);
+    multhi = ir_append_trunc_i32(c, multhi);
+    multhi = ir_append_zext_i64(c, multhi);
     ir_mips_append_write(c, REG_MULTHI, multhi);
 
-    multlo = ir_append_trunc(c, ir_make_iN(32), vd);
-    multlo = ir_append_zext(c, ir_make_iN(64), multlo);
+    multlo = ir_append_trunc_i32(c, vd);
+    multlo = ir_append_zext_i64(c, multlo);
     ir_mips_append_write(c, REG_MULTLO, multlo);
     disas_push(address + 4, *c);
 }
@@ -574,12 +574,12 @@ static void disas_MULTU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vd = ir_append_binop(c, IR_UMUL, vs, vt);
 
     multhi = ir_append_binop(c, IR_SRL, vd, ir_make_const_u64(32));
-    multhi = ir_append_trunc(c, ir_make_iN(32), multhi);
-    multhi = ir_append_zext(c, ir_make_iN(64), multhi);
+    multhi = ir_append_trunc_i32(c, multhi);
+    multhi = ir_append_zext_i64(c, multhi);
     ir_mips_append_write(c, REG_MULTHI, multhi);
 
-    multlo = ir_append_trunc(c, ir_make_iN(32), vd);
-    multlo = ir_append_zext(c, ir_make_iN(64), multlo);
+    multlo = ir_append_trunc_i32(c, vd);
+    multlo = ir_append_zext_i64(c, multlo);
     ir_mips_append_write(c, REG_MULTLO, multlo);
     disas_push(address + 4, *c);
 }
@@ -606,10 +606,10 @@ static void disas_OR(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 static void disas_SLL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_value_t vt, shamnt, vd;
     vt = ir_mips_append_read(c, mips_get_rt(instr));
-    vt = ir_append_trunc(c, ir_make_iN(32), vt);
+    vt = ir_append_trunc_i32(c, vt);
     shamnt = ir_make_const_u32(mips_get_shamnt(instr));
     vd = ir_append_binop(c, IR_SLL, vt, shamnt);
-    vd = ir_append_sext(c, ir_make_iN(64), vd);
+    vd = ir_append_sext_i64(c, vd);
     ir_mips_append_write(c, mips_get_rd(instr), vd);
     disas_push(address + 4, *c);
 }
@@ -617,12 +617,12 @@ static void disas_SLL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 static void disas_SLLV(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_value_t vs, vt, vd;
     vs = ir_mips_append_read(c, mips_get_rs(instr));
-    vs = ir_append_trunc(c, ir_make_iN(32), vs);
+    vs = ir_append_trunc_i32(c, vs);
     vs = ir_append_binop(c, IR_AND, vs, ir_make_const_u32(0x1f));
     vt = ir_mips_append_read(c, mips_get_rt(instr));
-    vt = ir_append_trunc(c, ir_make_iN(32), vt);
+    vt = ir_append_trunc_i32(c, vt);
     vd = ir_append_binop(c, IR_SLL, vt, vs);
-    vd = ir_append_sext(c, ir_make_iN(64), vd);
+    vd = ir_append_sext_i64(c, vd);
     ir_mips_append_write(c, mips_get_rd(instr), vd);
     disas_push(address + 4, *c);
 }
@@ -632,7 +632,7 @@ static void disas_SLT(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     vt = ir_mips_append_read(c, mips_get_rt(instr));
     vd = ir_append_icmp(c, IR_SLT, vs, vt);
-    vd = ir_append_zext(c, ir_make_iN(64), vd);
+    vd = ir_append_zext_i64(c, vd);
     ir_mips_append_write(c, mips_get_rd(instr), vd);
     disas_push(address + 4, *c);
 }
@@ -642,7 +642,7 @@ static void disas_SLTU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     vt = ir_mips_append_read(c, mips_get_rt(instr));
     vd = ir_append_icmp(c, IR_ULT, vs, vt);
-    vd = ir_append_zext(c, ir_make_iN(64), vd);
+    vd = ir_append_zext_i64(c, vd);
     ir_mips_append_write(c, mips_get_rd(instr), vd);
     disas_push(address + 4, *c);
 }
@@ -650,10 +650,10 @@ static void disas_SLTU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 static void disas_SRA(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_value_t vt, shamnt, vd;
     vt = ir_mips_append_read(c, mips_get_rt(instr));
-    vt = ir_append_trunc(c, ir_make_iN(32), vt);
+    vt = ir_append_trunc_i32(c, vt);
     shamnt = ir_make_const_u32(mips_get_shamnt(instr));
     vd = ir_append_binop(c, IR_SRA, vt, shamnt);
-    vd = ir_append_sext(c, ir_make_iN(64), vd);
+    vd = ir_append_sext_i64(c, vd);
     ir_mips_append_write(c, mips_get_rd(instr), vd);
     disas_push(address + 4, *c);
 }
@@ -661,12 +661,12 @@ static void disas_SRA(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 static void disas_SRAV(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_value_t vs, vt, vd;
     vs = ir_mips_append_read(c, mips_get_rs(instr));
-    vs = ir_append_trunc(c, ir_make_iN(32), vs);
+    vs = ir_append_trunc_i32(c, vs);
     vs = ir_append_binop(c, IR_AND, vs, ir_make_const_u32(0x1f));
     vt = ir_mips_append_read(c, mips_get_rt(instr));
-    vt = ir_append_trunc(c, ir_make_iN(32), vt);
+    vt = ir_append_trunc_i32(c, vt);
     vd = ir_append_binop(c, IR_SRA, vt, vs);
-    vd = ir_append_sext(c, ir_make_iN(64), vd);
+    vd = ir_append_sext_i64(c, vd);
     ir_mips_append_write(c, mips_get_rd(instr), vd);
     disas_push(address + 4, *c);
 }
@@ -674,10 +674,10 @@ static void disas_SRAV(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 static void disas_SRL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_value_t vt, shamnt, vd;
     vt = ir_mips_append_read(c, mips_get_rt(instr));
-    vt = ir_append_trunc(c, ir_make_iN(32), vt);
+    vt = ir_append_trunc_i32(c, vt);
     shamnt = ir_make_const_u32(mips_get_shamnt(instr));
     vd = ir_append_binop(c, IR_SRL, vt, shamnt);
-    vd = ir_append_sext(c, ir_make_iN(64), vd);
+    vd = ir_append_sext_i64(c, vd);
     ir_mips_append_write(c, mips_get_rd(instr), vd);
     disas_push(address + 4, *c);
 }
@@ -685,12 +685,12 @@ static void disas_SRL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 static void disas_SRLV(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_value_t vs, vt, vd;
     vs = ir_mips_append_read(c, mips_get_rs(instr));
-    vs = ir_append_trunc(c, ir_make_iN(32), vs);
+    vs = ir_append_trunc_i32(c, vs);
     vs = ir_append_binop(c, IR_AND, vs, ir_make_const_u32(0x1f));
     vt = ir_mips_append_read(c, mips_get_rt(instr));
-    vt = ir_append_trunc(c, ir_make_iN(32), vt);
+    vt = ir_append_trunc_i32(c, vt);
     vd = ir_append_binop(c, IR_SRL, vt, vs);
-    vd = ir_append_sext(c, ir_make_iN(64), vd);
+    vd = ir_append_sext_i64(c, vd);
     ir_mips_append_write(c, mips_get_rd(instr), vd);
     disas_push(address + 4, *c);
 }
@@ -699,11 +699,11 @@ static void disas_SUB(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     // TODO integer overflow exception
     ir_value_t vs, vt, vd;
     vs = ir_mips_append_read(c, mips_get_rs(instr));
-    vs = ir_append_trunc(c, ir_make_iN(32), vs);
+    vs = ir_append_trunc_i32(c, vs);
     vt = ir_mips_append_read(c, mips_get_rt(instr));
-    vt = ir_append_trunc(c, ir_make_iN(32), vt);
+    vt = ir_append_trunc_i32(c, vt);
     vd = ir_append_binop(c, IR_SUB, vs, vt);
-    vd = ir_append_sext(c,  ir_make_iN(64), vd);
+    vd = ir_append_sext_i64(c, vd);
     ir_mips_append_write(c, mips_get_rd(instr), vd);
     disas_push(address + 4, *c);
 }
@@ -877,10 +877,10 @@ static void disas_ADDI(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     // TODO integer overflow
     ir_value_t vs, imm, vt;
     vs = ir_mips_append_read(c, mips_get_rs(instr));
-    vs = ir_append_trunc(c, ir_make_iN(32), vs);
+    vs = ir_append_trunc_i32(c, vs);
     imm = ir_make_const_u32(mips_get_imm_u32(instr));
     vt = ir_append_binop(c, IR_ADD, vs, imm);
-    vt = ir_append_sext(c,  ir_make_iN(64), vt);
+    vt = ir_append_sext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
     disas_push(address + 4, *c);
 }
@@ -995,8 +995,8 @@ static void disas_CFC1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
         return;
     }
 
-    ir_value_t vd = ir_append_read(c, ir_make_iN(32), rd);
-    vd = ir_append_zext(c, ir_make_iN(64), vd);
+    ir_value_t vd = ir_append_read_i32(c, rd);
+    vd = ir_append_zext_i64(c, vd);
     ir_append_write(c, mips_get_rt(instr), vd);
     disas_push(address + 4, *c);
 }
@@ -1012,7 +1012,7 @@ static void disas_CTC1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     }
 
     ir_value_t vt = ir_mips_append_read(c, mips_get_rt(instr));
-    vt = ir_append_trunc(c, ir_make_iN(32), vt);
+    vt = ir_append_trunc_i32(c, vt);
     ir_append_write(c, rd, vt);
     disas_push(address + 4, *c);
 }
@@ -1037,13 +1037,11 @@ static void disas_BC1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
         likely = opcode == 3;
         break;
     default:
-        printf("unexpected BC1 opcode %u\n", opcode);
-        // throw "nope";
         disas_push(address + 4, *c);
         return;
     }
 
-    ir_value_t fcr31   = ir_append_read(c, ir_make_iN(32), REG_FCR31);
+    ir_value_t fcr31   = ir_append_read_i32(c, REG_FCR31);
     ir_value_t fcr31_c = ir_append_binop(c, IR_AND, fcr31, ir_make_const_u32(FCR31_C));
     ir_value_t cond    = ir_append_icmp(c, op, fcr31_c, ir_make_const_u32(0));
 
@@ -1116,8 +1114,8 @@ static void disas_LB(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
-    vt = ir_append_load(c, ir_make_iN(8), vs);
-    vt = ir_append_sext(c, ir_make_iN(64), vt);
+    vt = ir_append_load_i8(c, vs);
+    vt = ir_append_sext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
     disas_push(address + 4, *c);
 }
@@ -1127,8 +1125,8 @@ static void disas_LBU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
-    vt = ir_append_load(c, ir_make_iN(8), vs);
-    vt = ir_append_zext(c, ir_make_iN(64), vt);
+    vt = ir_append_load_i8(c, vs);
+    vt = ir_append_zext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
     disas_push(address + 4, *c);
 }
@@ -1138,7 +1136,7 @@ static void disas_LD(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
-    vt = ir_append_load(c, ir_make_iN(64), vs);
+    vt = ir_append_load_i64(c, vs);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
     disas_push(address + 4, *c);
 }
@@ -1242,8 +1240,8 @@ static void disas_LH(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
-    vt = ir_append_load(c, ir_make_iN(16), vs);
-    vt = ir_append_sext(c, ir_make_iN(64), vt);
+    vt = ir_append_load_i16(c, vs);
+    vt = ir_append_sext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
     disas_push(address + 4, *c);
 }
@@ -1253,8 +1251,8 @@ static void disas_LHU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
-    vt = ir_append_load(c, ir_make_iN(16), vs);
-    vt = ir_append_zext(c, ir_make_iN(64), vt);
+    vt = ir_append_load_i16(c, vs);
+    vt = ir_append_zext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
     disas_push(address + 4, *c);
 }
@@ -1285,8 +1283,8 @@ static void disas_LW(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
-    vt = ir_append_load(c, ir_make_iN(32), vs);
-    vt = ir_append_sext(c, ir_make_iN(64), vt);
+    vt = ir_append_load_i32(c, vs);
+    vt = ir_append_sext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
     disas_push(address + 4, *c);
 }
@@ -1398,8 +1396,8 @@ static void disas_LWU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
-    vt = ir_append_load(c, ir_make_iN(32), vs);
-    vt = ir_append_zext(c, ir_make_iN(64), vt);
+    vt = ir_append_load_i32(c, vs);
+    vt = ir_append_zext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
     disas_push(address + 4, *c);
 }
@@ -1419,7 +1417,7 @@ static void disas_SB(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
     vt = ir_mips_append_read(c, mips_get_rt(instr));
-    vt = ir_append_trunc(c, ir_make_iN(8), vt);
+    vt = ir_append_trunc_i8(c, vt);
     ir_append_store(c, vs, vt);
     disas_push(address + 4, *c);
 }
@@ -1533,7 +1531,7 @@ static void disas_SH(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
     vt = ir_mips_append_read(c, mips_get_rt(instr));
-    vt = ir_append_trunc(c, ir_make_iN(16), vt);
+    vt = ir_append_trunc_i16(c, vt);
     ir_append_store(c, vs, vt);
     disas_push(address + 4, *c);
 }
@@ -1543,7 +1541,7 @@ static void disas_SLTI(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vt = ir_append_icmp(c, IR_SLT, vs, imm);
-    vt = ir_append_zext(c, ir_make_iN(64), vt);
+    vt = ir_append_zext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
     disas_push(address + 4, *c);
 }
@@ -1553,7 +1551,7 @@ static void disas_SLTIU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vt = ir_append_icmp(c, IR_ULT, vs, imm);
-    vt = ir_append_zext(c, ir_make_iN(64), vt);
+    vt = ir_append_zext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
     disas_push(address + 4, *c);
 }
@@ -1564,7 +1562,7 @@ static void disas_SW(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
     vt = ir_mips_append_read(c, mips_get_rt(instr));
-    vt = ir_append_trunc(c, ir_make_iN(32), vt);
+    vt = ir_append_trunc_i32(c, vt);
     ir_append_store(c, vs, vt);
     disas_push(address + 4, *c);
 }
