@@ -1,0 +1,35 @@
+start_address = "0xffffffff80319c90"
+
+asm_code = """
+    bnel     v0, zero, 0xffffffff80319cac
+    lw       t1, 0x0(v0)
+"""
+
+bin_code = [
+    0x54400006, 0x8c490000,
+]
+
+[[test]]
+end_address = "0xffffffff80319cac"
+start_cycles = 291605267
+end_cycles = 291605269
+trace = [
+    { type = "load_u32", address = "0x00222c98", value = "0xc0000000" },
+]
+
+[[test]]
+end_address = "0xffffffff80319cac"
+start_cycles = 310329648
+end_cycles = 310329650
+trace = [
+    { type = "load_u32", address = "0x00222c98", value = "0xc0000000" },
+]
+
+[[test]]
+end_address = "0xffffffff80319cac"
+start_cycles = 330589441
+end_cycles = 330589443
+trace = [
+    { type = "load_u32", address = "0x00222c98", value = "0xc0000000" },
+]
+

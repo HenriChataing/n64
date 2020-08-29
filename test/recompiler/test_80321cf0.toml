@@ -1,0 +1,104 @@
+start_address = "0xffffffff80321cf0"
+
+asm_code = """
+    addiu    sp, sp, 0xffc8
+    sw       ra, 0x24(sp)
+    sw       a0, 0x38(sp)
+    sw       a1, 0x3c(sp)
+    sw       a2, 0x40(sp)
+    sw       s2, 0x20(sp)
+    sw       s1, 0x1c(sp)
+    jal      0xffffffff803265a0
+    sw       s0, 0x18(sp)
+"""
+
+bin_code = [
+    0x27bdffc8, 0xafbf0024, 0xafa40038, 0xafa5003c,
+    0xafa60040, 0xafb20020, 0xafb1001c, 0x0c0c9968,
+    0xafb00018,
+]
+
+[[test]]
+end_address = "0xffffffff803265a0"
+start_cycles = 141933936
+end_cycles = 141933945
+trace = [
+    { type = "store_u32", address = "0x002051a4", value = "0x80246bf8" },
+    { type = "store_u32", address = "0x002051b8", value = "0x80339ab0" },
+    { type = "store_u32", address = "0x002051bc", value = "0x80226da0" },
+    { type = "store_u32", address = "0x002051c0", value = "0x0" },
+    { type = "store_u32", address = "0x002051a0", value = "0x0" },
+    { type = "store_u32", address = "0x0020519c", value = "0x0" },
+    { type = "store_u32", address = "0x00205198", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff803265a0"
+start_cycles = 163761660
+end_cycles = 163761669
+trace = [
+    { type = "store_u32", address = "0x002051a4", value = "0x80246bf8" },
+    { type = "store_u32", address = "0x002051b8", value = "0x80339ab0" },
+    { type = "store_u32", address = "0x002051bc", value = "0x80226da0" },
+    { type = "store_u32", address = "0x002051c0", value = "0x0" },
+    { type = "store_u32", address = "0x002051a0", value = "0x0" },
+    { type = "store_u32", address = "0x0020519c", value = "0x0" },
+    { type = "store_u32", address = "0x00205198", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff803265a0"
+start_cycles = 191802471
+end_cycles = 191802480
+trace = [
+    { type = "store_u32", address = "0x00203194", value = "0x802467bc" },
+    { type = "store_u32", address = "0x002031a8", value = "0x80339dd0" },
+    { type = "store_u32", address = "0x002031ac", value = "0x200" },
+    { type = "store_u32", address = "0x002031b0", value = "0x0" },
+    { type = "store_u32", address = "0x00203190", value = "0x0" },
+    { type = "store_u32", address = "0x0020318c", value = "0x0" },
+    { type = "store_u32", address = "0x00203188", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff803265a0"
+start_cycles = 218336944
+end_cycles = 218336953
+trace = [
+    { type = "store_u32", address = "0x002051a4", value = "0x80246bf8" },
+    { type = "store_u32", address = "0x002051b8", value = "0x80339ab0" },
+    { type = "store_u32", address = "0x002051bc", value = "0x80226df0" },
+    { type = "store_u32", address = "0x002051c0", value = "0x0" },
+    { type = "store_u32", address = "0x002051a0", value = "0x0" },
+    { type = "store_u32", address = "0x0020519c", value = "0x0" },
+    { type = "store_u32", address = "0x00205198", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff803265a0"
+start_cycles = 246376221
+end_cycles = 246376230
+trace = [
+    { type = "store_u32", address = "0x00203194", value = "0x802467bc" },
+    { type = "store_u32", address = "0x002031a8", value = "0x80339dd0" },
+    { type = "store_u32", address = "0x002031ac", value = "0x200" },
+    { type = "store_u32", address = "0x002031b0", value = "0x0" },
+    { type = "store_u32", address = "0x00203190", value = "0x0" },
+    { type = "store_u32", address = "0x0020318c", value = "0x0" },
+    { type = "store_u32", address = "0x00203188", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff803265a0"
+start_cycles = 273478509
+end_cycles = 273478518
+trace = [
+    { type = "store_u32", address = "0x0020319c", value = "0x80246980" },
+    { type = "store_u32", address = "0x002031b0", value = "0x80339cb8" },
+    { type = "store_u32", address = "0x002031b4", value = "0x2" },
+    { type = "store_u32", address = "0x002031b8", value = "0x0" },
+    { type = "store_u32", address = "0x00203198", value = "0x0" },
+    { type = "store_u32", address = "0x00203194", value = "0x0" },
+    { type = "store_u32", address = "0x00203190", value = "0x0" },
+]
+

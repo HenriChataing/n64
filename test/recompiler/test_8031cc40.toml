@@ -1,0 +1,52 @@
+start_address = "0xffffffff8031cc40"
+
+asm_code = """
+    srl      t5, t4, 31
+    bnel     a2, t5, 0xffffffff8031cc7c
+    lbu      t8, 0x5(s1)
+"""
+
+bin_code = [
+    0x000c6fc2, 0x54cd000d, 0x92380005,
+]
+
+[[test]]
+end_address = "0xffffffff8031cc7c"
+start_cycles = 257309118
+end_cycles = 257309121
+trace = [
+    { type = "load_u8", address = "0x00222c9d", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff8031cc7c"
+start_cycles = 277570116
+end_cycles = 277570119
+trace = [
+    { type = "load_u8", address = "0x00222c9d", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff8031cc7c"
+start_cycles = 296294562
+end_cycles = 296294565
+trace = [
+    { type = "load_u8", address = "0x00222c9d", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff8031cc7c"
+start_cycles = 316548442
+end_cycles = 316548445
+trace = [
+    { type = "load_u8", address = "0x00222c9d", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff8031cc7c"
+start_cycles = 335269278
+end_cycles = 335269281
+trace = [
+    { type = "load_u8", address = "0x00222c9d", value = "0x0" },
+]
+

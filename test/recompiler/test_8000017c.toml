@@ -16,31 +16,43 @@ bin_code = [
 
 [[test]]
 end_address = "0xffffffff80000130"
+start_cycles = 73077
+end_cycles = 73083
 trace = [
 ]
 
 [[test]]
 end_address = "0xffffffff80000130"
+start_cycles = 76836
+end_cycles = 76842
 trace = [
 ]
 
 [[test]]
 end_address = "0xffffffff80000130"
+start_cycles = 79824
+end_cycles = 79830
 trace = [
 ]
 
 [[test]]
 end_address = "0xffffffff80000130"
+start_cycles = 82956
+end_cycles = 82962
 trace = [
 ]
 
 [[test]]
 end_address = "0xffffffff80000130"
+start_cycles = 85898
+end_cycles = 85904
 trace = [
 ]
 
 [[test]]
 end_address = "0xffffffff80000130"
+start_cycles = 88837
+end_cycles = 88843
 trace = [
 ]
 

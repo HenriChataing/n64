@@ -1,0 +1,86 @@
+start_address = "0xffffffff80326ef0"
+
+asm_code = """
+    lw       k1, 0x128(k0)
+    sll      k1, k1, 1
+    lui      k0, 0x8034
+    addiu    k0, k0, 0x86d0
+    addu     k1, k1, k0
+    lhu      k1, 0x0(k1)
+    lui      k0, 0xa430
+    addiu    k0, k0, 0xc
+    sw       k1, 0x0(k0)
+    nop
+    nop
+    nop
+    nop
+    eret
+"""
+
+bin_code = [
+    0x8f5b0128, 0x001bd840, 0x3c1a8034, 0x275a86d0,
+    0x037ad821, 0x977b0000, 0x3c1aa430, 0x275a000c,
+    0xaf5b0000, 0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x42000018,
+]
+
+[[test]]
+end_address = "0xffffffff80321938"
+start_cycles = 146583371
+end_cycles = 146583385
+trace = [
+    { type = "load_u32", address = "0x00339698", value = "0x3f" },
+    { type = "load_u16", address = "0x0033874e", value = "0xaaa" },
+    { type = "store_u32", address = "0x0430000c", value = "0xaaa" },
+]
+
+[[test]]
+end_address = "0xffffffff80246da4"
+start_cycles = 166896124
+end_cycles = 166896138
+trace = [
+    { type = "load_u32", address = "0x003394e8", value = "0x3f" },
+    { type = "load_u16", address = "0x0033874e", value = "0xaaa" },
+    { type = "store_u32", address = "0x0430000c", value = "0xaaa" },
+]
+
+[[test]]
+end_address = "0xffffffff80246da4"
+start_cycles = 193394269
+end_cycles = 193394283
+trace = [
+    { type = "load_u32", address = "0x003394e8", value = "0x3f" },
+    { type = "load_u16", address = "0x0033874e", value = "0xaaa" },
+    { type = "store_u32", address = "0x0430000c", value = "0xaaa" },
+]
+
+[[test]]
+end_address = "0xffffffff80321938"
+start_cycles = 219909563
+end_cycles = 219909577
+trace = [
+    { type = "load_u32", address = "0x00339698", value = "0x3f" },
+    { type = "load_u16", address = "0x0033874e", value = "0xaaa" },
+    { type = "store_u32", address = "0x0430000c", value = "0xaaa" },
+]
+
+[[test]]
+end_address = "0xffffffff80321938"
+start_cycles = 246374791
+end_cycles = 246374805
+trace = [
+    { type = "load_u32", address = "0x00363a18", value = "0x3f" },
+    { type = "load_u16", address = "0x0033874e", value = "0xaaa" },
+    { type = "store_u32", address = "0x0430000c", value = "0xaaa" },
+]
+
+[[test]]
+end_address = "0xffffffff80321938"
+start_cycles = 272882041
+end_cycles = 272882055
+trace = [
+    { type = "load_u32", address = "0x00363a18", value = "0x3f" },
+    { type = "load_u16", address = "0x0033874e", value = "0xaaa" },
+    { type = "store_u32", address = "0x0430000c", value = "0xaaa" },
+]
+

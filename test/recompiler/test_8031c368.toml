@@ -1,0 +1,54 @@
+start_address = "0xffffffff8031c368"
+
+asm_code = """
+    addiu    at, zero, 0xf9
+    bnel     v1, at, 0xffffffff8031c380
+    ldc2     cr25, 0x35b6(a3)
+"""
+
+bin_code = [
+    0x240100f9, 0x54610004, 0xd8f935b6,
+]
+
+[[test]]
+end_address = "0xffffffff8031c374"
+start_cycles = 112308508
+end_cycles = 112308510
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff8031c374"
+start_cycles = 118522362
+end_cycles = 118522364
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff8031c374"
+start_cycles = 123197188
+end_cycles = 123197190
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff8031c374"
+start_cycles = 127882530
+end_cycles = 127882532
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff8031c374"
+start_cycles = 132557373
+end_cycles = 132557375
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff8031c374"
+start_cycles = 137241749
+end_cycles = 137241751
+trace = [
+]
+

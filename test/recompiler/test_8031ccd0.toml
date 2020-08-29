@@ -1,0 +1,72 @@
+start_address = "0xffffffff8031ccd0"
+
+asm_code = """
+    lbu      t0, 0x6(s1)
+    addu     t6, a0, t0
+    sb       a1, 0x0(t6)
+    lw       t8, 0x0(s1)
+    sll      t2, t8, 2
+    bgezl    t2, 0xffffffff8031cd00
+    lhu      t5, 0xc(s1)
+"""
+
+bin_code = [
+    0x92280006, 0x00887021, 0xa1c50000, 0x8e380000,
+    0x00185080, 0x05430006, 0x962d000c,
+]
+
+[[test]]
+end_address = "0xffffffff8031cd00"
+start_cycles = 257309137
+end_cycles = 257309144
+trace = [
+    { type = "load_u8", address = "0x00222c9e", value = "0x0" },
+    { type = "store_u8", address = "0x002218d0", value = "0x2" },
+    { type = "load_u32", address = "0x00222c98", value = "0xc0000000" },
+    { type = "load_u16", address = "0x00222ca4", value = "0x78" },
+]
+
+[[test]]
+end_address = "0xffffffff8031cd00"
+start_cycles = 277570135
+end_cycles = 277570142
+trace = [
+    { type = "load_u8", address = "0x00222c9e", value = "0x0" },
+    { type = "store_u8", address = "0x002218d0", value = "0x2" },
+    { type = "load_u32", address = "0x00222c98", value = "0xc0000000" },
+    { type = "load_u16", address = "0x00222ca4", value = "0x78" },
+]
+
+[[test]]
+end_address = "0xffffffff8031cd00"
+start_cycles = 296294581
+end_cycles = 296294588
+trace = [
+    { type = "load_u8", address = "0x00222c9e", value = "0x0" },
+    { type = "store_u8", address = "0x002218d0", value = "0x2" },
+    { type = "load_u32", address = "0x00222c98", value = "0xc0000000" },
+    { type = "load_u16", address = "0x00222ca4", value = "0x78" },
+]
+
+[[test]]
+end_address = "0xffffffff8031cd00"
+start_cycles = 316548461
+end_cycles = 316548468
+trace = [
+    { type = "load_u8", address = "0x00222c9e", value = "0x0" },
+    { type = "store_u8", address = "0x002218d0", value = "0x2" },
+    { type = "load_u32", address = "0x00222c98", value = "0xc0000000" },
+    { type = "load_u16", address = "0x00222ca4", value = "0x78" },
+]
+
+[[test]]
+end_address = "0xffffffff8031cd00"
+start_cycles = 335269297
+end_cycles = 335269304
+trace = [
+    { type = "load_u8", address = "0x00222c9e", value = "0x0" },
+    { type = "store_u8", address = "0x002218d0", value = "0x2" },
+    { type = "load_u32", address = "0x00222c98", value = "0xc0000000" },
+    { type = "load_u16", address = "0x00222ca4", value = "0x78" },
+]
+

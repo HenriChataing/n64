@@ -1,0 +1,118 @@
+start_address = "0xffffffff80277a48"
+
+asm_code = """
+    lui      t6, 0x8034
+    lw       t6, -0x6304(t6)
+    lui      at, 0x8034
+    addiu    t7, t6, 0x8
+    sw       t7, -0x6304(at)
+    sw       t6, 0x0(sp)
+    lw       t8, 0x4(sp)
+    lw       t4, 0x0(sp)
+    lui      at, 0xbc00
+    sll      t9, t8, 2
+    andi     t0, t9, 0xffff
+    sll      t1, t0, 8
+    or       t2, t1, at
+    ori      t3, t2, 0x6
+    sw       t3, 0x0(t4)
+    lw       t5, 0x4(sp)
+    lui      t7, 0x8034
+    lw       t8, 0x0(sp)
+    sll      t6, t5, 2
+    addu     t7, t7, t6
+    lw       t7, -0x5f70(t7)
+    sw       t7, 0x4(t8)
+    lw       t9, 0x4(sp)
+    addiu    t0, t9, 0x1
+    slti     at, t0, 16
+    bne      at, zero, 0xffffffff80277a48
+    sw       t0, 0x4(sp)
+"""
+
+bin_code = [
+    0x3c0e8034, 0x8dce9cfc, 0x3c018034, 0x25cf0008,
+    0xac2f9cfc, 0xafae0000, 0x8fb80004, 0x8fac0000,
+    0x3c01bc00, 0x0018c880, 0x3328ffff, 0x00084a00,
+    0x01215025, 0x354b0006, 0xad8b0000, 0x8fad0004,
+    0x3c0f8034, 0x8fb80000, 0x000d7080, 0x01ee7821,
+    0x8defa090, 0xaf0f0004, 0x8fb90004, 0x27280001,
+    0x29010010, 0x1420ffe6, 0xafa80004,
+]
+
+[[test]]
+end_address = "0xffffffff80277a48"
+start_cycles = 260440839
+end_cycles = 260440866
+trace = [
+    { type = "load_u32", address = "0x00339cfc", value = "0x80208150" },
+    { type = "store_u32", address = "0x00339cfc", value = "0x80208158" },
+    { type = "store_u32", address = "0x00207190", value = "0x80208150" },
+    { type = "load_u32", address = "0x00207194", value = "0xa" },
+    { type = "load_u32", address = "0x00207190", value = "0x80208150" },
+    { type = "store_u32", address = "0x00208150", value = "0xbc002806" },
+    { type = "load_u32", address = "0x00207194", value = "0xa" },
+    { type = "load_u32", address = "0x00207190", value = "0x80208150" },
+    { type = "load_u32", address = "0x0033a0b8", value = "0x0" },
+    { type = "store_u32", address = "0x00208154", value = "0x0" },
+    { type = "load_u32", address = "0x00207194", value = "0xa" },
+    { type = "store_u32", address = "0x00207194", value = "0xb" },
+]
+
+[[test]]
+end_address = "0xffffffff80277a48"
+start_cycles = 282270176
+end_cycles = 282270203
+trace = [
+    { type = "load_u32", address = "0x00339cfc", value = "0x80214978" },
+    { type = "store_u32", address = "0x00339cfc", value = "0x80214980" },
+    { type = "store_u32", address = "0x00207190", value = "0x80214978" },
+    { type = "load_u32", address = "0x00207194", value = "0x5" },
+    { type = "load_u32", address = "0x00207190", value = "0x80214978" },
+    { type = "store_u32", address = "0x00214978", value = "0xbc001406" },
+    { type = "load_u32", address = "0x00207194", value = "0x5" },
+    { type = "load_u32", address = "0x00207190", value = "0x80214978" },
+    { type = "load_u32", address = "0x0033a0a4", value = "0x0" },
+    { type = "store_u32", address = "0x0021497c", value = "0x0" },
+    { type = "load_u32", address = "0x00207194", value = "0x5" },
+    { type = "store_u32", address = "0x00207194", value = "0x6" },
+]
+
+[[test]]
+end_address = "0xffffffff80277ab4"
+start_cycles = 300976745
+end_cycles = 300976772
+trace = [
+    { type = "load_u32", address = "0x00339cfc", value = "0x802149c8" },
+    { type = "store_u32", address = "0x00339cfc", value = "0x802149d0" },
+    { type = "store_u32", address = "0x00207190", value = "0x802149c8" },
+    { type = "load_u32", address = "0x00207194", value = "0xf" },
+    { type = "load_u32", address = "0x00207190", value = "0x802149c8" },
+    { type = "store_u32", address = "0x002149c8", value = "0xbc003c06" },
+    { type = "load_u32", address = "0x00207194", value = "0xf" },
+    { type = "load_u32", address = "0x00207190", value = "0x802149c8" },
+    { type = "load_u32", address = "0x0033a0cc", value = "0x0" },
+    { type = "store_u32", address = "0x002149cc", value = "0x0" },
+    { type = "load_u32", address = "0x00207194", value = "0xf" },
+    { type = "store_u32", address = "0x00207194", value = "0x10" },
+]
+
+[[test]]
+end_address = "0xffffffff80277a48"
+start_cycles = 322810800
+end_cycles = 322810827
+trace = [
+    { type = "load_u32", address = "0x00339cfc", value = "0x80208150" },
+    { type = "store_u32", address = "0x00339cfc", value = "0x80208158" },
+    { type = "store_u32", address = "0x00207190", value = "0x80208150" },
+    { type = "load_u32", address = "0x00207194", value = "0xa" },
+    { type = "load_u32", address = "0x00207190", value = "0x80208150" },
+    { type = "store_u32", address = "0x00208150", value = "0xbc002806" },
+    { type = "load_u32", address = "0x00207194", value = "0xa" },
+    { type = "load_u32", address = "0x00207190", value = "0x80208150" },
+    { type = "load_u32", address = "0x0033a0b8", value = "0x0" },
+    { type = "store_u32", address = "0x00208154", value = "0x0" },
+    { type = "load_u32", address = "0x00207194", value = "0xa" },
+    { type = "store_u32", address = "0x00207194", value = "0xb" },
+]
+

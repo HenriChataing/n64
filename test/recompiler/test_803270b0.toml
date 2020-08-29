@@ -1,0 +1,26 @@
+start_address = "0xffffffff803270b0"
+
+asm_code = """
+    or       v0, zero, zero
+    jr       ra
+    addiu    sp, sp, 0x8
+"""
+
+bin_code = [
+    0x00001025, 0x03e00008, 0x27bd0008,
+]
+
+[[test]]
+end_address = "0xffffffff80321c9c"
+start_cycles = 288475933
+end_cycles = 288475936
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff80321c9c"
+start_cycles = 313467023
+end_cycles = 313467026
+trace = [
+]
+

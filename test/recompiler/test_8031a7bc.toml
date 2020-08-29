@@ -1,0 +1,33 @@
+start_address = "0xffffffff8031a7bc"
+
+asm_code = """
+    andi     t8, a1, 0x20
+    beq      t8, zero, 0xffffffff8031a7d8
+    andi     t1, a1, 0x10
+"""
+
+bin_code = [
+    0x30b80020, 0x13000005, 0x30a90010,
+]
+
+[[test]]
+end_address = "0xffffffff8031a7d8"
+start_cycles = 280697840
+end_cycles = 280697843
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff8031a7d8"
+start_cycles = 300952952
+end_cycles = 300952955
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff8031a7d8"
+start_cycles = 319676166
+end_cycles = 319676169
+trace = [
+]
+

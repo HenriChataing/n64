@@ -1,0 +1,42 @@
+start_address = "0xffffffff8031a584"
+
+asm_code = """
+    lbu      t6, 0x1(a0)
+    lbu      v0, 0x0(a0)
+    sltiu    at, t6, 9
+    beq      at, zero, 0xffffffff8031a7bc
+    or       a1, v0, zero
+"""
+
+bin_code = [
+    0x908e0001, 0x90820000, 0x2dc10009, 0x1020008a,
+    0x00402825,
+]
+
+[[test]]
+end_address = "0xffffffff8031a598"
+start_cycles = 280697816
+end_cycles = 280697821
+trace = [
+    { type = "load_u8", address = "0x001d7315", value = "0x4" },
+    { type = "load_u8", address = "0x001d7314", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff8031a598"
+start_cycles = 300952928
+end_cycles = 300952933
+trace = [
+    { type = "load_u8", address = "0x001d7315", value = "0x4" },
+    { type = "load_u8", address = "0x001d7314", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff8031a598"
+start_cycles = 319676142
+end_cycles = 319676147
+trace = [
+    { type = "load_u8", address = "0x001d7315", value = "0x4" },
+    { type = "load_u8", address = "0x001d7314", value = "0x0" },
+]
+

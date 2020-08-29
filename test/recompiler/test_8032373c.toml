@@ -1,0 +1,20 @@
+start_address = "0xffffffff8032373c"
+
+asm_code = """
+    cache
+    sltu     at, t0, t1
+    bne      at, zero, 0xffffffff8032373c
+    addiu    t0, t0, 0x20
+"""
+
+bin_code = [
+    0xbd000000, 0x0109082b, 0x1420fffd, 0x25080020,
+]
+
+[[test]]
+end_address = "0xffffffff8032373c"
+start_cycles = 53307361
+end_cycles = 53307365
+trace = [
+]
+

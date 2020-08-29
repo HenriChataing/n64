@@ -1,0 +1,39 @@
+start_address = "0xffffffff8031d3e4"
+
+asm_code = """
+    jal      0xffffffff80319e78
+    or       a0, s0, zero
+"""
+
+bin_code = [
+    0x0c0c679e, 0x02002025,
+]
+
+[[test]]
+end_address = "0xffffffff80319e78"
+start_cycles = 257309159
+end_cycles = 257309161
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff80319e78"
+start_cycles = 277570157
+end_cycles = 277570159
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff80319e78"
+start_cycles = 296294603
+end_cycles = 296294605
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff80319e78"
+start_cycles = 316548483
+end_cycles = 316548485
+trace = [
+]
+

@@ -1,0 +1,27 @@
+start_address = "0xffffffff80328534"
+
+asm_code = """
+    or       a0, zero, zero
+    or       t0, a3, zero
+    lwc1     cr14, 0x4(t0)
+    addiu    a0, a0, 0x1
+    lwc1     cr18, 0x0(t0)
+    mul.s    f16, f14, f0
+    beq      a0, t3, 0xffffffff803285b4
+    nop
+"""
+
+bin_code = [
+    0x00002025, 0x00e04025, 0xc50e0004, 0x24840001,
+    0xc5120000, 0x46007402, 0x108b0019, 0x00000000,
+]
+
+[[test]]
+end_address = "0xffffffff80328554"
+start_cycles = 322814077
+end_cycles = 322814085
+trace = [
+    { type = "load_u32", address = "0x00207054", value = "0x401a827a" },
+    { type = "load_u32", address = "0x00207050", value = "0x0" },
+]
+

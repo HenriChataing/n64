@@ -1,0 +1,31 @@
+start_address = "0xffffffff80326d70"
+
+asm_code = """
+    lui      k1, 0xa430
+    lw       k1, 0xc(k1)
+    beq      a0, zero, 0xffffffff80326d88
+    sw       k1, 0x128(a1)
+"""
+
+bin_code = [
+    0x3c1ba430, 0x8f7b000c, 0x10800003, 0xacbb0128,
+]
+
+[[test]]
+end_address = "0xffffffff80326d80"
+start_cycles = 282839437
+end_cycles = 282839441
+trace = [
+    { type = "load_u32", address = "0x0430000c", value = "0x3f" },
+    { type = "store_u32", address = "0x00339698", value = "0x3f" },
+]
+
+[[test]]
+end_address = "0xffffffff80326d80"
+start_cycles = 319699078
+end_cycles = 319699082
+trace = [
+    { type = "load_u32", address = "0x0430000c", value = "0x3f" },
+    { type = "store_u32", address = "0x00339698", value = "0x3f" },
+]
+

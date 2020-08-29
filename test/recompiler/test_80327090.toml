@@ -1,0 +1,32 @@
+start_address = "0xffffffff80327090"
+
+asm_code = """
+    lui      t6, 0xa404
+    lw       a0, 0x10(t6)
+    addiu    sp, sp, 0xfff8
+    andi     t7, a0, 0x1c
+    beq      t7, zero, 0xffffffff803270b0
+    nop
+"""
+
+bin_code = [
+    0x3c0ea404, 0x8dc40010, 0x27bdfff8, 0x308f001c,
+    0x11e00003, 0x00000000,
+]
+
+[[test]]
+end_address = "0xffffffff803270b0"
+start_cycles = 288475927
+end_cycles = 288475933
+trace = [
+    { type = "load_u32", address = "0x04040010", value = "0x43" },
+]
+
+[[test]]
+end_address = "0xffffffff803270b0"
+start_cycles = 313467017
+end_cycles = 313467023
+trace = [
+    { type = "load_u32", address = "0x04040010", value = "0x43" },
+]
+

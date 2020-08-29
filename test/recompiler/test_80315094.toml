@@ -1,0 +1,60 @@
+start_address = "0xffffffff80315094"
+
+asm_code = """
+    addiu    sp, sp, 0xff40
+    sw       ra, 0x1c(sp)
+    sw       s1, 0x18(sp)
+    sw       s0, 0x14(sp)
+    sw       a3, 0xcc(sp)
+    lbu      t6, 0x1(a1)
+    or       s0, a0, zero
+    or       s1, a1, zero
+    beq      t6, zero, 0xffffffff803151e0
+    lw       v1, 0xd0(sp)
+"""
+
+bin_code = [
+    0x27bdff40, 0xafbf001c, 0xafb10018, 0xafb00014,
+    0xafa700cc, 0x90ae0001, 0x00808025, 0x00a08825,
+    0x11c0004a, 0x8fa300d0,
+]
+
+[[test]]
+end_address = "0xffffffff803151e0"
+start_cycles = 280699402
+end_cycles = 280699412
+trace = [
+    { type = "store_u32", address = "0x00204e24", value = "0x80315084" },
+    { type = "store_u32", address = "0x00204e20", value = "0x110" },
+    { type = "store_u32", address = "0x00204e1c", value = "0x0" },
+    { type = "store_u32", address = "0x00204ed4", value = "0x0" },
+    { type = "load_u8", address = "0x001d72c1", value = "0x0" },
+    { type = "load_u32", address = "0x00204ed8", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff803151e0"
+start_cycles = 300954494
+end_cycles = 300954504
+trace = [
+    { type = "store_u32", address = "0x00204e24", value = "0x80315084" },
+    { type = "store_u32", address = "0x00204e20", value = "0x110" },
+    { type = "store_u32", address = "0x00204e1c", value = "0x0" },
+    { type = "store_u32", address = "0x00204ed4", value = "0x0" },
+    { type = "load_u8", address = "0x001d72c1", value = "0x0" },
+    { type = "load_u32", address = "0x00204ed8", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff803151e0"
+start_cycles = 319677728
+end_cycles = 319677738
+trace = [
+    { type = "store_u32", address = "0x00204e24", value = "0x80315084" },
+    { type = "store_u32", address = "0x00204e20", value = "0x110" },
+    { type = "store_u32", address = "0x00204e1c", value = "0x0" },
+    { type = "store_u32", address = "0x00204ed4", value = "0x0" },
+    { type = "load_u8", address = "0x001d72c1", value = "0x0" },
+    { type = "load_u32", address = "0x00204ed8", value = "0x0" },
+]
+

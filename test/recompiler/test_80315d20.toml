@@ -1,0 +1,36 @@
+start_address = "0xffffffff80315d20"
+
+asm_code = """
+    lhu      v0, 0x3e(a0)
+    bne      v0, zero, 0xffffffff80315d30
+    addiu    t1, v0, 0x1
+"""
+
+bin_code = [
+    0x9482003e, 0x14400002, 0x24490001,
+]
+
+[[test]]
+end_address = "0xffffffff80315d30"
+start_cycles = 288479216
+end_cycles = 288479219
+trace = [
+    { type = "load_u16", address = "0x001d72fe", value = "0x500" },
+]
+
+[[test]]
+end_address = "0xffffffff80315d30"
+start_cycles = 307202443
+end_cycles = 307202446
+trace = [
+    { type = "load_u16", address = "0x001d72fe", value = "0x500" },
+]
+
+[[test]]
+end_address = "0xffffffff80315d30"
+start_cycles = 327463390
+end_cycles = 327463393
+trace = [
+    { type = "load_u16", address = "0x001d72fe", value = "0x500" },
+]
+

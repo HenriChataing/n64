@@ -1,0 +1,33 @@
+start_address = "0xffffffff80315c64"
+
+asm_code = """
+    nop
+    bltz     t2, 0xffffffff80315c58
+    nop
+"""
+
+bin_code = [
+    0x00000000, 0x0540fffb, 0x00000000,
+]
+
+[[test]]
+end_address = "0xffffffff80315c70"
+start_cycles = 279135896
+end_cycles = 279135899
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff80315c70"
+start_cycles = 299396863
+end_cycles = 299396866
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff80315c70"
+start_cycles = 318120069
+end_cycles = 318120072
+trace = [
+]
+

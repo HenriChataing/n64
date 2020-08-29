@@ -1,0 +1,72 @@
+start_address = "0xffffffff80317570"
+
+asm_code = """
+    lw       ra, 0x44(fp)
+    or       sp, fp, zero
+    lw       s0, 0x38(fp)
+    lw       s1, 0x3c(fp)
+    lw       fp, 0x40(fp)
+    jr       ra
+    addiu    sp, sp, 0x60
+"""
+
+bin_code = [
+    0x8fdf0044, 0x03c0e825, 0x8fd00038, 0x8fd1003c,
+    0x8fde0040, 0x03e00008, 0x27bd0060,
+]
+
+[[test]]
+end_address = "0xffffffff80314894"
+start_cycles = 235486151
+end_cycles = 235486158
+trace = [
+    { type = "load_u32", address = "0x00204ee4", value = "0x80314894" },
+    { type = "load_u32", address = "0x00204ed8", value = "0x40" },
+    { type = "load_u32", address = "0x00204edc", value = "0x24" },
+    { type = "load_u32", address = "0x00204ee0", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff80314894"
+start_cycles = 255751183
+end_cycles = 255751190
+trace = [
+    { type = "load_u32", address = "0x00204ee4", value = "0x80314894" },
+    { type = "load_u32", address = "0x00204ed8", value = "0x40" },
+    { type = "load_u32", address = "0x00204edc", value = "0x24" },
+    { type = "load_u32", address = "0x00204ee0", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff80314894"
+start_cycles = 276018514
+end_cycles = 276018521
+trace = [
+    { type = "load_u32", address = "0x00204ee4", value = "0x80314894" },
+    { type = "load_u32", address = "0x00204ed8", value = "0x40" },
+    { type = "load_u32", address = "0x00204edc", value = "0x24" },
+    { type = "load_u32", address = "0x00204ee0", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff80314894"
+start_cycles = 296289287
+end_cycles = 296289294
+trace = [
+    { type = "load_u32", address = "0x00204ee4", value = "0x80314894" },
+    { type = "load_u32", address = "0x00204ed8", value = "0x40" },
+    { type = "load_u32", address = "0x00204edc", value = "0x24" },
+    { type = "load_u32", address = "0x00204ee0", value = "0x0" },
+]
+
+[[test]]
+end_address = "0xffffffff80314894"
+start_cycles = 316550932
+end_cycles = 316550939
+trace = [
+    { type = "load_u32", address = "0x00204ee4", value = "0x80314894" },
+    { type = "load_u32", address = "0x00204ed8", value = "0x40" },
+    { type = "load_u32", address = "0x00204edc", value = "0x24" },
+    { type = "load_u32", address = "0x00204ee0", value = "0x0" },
+]
+

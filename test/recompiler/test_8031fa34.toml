@@ -1,0 +1,55 @@
+start_address = "0xffffffff8031fa34"
+
+asm_code = """
+    andi     t3, v0, 0xff
+    slti     at, t3, 16
+    bne      at, zero, 0xffffffff8031f9ac
+    or       v0, t3, zero
+"""
+
+bin_code = [
+    0x304b00ff, 0x29610010, 0x1420ffdb, 0x01601025,
+]
+
+[[test]]
+end_address = "0xffffffff8031f9ac"
+start_cycles = 221429675
+end_cycles = 221429679
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff8031f9ac"
+start_cycles = 237022175
+end_cycles = 237022179
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff8031f9ac"
+start_cycles = 252614675
+end_cycles = 252614679
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff8031f9ac"
+start_cycles = 268207175
+end_cycles = 268207179
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff8031f9ac"
+start_cycles = 283799675
+end_cycles = 283799679
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff8031f9ac"
+start_cycles = 299392175
+end_cycles = 299392179
+trace = [
+]
+

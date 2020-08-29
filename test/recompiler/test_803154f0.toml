@@ -1,0 +1,32 @@
+start_address = "0xffffffff803154f0"
+
+asm_code = """
+    bgez     t4, 0xffffffff803155dc
+    lui      a1, 0xc00
+"""
+
+bin_code = [
+    0x0581003a, 0x3c050c00,
+]
+
+[[test]]
+end_address = "0xffffffff803155dc"
+start_cycles = 280699478
+end_cycles = 280699480
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff803155dc"
+start_cycles = 300954570
+end_cycles = 300954572
+trace = [
+]
+
+[[test]]
+end_address = "0xffffffff803155dc"
+start_cycles = 319677804
+end_cycles = 319677806
+trace = [
+]
+

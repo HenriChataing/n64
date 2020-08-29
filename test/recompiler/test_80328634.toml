@@ -1,0 +1,19 @@
+start_address = "0xffffffff80328634"
+
+asm_code = """
+    bnel     v0, zero, 0xffffffff80328648
+    swc1     cr2, 0x0(v1)
+"""
+
+bin_code = [
+    0x54400004, 0xe4620000,
+]
+
+[[test]]
+end_address = "0xffffffff80328648"
+start_cycles = 322813740
+end_cycles = 322813742
+trace = [
+    { type = "store_u32", address = "0x00207050", value = "0x0" },
+]
+
