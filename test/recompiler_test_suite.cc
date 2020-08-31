@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <dirent.h>
+#include <streambuf>
 
 #include <toml++/toml.h>
 #include <fmt/format.h>
@@ -367,29 +368,6 @@ void print_run_vars(void) {
     }
 }
 
-int load_file(std::string filename, u8 *buffer, size_t *size, bool exact) {
-    FILE *fd = fopen(filename.c_str(), "r");
-    if (fd == NULL) {
-        debugger::error(Debugger::CPU,
-            "cannot load input/output file '{}'",
-            filename);
-        return -1;
-    }
-
-    int result = fread(buffer, 1, *size, fd);
-    fclose(fd);
-
-    if (result < 0 || (result != (int)*size && exact)) {
-        debugger::error(Debugger::CPU,
-            "cannot load {} file bytes from '{}'",
-            *size, filename);
-        return -1;
-    }
-
-    *size = result;
-    return 0;
-}
-
 static int parse_word_array(toml::array const *array,
                             unsigned char *bytes, size_t *len) {
     size_t array_len = 4 * array->size();
@@ -619,27 +597,20 @@ int run_test_suite(ir_recompiler_backend_t *backend,
         print_ir_disassembly(header);
     }
 
-    size_t input_size =
-        R4300::serializedCpuRegistersSize() +
-        R4300::serializedCp0RegistersSize() +
-        R4300::serializedCp1RegistersSize();
-    size_t output_size = input_size;
-    size_t full_input_size = input_size * nr_tests;
-    size_t full_output_size = output_size * nr_tests;
-
     /* Load input parameters and output values from the files *.rsp
      * and *.golden */
 
-    uint8_t *input  = new uint8_t[full_input_size];
-    uint8_t *output = new uint8_t[full_output_size];
-    uint8_t *input_cur = input;
-    uint8_t *output_cur = output;
+    std::ifstream input(input_filename, std::ios::binary);
+    std::ifstream output(output_filename, std::ios::binary);
     bool any_failed = false;
 
-    if (load_file(input_filename, input, &full_input_size, true) < 0 ||
-        load_file(output_filename, output, &full_output_size, true) < 0) {
-        delete input;
-        delete output;
+    if (input.bad() || output.bad()) {
+        debugger::error(Debugger::CPU,
+            "cannot load {} file '{}'",
+            input.bad() ? "input" : "output",
+            input.bad() ? input_filename : output_filename);
+        input.close();
+        output.close();
         return -1;
     }
 
@@ -654,24 +625,31 @@ int run_test_suite(ir_recompiler_backend_t *backend,
             continue;
         }
 
-        Memory::ReplayBus *bus = dynamic_cast<Memory::ReplayBus*>(R4300::state.bus);
-
-        R4300::deserializeCpuRegisters(input_cur, R4300::state.reg);
-        input_cur += R4300::serializedCpuRegistersSize();
-        R4300::deserializeCp0Registers(input_cur, R4300::state.cp0reg);
-        input_cur += R4300::serializedCp0RegistersSize();
-        R4300::deserializeCp1Registers(input_cur, R4300::state.cp1reg);
-        input_cur += R4300::serializedCp1RegistersSize();
-
         R4300::cpureg reg = { 0 };
         R4300::cp0reg cp0reg = { 0 };
         R4300::cp1reg cp1reg = { 0 };
-        R4300::deserializeCpuRegisters(output_cur, reg);
-        output_cur += R4300::serializedCpuRegistersSize();
-        R4300::deserializeCp0Registers(output_cur, cp0reg);
-        output_cur += R4300::serializedCp0RegistersSize();
-        R4300::deserializeCp1Registers(output_cur, cp1reg);
-        output_cur += R4300::serializedCp1RegistersSize();
+        Memory::ReplayBus *bus =
+            dynamic_cast<Memory::ReplayBus*>(R4300::state.bus);
+
+        R4300::deserialize(input, R4300::state.reg);
+        R4300::deserialize(input, R4300::state.cp0reg);
+        R4300::deserialize(input, R4300::state.cp1reg);
+
+        R4300::deserialize(output, reg);
+        R4300::deserialize(output, cp0reg);
+        R4300::deserialize(output, cp1reg);
+
+        if (input.bad() || output.bad()) {
+            fmt::print("+ [test {}/{}] {}:?? -- SKIPPED\n",
+                nr + 1, nr_tests, test_suite_name);
+            fmt::print(fmt::emphasis::italic,
+                "Failed to load {} state from '{}'",
+                input.bad() ? "input" : "output",
+                input.bad() ? input_filename : output_filename);
+            any_failed = true;
+            stats->total_skipped += nr_tests - nr;
+            break;
+        }
 
         R4300::state.cycles = test.start_cycles;
         R4300::state.cp1reg.setFprAliases(R4300::state.cp0reg.FR());
@@ -716,8 +694,8 @@ int run_test_suite(ir_recompiler_backend_t *backend,
         print_ir_disassembly(header);
     }
 
-    delete input;
-    delete output;
+    input.close();
+    output.close();
     return 0;
 }
 
