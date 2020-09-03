@@ -30,12 +30,6 @@ void step();
 void takeException(R4300::Exception exn, u64 vAddr,
                    bool instr, bool load, u32 ce = 0);
 
-/**
- * @brief Print out a backtrace of the program execution.
- * The backtrace is inferred from the control flow, and can be erroneous.
- */
-void backtrace(void);
-
 };
 };
 
