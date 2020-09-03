@@ -183,6 +183,20 @@ enum Exception {
 Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess);
 
 /**
+ * @brief Raise an exception and update the state of the processor.
+ *
+ * @param vAddr         Virtual address being accessed.
+ * @param delaySlot     Whether the exception occured in a branch delay
+ *                      instruction.
+ * @param instr         Whether the exception was triggered by an instruction
+ *                      fetch.
+ * @param load          Whether the exception was triggered by a load or store
+ *                      operation.
+ */
+void takeException(R4300::Exception exn, u64 vAddr,
+                   bool instr, bool load, u32 ce = 0);
+
+/**
  * @brief Lookup a matching TLB entry.
  *
  * @param vAddr         Virtual memory address
@@ -195,7 +209,11 @@ bool probeTLB(u64 vAddr, uint *index);
 void setInterruptPending(uint irq);
 void clearInterruptPending(uint irq);
 void checkInterrupt(void);
+
+void scheduleCounterEvent(void);
 void handleCounterEvent(void);
+
+void step(void);
 
 };
 

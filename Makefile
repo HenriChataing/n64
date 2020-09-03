@@ -13,7 +13,7 @@ EXE       := n64
 # Select optimisation level.
 OPTIMISE  ?= 2
 
-INCLUDE   := $(SRCDIR) $(SRCDIR)/lib $(SRCDIR)/gui
+INCLUDE   := $(SRCDIR) $(SRCDIR)/lib $(SRCDIR)/gui $(SRCDIR)/interpreter
 INCLUDE   += $(EXTDIR)/fmt/include $(EXTDIR)/imgui
 DEFINE    := TARGET_BIGENDIAN
 
@@ -48,10 +48,11 @@ OBJS      := \
     src/interpreter.o \
     src/mips/cpu-disas.o \
     src/mips/rsp-disas.o \
+    src/interpreter/cpu.o \
+    src/interpreter/cop0.o \
+    src/interpreter/cop1.o \
     src/r4300/cpu.o \
     src/r4300/state.o \
-    src/r4300/cop0.o \
-    src/r4300/cop1.o \
     src/r4300/hw/ai.o \
     src/r4300/hw/cart.o \
     src/r4300/hw/dpc.o \
@@ -147,8 +148,9 @@ bin/recompiler_test_suite: \
     $(OBJDIR)/src/r4300/export.o \
     $(OBJDIR)/src/r4300/mmu.o \
     $(OBJDIR)/src/r4300/cpu.o \
-    $(OBJDIR)/src/r4300/cop0.o \
-    $(OBJDIR)/src/r4300/cop1.o \
+    $(OBJDIR)/src/interpreter/cpu.o \
+    $(OBJDIR)/src/interpreter/cop0.o \
+    $(OBJDIR)/src/interpreter/cop1.o \
     $(OBJDIR)/external/fmt/src/format.o \
     $(OBJDIR)/test/recompiler_test_suite.o \
     $(OBJDIR)/src/recompiler/ir.o \

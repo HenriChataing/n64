@@ -6,7 +6,6 @@
 #include <fmt/color.h>
 
 #include <r4300/state.h>
-#include <r4300/eval.h>
 #include <debugger.h>
 
 using namespace std::string_view_literals;

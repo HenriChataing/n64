@@ -12,8 +12,6 @@
 #include <debugger.h>
 #include <types.h>
 
-#include "eval.h"
-
 namespace R4300 {
 namespace RSP {
 

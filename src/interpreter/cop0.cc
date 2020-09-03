@@ -13,7 +13,8 @@
 
 using namespace R4300;
 
-namespace R4300 {
+namespace interpreter {
+namespace cpu {
 
 enum Register {
     /**
@@ -152,60 +153,6 @@ const char *Cop0RegisterNames[32] = {
     "$24",      "$25",      "perr",     "cacheerr",
     "taglo",    "taghi",    "errorepc", "$31",
 };
-
-/**
- * @brief Update the count register.
- *  The count register increments at half the CPU frequency.
- *  If the value of the Count register equals that of the Compare
- *  register, set the IP7 bit of the Cause register.
- */
-void handleCounterEvent() {
-    // Note: the interpreter being far from cycle exact,
-    // the Count register value will necessary be inexact.
-
-    ulong diff = (state.cycles - state.cp0reg.lastCounterUpdate) / 2;
-    u32 untilCompare = state.cp0reg.compare - state.cp0reg.count;
-
-    debugger::debug(Debugger::COP0, "counter event");
-    debugger::debug(Debugger::COP0, "  count:{}", state.cp0reg.count);
-    debugger::debug(Debugger::COP0, "  compare:{}", state.cp0reg.compare);
-    debugger::debug(Debugger::COP0, "  cycles:{}", state.cycles);
-    debugger::debug(Debugger::COP0, "  last_counter_update:{}", state.cp0reg.lastCounterUpdate);
-
-    if (diff >= untilCompare) {
-        state.cp0reg.cause |= CAUSE_IP7;
-        checkInterrupt();
-    } else {
-        debugger::halt("Spurious counter event");
-    }
-
-    state.cp0reg.count = (u32)((ulong)state.cp0reg.count + diff);
-    state.cp0reg.lastCounterUpdate = state.cycles;
-    untilCompare = state.cp0reg.compare - state.cp0reg.count - 1;
-
-    debugger::debug(Debugger::COP0, "  now:{}", state.cycles);
-    debugger::debug(Debugger::COP0, "  trig:{}", state.cycles + 2 * (ulong)untilCompare);
-    state.scheduleEvent(state.cycles + 2 * (ulong)untilCompare, handleCounterEvent);
-}
-
-/**
- * Called to reconfigure the counter event in the case either the Compare
- * of the Counter register is written.
- */
-void scheduleCounterEvent() {
-    ulong diff = (state.cycles - state.cp0reg.lastCounterUpdate) / 2;
-    state.cp0reg.count = (u32)((ulong)state.cp0reg.count + diff);
-    state.cp0reg.lastCounterUpdate = state.cycles;
-    u32 untilCompare = state.cp0reg.compare - state.cp0reg.count;
-
-    debugger::debug(Debugger::COP0, "scheduling counter event");
-    debugger::debug(Debugger::COP0, "  now:{}", state.cycles);
-    debugger::debug(Debugger::COP0, "  trig:{}", state.cycles + 2 * (ulong)untilCompare);
-    state.cancelEvent(handleCounterEvent);
-    state.scheduleEvent(state.cycles + 2 * (ulong)untilCompare, handleCounterEvent);
-}
-
-namespace Eval {
 
 /** @brief Interpret a MFC0 instruction. */
 void eval_MFC0(u32 instr) {
@@ -555,5 +502,5 @@ void eval_COP0(u32 instr)
     }
 }
 
-}; /* namespace Eval */
-}; /* namespace R4300 */
+}; /* namespace cpu */
+}; /* namespace interpreter */

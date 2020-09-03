@@ -6,7 +6,7 @@
 
 void Debugger::step() {
     if (halted) {
-        R4300::Eval::step();
+        R4300::step();
         R4300::RSP::step();
     }
 }
@@ -28,7 +28,7 @@ void Debugger::interpreterRoutine() {
             }
 
             while (!halted) {
-                R4300::Eval::step();
+                R4300::step();
                 R4300::RSP::step();
             }
 

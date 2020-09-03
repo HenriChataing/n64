@@ -1,7 +1,7 @@
 
+#include <interpreter.h>
 #include <recompiler/ir.h>
 #include <recompiler/target/mips.h>
-#include <r4300/eval.h>
 #include <r4300/state.h>
 
 #define IR_BLOCK_MAX 16
@@ -9,8 +9,8 @@
 
 /* Stand-in interpreter, default callback when the instruction cannot
  * be translated to IR. */
-extern "C" void interpreter(uint32_t instr) {
-    R4300::Eval::eval_Instr(instr);
+extern "C" void interpret(uint32_t instr) {
+    interpreter::eval_Instr(instr);
 }
 
 extern "C" bool cpu_load_u8(uintmax_t vAddr, uint8_t *value) {
@@ -132,7 +132,7 @@ static inline void ir_mips_append_interpreter(ir_instr_cont_t *c,
                                               uint32_t instr) {
     ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
     ir_mips_commit_cycles(c);
-    ir_append_call(c, ir_make_iN(0), (ir_callback_t)interpreter,
+    ir_append_call(c, ir_make_iN(0), (ir_callback_t)interpret,
                    1, ir_make_const_u32(instr));
 }
 

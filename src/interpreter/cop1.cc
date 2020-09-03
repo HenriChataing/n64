@@ -9,11 +9,14 @@
 #include <mips/asm.h>
 #include <r4300/hw.h>
 #include <r4300/state.h>
-#include <r4300/eval.h>
 #include <r4300/cpu.h>
 
+#include <interpreter.h>
+
 using namespace R4300;
-using namespace R4300::Eval;
+
+namespace interpreter {
+namespace cpu {
 
 /**
  * @brief Preprocessor template for R-type instructions.
@@ -44,27 +47,6 @@ using namespace R4300::Eval;
     u32 ft = Mips::getFt(instr); \
     (void)fd; (void)fs; (void)ft;
 
-namespace R4300 {
-
-/**
- * @brief Configure the memory aliases for single and double word access
- *  to the floating point registers.
- */
-void cp1reg::setFprAliases(bool fr) {
-    if (fr) {
-        for (unsigned int r = 0; r < 32; r++) {
-            fpr_s[r] = (fpr_s_t *)&fpr[r];
-            fpr_d[r] = (fpr_d_t *)&fpr[r];
-        }
-    } else {
-        for (unsigned int r = 0; r < 32; r++) {
-            fpr_s[r] = (fpr_s_t *)&fpr[r / 2] + r % 2;
-            fpr_d[r] = (fpr_d_t *)&fpr[r / 2];
-        }
-    }
-}
-
-namespace Eval {
 
 void eval_MFC1(u32 instr) {
     RType(instr);
@@ -647,7 +629,7 @@ void eval_CVT_D_L(u32 instr) {
     state.cp1reg.fpr_d[fd]->d = (i64)state.cp1reg.fpr_d[fs]->l;
 }
 
-void (*COP1_S_callbacks[64])(u32) = {
+static void (*COP1_S_callbacks[64])(u32) = {
     eval_ADD_S,     eval_SUB_S,     eval_MUL_S,     eval_DIV_S,
     eval_SQRT_S,    eval_ABS_S,     eval_MOV_S,     eval_NEG_S,
     eval_ROUND_L_S, eval_TRUNC_L_S, eval_CEIL_L_S,  eval_FLOOR_L_S,
@@ -670,7 +652,7 @@ void eval_COP1_S(u32 instr) {
     COP1_S_callbacks[Mips::getFunct(instr)](instr);
 }
 
-void (*COP1_D_callbacks[64])(u32) = {
+static void (*COP1_D_callbacks[64])(u32) = {
     eval_ADD_D,     eval_SUB_D,     eval_MUL_D,     eval_DIV_D,
     eval_SQRT_D,    eval_ABS_D,     eval_MOV_D,     eval_NEG_D,
     eval_ROUND_L_D, eval_TRUNC_L_D, eval_CEIL_L_D,  eval_FLOOR_L_D,
@@ -693,7 +675,7 @@ void eval_COP1_D(u32 instr) {
     COP1_D_callbacks[Mips::getFunct(instr)](instr);
 }
 
-void (*COP1_W_callbacks[64])(u32) = {
+static void (*COP1_W_callbacks[64])(u32) = {
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
@@ -716,7 +698,7 @@ void eval_COP1_W(u32 instr) {
     COP1_W_callbacks[Mips::getFunct(instr)](instr);
 }
 
-void (*COP1_L_callbacks[64])(u32) = {
+static void (*COP1_L_callbacks[64])(u32) = {
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
@@ -739,7 +721,7 @@ void eval_COP1_L(u32 instr) {
     COP1_L_callbacks[Mips::getFunct(instr)](instr);
 }
 
-void (*COP1_callbacks[64])(u32) = {
+static void (*COP1_callbacks[64])(u32) = {
     eval_MFC1,      eval_DMFC1,     eval_CFC1,      eval_Reserved,
     eval_MTC1,      eval_DMTC1,     eval_CTC1,      eval_Reserved,
     eval_BC1,       eval_Reserved,  eval_Reserved,  eval_Reserved,
@@ -752,11 +734,11 @@ void (*COP1_callbacks[64])(u32) = {
 
 void eval_COP1(u32 instr) {
     if (!state.cp0reg.CU1()) {
-        Eval::takeException(CoprocessorUnusable, 0, false, false, 1u);
+        takeException(CoprocessorUnusable, 0, false, false, 1u);
     } else {
         COP1_callbacks[Mips::getFmt(instr)](instr);
     }
 }
 
-}; /* namespace Eval */
-}; /* namespace R4300 */
+}; /* namespace cpu */
+}; /* namespace interpreter */

@@ -14,7 +14,6 @@
 #include <debugger.h>
 #include <r4300/state.h>
 #include <r4300/rdp.h>
-#include <r4300/eval.h>
 #include <graphics.h>
 
 static Disassembler imemDisassembler(12);

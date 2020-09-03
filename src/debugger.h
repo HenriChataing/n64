@@ -14,7 +14,6 @@
 
 #include <types.h>
 #include <circular_buffer.h>
-#include <r4300/eval.h>
 #include <r4300/rsp.h>
 #include <r4300/state.h>
 
