@@ -2,8 +2,7 @@
 #ifndef _ASSEMBLY_OPCODES_H_INCLUDED_
 #define _ASSEMBLY_OPCODES_H_INCLUDED_
 
-namespace n64 {
-namespace assembly {
+namespace n64::assembly {
 
 enum {
     SPECIAL    = 0x00,
@@ -244,7 +243,6 @@ enum {
     VXOR       = 0x2c,
 };
 
-}; /* namespace assembly */
-}; /* namespace n64 */
+}; /* namespace n64::assembly */
 
 #endif /* _ASSEMBLY_OPCODES_H_INCLUDED_ */

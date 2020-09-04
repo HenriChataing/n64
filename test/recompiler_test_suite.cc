@@ -13,7 +13,6 @@
 #include <recompiler/ir.h>
 #include <recompiler/passes.h>
 #include <recompiler/target/mips.h>
-#include <mips/asm.h>
 #include <debugger.h>
 
 namespace Memory {

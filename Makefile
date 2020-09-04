@@ -46,11 +46,10 @@ OBJS      := \
     src/memory.o \
     src/debugger.o \
     src/interpreter.o \
-    src/mips/cpu-disas.o \
-    src/mips/rsp-disas.o \
     src/interpreter/cpu.o \
     src/interpreter/cop0.o \
     src/interpreter/cop1.o \
+    src/assembly/disassembler.o \
     src/r4300/cpu.o \
     src/r4300/state.o \
     src/r4300/hw/ai.o \
@@ -125,6 +124,7 @@ bin/rsp_test_suite: \
     $(OBJDIR)/src/debugger.o \
     $(OBJDIR)/src/r4300/rsp.o \
     $(OBJDIR)/src/r4300/hw/sp.o \
+    $(OBJDIR)/src/assembly/disassembler.o \
     $(OBJDIR)/external/fmt/src/format.o
 
 bin/rsp_test_suite:
@@ -151,12 +151,13 @@ bin/recompiler_test_suite: \
     $(OBJDIR)/src/interpreter/cpu.o \
     $(OBJDIR)/src/interpreter/cop0.o \
     $(OBJDIR)/src/interpreter/cop1.o \
-    $(OBJDIR)/external/fmt/src/format.o \
     $(OBJDIR)/test/recompiler_test_suite.o \
     $(OBJDIR)/src/recompiler/ir.o \
     $(OBJDIR)/src/recompiler/passes/typecheck.o \
     $(OBJDIR)/src/recompiler/passes/run.o \
-    $(OBJDIR)/src/recompiler/target/mips.o
+    $(OBJDIR)/src/recompiler/target/mips.o \
+    $(OBJDIR)/src/assembly/disassembler.o \
+    $(OBJDIR)/external/fmt/src/format.o
 
 bin/recompiler_test_suite:
 	@echo "  LD      $@"

@@ -2,7 +2,7 @@
 #include <iomanip>
 #include <iostream>
 
-#include <mips/asm.h>
+#include <assembly/disassembler.h>
 #include <r4300/cpu.h>
 #include <r4300/hw.h>
 #include <r4300/state.h>
@@ -10,9 +10,9 @@
 #include <interpreter.h>
 
 using namespace R4300;
+using namespace n64;
 
-namespace interpreter {
-namespace cpu {
+namespace interpreter::cpu {
 
 /**
  * @brief Preprocessor template for I-type instructions.
@@ -24,9 +24,9 @@ namespace cpu {
  * @param extend            Extension method (sign or zero extend)
  */
 #define IType(instr, extend) \
-    u32 rs = Mips::getRs(instr); \
-    u32 rt = Mips::getRt(instr); \
-    u64 imm = extend<u64, u16>(Mips::getImmediate(instr)); \
+    u32 rs = assembly::getRs(instr); \
+    u32 rt = assembly::getRt(instr); \
+    u64 imm = extend<u64, u16>(assembly::getImmediate(instr)); \
     (void)rs; (void)rt; (void)imm;
 
 /**
@@ -38,10 +38,10 @@ namespace cpu {
  * @param instr             Original instruction
  */
 #define RType(instr) \
-    u32 rd = Mips::getRd(instr); \
-    u32 rs = Mips::getRs(instr); \
-    u32 rt = Mips::getRt(instr); \
-    u32 shamnt = Mips::getShamnt(instr); \
+    u32 rd = assembly::getRd(instr); \
+    u32 rs = assembly::getRs(instr); \
+    u32 rt = assembly::getRt(instr); \
+    u32 shamnt = assembly::getShamnt(instr); \
     (void)rd; (void)rs; (void)rt; (void)shamnt;
 
 /**
@@ -716,14 +716,14 @@ void eval_DADDIU(u32 instr) {
 }
 
 void eval_J(u32 instr) {
-    u64 tg = Mips::getTarget(instr);
+    u64 tg = assembly::getTarget(instr);
     tg = (state.reg.pc & 0xfffffffff0000000llu) | (tg << 2);
     state.cpu.nextAction = State::Action::Delay;
     state.cpu.nextPc = tg;
 }
 
 void eval_JAL(u32 instr) {
-    u64 tg = Mips::getTarget(instr);
+    u64 tg = assembly::getTarget(instr);
     tg = (state.reg.pc & 0xfffffffff0000000llu) | (tg << 2);
     state.reg.gpr[31] = state.reg.pc + 8;
     state.cpu.nextAction = State::Action::Delay;
@@ -1303,7 +1303,7 @@ static void (*SPECIAL_callbacks[64])(u32) = {
 };
 
 void eval_SPECIAL(u32 instr) {
-    SPECIAL_callbacks[Mips::getFunct(instr)](instr);
+    SPECIAL_callbacks[assembly::getFunct(instr)](instr);
 }
 
 static void (*REGIMM_callbacks[32])(u32) = {
@@ -1318,7 +1318,7 @@ static void (*REGIMM_callbacks[32])(u32) = {
 };
 
 void eval_REGIMM(u32 instr) {
-    REGIMM_callbacks[Mips::getRt(instr)](instr);
+    REGIMM_callbacks[assembly::getRt(instr)](instr);
 }
 
 static void (*CPU_callbacks[64])(u32) = {
@@ -1344,7 +1344,7 @@ void eval_Instr(u32 instr) {
     // The null instruction is 'sll r0, r0, 0', i.e. a NOP.
     // As it is one of the most used instructions (to fill in delay slots),
     // perform a quick check to spare the instruction execution.
-    if (instr) CPU_callbacks[Mips::getOpcode(instr)](instr);
+    if (instr) CPU_callbacks[assembly::getOpcode(instr)](instr);
 }
 
 void eval(void) {
@@ -1368,5 +1368,4 @@ void eval(void) {
     eval_Instr(instr);
 }
 
-}; /* namespace cpu */
-}; /* namespace interpreter */
+}; /* namespace interpreter::cpu */

@@ -4,7 +4,7 @@
 #include <stdint.h>     // uint8_t, etc.
 
 #include <debugger.h>
-#include <mips/asm.h>
+#include <assembly/disassembler.h>
 
 struct Trace
 {

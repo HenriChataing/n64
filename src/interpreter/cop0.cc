@@ -3,11 +3,12 @@
 #include <iostream>
 #include <cstring>
 
-#include <mips/asm.h>
 #include <r4300/cpu.h>
 #include <r4300/hw.h>
 #include <r4300/state.h>
+#include <assembly/disassembler.h>
 #include <assembly/opcodes.h>
+#include <assembly/registers.h>
 #include <interpreter.h>
 
 #include <memory.h>
@@ -16,151 +17,136 @@
 using namespace R4300;
 using namespace n64;
 
-namespace interpreter {
-namespace cpu {
+namespace interpreter::cpu {
 
-enum Register {
-    /**
-     * The Index register has 6 bits to specifiy an entry into the
-     * on-chip TLB. The higher order bit indicates the success of a
-     * previous TLBP instruction.
-     *
-     *  + [31] P
-     *      Result of last probe operation. Set to 1 if the last TLBP
-     *      instruction was unsuccessful
-     *  + [30:6] 0
-     *  + [5:0] index
-     *      Index to entry in TLB
-     */
-    Index = 0,
-    Random = 1,
-    /**
-     * The EntryLo0 and EntryLo1 are a pair of registers used to access an
-     * on-chip TLB. EntryLo0 is used for even virtual pages while EntryLo1
-     * is used for odd pages. They contain the Page Frame Number along
-     * with some configuration bits.
-     *
-     *  + [31:30] 0
-     *  + [29:6] PFN
-     *      Physical Frame Number
-     *  + [5:3] C
-     *      Cache algorithm (011 = cached, 010 = uncached)
-     *  + [2] D
-     *      Dirty bit
-     *  + [1] V
-     *      Valid bit
-     *  + [0] G
-     *      Global bit. If set in both EntryLo0 and EntryLo1, then ignore
-     *      ASID
-     */
-    EntryLo0 = 2,
-    EntryLo1 = 3,
-    Context = 4,
-    /**
-     * The PageMask register is used as source or destination when reading
-     * or writing an on-chip TLB.
-     *
-     *  + [24:13] MASK
-     *      Mask for virtual page number. For R4300i this is 0000_0000_0000
-     *      for 4K pages, up to 1111_1111_1111 for 16M pages.
-     */
-    PageMask = 5,
-    /**
-     * Specifies the boundary between wired and random entries of the TLB.
-     */
-    Wired = 6,
-    CPR7 = 7,
-    BadVAddr = 8,
-    /**
-     * The Count register acts like a timer incrementing at a constant
-     * rate (half the maximum instruction issue rate).
-     */
-    Count = 9,
-    /**
-     * Register used to access the TLB.
-     *
-     *  + [31:13] VPN2
-     *      Virtual Page Number divided by 2
-     *  + [12:8] 0
-     *  + [7:0] ASID
-     *      Address Space Identifier
-     */
-    EntryHi = 10,
-    /**
-     * Compare register acts as a timer (see also the Count register).
-     *
-     * It maintains a stable value that does not change on its own.
-     * When the value of the Count register equals the value of the Compare
-     * register, interrupt bit IP(7) in the Cause register is set.
-     * This causes an interrupt as soon as the interrupt is enabled.
-     */
-    Compare = 11,
-    SR = 12,
-    /**
-     * The Cause register describes the cause of the most
-     * recent exception.
-     *
-     *  + [31] BD
-     *      Indicates whether the last exception taken occurred in a
-     *      branch delay slot (1-> delay slot, 0 -> normal)
-     *  + [30] 0
-     *  + [29:28] CE
-     *      Coprocessor unit referenced when a Coprocessor Unusable
-     *      exception is taken
-     *  + [27:16] 0
-     *  + [15:8] IP0-7
-     *      Indicates if an instruction is pending (1 -> pending, 0 -> no)
-     *  + [7] 0
-     *  + [6:2] ExcCode
-     *      Exception code
-     *  + [1:0] 0
-     */
-    Cause = 13,
-    /**
-     * The EPC register contains the address at which instruction
-     * processing may resume after servicing an exception.
-     */
-    EPC = 14,
-    PrId = 15,
-    Config = 16,
-    LLAddr = 17,
-    WatchLo = 18,
-    WatchHi = 19,
-    XContext = 20,
-    CPR21 = 21,
-    CPR22 = 22,
-    CPR23 = 23,
-    CPR24 = 24,
-    CPR25 = 25,
-    PErr = 26,
-    CacheErr = 27,
-    /*
-     * The TagLo and TagHi registers are 32-bit read/write registers that
-     * hold either the primary cache tag and parity, or the secondary cache
-     * tag and ECC during cache initialization, cache diagnostics, or cache
-     * error processing.
-     */
-    TagLo = 28,
-    TagHi = 29,
-    ErrorEPC = 30,
-    CPR31 = 31,
-};
-
-const char *Cop0RegisterNames[32] = {
-    "index",    "random",   "entrylo0", "entrylo1",
-    "context",  "pagemask", "wired",    "$7",
-    "badvaddr", "count",    "entryhi",  "compare",
-    "sr",       "cause",    "epc",      "prid",
-    "config",   "lladdr",   "watchlo",  "watchhi",
-    "xcontext", "$21",      "$22",      "$23",
-    "$24",      "$25",      "perr",     "cacheerr",
-    "taglo",    "taghi",    "errorepc", "$31",
-};
+/**
+ * 1. Index
+ *
+ * The Index register has 6 bits to specifiy an entry into the
+ * on-chip TLB. The higher order bit indicates the success of a
+ * previous TLBP instruction.
+ *
+ *  + [31] P
+ *      Result of last probe operation. Set to 1 if the last TLBP
+ *      instruction was unsuccessful
+ *  + [30:6] 0
+ *  + [5:0] index
+ *      Index to entry in TLB
+ *
+ * 2. Random
+ *
+ * 3. EntryLo0, EntryLo1
+ *
+ * The EntryLo0 and EntryLo1 are a pair of registers used to access an
+ * on-chip TLB. EntryLo0 is used for even virtual pages while EntryLo1
+ * is used for odd pages. They contain the Page Frame Number along
+ * with some configuration bits.
+ *
+ *  + [31:30] 0
+ *  + [29:6] PFN
+ *      Physical Frame Number
+ *  + [5:3] C
+ *      Cache algorithm (011 = cached, 010 = uncached)
+ *  + [2] D
+ *      Dirty bit
+ *  + [1] V
+ *      Valid bit
+ *  + [0] G
+ *      Global bit. If set in both EntryLo0 and EntryLo1, then ignore
+ *      ASID
+ *
+ * 4. Context
+ *
+ * 5. PageMask
+ *
+ * The PageMask register is used as source or destination when reading
+ * or writing an on-chip TLB.
+ *
+ *  + [24:13] MASK
+ *      Mask for virtual page number. For R4300i this is 0000_0000_0000
+ *      for 4K pages, up to 1111_1111_1111 for 16M pages.
+ *
+ * 6. Wired
+ *
+ * Specifies the boundary between wired and random entries of the TLB.
+ *
+ * 7. BadVAddr
+ *
+ * 8. Count
+ *
+ * The Count register acts like a timer incrementing at a constant
+ * rate (half the maximum instruction issue rate).
+ *
+ * 9. EntryHi
+ *
+ * Register used to access the TLB.
+ *
+ *  + [31:13] VPN2
+ *      Virtual Page Number divided by 2
+ *  + [12:8] 0
+ *  + [7:0] ASID
+ *      Address Space Identifier
+ *
+ * 10. Compare
+ *
+ * Compare register acts as a timer (see also the Count register).
+ *
+ * It maintains a stable value that does not change on its own.
+ * When the value of the Count register equals the value of the Compare
+ * register, interrupt bit IP(7) in the Cause register is set.
+ * This causes an interrupt as soon as the interrupt is enabled.
+ *
+ * 11. Status
+ *
+ * 12. Cause
+ *
+ * The Cause register describes the cause of the most
+ * recent exception.
+ *
+ *  + [31] BD
+ *      Indicates whether the last exception taken occurred in a
+ *      branch delay slot (1-> delay slot, 0 -> normal)
+ *  + [30] 0
+ *  + [29:28] CE
+ *      Coprocessor unit referenced when a Coprocessor Unusable
+ *      exception is taken
+ *  + [27:16] 0
+ *  + [15:8] IP0-7
+ *      Indicates if an instruction is pending (1 -> pending, 0 -> no)
+ *  + [7] 0
+ *  + [6:2] ExcCode
+ *      Exception code
+ *  + [1:0] 0
+ *
+ * 13. EPC
+ *
+ * The EPC register contains the address at which instruction
+ * processing may resume after servicing an exception.
+ *
+ * 14. PrId
+ * 15. Config
+ * 15. LLAddr
+ * 15. WatchLo
+ * 15. WatchHi
+ * 15. XContext
+ * 15. PErr
+ * 15. CacheErr
+ *
+ * 16. TagLo, TagHi
+ *
+ * The TagLo and TagHi registers are 32-bit read/write registers that
+ * hold either the primary cache tag and parity, or the secondary cache
+ * tag and ECC during cache initialization, cache diagnostics, or cache
+ * error processing.
+ *
+ * 17. ErrorEPC
+ */
 
 /** @brief Interpret a MFC0 instruction. */
 void eval_MFC0(u32 instr) {
-    u32 rt = Mips::getRt(instr);
-    u32 rd = Mips::getRd(instr);
+    using namespace assembly::cpu;
+    u32 rt = assembly::getRt(instr);
+    u32 rd = assembly::getRd(instr);
     u32 val;
 
     switch (rd) {
@@ -219,18 +205,20 @@ void eval_MFC0(u32 instr) {
         default:
             val = 0;
             std::string reason = "MFC0 ";
-            debugger::halt(reason + Cop0RegisterNames[rd]);
+            debugger::halt(reason + assembly::cpu::Cop0RegisterNames[rd]);
             break;
     }
 
-    debugger::info(Debugger::COP0, "{} -> {:08x}", Cop0RegisterNames[rd], val);
+    debugger::info(Debugger::COP0, "{} -> {:08x}",
+        assembly::cpu::Cop0RegisterNames[rd], val);
     state.reg.gpr[rt] = sign_extend<u64, u32>(val);
 }
 
 /** @brief Interpret a DMFC0 instruction. */
 void eval_DMFC0(u32 instr) {
-    u32 rt = Mips::getRt(instr);
-    u32 rd = Mips::getRd(instr);
+    using namespace assembly::cpu;
+    u32 rt = assembly::getRt(instr);
+    u32 rd = assembly::getRd(instr);
     u64 val = 0;
 
     switch (rd) {
@@ -258,21 +246,25 @@ void eval_DMFC0(u32 instr) {
         default:
             val = 0;
             std::string reason = "DMFC0 ";
-            debugger::halt(reason + Cop0RegisterNames[rd] + " (undefined)");
+            debugger::halt(reason + assembly::cpu::Cop0RegisterNames[rd] +
+                " (undefined)");
             break;
     }
 
-    debugger::info(Debugger::COP0, "{} -> {:08x}", Cop0RegisterNames[rd], val);
+    debugger::info(Debugger::COP0, "{} -> {:08x}",
+        assembly::cpu::Cop0RegisterNames[rd], val);
     state.reg.gpr[rt] = val;
 }
 
 /** @brief Interpret a MTC0 instruction. */
 void eval_MTC0(u32 instr) {
-    u32 rt = Mips::getRt(instr);
-    u32 rd = Mips::getRd(instr);
+    using namespace assembly::cpu;
+    u32 rt = assembly::getRt(instr);
+    u32 rd = assembly::getRd(instr);
     u32 val = state.reg.gpr[rt];
 
-    debugger::info(Debugger::COP0, "{} <- {:08x}", Cop0RegisterNames[rd], val);
+    debugger::info(Debugger::COP0, "{} <- {:08x}",
+        assembly::cpu::Cop0RegisterNames[rd], val);
 
     switch (rd) {
         case Index:     state.cp0reg.index = val & UINT32_C(0x3f); break;
@@ -363,18 +355,20 @@ void eval_MTC0(u32 instr) {
         case ErrorEPC:  state.cp0reg.errorepc = sign_extend<u64, u32>(val); break;
         default:
             std::string reason = "MTC0 ";
-            debugger::halt(reason + Cop0RegisterNames[rd]);
+            debugger::halt(reason + assembly::cpu::Cop0RegisterNames[rd]);
             break;
     }
 }
 
 /** @brief Interpret a DMTC0 instruction. */
 void eval_DMTC0(u32 instr) {
-    u32 rt = Mips::getRt(instr);
-    u32 rd = Mips::getRd(instr);
+    using namespace assembly::cpu;
+    u32 rt = assembly::getRt(instr);
+    u32 rd = assembly::getRd(instr);
     u64 val = state.reg.gpr[rt];
 
-    debugger::info(Debugger::COP0, "{} <- {:08x}", Cop0RegisterNames[rd], val);
+    debugger::info(Debugger::COP0, "{} <- {:08x}",
+        assembly::cpu::Cop0RegisterNames[rd], val);
 
     switch (rd) {
         case EntryLo0:  state.cp0reg.entrylo0 = val; break;
@@ -393,7 +387,8 @@ void eval_DMTC0(u32 instr) {
         case ErrorEPC:  state.cp0reg.errorepc = val; break;
         default:
             std::string reason = "DMTC0 ";
-            debugger::halt(reason + Cop0RegisterNames[rd] + " (undefined)");
+            debugger::halt(reason + assembly::cpu::Cop0RegisterNames[rd] +
+                " (undefined)");
             break;
     }
 }
@@ -426,7 +421,7 @@ void eval_TLBR(u32 instr) {
 
 /** @brief Interpret the TLBWI or TLBWR instruction. */
 void eval_TLBW(u32 instr) {
-    u32 funct = Mips::getFunct(instr);
+    u32 funct = assembly::getFunct(instr);
     unsigned index;
 
     if (funct == assembly::TLBWI) {
@@ -480,15 +475,15 @@ void eval_ERET(u32 instr) {
 
 void eval_COP0(u32 instr)
 {
-    switch (Mips::getRs(instr)) {
-        case assembly::MFCz:         eval_MFC0(instr); break;
-        case assembly::DMFCz:        eval_DMFC0(instr); break;
-        case assembly::MTCz:         eval_MTC0(instr); break;
-        case assembly::DMTCz:        eval_DMTC0(instr); break;
-        case assembly::CFCz:         eval_CFC0(instr); break;
-        case assembly::CTCz:         eval_CTC0(instr); break;
+    switch (assembly::getRs(instr)) {
+        case assembly::MFCz:          eval_MFC0(instr); break;
+        case assembly::DMFCz:         eval_DMFC0(instr); break;
+        case assembly::MTCz:          eval_MTC0(instr); break;
+        case assembly::DMTCz:         eval_DMTC0(instr); break;
+        case assembly::CFCz:          eval_CFC0(instr); break;
+        case assembly::CTCz:          eval_CTC0(instr); break;
         case 0x10u:
-            switch (Mips::getFunct(instr)) {
+            switch (assembly::getFunct(instr)) {
                 case assembly::TLBR:  eval_TLBR(instr); break;
                 case assembly::TLBWI: eval_TLBW(instr); break;
                 case assembly::TLBWR: eval_TLBW(instr); break;
@@ -505,5 +500,4 @@ void eval_COP0(u32 instr)
     }
 }
 
-}; /* namespace cpu */
-}; /* namespace interpreter */
+}; /* namespace interpreter::cpu */

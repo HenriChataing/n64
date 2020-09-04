@@ -2,7 +2,7 @@
 #include <iomanip>
 #include <iostream>
 
-#include <mips/asm.h>
+#include <assembly/disassembler.h>
 #include <r4300/cpu.h>
 #include <r4300/hw.h>
 #include <r4300/state.h>

@@ -6,18 +6,17 @@
 
 #include <debugger.h>
 #include <memory.h>
-#include <mips/asm.h>
 #include <r4300/hw.h>
 #include <r4300/state.h>
 #include <r4300/cpu.h>
+#include <assembly/disassembler.h>
 #include <assembly/opcodes.h>
 #include <interpreter.h>
 
 using namespace R4300;
 using namespace n64;
 
-namespace interpreter {
-namespace cpu {
+namespace interpreter::cpu {
 
 /**
  * @brief Preprocessor template for R-type instructions.
@@ -28,10 +27,10 @@ namespace cpu {
  * @param instr             Original instruction
  */
 #define RType(instr) \
-    u32 rd = Mips::getRd(instr); \
-    u32 rs = Mips::getRs(instr); \
-    u32 rt = Mips::getRt(instr); \
-    u32 shamnt = Mips::getShamnt(instr); \
+    u32 rd = assembly::getRd(instr); \
+    u32 rs = assembly::getRs(instr); \
+    u32 rt = assembly::getRt(instr); \
+    u32 shamnt = assembly::getShamnt(instr); \
     (void)rd; (void)rs; (void)rt; (void)shamnt;
 
 /**
@@ -43,9 +42,9 @@ namespace cpu {
  * @param instr             Original instruction
  */
 #define FRType(instr) \
-    u32 fd = Mips::getFd(instr); \
-    u32 fs = Mips::getFs(instr); \
-    u32 ft = Mips::getFt(instr); \
+    u32 fd = assembly::getFd(instr); \
+    u32 fs = assembly::getFs(instr); \
+    u32 ft = assembly::getFt(instr); \
     (void)fd; (void)fs; (void)ft;
 
 
@@ -100,11 +99,11 @@ void eval_CTC1(u32 instr) {
 
 void eval_BC1(u32 instr) {
 
-    u64 offset = sign_extend<u64, u16>(Mips::getImmediate(instr));
+    u64 offset = sign_extend<u64, u16>(assembly::getImmediate(instr));
     bool taken = false;
     bool likely = false;
 
-    switch (Mips::getRt(instr)) {
+    switch (assembly::getRt(instr)) {
     case assembly::BCzF:
         taken = (state.cp1reg.fcr31 & FCR31_C) == 0;
         break;
@@ -336,7 +335,7 @@ void eval_CMP_S(u32 instr) {
 
     float s = state.cp1reg.fpr_s[fs]->s;
     float t = state.cp1reg.fpr_s[ft]->s;
-    u32 funct = Mips::getFunct(instr);
+    u32 funct = assembly::getFunct(instr);
     bool less;
     bool equal;
     bool unordered;
@@ -575,7 +574,7 @@ void eval_CMP_D(u32 instr) {
 
     double s = state.cp1reg.fpr_d[fs]->d;
     double t = state.cp1reg.fpr_d[ft]->d;
-    u32 funct = Mips::getFunct(instr);
+    u32 funct = assembly::getFunct(instr);
     bool less;
     bool equal;
     bool unordered;
@@ -650,7 +649,7 @@ static void (*COP1_S_callbacks[64])(u32) = {
 };
 
 void eval_COP1_S(u32 instr) {
-    COP1_S_callbacks[Mips::getFunct(instr)](instr);
+    COP1_S_callbacks[assembly::getFunct(instr)](instr);
 }
 
 static void (*COP1_D_callbacks[64])(u32) = {
@@ -673,7 +672,7 @@ static void (*COP1_D_callbacks[64])(u32) = {
 };
 
 void eval_COP1_D(u32 instr) {
-    COP1_D_callbacks[Mips::getFunct(instr)](instr);
+    COP1_D_callbacks[assembly::getFunct(instr)](instr);
 }
 
 static void (*COP1_W_callbacks[64])(u32) = {
@@ -696,7 +695,7 @@ static void (*COP1_W_callbacks[64])(u32) = {
 };
 
 void eval_COP1_W(u32 instr) {
-    COP1_W_callbacks[Mips::getFunct(instr)](instr);
+    COP1_W_callbacks[assembly::getFunct(instr)](instr);
 }
 
 static void (*COP1_L_callbacks[64])(u32) = {
@@ -719,7 +718,7 @@ static void (*COP1_L_callbacks[64])(u32) = {
 };
 
 void eval_COP1_L(u32 instr) {
-    COP1_L_callbacks[Mips::getFunct(instr)](instr);
+    COP1_L_callbacks[assembly::getFunct(instr)](instr);
 }
 
 static void (*COP1_callbacks[64])(u32) = {
@@ -737,9 +736,8 @@ void eval_COP1(u32 instr) {
     if (!state.cp0reg.CU1()) {
         takeException(CoprocessorUnusable, 0, false, false, 1u);
     } else {
-        COP1_callbacks[Mips::getFmt(instr)](instr);
+        COP1_callbacks[assembly::getFmt(instr)](instr);
     }
 }
 
-}; /* namespace cpu */
-}; /* namespace interpreter */
+}; /* namespace interpreter::cpu */

@@ -2,6 +2,7 @@
 #include <interpreter.h>
 #include <recompiler/ir.h>
 #include <recompiler/target/mips.h>
+#include <assembly/registers.h>
 #include <r4300/state.h>
 
 #define IR_BLOCK_MAX 16
@@ -10,7 +11,7 @@
 /* Stand-in interpreter, default callback when the instruction cannot
  * be translated to IR. */
 extern "C" void interpret(uint32_t instr) {
-    interpreter::eval_Instr(instr);
+    interpreter::cpu::eval_Instr(instr);
 }
 
 extern "C" bool cpu_load_u8(uintmax_t vAddr, uint8_t *value) {
@@ -1002,35 +1003,8 @@ static void disas_CACHE(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     disas_push(address + 4, *c);
 }
 
-enum Register {
-    Index = 0,
-    Random = 1,
-    EntryLo0 = 2,
-    EntryLo1 = 3,
-    Context = 4,
-    PageMask = 5,
-    Wired = 6,
-    BadVAddr = 8,
-    Count = 9,
-    EntryHi = 10,
-    Compare = 11,
-    SR = 12,
-    Cause = 13,
-    EPC = 14,
-    PrId = 15,
-    Config = 16,
-    LLAddr = 17,
-    WatchLo = 18,
-    WatchHi = 19,
-    XContext = 20,
-    PErr = 26,
-    CacheErr = 27,
-    TagLo = 28,
-    TagHi = 29,
-    ErrorEPC = 30,
-};
-
 static void disas_MFC0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
+    using namespace n64::assembly::cpu;
     ir_value_t vd;
     switch (mips_get_rd(instr)) {
     case Index:     vd = ir_append_read_i32(c, REG_INDEX); break;
@@ -1092,6 +1066,7 @@ static void disas_MFC0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 }
 
 static void disas_DMFC0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
+    using namespace n64::assembly::cpu;
     ir_value_t vd;
     switch (mips_get_rd(instr)) {
     /* 64 bit registers */

@@ -52,7 +52,7 @@
 #include <stdio.h>      // sprintf, scanf
 #include <stdint.h>     // uint8_t, etc.
 
-#include <mips/asm.h>
+#include <assembly/disassembler.h>
 #include <debugger.h>
 
 #ifdef _MSC_VER

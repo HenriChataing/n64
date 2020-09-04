@@ -4,8 +4,9 @@
 #include <iostream>
 
 #include <circular_buffer.h>
+#include <assembly/disassembler.h>
 #include <assembly/opcodes.h>
-#include <mips/asm.h>
+#include <assembly/registers.h>
 #include <r4300/cpu.h>
 #include <r4300/rdp.h>
 #include <r4300/hw.h>
@@ -14,23 +15,13 @@
 #include <types.h>
 
 using namespace n64;
+using namespace assembly;
 
 namespace R4300 {
 namespace RSP {
 
 extern u16 RCP_ROM[512];
 extern u16 RSQ_ROM[512];
-
-const char *Cop0RegisterNames[32] = {
-    "dma_cache",    "dma_dram",     "dma_rd_len",   "dma_wr_len",
-    "sp_status",    "dma_full",     "dma_busy",     "sp_reserved",
-    "cmd_start",    "cmd_end",      "cmd_current",  "cmd_status",
-    "cmd_clock",    "cmd_busy",     "cmd_pipe_busy","cmd_tmem_busy",
-    "$16",          "$17",          "$18",          "$19",
-    "$20",          "$21",          "$22",          "$23",
-    "$24",          "$25",          "$26",          "$27",
-    "$28",          "$29",          "$30",          "$31",
-};
 
 /**
  * Check whether a virtual memory address is correctly aligned for a memory
@@ -63,9 +54,9 @@ static inline bool checkAddressAlignment(u64 addr, u64 bytes) {
  * @param extend            Extension method (sign or zero extend)
  */
 #define IType(instr, extend) \
-    u32 rs = Mips::getRs(instr); \
-    u32 rt = Mips::getRt(instr); \
-    u64 imm = extend<u64, u16>(Mips::getImmediate(instr)); \
+    u32 rs = assembly::getRs(instr); \
+    u32 rt = assembly::getRt(instr); \
+    u64 imm = extend<u64, u16>(assembly::getImmediate(instr)); \
     (void)rs; (void)rt; (void)imm;
 
 /**
@@ -77,27 +68,11 @@ static inline bool checkAddressAlignment(u64 addr, u64 bytes) {
  * @param instr             Original instruction
  */
 #define RType(instr) \
-    u32 rd = Mips::getRd(instr); \
-    u32 rs = Mips::getRs(instr); \
-    u32 rt = Mips::getRt(instr); \
-    u32 shamnt = Mips::getShamnt(instr); \
+    u32 rd = assembly::getRd(instr); \
+    u32 rs = assembly::getRs(instr); \
+    u32 rt = assembly::getRt(instr); \
+    u32 shamnt = assembly::getShamnt(instr); \
     (void)rd; (void)rs; (void)rt; (void)shamnt;
-
-static inline u32 getElement(u32 instr) {
-     return (instr >> 21) & 0xfu;
-}
-
-static inline u32 getVt(u32 instr) {
-    return (instr >> 16) & 0x1flu;
-}
-
-static inline u32 getVs(u32 instr) {
-    return (instr >> 11) & 0x1flu;
-}
-
-static inline u32 getVd(u32 instr) {
-    return (instr >> 6) & 0x1flu;
-}
 
 static void loadVectorBytesAt(unsigned vr, unsigned element, u8 *addr,
                               unsigned count) {
@@ -1857,8 +1832,8 @@ void eval_CACHE(u32 instr) {
 }
 
 void eval_MFC0(u32 instr) {
-    u32 rt = Mips::getRt(instr);
-    u32 rd = Mips::getRd(instr);
+    u32 rt = assembly::getRt(instr);
+    u32 rd = assembly::getRd(instr);
     u32 val;
 
     switch (rd) {
@@ -1894,20 +1869,22 @@ void eval_MFC0(u32 instr) {
         /* unknown register access */
         val = 0;
         std::string reason = "MFC0 ";
-        debugger::halt(reason + Cop0RegisterNames[rd]);
+        debugger::halt(reason + assembly::rsp::Cop0RegisterNames[rd]);
         break;
     }
 
-    debugger::info(Debugger::RSP, "{} -> {:08x}", Cop0RegisterNames[rd], val);
+    debugger::info(Debugger::RSP, "{} -> {:08x}",
+        assembly::rsp::Cop0RegisterNames[rd], val);
     state.rspreg.gpr[rt] = sign_extend<u64, u32>(val);
 }
 
 void eval_MTC0(u32 instr) {
-    u32 rt = Mips::getRt(instr);
-    u32 rd = Mips::getRd(instr);
+    u32 rt = assembly::getRt(instr);
+    u32 rd = assembly::getRd(instr);
     u32 val = state.rspreg.gpr[rt];
 
-    debugger::info(Debugger::RSP, "{} <- {:08x}", Cop0RegisterNames[rd], val);
+    debugger::info(Debugger::RSP, "{} <- {:08x}",
+        assembly::rsp::Cop0RegisterNames[rd], val);
 
     switch (rd) {
     case 0:     state.hwreg.SP_MEM_ADDR_REG = val; break;
@@ -1938,13 +1915,13 @@ void eval_MTC0(u32 instr) {
         break;
     default:
         std::string reason = "MTC0 ";
-        debugger::halt(reason + Cop0RegisterNames[rd]);
+        debugger::halt(reason + assembly::rsp::Cop0RegisterNames[rd]);
         break;
     }
 }
 
 void eval_COP0(u32 instr) {
-    switch (Mips::getRs(instr)) {
+    switch (assembly::getRs(instr)) {
     case assembly::MFCz: eval_MFC0(instr); break;
     case assembly::MTCz: eval_MTC0(instr); break;
     default:
@@ -1954,8 +1931,8 @@ void eval_COP0(u32 instr) {
 }
 
 void eval_MFC2(u32 instr) {
-    u32 rt = Mips::getRt(instr);
-    u32 rd = Mips::getRd(instr);
+    u32 rt = assembly::getRt(instr);
+    u32 rd = assembly::getRd(instr);
     u32 e = (instr >> 7) & 0xfu;
     u16 val;
     storeVectorBytesAt(rd, e, (u8 *)&val, 2);
@@ -1964,16 +1941,16 @@ void eval_MFC2(u32 instr) {
 }
 
 void eval_MTC2(u32 instr) {
-    u32 rt = Mips::getRt(instr);
-    u32 rd = Mips::getRd(instr);
+    u32 rt = assembly::getRt(instr);
+    u32 rd = assembly::getRd(instr);
     u32 e = (instr >> 7) & 0xfu;
     u16 val = __builtin_bswap16((u16)state.rspreg.gpr[rt]);
     loadVectorBytesAt(rd, e, (u8 *)&val, 2);
 }
 
 void eval_CFC2(u32 instr) {
-    u32 rt = Mips::getRt(instr);
-    u32 rd = Mips::getRd(instr);
+    u32 rt = assembly::getRt(instr);
+    u32 rd = assembly::getRd(instr);
     u16 val = 0;
 
     switch (rd) {
@@ -1985,8 +1962,8 @@ void eval_CFC2(u32 instr) {
 }
 
 void eval_CTC2(u32 instr) {
-    u32 rt = Mips::getRt(instr);
-    u32 rd = Mips::getRd(instr);
+    u32 rt = assembly::getRt(instr);
+    u32 rd = assembly::getRd(instr);
     u32 val = state.rspreg.gpr[rt];
 
     switch (rd) {
@@ -1997,14 +1974,14 @@ void eval_CTC2(u32 instr) {
 }
 
 void eval_J(u32 instr) {
-    u64 tg = Mips::getTarget(instr);
+    u64 tg = assembly::getTarget(instr);
     tg = (state.rspreg.pc & 0xfffffffff0000000llu) | (tg << 2);
     state.rsp.nextAction = State::Action::Delay;
     state.rsp.nextPc = tg;
 }
 
 void eval_JAL(u32 instr) {
-    u64 tg = Mips::getTarget(instr);
+    u64 tg = assembly::getTarget(instr);
     tg = (state.rspreg.pc & 0xfffffffff0000000llu) | (tg << 2);
     state.rspreg.gpr[31] = state.rspreg.pc + 8;
     state.rsp.nextAction = State::Action::Delay;
@@ -2151,7 +2128,7 @@ void (*COP2_callbacks[64])(u32) = {
 };
 
 void eval_COP2(u32 instr) {
-    switch (Mips::getRs(instr)) {
+    switch (assembly::getRs(instr)) {
     case assembly::MFCz: eval_MFC2(instr); break;
     case assembly::MTCz: eval_MTC2(instr); break;
     case assembly::CFCz: eval_CFC2(instr); break;
@@ -2186,7 +2163,7 @@ void (*SPECIAL_callbacks[64])(u32) = {
 };
 
 void eval_SPECIAL(u32 instr) {
-    SPECIAL_callbacks[Mips::getFunct(instr)](instr);
+    SPECIAL_callbacks[assembly::getFunct(instr)](instr);
 }
 
 void (*REGIMM_callbacks[32])(u32) = {
@@ -2201,7 +2178,7 @@ void (*REGIMM_callbacks[32])(u32) = {
 };
 
 void eval_REGIMM(u32 instr) {
-    REGIMM_callbacks[Mips::getRt(instr)](instr);
+    REGIMM_callbacks[assembly::getRt(instr)](instr);
 }
 
 void (*CPU_callbacks[64])(u32) = {
@@ -2243,7 +2220,7 @@ static void eval(void)
     // The null instruction is 'sll r0, r0, 0', i.e. a NOP.
     // It is one of the most used instructions (to fill in delay slots).
     if (instr) {
-        CPU_callbacks[Mips::getOpcode(instr)](instr);
+        CPU_callbacks[assembly::getOpcode(instr)](instr);
     }
 }
 

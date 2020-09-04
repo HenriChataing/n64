@@ -11,10 +11,13 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#include <assembly/registers.h>
 #include <debugger.h>
 #include <r4300/state.h>
 #include <r4300/rdp.h>
 #include <graphics.h>
+
+using namespace n64;
 
 static Disassembler imemDisassembler(12);
 static Disassembler dramDisassembler(22);
@@ -31,8 +34,8 @@ static void ShowCpuRegisters(void) {
     ImGui::Text("pc       %016" PRIx64 "\n", R4300::state.reg.pc);
     for (unsigned int i = 0; i < 32; i+=2) {
         ImGui::Text("%-8.8s %016" PRIx64 "  %-8.8s %016" PRIx64 "\n",
-            Mips::CPU::getRegisterName(i), R4300::state.reg.gpr[i],
-            Mips::CPU::getRegisterName(i + 1), R4300::state.reg.gpr[i + 1]);
+            assembly::cpu::getRegisterName(i), R4300::state.reg.gpr[i],
+            assembly::cpu::getRegisterName(i + 1), R4300::state.reg.gpr[i + 1]);
     }
 }
 
@@ -112,8 +115,8 @@ static void ShowRspRegisters(void) {
     ImGui::Text("pc       %016" PRIx64 "\n", R4300::state.rspreg.pc);
     for (unsigned int i = 0; i < 32; i+=2) {
         ImGui::Text("%-8.8s %016" PRIx64 "  %-8.8s %016" PRIx64 "\n",
-            Mips::CPU::getRegisterName(i), R4300::state.rspreg.gpr[i],
-            Mips::CPU::getRegisterName(i + 1), R4300::state.rspreg.gpr[i + 1]);
+            assembly::cpu::getRegisterName(i), R4300::state.rspreg.gpr[i],
+            assembly::cpu::getRegisterName(i + 1), R4300::state.rspreg.gpr[i + 1]);
     }
 }
 
@@ -772,7 +775,7 @@ static void ShowDisassembler(bool *show_disassembler) {
     if (ImGui::BeginTabBar("Memory", 0)) {
         if (ImGui::BeginTabItem("DRAM")) {
             dramDisassembler.DrawContents(
-                Mips::CPU::disas,
+                assembly::cpu::disassemble,
                 R4300::state.dram, sizeof(R4300::state.dram),
                 R4300::state.reg.pc,
                 0x0,
@@ -781,7 +784,7 @@ static void ShowDisassembler(bool *show_disassembler) {
         }
         if (ImGui::BeginTabItem("IMEM")) {
             imemDisassembler.DrawContents(
-                Mips::RSP::disas,
+                assembly::rsp::disassemble,
                 R4300::state.imem, sizeof(R4300::state.imem),
                 R4300::state.rspreg.pc,
                 0x04001000lu);
@@ -789,7 +792,7 @@ static void ShowDisassembler(bool *show_disassembler) {
         }
         if (ImGui::BeginTabItem("ROM")) {
             romDisassembler.DrawContents(
-                Mips::CPU::disas,
+                assembly::cpu::disassemble,
                 R4300::state.rom, 0x1000,
                 R4300::state.reg.pc,
                 0x10000000lu,
@@ -810,7 +813,7 @@ static void ShowTrace(bool *show_trace) {
     if (ImGui::BeginTabBar("Trace", 0)) {
         if (ImGui::BeginTabItem("Cpu")) {
             if (debugger::debugger.halted) {
-                cpuTrace.DrawContents("cpu", Mips::CPU::disas);
+                cpuTrace.DrawContents("cpu", assembly::cpu::disassemble);
             } else {
                 ImGui::Text("Cpu is running...");
             }
@@ -818,7 +821,7 @@ static void ShowTrace(bool *show_trace) {
         }
         if (ImGui::BeginTabItem("Rsp")) {
             if (debugger::debugger.halted) {
-                rspTrace.DrawContents("rsp", Mips::RSP::disas);
+                rspTrace.DrawContents("rsp", assembly::rsp::disassemble);
             } else {
                 ImGui::Text("Rsp is running...");
             }
