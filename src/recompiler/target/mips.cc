@@ -1,9 +1,11 @@
 
 #include <interpreter.h>
-#include <recompiler/ir.h>
-#include <recompiler/target/mips.h>
 #include <assembly/registers.h>
 #include <r4300/state.h>
+
+#include <recompiler/ir.h>
+#include <recompiler/backend.h>
+#include <recompiler/target/mips.h>
 
 #define IR_BLOCK_MAX 16
 #define IR_INSTR_MAX 1024

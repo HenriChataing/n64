@@ -153,6 +153,7 @@ bin/recompiler_test_suite: \
     $(OBJDIR)/src/interpreter/cop1.o \
     $(OBJDIR)/test/recompiler_test_suite.o \
     $(OBJDIR)/src/recompiler/ir.o \
+    $(OBJDIR)/src/recompiler/backend.o \
     $(OBJDIR)/src/recompiler/passes/typecheck.o \
     $(OBJDIR)/src/recompiler/passes/run.o \
     $(OBJDIR)/src/recompiler/target/mips.o \
