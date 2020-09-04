@@ -4,7 +4,10 @@
 #include <sstream>
 #include <types.h>
 
+#include <assembly/opcodes.h>
 #include "asm.h"
+
+using namespace n64::assembly;
 
 namespace Mips {
 namespace CPU {
@@ -259,35 +262,31 @@ static inline char const *getFmtName(u32 fmt) {
 
 static void disasCop0(std::ostringstream &buffer, u64 pc, u32 instr)
 {
-    using namespace Mips::Opcode;
-    using namespace Mips::Cop0;
-    using namespace Mips::Copz;
-
-    if (instr & Mips::COFUN) {
+    if (instr & (1lu << 25)) {
         switch (Mips::getFunct(instr)) {
-            SType(Cop0::TLBR, "tlbr")
-            SType(Cop0::TLBWI, "tlbwi")
-            SType(Cop0::TLBWR, "tlbwr")
-            SType(Cop0::TLBP, "tlbp")
-            SType(Cop0::ERET, "eret")
+            SType(TLBR, "tlbr")
+            SType(TLBWI, "tlbwi")
+            SType(TLBWR, "tlbwr")
+            SType(TLBP, "tlbp")
+            SType(ERET, "eret")
             default:
                 Unknown(instr);
                 break;
         }
     } else {
         switch (Mips::getRs(instr)) {
-            RType(MF, "mfc0", instr, Rt_C0Rd)
-            RType(DMF, "dmfc0", instr, Rt_C0Rd)
-            RType(MT, "mtc0", instr, Rt_C0Rd)
-            RType(DMT, "dmtc0", instr, Rt_C0Rd)
-            RType(Copz::CF, "cfc0", instr, Rt_C0Rd)
-            RType(CT, "ctc0", instr, Rt_C0Rd)
-            case BC:
+            RType(MFCz, "mfc0", instr, Rt_C0Rd)
+            RType(DMFCz, "dmfc0", instr, Rt_C0Rd)
+            RType(MTCz, "mtc0", instr, Rt_C0Rd)
+            RType(DMTCz, "dmtc0", instr, Rt_C0Rd)
+            RType(CFCz, "cfc0", instr, Rt_C0Rd)
+            RType(CTCz, "ctc0", instr, Rt_C0Rd)
+            case BCz:
                 switch (Mips::getRt(instr)) {
-                    IType(BCF, "bc0f", instr, Tg)
-                    IType(BCT, "bc0t", instr, Tg)
-                    IType(BCFL, "bc0fl", instr, Tg)
-                    IType(BCTL, "bc0tl", instr, Tg)
+                    IType(BCzF, "bc0f", instr, Tg)
+                    IType(BCzT, "bc0t", instr, Tg)
+                    IType(BCzFL, "bc0fl", instr, Tg)
+                    IType(BCzTL, "bc0tl", instr, Tg)
                     default:
                         Unknown(instr);
                         break;
@@ -303,42 +302,42 @@ static void disasCop0(std::ostringstream &buffer, u64 pc, u32 instr)
 static void disasCop1(std::ostringstream &buffer, u32 instr)
 {
     switch (Mips::getFunct(instr)) {
-        FRType(Cop1::ADD, "add", instr, Fd_Fs_Ft)
-        FRType(Cop1::SUB, "sub", instr, Fd_Fs_Ft)
-        FRType(Cop1::MUL, "mul", instr, Fd_Fs_Ft)
-        FRType(Cop1::DIV, "div", instr, Fd_Fs_Ft)
-        FRType(Cop1::SQRT, "sqrt", instr, Fd_Fs)
-        FRType(Cop1::ABS, "abs", instr, Fd_Fs)
-        FRType(Cop1::MOV, "mov", instr, Fd_Fs)
-        FRType(Cop1::NEG, "neg", instr, Fd_Fs)
-        FRType(Cop1::ROUNDL, "round.l", instr, Fd_Fs)
-        FRType(Cop1::TRUNCL, "trunc.l", instr, Fd_Fs)
-        FRType(Cop1::CEILL, "ceil.l", instr, Fd_Fs)
-        FRType(Cop1::FLOORL, "floor.l", instr, Fd_Fs)
-        FRType(Cop1::ROUNDW, "round.w", instr, Fd_Fs)
-        FRType(Cop1::TRUNCW, "trunc.w", instr, Fd_Fs)
-        FRType(Cop1::CEILW, "ceil.w", instr, Fd_Fs)
-        FRType(Cop1::FLOORW, "floor.w", instr, Fd_Fs)
-        FRType(Cop1::CVTS, "cvt.s", instr, Fd_Fs)
-        FRType(Cop1::CVTD, "cvt.d", instr, Fd_Fs)
-        FRType(Cop1::CVTW, "cvt.w", instr, Fd_Fs)
-        FRType(Cop1::CVTL, "cvt.l", instr, Fd_Fs)
-        FRType(Cop1::CF, "c.f", instr, Fs_Ft)
-        FRType(Cop1::CUN, "c.un", instr, Fs_Ft)
-        FRType(Cop1::CEQ, "c.eq", instr, Fs_Ft)
-        FRType(Cop1::CUEQ, "c.ueq", instr, Fs_Ft)
-        FRType(Cop1::COLT, "c.olt", instr, Fs_Ft)
-        FRType(Cop1::CULT, "c.ult", instr, Fs_Ft)
-        FRType(Cop1::COLE, "c.ole", instr, Fs_Ft)
-        FRType(Cop1::CULE, "c.ule", instr, Fs_Ft)
-        FRType(Cop1::CSF, "c.sf", instr, Fs_Ft)
-        FRType(Cop1::CNGLE, "c.ngle", instr, Fs_Ft)
-        FRType(Cop1::CSEQ, "c.seq", instr, Fs_Ft)
-        FRType(Cop1::CNGL, "c.ngl", instr, Fs_Ft)
-        FRType(Cop1::CLT, "c.lt", instr, Fs_Ft)
-        FRType(Cop1::CNGE, "c.nge", instr, Fs_Ft)
-        FRType(Cop1::CLE, "c.le", instr, Fs_Ft)
-        FRType(Cop1::CNGT, "c.ngt", instr, Fs_Ft)
+        FRType(FADD, "add", instr, Fd_Fs_Ft)
+        FRType(FSUB, "sub", instr, Fd_Fs_Ft)
+        FRType(FMUL, "mul", instr, Fd_Fs_Ft)
+        FRType(FDIV, "div", instr, Fd_Fs_Ft)
+        FRType(SQRT, "sqrt", instr, Fd_Fs)
+        FRType(ABS, "abs", instr, Fd_Fs)
+        FRType(MOV, "mov", instr, Fd_Fs)
+        FRType(NEG, "neg", instr, Fd_Fs)
+        FRType(ROUNDL, "round.l", instr, Fd_Fs)
+        FRType(TRUNCL, "trunc.l", instr, Fd_Fs)
+        FRType(CEILL, "ceil.l", instr, Fd_Fs)
+        FRType(FLOORL, "floor.l", instr, Fd_Fs)
+        FRType(ROUNDW, "round.w", instr, Fd_Fs)
+        FRType(TRUNCW, "trunc.w", instr, Fd_Fs)
+        FRType(CEILW, "ceil.w", instr, Fd_Fs)
+        FRType(FLOORW, "floor.w", instr, Fd_Fs)
+        FRType(CVTS, "cvt.s", instr, Fd_Fs)
+        FRType(CVTD, "cvt.d", instr, Fd_Fs)
+        FRType(CVTW, "cvt.w", instr, Fd_Fs)
+        FRType(CVTL, "cvt.l", instr, Fd_Fs)
+        FRType(CF, "c.f", instr, Fs_Ft)
+        FRType(CUN, "c.un", instr, Fs_Ft)
+        FRType(CEQ, "c.eq", instr, Fs_Ft)
+        FRType(CUEQ, "c.ueq", instr, Fs_Ft)
+        FRType(COLT, "c.olt", instr, Fs_Ft)
+        FRType(CULT, "c.ult", instr, Fs_Ft)
+        FRType(COLE, "c.ole", instr, Fs_Ft)
+        FRType(CULE, "c.ule", instr, Fs_Ft)
+        FRType(CSF, "c.sf", instr, Fs_Ft)
+        FRType(CNGLE, "c.ngle", instr, Fs_Ft)
+        FRType(CSEQ, "c.seq", instr, Fs_Ft)
+        FRType(CNGL, "c.ngl", instr, Fs_Ft)
+        FRType(CLT, "c.lt", instr, Fs_Ft)
+        FRType(CNGE, "c.nge", instr, Fs_Ft)
+        FRType(CLE, "c.le", instr, Fs_Ft)
+        FRType(CNGT, "c.ngt", instr, Fs_Ft)
     }
 }
 
@@ -361,12 +360,6 @@ std::string disas(u64 pc, u32 instr)
 {
     u32 opcode;
     std::ostringstream buffer;
-
-    using namespace Mips::Opcode;
-    using namespace Mips::Special;
-    using namespace Mips::Regimm;
-    using namespace Mips::Cop0;
-    using namespace Mips::Copz;
 
     // Special case (SLL 0, 0, 0)
     if (instr == 0) {
@@ -462,23 +455,23 @@ std::string disas(u64 pc, u32 instr)
 
 #define COPz(z) \
         case COP##z: \
-            if (instr & Mips::COFUN) { \
+            if (instr & (1lu << 25)) { \
                 disasCop##z(buffer, instr); \
                 break; \
             } \
             switch (Mips::getRs(instr)) { \
-                RType(MF, "mfc" #z, instr, Rt_CRd) \
-                RType(DMF, "dmfc" #z, instr, Rt_CRd) \
-                RType(MT, "mtc" #z, instr, Rt_CRd) \
-                RType(DMT, "dmtc" #z, instr, Rt_CRd) \
-                RType(Copz::CF, "cfc" #z, instr, Rt_CRd) \
-                RType(CT, "ctc" #z, instr, Rt_CRd) \
-                case BC: \
+                RType(MFCz, "mfc" #z, instr, Rt_CRd) \
+                RType(DMFCz, "dmfc" #z, instr, Rt_CRd) \
+                RType(MTCz, "mtc" #z, instr, Rt_CRd) \
+                RType(DMTCz, "dmtc" #z, instr, Rt_CRd) \
+                RType(CFCz, "cfc" #z, instr, Rt_CRd) \
+                RType(CTCz, "ctc" #z, instr, Rt_CRd) \
+                case BCz: \
                     switch (Mips::getRt(instr)) { \
-                        IType(BCF, "bc" #z "f", instr, Tg) \
-                        IType(BCT, "bc" #z "t", instr, Tg) \
-                        IType(BCFL, "bc" #z "fl", instr, Tg) \
-                        IType(BCTL, "bc" #z "tl", instr, Tg) \
+                        IType(BCzF, "bc" #z "f", instr, Tg) \
+                        IType(BCzT, "bc" #z "t", instr, Tg) \
+                        IType(BCzFL, "bc" #z "fl", instr, Tg) \
+                        IType(BCzTL, "bc" #z "tl", instr, Tg) \
                         default: \
                             Unknown(instr); \
                             break; \

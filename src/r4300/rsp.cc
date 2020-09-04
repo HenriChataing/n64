@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include <circular_buffer.h>
+#include <assembly/opcodes.h>
 #include <mips/asm.h>
 #include <r4300/cpu.h>
 #include <r4300/rdp.h>
@@ -11,6 +12,8 @@
 #include <r4300/state.h>
 #include <debugger.h>
 #include <types.h>
+
+using namespace n64;
 
 namespace R4300 {
 namespace RSP {
@@ -1942,8 +1945,8 @@ void eval_MTC0(u32 instr) {
 
 void eval_COP0(u32 instr) {
     switch (Mips::getRs(instr)) {
-    case Mips::Copz::MF: eval_MFC0(instr); break;
-    case Mips::Copz::MT: eval_MTC0(instr); break;
+    case assembly::MFCz: eval_MFC0(instr); break;
+    case assembly::MTCz: eval_MTC0(instr); break;
     default:
         debugger::halt("invalid RSP::COP0 instruction");
         break;
@@ -2149,10 +2152,10 @@ void (*COP2_callbacks[64])(u32) = {
 
 void eval_COP2(u32 instr) {
     switch (Mips::getRs(instr)) {
-    case Mips::Copz::MF: eval_MFC2(instr); break;
-    case Mips::Copz::MT: eval_MTC2(instr); break;
-    case Mips::Copz::CF: eval_CFC2(instr); break;
-    case Mips::Copz::CT: eval_CTC2(instr); break;
+    case assembly::MFCz: eval_MFC2(instr); break;
+    case assembly::MTCz: eval_MTC2(instr); break;
+    case assembly::CFCz: eval_CFC2(instr); break;
+    case assembly::CTCz: eval_CTC2(instr); break;
     default:
         if ((instr & (1lu << 25)) == 0) {
             debugger::halt("RSP::COP2 invalid operation");

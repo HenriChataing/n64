@@ -7,11 +7,14 @@
 #include <r4300/cpu.h>
 #include <r4300/hw.h>
 #include <r4300/state.h>
+#include <assembly/opcodes.h>
+#include <interpreter.h>
 
 #include <memory.h>
 #include <debugger.h>
 
 using namespace R4300;
+using namespace n64;
 
 namespace interpreter {
 namespace cpu {
@@ -426,7 +429,7 @@ void eval_TLBW(u32 instr) {
     u32 funct = Mips::getFunct(instr);
     unsigned index;
 
-    if (funct == Mips::Cop0::TLBWI) {
+    if (funct == assembly::TLBWI) {
         index = state.cp0reg.index & UINT32_C(0x3f);
         if (index >= tlbEntryCount) {
             debugger::halt("TLBWI bad index");
@@ -478,19 +481,19 @@ void eval_ERET(u32 instr) {
 void eval_COP0(u32 instr)
 {
     switch (Mips::getRs(instr)) {
-        case Mips::Copz::MF:    eval_MFC0(instr); break;
-        case Mips::Copz::DMF:   eval_DMFC0(instr); break;
-        case Mips::Copz::MT:    eval_MTC0(instr); break;
-        case Mips::Copz::DMT:   eval_DMTC0(instr); break;
-        case Mips::Copz::CF:    eval_CFC0(instr); break;
-        case Mips::Copz::CT:    eval_CTC0(instr); break;
-        case UINT32_C(0x10):
+        case assembly::MFCz:         eval_MFC0(instr); break;
+        case assembly::DMFCz:        eval_DMFC0(instr); break;
+        case assembly::MTCz:         eval_MTC0(instr); break;
+        case assembly::DMTCz:        eval_DMTC0(instr); break;
+        case assembly::CFCz:         eval_CFC0(instr); break;
+        case assembly::CTCz:         eval_CTC0(instr); break;
+        case 0x10u:
             switch (Mips::getFunct(instr)) {
-                case Mips::Cop0::TLBR:  eval_TLBR(instr); break;
-                case Mips::Cop0::TLBWI: eval_TLBW(instr); break;
-                case Mips::Cop0::TLBWR: eval_TLBW(instr); break;
-                case Mips::Cop0::TLBP:  eval_TLBP(instr); break;
-                case Mips::Cop0::ERET:  eval_ERET(instr); break;
+                case assembly::TLBR:  eval_TLBR(instr); break;
+                case assembly::TLBWI: eval_TLBW(instr); break;
+                case assembly::TLBWR: eval_TLBW(instr); break;
+                case assembly::TLBP:  eval_TLBP(instr); break;
+                case assembly::ERET:  eval_ERET(instr); break;
                 default:
                     debugger::halt("COP0 unsupported COFUN instruction");
                     break;

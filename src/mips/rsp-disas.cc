@@ -4,7 +4,11 @@
 #include <sstream>
 #include <types.h>
 
+#include <assembly/opcodes.h>
 #include "asm.h"
+
+using namespace n64;
+using namespace assembly;
 
 namespace Mips {
 namespace RSP {
@@ -290,13 +294,9 @@ static inline u32 getVd(u32 instr) {
 
 static void disasCop0(std::ostringstream &buffer, u64 pc, u32 instr)
 {
-    using namespace Mips::Opcode;
-    using namespace Mips::Cop0;
-    using namespace Mips::Copz;
-
     switch (Mips::getRs(instr)) {
-        RType(MF, "mfc0", instr, Rt_C0Rd)
-        RType(MT, "mtc0", instr, Rt_C0Rd)
+        RType(MFCz, "mfc0", instr, Rt_C0Rd)
+        RType(MTCz, "mtc0", instr, Rt_C0Rd)
         default:
             Unknown(instr);
             break;
@@ -305,9 +305,6 @@ static void disasCop0(std::ostringstream &buffer, u64 pc, u32 instr)
 
 static void disasCop2(std::ostringstream &buffer, u64 pc, u32 instr)
 {
-    using namespace Mips::Opcode;
-    using namespace Mips::Copz;
-
     if ((instr & (1lu << 25)) != 0) {
         switch (instr & 0x3flu) {
             VRType(0x13, "vabs", instr, Vd_Vs_Vt)
@@ -360,8 +357,8 @@ static void disasCop2(std::ostringstream &buffer, u64 pc, u32 instr)
         }
     } else {
         switch (Mips::getRs(instr)) {
-            RType(MF, "mfc2", instr, Rt_C0Rd)
-            RType(MT, "mtc2", instr, Rt_C0Rd)
+            RType(MFCz, "mfc2", instr, Rt_C0Rd)
+            RType(MTCz, "mtc2", instr, Rt_C0Rd)
             default:
                 Unknown(instr);
                 break;
@@ -376,12 +373,6 @@ std::string disas(u64 pc, u32 instr)
 {
     u32 opcode;
     std::ostringstream buffer;
-
-    using namespace Mips::Opcode;
-    using namespace Mips::Special;
-    using namespace Mips::Regimm;
-    using namespace Mips::Cop0;
-    using namespace Mips::Copz;
 
     // Special case (SLL 0, 0, 0)
     if (instr == 0) {

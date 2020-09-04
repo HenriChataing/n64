@@ -10,10 +10,11 @@
 #include <r4300/hw.h>
 #include <r4300/state.h>
 #include <r4300/cpu.h>
-
+#include <assembly/opcodes.h>
 #include <interpreter.h>
 
 using namespace R4300;
+using namespace n64;
 
 namespace interpreter {
 namespace cpu {
@@ -104,17 +105,17 @@ void eval_BC1(u32 instr) {
     bool likely = false;
 
     switch (Mips::getRt(instr)) {
-    case Mips::Copz::BCF:
+    case assembly::BCzF:
         taken = (state.cp1reg.fcr31 & FCR31_C) == 0;
         break;
-    case Mips::Copz::BCFL:
+    case assembly::BCzFL:
         taken = (state.cp1reg.fcr31 & FCR31_C) == 0;
         likely = true;
         break;
-    case Mips::Copz::BCT:
+    case assembly::BCzT:
         taken = (state.cp1reg.fcr31 & FCR31_C) != 0;
         break;
-    case Mips::Copz::BCTL:
+    case assembly::BCzTL:
         taken = (state.cp1reg.fcr31 & FCR31_C) != 0;
         likely = true;
         break;
