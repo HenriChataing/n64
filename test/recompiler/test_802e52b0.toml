@@ -1,0 +1,53 @@
+start_address = "0xffffffff802e52b0"
+
+asm_code = """
+    beq      v0, zero, 0xffffffff802e5498
+    nop
+"""
+
+bin_code = [
+    0x10400079, 0x00000000,
+]
+
+[[test]]
+start_cycles = 32774211
+end_cycles = 32774213
+end_address = "0xffffffff802e5498"
+trace = [
+]
+
+[[test]]
+start_cycles = 34335059
+end_cycles = 34335061
+end_address = "0xffffffff802e5498"
+trace = [
+]
+
+[[test]]
+start_cycles = 35895907
+end_cycles = 35895909
+end_address = "0xffffffff802e5498"
+trace = [
+]
+
+[[test]]
+start_cycles = 39013363
+end_cycles = 39013365
+end_address = "0xffffffff802e5498"
+trace = [
+]
+
+[[test]]
+start_cycles = 40574211
+end_cycles = 40574213
+end_address = "0xffffffff802e5498"
+trace = [
+]
+
+[[test]]
+start_cycles = 42135059
+end_cycles = 42135061
+end_address = "0xffffffff802e5498"
+trace = [
+]
+

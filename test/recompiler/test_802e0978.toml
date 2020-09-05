@@ -1,0 +1,34 @@
+start_address = "0xffffffff802e0978"
+
+asm_code = """
+    subu     v0, a0, a1
+    addiu    v0, v0, 0xf
+    bgez     v0, 0xffffffff802e0990
+    sra      t7, v0, 4
+"""
+
+bin_code = [
+    0x00851023, 0x2442000f, 0x04410003, 0x00027903,
+]
+
+[[test]]
+start_cycles = 234050460
+end_cycles = 234050464
+end_address = "0xffffffff802e0990"
+trace = [
+]
+
+[[test]]
+start_cycles = 249647820
+end_cycles = 249647824
+end_address = "0xffffffff802e0990"
+trace = [
+]
+
+[[test]]
+start_cycles = 265247820
+end_cycles = 265247824
+end_address = "0xffffffff802e0990"
+trace = [
+]
+

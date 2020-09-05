@@ -1,0 +1,26 @@
+start_address = "0xffffffff802e8e14"
+
+asm_code = """
+    srl      t8, t7, 31
+    bne      t8, at, 0xffffffff802e8f00
+    sll      t5, v0, 3
+"""
+
+bin_code = [
+    0x000fc7c2, 0x17010039, 0x000268c0,
+]
+
+[[test]]
+start_cycles = 258991451
+end_cycles = 258991454
+end_address = "0xffffffff802e8f00"
+trace = [
+]
+
+[[test]]
+start_cycles = 274591451
+end_cycles = 274591454
+end_address = "0xffffffff802e8f00"
+trace = [
+]
+

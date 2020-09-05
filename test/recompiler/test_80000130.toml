@@ -14,50 +14,50 @@ bin_code = [
 ]
 
 [[test]]
-end_address = "0xffffffff80000148"
-start_cycles = 62894
-end_cycles = 62899
-trace = [
-    { type = "load_u32", address = "0x00246fa0", value = "0x3c0c8034" },
-]
-
-[[test]]
-end_address = "0xffffffff80000148"
-start_cycles = 65140
-end_cycles = 65145
-trace = [
-    { type = "load_u32", address = "0x00247130", value = "0x3c0f0030" },
-]
-
-[[test]]
-end_address = "0xffffffff80000148"
-start_cycles = 67375
-end_cycles = 67380
-trace = [
-    { type = "load_u32", address = "0x002472c0", value = "0x25cf0008" },
-]
-
-[[test]]
+start_cycles = 62876
+end_cycles = 62881
 end_address = "0xffffffff80000144"
-start_cycles = 69607
-end_cycles = 69612
 trace = [
-    { type = "load_u32", address = "0x00247450", value = "0xac2d9cfc" },
+    { type = "load_u32", address = "0x002427a0", value = "0x3c0e8030" },
 ]
 
 [[test]]
+start_cycles = 65032
+end_cycles = 65037
 end_address = "0xffffffff80000148"
-start_cycles = 71852
-end_cycles = 71857
 trace = [
-    { type = "load_u32", address = "0x002475e0", value = "0x10000001" },
+    { type = "load_u32", address = "0x00242930", value = "0x10400004" },
 ]
 
 [[test]]
+start_cycles = 67214
+end_cycles = 67219
 end_address = "0xffffffff80000148"
-start_cycles = 74065
-end_cycles = 74070
 trace = [
-    { type = "load_u32", address = "0x00247770", value = "0x95380" },
+    { type = "load_u32", address = "0x00242ac0", value = "0x8c450044" },
+]
+
+[[test]]
+start_cycles = 69366
+end_cycles = 69371
+end_address = "0xffffffff80000144"
+trace = [
+    { type = "load_u32", address = "0x00242c50", value = "0xaca70004" },
+]
+
+[[test]]
+start_cycles = 71554
+end_cycles = 71559
+end_address = "0xffffffff80000148"
+trace = [
+    { type = "load_u32", address = "0x00242de0", value = "0x3c058031" },
+]
+
+[[test]]
+start_cycles = 73712
+end_cycles = 73717
+end_address = "0xffffffff80000144"
+trace = [
+    { type = "load_u32", address = "0x00242f70", value = "0xac4f0000" },
 ]
 

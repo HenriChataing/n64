@@ -1,0 +1,59 @@
+start_address = "0xffffffff802e659c"
+
+asm_code = """
+    jr       ra
+    sb       zero, 0x1(a0)
+"""
+
+bin_code = [
+    0x03e00008, 0xa0800001,
+]
+
+[[test]]
+start_cycles = 120143123
+end_cycles = 120143125
+end_address = "0xffffffff802e66c8"
+trace = [
+    { type = "store_u8", address = "0x00225115", value = "0x0" },
+]
+
+[[test]]
+start_cycles = 121703249
+end_cycles = 121703251
+end_address = "0xffffffff802e66c8"
+trace = [
+    { type = "store_u8", address = "0x00225115", value = "0x0" },
+]
+
+[[test]]
+start_cycles = 123263184
+end_cycles = 123263186
+end_address = "0xffffffff802e66c8"
+trace = [
+    { type = "store_u8", address = "0x00225115", value = "0x0" },
+]
+
+[[test]]
+start_cycles = 124822876
+end_cycles = 124822878
+end_address = "0xffffffff802e66c8"
+trace = [
+    { type = "store_u8", address = "0x00225115", value = "0x0" },
+]
+
+[[test]]
+start_cycles = 126382648
+end_cycles = 126382650
+end_address = "0xffffffff802e66c8"
+trace = [
+    { type = "store_u8", address = "0x00225115", value = "0x0" },
+]
+
+[[test]]
+start_cycles = 127945988
+end_cycles = 127945990
+end_address = "0xffffffff802e66c8"
+trace = [
+    { type = "store_u8", address = "0x00225115", value = "0x0" },
+]
+

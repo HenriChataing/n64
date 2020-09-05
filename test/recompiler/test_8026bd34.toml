@@ -1,0 +1,25 @@
+start_address = "0xffffffff8026bd34"
+
+asm_code = """
+    bne      a3, s2, 0xffffffff8026bcac
+    addiu    t0, t0, 0x4
+"""
+
+bin_code = [
+    0x14f2ffdd, 0x25080004,
+]
+
+[[test]]
+start_cycles = 249660678
+end_cycles = 249660680
+end_address = "0xffffffff8026bcac"
+trace = [
+]
+
+[[test]]
+start_cycles = 265258160
+end_cycles = 265258162
+end_address = "0xffffffff8026bd3c"
+trace = [
+]
+

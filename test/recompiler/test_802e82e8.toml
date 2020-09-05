@@ -1,0 +1,53 @@
+start_address = "0xffffffff802e82e8"
+
+asm_code = """
+    bgez     t8, 0xffffffff802e8320
+    or       s0, zero, zero
+"""
+
+bin_code = [
+    0x0701000d, 0x00008025,
+]
+
+[[test]]
+start_cycles = 145100549
+end_cycles = 145100551
+end_address = "0xffffffff802e8320"
+trace = [
+]
+
+[[test]]
+start_cycles = 149774339
+end_cycles = 149774341
+end_address = "0xffffffff802e8320"
+trace = [
+]
+
+[[test]]
+start_cycles = 152906144
+end_cycles = 152906146
+end_address = "0xffffffff802e8320"
+trace = [
+]
+
+[[test]]
+start_cycles = 157577335
+end_cycles = 157577337
+end_address = "0xffffffff802e8320"
+trace = [
+]
+
+[[test]]
+start_cycles = 160709133
+end_cycles = 160709135
+end_address = "0xffffffff802e8320"
+trace = [
+]
+
+[[test]]
+start_cycles = 165379801
+end_cycles = 165379803
+end_address = "0xffffffff802e8320"
+trace = [
+]
+

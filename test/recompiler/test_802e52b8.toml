@@ -1,0 +1,18 @@
+start_address = "0xffffffff802e52b8"
+
+asm_code = """
+    beq      s7, v0, 0xffffffff802e52d0
+    addiu    s3, s0, 0xb0
+"""
+
+bin_code = [
+    0x12e20005, 0x261300b0,
+]
+
+[[test]]
+start_cycles = 276153031
+end_cycles = 276153033
+end_address = "0xffffffff802e52c0"
+trace = [
+]
+

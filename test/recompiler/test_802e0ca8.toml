@@ -1,0 +1,34 @@
+start_address = "0xffffffff802e0ca8"
+
+asm_code = """
+    sll      t8, s4, 1
+    or       s4, t8, zero
+    beq      t1, zero, 0xffffffff802e0d18
+    addiu    t9, zero, 0x1
+"""
+
+bin_code = [
+    0x0014c040, 0x0300a025, 0x11200019, 0x24190001,
+]
+
+[[test]]
+start_cycles = 235608194
+end_cycles = 235608198
+end_address = "0xffffffff802e0d18"
+trace = [
+]
+
+[[test]]
+start_cycles = 251209498
+end_cycles = 251209502
+end_address = "0xffffffff802e0d18"
+trace = [
+]
+
+[[test]]
+start_cycles = 266808181
+end_cycles = 266808185
+end_address = "0xffffffff802e0d18"
+trace = [
+]
+

@@ -1,0 +1,55 @@
+start_address = "0xffffffff802e1ba4"
+
+asm_code = """
+    mul.d    f16, f14, f12
+    nop
+    beq      t7, zero, 0xffffffff802e1bbc
+    nop
+"""
+
+bin_code = [
+    0x462c7402, 0x00000000, 0x11e00003, 0x00000000,
+]
+
+[[test]]
+start_cycles = 8797168
+end_cycles = 8797172
+end_address = "0xffffffff802e1bb4"
+trace = [
+]
+
+[[test]]
+start_cycles = 8811470
+end_cycles = 8811474
+end_address = "0xffffffff802e1bb4"
+trace = [
+]
+
+[[test]]
+start_cycles = 8825950
+end_cycles = 8825954
+end_address = "0xffffffff802e1bb4"
+trace = [
+]
+
+[[test]]
+start_cycles = 8840474
+end_cycles = 8840478
+end_address = "0xffffffff802e1bb4"
+trace = [
+]
+
+[[test]]
+start_cycles = 8857393
+end_cycles = 8857397
+end_address = "0xffffffff802e1bb4"
+trace = [
+]
+
+[[test]]
+start_cycles = 8871953
+end_cycles = 8871957
+end_address = "0xffffffff802e1bb4"
+trace = [
+]
+

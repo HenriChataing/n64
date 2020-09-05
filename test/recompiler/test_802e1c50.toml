@@ -1,0 +1,72 @@
+start_address = "0xffffffff802e1c50"
+
+asm_code = """
+    lui      at, 0x8030
+    ldc1     cr22, 0x6600(at)
+    or       s0, zero, zero
+    addiu    s1, zero, 0x40
+    mov.d    f12, f20
+    or       a2, s2, zero
+    jal      0xffffffff802e1b70
+    sdc1     cr24, 0x10(sp)
+"""
+
+bin_code = [
+    0x3c018030, 0xd4366600, 0x00008025, 0x24110040,
+    0x4620a306, 0x02403025, 0x0c0b86dc, 0xf7b80010,
+]
+
+[[test]]
+start_cycles = 9266648
+end_cycles = 9266656
+end_address = "0xffffffff802e1b70"
+trace = [
+    { type = "load_u64", address = "0x00306600", value = "0x3e7ad7f29abcaf48" },
+    { type = "store_u64", address = "0x00200050", value = "0x3f28acb90f6bf3aa" },
+]
+
+[[test]]
+start_cycles = 9337661
+end_cycles = 9337669
+end_address = "0xffffffff802e1b70"
+trace = [
+    { type = "load_u64", address = "0x00306600", value = "0x3e7ad7f29abcaf48" },
+    { type = "store_u64", address = "0x00200050", value = "0x3f2661ec6a5122f9" },
+]
+
+[[test]]
+start_cycles = 9410322
+end_cycles = 9410330
+end_address = "0xffffffff802e1b70"
+trace = [
+    { type = "load_u64", address = "0x00306600", value = "0x3e7ad7f29abcaf48" },
+    { type = "store_u64", address = "0x00200050", value = "0x3f249539e3b2d067" },
+]
+
+[[test]]
+start_cycles = 9483579
+end_cycles = 9483587
+end_address = "0xffffffff802e1b70"
+trace = [
+    { type = "load_u64", address = "0x00306600", value = "0x3e7ad7f29abcaf48" },
+    { type = "store_u64", address = "0x00200050", value = "0x3f22f684bda12f68" },
+]
+
+[[test]]
+start_cycles = 9558080
+end_cycles = 9558088
+end_address = "0xffffffff802e1b70"
+trace = [
+    { type = "load_u64", address = "0x00306600", value = "0x3e7ad7f29abcaf48" },
+    { type = "store_u64", address = "0x00200050", value = "0x3f219453808ca29c" },
+]
+
+[[test]]
+start_cycles = 9633190
+end_cycles = 9633198
+end_address = "0xffffffff802e1b70"
+trace = [
+    { type = "load_u64", address = "0x00306600", value = "0x3e7ad7f29abcaf48" },
+    { type = "store_u64", address = "0x00200050", value = "0x3f2073260a47f7c6" },
+]
+

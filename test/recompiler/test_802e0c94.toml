@@ -1,0 +1,32 @@
+start_address = "0xffffffff802e0c94"
+
+asm_code = """
+    beql     s4, zero, 0xffffffff802e0ca8
+    addu     s4, s3, a3
+"""
+
+bin_code = [
+    0x52800004, 0x0267a021,
+]
+
+[[test]]
+start_cycles = 235608192
+end_cycles = 235608194
+end_address = "0xffffffff802e0ca8"
+trace = [
+]
+
+[[test]]
+start_cycles = 251209496
+end_cycles = 251209498
+end_address = "0xffffffff802e0ca8"
+trace = [
+]
+
+[[test]]
+start_cycles = 266808179
+end_cycles = 266808181
+end_address = "0xffffffff802e0ca8"
+trace = [
+]
+

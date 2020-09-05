@@ -19,6 +19,7 @@ static std::map<u64, unsigned> blockStart;
 static unsigned captureCount;
 static bool captureRunning = false;
 static u64  captureStart;
+static unsigned captureStartCycles;
 static struct cpureg captureCpuPre;
 static struct cp0reg captureCp0Pre;
 static struct cp1reg captureCp1Pre;
@@ -43,6 +44,7 @@ void start_capture(void) {
 
     captureRunning = true;
     captureStart = state.reg.pc;
+    captureStartCycles = state.cycles;
     captureCpuPre = state.reg;
     captureCp0Pre = state.cp0reg;
     captureCp1Pre = state.cp1reg;
@@ -112,7 +114,14 @@ void stop_capture(u64 finalAddress) {
                 count++;
             }
         }
-        if (address == state.reg.pc) {
+        if (address != (state.reg.pc + 4)) {
+            debugger::warn(Debugger::CPU,
+                "incomplete memory trace: missing instruction fetches {}/{}/{}",
+                count, bus->log.size(), state.reg.pc - captureStart + 4);
+            debugger::halt(
+                "incomplete memory trace: missing instruction fetches");
+        }
+        if (finalAddress == (state.reg.pc + 8)) {
             // Missing instruction fetch for the suppressed delay instruction
             // of a branch likely.
             u32 instr;
@@ -125,19 +134,14 @@ void stop_capture(u64 finalAddress) {
             address += 4;
             count++;
         }
-        if (address != (state.reg.pc + 4)) {
-            debugger::warn(Debugger::CPU,
-                "incomplete memory trace: missing instruction fetches {}/{}/{}",
-                count, bus->log.size(), state.reg.pc - captureStart + 4);
-            debugger::halt(
-                "incomplete memory trace: missing instruction fetches");
-        }
 
         fmt::print(ofs, "asm_code = \"\"\"\n{}\"\"\"\n\n", asm_code);
         fmt::print(ofs, "bin_code = [{}\n]\n\n", bin_code);
     }
 
     fmt::print(ofs, "[[test]]\n");
+    fmt::print(ofs, "start_cycles = {}\n", captureStartCycles);
+    fmt::print(ofs, "end_cycles = {}\n", state.cycles);
     fmt::print(ofs, "end_address = \"0x{:016x}\"\n", finalAddress);
     fmt::print(ofs, "trace = [\n");
     u64 address = captureStart;

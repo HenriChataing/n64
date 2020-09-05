@@ -1,0 +1,76 @@
+start_address = "0xffffffff8026edb8"
+
+asm_code = """
+    addi     a3, a3, 2
+    srl      t3, t2, 12
+    andi     t2, t2, 0xfff
+    sub      t1, a1, t2
+    addi     t3, t3, 3
+    lb       t2, -0x1(t1)
+    addi     t3, t3, -1
+    addi     t1, t1, 1
+    addi     a1, a1, 1
+    bne      t3, zero, 0xffffffff8026edcc
+    sb       t2, -0x1(a1)
+"""
+
+bin_code = [
+    0x20e70002, 0x000a5b02, 0x314a0fff, 0x00aa4822,
+    0x216b0003, 0x812affff, 0x216bffff, 0x21290001,
+    0x20a50001, 0x1560fffb, 0xa0aaffff,
+]
+
+[[test]]
+start_cycles = 14119401
+end_cycles = 14119412
+end_address = "0xffffffff8026edcc"
+trace = [
+    { type = "load_u8", address = "0x000670ec", value = "0xc6" },
+    { type = "store_u8", address = "0x00067108", value = "0xc6" },
+]
+
+[[test]]
+start_cycles = 14126651
+end_cycles = 14126662
+end_address = "0xffffffff8026edcc"
+trace = [
+    { type = "load_u8", address = "0x000666bd", value = "0x0" },
+    { type = "store_u8", address = "0x00067483", value = "0x0" },
+]
+
+[[test]]
+start_cycles = 14133956
+end_cycles = 14133967
+end_address = "0xffffffff8026edcc"
+trace = [
+    { type = "load_u8", address = "0x000677ba", value = "0x0" },
+    { type = "store_u8", address = "0x00067818", value = "0x0" },
+]
+
+[[test]]
+start_cycles = 14142928
+end_cycles = 14142939
+end_address = "0xffffffff8026edcc"
+trace = [
+    { type = "load_u8", address = "0x00067c0b", value = "0xbf" },
+    { type = "store_u8", address = "0x00067c4f", value = "0xbf" },
+]
+
+[[test]]
+start_cycles = 14149290
+end_cycles = 14149301
+end_address = "0xffffffff8026edcc"
+trace = [
+    { type = "load_u8", address = "0x00066f52", value = "0x0" },
+    { type = "store_u8", address = "0x00067f52", value = "0x0" },
+]
+
+[[test]]
+start_cycles = 14156337
+end_cycles = 14156348
+end_address = "0xffffffff8026edcc"
+trace = [
+    { type = "load_u8", address = "0x000676cc", value = "0x4" },
+    { type = "store_u8", address = "0x000682c6", value = "0x4" },
+]
+

@@ -4,6 +4,7 @@
 
 #include <stdbool.h>
 #include <recompiler/ir.h>
+#include <recompiler/backend.h>
 
 #ifdef __cplusplus
 extern "C" {

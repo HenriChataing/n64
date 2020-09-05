@@ -11,9 +11,9 @@ bin_code = [
 ]
 
 [[test]]
+start_cycles = 5789148
+end_cycles = 5789151
 end_address = "0xffffffff80000298"
-start_cycles = 5782484
-end_cycles = 5782487
 trace = [
     { type = "store_u32", address = "0x04001fa0", value = "0x0" },
 ]

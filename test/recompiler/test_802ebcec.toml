@@ -1,0 +1,20 @@
+start_address = "0xffffffff802ebcec"
+
+asm_code = """
+    andi     t4, s1, 0xff
+    slti     at, t4, 16
+    bne      at, zero, 0xffffffff802ebc48
+    or       s1, t4, zero
+"""
+
+bin_code = [
+    0x322c00ff, 0x29810010, 0x1420ffd4, 0x01808825,
+]
+
+[[test]]
+start_cycles = 262131937
+end_cycles = 262131941
+end_address = "0xffffffff802ebc48"
+trace = [
+]
+

@@ -1,0 +1,55 @@
+start_address = "0xffffffff802e8380"
+
+asm_code = """
+    addiu    t6, v0, 0xff3f
+    sltiu    at, t6, 63
+    beq      at, zero, 0xffffffff802e8368
+    sll      t6, t6, 2
+"""
+
+bin_code = [
+    0x244eff3f, 0x2dc1003f, 0x1020fff7, 0x000e7080,
+]
+
+[[test]]
+start_cycles = 120137098
+end_cycles = 120137102
+end_address = "0xffffffff802e8390"
+trace = [
+]
+
+[[test]]
+start_cycles = 121698839
+end_cycles = 121698843
+end_address = "0xffffffff802e8390"
+trace = [
+]
+
+[[test]]
+start_cycles = 123268228
+end_cycles = 123268232
+end_address = "0xffffffff802e8390"
+trace = [
+]
+
+[[test]]
+start_cycles = 124829791
+end_cycles = 124829795
+end_address = "0xffffffff802e8390"
+trace = [
+]
+
+[[test]]
+start_cycles = 127941772
+end_cycles = 127941776
+end_address = "0xffffffff802e8390"
+trace = [
+]
+
+[[test]]
+start_cycles = 129504216
+end_cycles = 129504220
+end_address = "0xffffffff802e8390"
+trace = [
+]
+

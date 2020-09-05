@@ -1,0 +1,24 @@
+start_address = "0xffffffff802e4b54"
+
+asm_code = """
+    lui      t2, 0x8023
+    lb       t2, -0x67f2(t2)
+    addiu    at, zero, 0x1
+    sra      a1, t8, 3
+    bne      t2, at, 0xffffffff802e4be8
+    addiu    v0, a0, 0xb0
+"""
+
+bin_code = [
+    0x3c0a8023, 0x814a980e, 0x24010001, 0x001828c3,
+    0x15410020, 0x248200b0,
+]
+
+[[test]]
+start_cycles = 276153235
+end_cycles = 276153241
+end_address = "0xffffffff802e4be8"
+trace = [
+    { type = "load_u8", address = "0x0022980e", value = "0x0" },
+]
+

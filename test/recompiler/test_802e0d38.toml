@@ -1,0 +1,37 @@
+start_address = "0xffffffff802e0d38"
+
+asm_code = """
+    addu     t9, t7, t3
+    sw       t9, 0x8(s7)
+    bnel     fp, t4, 0xffffffff802e0934
+    nop
+"""
+
+bin_code = [
+    0x01ebc821, 0xaef90008, 0x57ccfefc, 0x00000000,
+]
+
+[[test]]
+start_cycles = 234050611
+end_cycles = 234050614
+end_address = "0xffffffff802e0d48"
+trace = [
+    { type = "store_u32", address = "0x001d1698", value = "0x2a6f" },
+]
+
+[[test]]
+start_cycles = 249647971
+end_cycles = 249647974
+end_address = "0xffffffff802e0d48"
+trace = [
+    { type = "store_u32", address = "0x001d1698", value = "0x36a4" },
+]
+
+[[test]]
+start_cycles = 265247971
+end_cycles = 265247974
+end_address = "0xffffffff802e0d48"
+trace = [
+    { type = "store_u32", address = "0x001d1698", value = "0x42d3" },
+]
+

@@ -1,0 +1,25 @@
+start_address = "0xffffffff802e96b8"
+
+asm_code = """
+    jal      0xffffffff802e65a4
+    or       a0, s0, zero
+"""
+
+bin_code = [
+    0x0c0b9969, 0x02002025,
+]
+
+[[test]]
+start_cycles = 258991497
+end_cycles = 258991499
+end_address = "0xffffffff802e65a4"
+trace = [
+]
+
+[[test]]
+start_cycles = 274591497
+end_cycles = 274591499
+end_address = "0xffffffff802e65a4"
+trace = [
+]
+

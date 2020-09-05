@@ -1,0 +1,26 @@
+start_address = "0xffffffff802f5040"
+
+asm_code = """
+    mfc0     v0, count
+    jr       ra
+    nop
+"""
+
+bin_code = [
+    0x40024800, 0x03e00008, 0x00000000,
+]
+
+[[test]]
+start_cycles = 255850498
+end_cycles = 255850501
+end_address = "0xffffffff802ef598"
+trace = [
+]
+
+[[test]]
+start_cycles = 272062475
+end_cycles = 272062478
+end_address = "0xffffffff802ef598"
+trace = [
+]
+

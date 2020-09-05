@@ -1,0 +1,45 @@
+start_address = "0xffffffff802e3580"
+
+asm_code = """
+    lui      t7, 0x8023
+    lw       t7, -0x6a4c(t7)
+    lbu      v1, 0x0(a3)
+    lui      t4, 0x8023
+    addiu    t4, t4, 0x8fb0
+    sltu     at, v1, t7
+    bne      at, zero, 0xffffffff802e36f0
+    sll      t6, v1, 4
+"""
+
+bin_code = [
+    0x3c0f8023, 0x8def95b4, 0x90e30000, 0x3c0c8023,
+    0x258c8fb0, 0x006f082b, 0x14200055, 0x00037100,
+]
+
+[[test]]
+start_cycles = 235598756
+end_cycles = 235598764
+end_address = "0xffffffff802e36f0"
+trace = [
+    { type = "load_u32", address = "0x002295b4", value = "0x2e" },
+    { type = "load_u8", address = "0x001d15d1", value = "0x23" },
+]
+
+[[test]]
+start_cycles = 251198746
+end_cycles = 251198754
+end_address = "0xffffffff802e36f0"
+trace = [
+    { type = "load_u32", address = "0x002295b4", value = "0x2e" },
+    { type = "load_u8", address = "0x001d15d1", value = "0x25" },
+]
+
+[[test]]
+start_cycles = 266798743
+end_cycles = 266798751
+end_address = "0xffffffff802e36f0"
+trace = [
+    { type = "load_u32", address = "0x002295b4", value = "0x2e" },
+    { type = "load_u8", address = "0x001d15d1", value = "0x29" },
+]
+

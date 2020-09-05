@@ -1,0 +1,55 @@
+start_address = "0xffffffff802e65a4"
+
+asm_code = """
+    addiu    sp, sp, 0xffd0
+    sw       ra, 0x2c(sp)
+    sw       s5, 0x28(sp)
+    sw       s4, 0x24(sp)
+    sw       s3, 0x20(sp)
+    sw       s2, 0x1c(sp)
+    sw       s1, 0x18(sp)
+    sw       s0, 0x14(sp)
+    lhu      t6, 0x10(a0)
+    lui      s5, 0x8023
+    or       s3, a0, zero
+    beq      t6, zero, 0xffffffff802e6668
+    addiu    s5, s5, 0x8748
+"""
+
+bin_code = [
+    0x27bdffd0, 0xafbf002c, 0xafb50028, 0xafb40024,
+    0xafb30020, 0xafb2001c, 0xafb10018, 0xafb00014,
+    0x948e0010, 0x3c158023, 0x00809825, 0x11c00025,
+    0x26b58748,
+]
+
+[[test]]
+start_cycles = 258991499
+end_cycles = 258991512
+end_address = "0xffffffff802e6668"
+trace = [
+    { type = "store_u32", address = "0x002000e4", value = "0x802e96c0" },
+    { type = "store_u32", address = "0x002000e0", value = "0x0" },
+    { type = "store_u32", address = "0x002000dc", value = "0x1" },
+    { type = "store_u32", address = "0x002000d8", value = "0x0" },
+    { type = "store_u32", address = "0x002000d4", value = "0x80224288" },
+    { type = "store_u32", address = "0x002000d0", value = "0x1" },
+    { type = "store_u32", address = "0x002000cc", value = "0x80223ff8" },
+    { type = "load_u16", address = "0x00224008", value = "0x0" },
+]
+
+[[test]]
+start_cycles = 274591499
+end_cycles = 274591512
+end_address = "0xffffffff802e6668"
+trace = [
+    { type = "store_u32", address = "0x002000e4", value = "0x802e96c0" },
+    { type = "store_u32", address = "0x002000e0", value = "0x0" },
+    { type = "store_u32", address = "0x002000dc", value = "0x1" },
+    { type = "store_u32", address = "0x002000d8", value = "0x0" },
+    { type = "store_u32", address = "0x002000d4", value = "0x80224288" },
+    { type = "store_u32", address = "0x002000d0", value = "0x1" },
+    { type = "store_u32", address = "0x002000cc", value = "0x80223ff8" },
+    { type = "load_u16", address = "0x00224008", value = "0x0" },
+]
+

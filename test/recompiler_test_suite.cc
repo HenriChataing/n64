@@ -11,6 +11,7 @@
 
 #include <r4300/export.h>
 #include <recompiler/ir.h>
+#include <recompiler/backend.h>
 #include <recompiler/passes.h>
 #include <recompiler/target/mips.h>
 #include <debugger.h>

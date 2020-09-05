@@ -1,0 +1,32 @@
+start_address = "0xffffffff802e0b24"
+
+asm_code = """
+    bne      fp, zero, 0xffffffff802e0b9c
+    or       v1, s2, zero
+"""
+
+bin_code = [
+    0x17c0001d, 0x02401825,
+]
+
+[[test]]
+start_cycles = 234050564
+end_cycles = 234050566
+end_address = "0xffffffff802e0b2c"
+trace = [
+]
+
+[[test]]
+start_cycles = 249647924
+end_cycles = 249647926
+end_address = "0xffffffff802e0b2c"
+trace = [
+]
+
+[[test]]
+start_cycles = 265247924
+end_cycles = 265247926
+end_address = "0xffffffff802e0b2c"
+trace = [
+]
+

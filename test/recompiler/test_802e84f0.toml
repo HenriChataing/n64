@@ -1,0 +1,53 @@
+start_address = "0xffffffff802e84f0"
+
+asm_code = """
+    bgez     s3, 0xffffffff802e8368
+    nop
+"""
+
+bin_code = [
+    0x0661ff9d, 0x00000000,
+]
+
+[[test]]
+start_cycles = 148223599
+end_cycles = 148223601
+end_address = "0xffffffff802e84f8"
+trace = [
+]
+
+[[test]]
+start_cycles = 152895290
+end_cycles = 152895292
+end_address = "0xffffffff802e84f8"
+trace = [
+]
+
+[[test]]
+start_cycles = 156027941
+end_cycles = 156027943
+end_address = "0xffffffff802e84f8"
+trace = [
+]
+
+[[test]]
+start_cycles = 160707886
+end_cycles = 160707888
+end_address = "0xffffffff802e84f8"
+trace = [
+]
+
+[[test]]
+start_cycles = 165379384
+end_cycles = 165379386
+end_address = "0xffffffff802e84f8"
+trace = [
+]
+
+[[test]]
+start_cycles = 170054620
+end_cycles = 170054622
+end_address = "0xffffffff802e84f8"
+trace = [
+]
+

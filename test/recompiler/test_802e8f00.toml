@@ -1,0 +1,27 @@
+start_address = "0xffffffff802e8f00"
+
+asm_code = """
+    srl      t6, t5, 31
+    addiu    at, zero, 0x1
+    bne      t6, at, 0xffffffff802e8f44
+    addiu    a0, s1, 0xd4
+"""
+
+bin_code = [
+    0x000d77c2, 0x24010001, 0x15c1000e, 0x262400d4,
+]
+
+[[test]]
+start_cycles = 258991454
+end_cycles = 258991458
+end_address = "0xffffffff802e8f44"
+trace = [
+]
+
+[[test]]
+start_cycles = 274591454
+end_cycles = 274591458
+end_address = "0xffffffff802e8f44"
+trace = [
+]
+
