@@ -10,8 +10,15 @@ SRCDIR    := src
 OBJDIR    := obj
 EXE       := n64
 
+# Enable gcc profiling.
+PROFILE   ?= 0
+
 # Select optimisation level.
 OPTIMISE  ?= 2
+
+# Enable trace capture. Traces are saved to test/recompiler to be
+# used as recompiler test inputs.
+ENABLE_CAPTURE := 0
 
 INCLUDE   := $(SRCDIR) $(SRCDIR)/lib $(SRCDIR)/gui $(SRCDIR)/interpreter
 INCLUDE   += $(EXTDIR)/fmt/include $(EXTDIR)/imgui
@@ -28,7 +35,7 @@ LIBS      := -lpthread -lpng
 
 # Enable gprof profiling.
 # Output file gmon.out can be formatted with make gprof2dot
-ifneq ($(PROFILE),)
+ifeq ($(PROFILE),1)
 CXXFLAGS  += -pg
 LDFLAGS   += -pg
 endif
@@ -49,7 +56,6 @@ OBJS      := \
     src/interpreter/cpu.o \
     src/interpreter/cop0.o \
     src/interpreter/cop1.o \
-    src/interpreter/trace.o \
     src/assembly/disassembler.o \
     src/r4300/cpu.o \
     src/r4300/state.o \
@@ -70,6 +76,10 @@ OBJS      := \
     src/gui/graphics.o \
     src/gui/imgui_impl_glfw.o \
     src/gui/imgui_impl_opengl3.o
+
+ifeq ($(ENABLE_CAPTURE),1)
+OBJS += src/interpreter/trace.o
+endif
 
 OBJS      += \
     external/fmt/src/format.o \

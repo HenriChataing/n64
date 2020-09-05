@@ -8,6 +8,13 @@
 
 using namespace n64;
 
+namespace interpreter::cpu {
+
+__attribute__((weak)) void start_capture(void) {}
+__attribute__((weak)) void stop_capture(u64 address) {}
+
+}; /* interpreter::cpu */
+
 namespace R4300 {
 /**
  * @brief Update the count register.
