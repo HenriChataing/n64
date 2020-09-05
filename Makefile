@@ -49,6 +49,7 @@ OBJS      := \
     src/interpreter/cpu.o \
     src/interpreter/cop0.o \
     src/interpreter/cop1.o \
+    src/interpreter/trace.o \
     src/assembly/disassembler.o \
     src/r4300/cpu.o \
     src/r4300/state.o \

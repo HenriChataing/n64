@@ -2,6 +2,7 @@
 #ifndef _INTERPRETER_H_INCLUDED_
 #define _INTERPRETER_H_INCLUDED_
 
+#include <r4300/state.h>
 #include <types.h>
 
 namespace interpreter {
@@ -10,6 +11,10 @@ namespace cpu {
 /** Fetch and execute exactly one instruction at the current
  * program counter address. */
 void eval(void);
+
+/** Start and stop capturing a cpu trace. */
+void start_capture(void);
+void stop_capture(u64 address);
 
 void eval_Reserved(u32 instr);
 

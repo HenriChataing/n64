@@ -2,6 +2,7 @@
 #ifndef _ASSEMBLY_DISASSEMBLER_H_INCLUDED_
 #define _ASSEMBLY_DISASSEMBLER_H_INCLUDED_
 
+#include <string>
 #include <types.h>
 
 namespace n64::assembly {
