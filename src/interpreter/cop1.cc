@@ -123,11 +123,14 @@ void eval_BC1(u32 instr) {
         break;
     }
 
-    if (taken) {
-        state.cpu.nextAction = State::Action::Delay;
-        state.cpu.nextPc = state.reg.pc + 4 + (i64)(offset << 2);
-    } else if (likely) {
-        state.reg.pc += 4;
+    if (likely) {
+        branch_likely(taken,
+            state.reg.pc + 4 + (i64)(offset << 2),
+            state.reg.pc + 8);
+    } else {
+        branch(taken,
+            state.reg.pc + 4 + (i64)(offset << 2),
+            state.reg.pc + 8);
     }
 }
 

@@ -7,10 +7,8 @@
 namespace interpreter {
 namespace cpu {
 
-/**
- * Fetch and execute exactly one instruction at the current
- * program counter address.
- */
+/** Fetch and execute exactly one instruction at the current
+ * program counter address. */
 void eval(void);
 
 void eval_Reserved(u32 instr);
@@ -211,6 +209,20 @@ void eval_COP1_D(u32 instr);
 void eval_COP1_W(u32 instr);
 void eval_COP1_L(u32 instr);
 void eval_COP1(u32 instr);
+
+/** Helper for branch instructions: update the state to branch to \p btrue
+ * or \p bfalse depending on the tested condition \p cond. */
+static inline void branch(bool cond, u64 btrue, u64 bfalse) {
+    R4300::state.cpu.nextAction = R4300::State::Delay;
+    R4300::state.cpu.nextPc = cond ? btrue : bfalse;
+}
+
+/** Helper for branch likely instructions: update the state to branch to
+ * \p btrue or \p bfalse depending on the tested condition \p cond. */
+static inline void branch_likely(bool cond, u64 btrue, u64 bfalse) {
+    R4300::state.cpu.nextAction = cond ? R4300::State::Delay : R4300::State::Jump;
+    R4300::state.cpu.nextPc = cond ? btrue : bfalse;
+}
 
 }; /* namespace cpu */
 }; /* namespace interpreter */

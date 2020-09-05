@@ -490,82 +490,66 @@ void eval_XOR(u32 instr) {
 
 void eval_BGEZ(u32 instr) {
     IType(instr, sign_extend);
-    if ((i64)state.reg.gpr[rs] >= 0) {
-        state.cpu.nextAction = State::Action::Delay;
-        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-    }
+    branch((i64)state.reg.gpr[rs] >= 0,
+        state.reg.pc + 4 + (i64)(imm << 2),
+        state.reg.pc + 8);
 }
 
 void eval_BGEZL(u32 instr) {
     IType(instr, sign_extend);
-    if ((i64)state.reg.gpr[rs] >= 0) {
-        state.cpu.nextAction = State::Action::Delay;
-        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-    } else {
-        state.reg.pc += 4;
-    }
+    branch_likely((i64)state.reg.gpr[rs] >= 0,
+        state.reg.pc + 4 + (i64)(imm << 2),
+        state.reg.pc + 8);
 }
 
 void eval_BLTZ(u32 instr) {
     IType(instr, sign_extend);
-    if ((i64)state.reg.gpr[rs] < 0) {
-        state.cpu.nextAction = State::Action::Delay;
-        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-    }
+    branch((i64)state.reg.gpr[rs] < 0,
+        state.reg.pc + 4 + (i64)(imm << 2),
+        state.reg.pc + 8);
 }
 
 void eval_BLTZL(u32 instr) {
     IType(instr, sign_extend);
-    if ((i64)state.reg.gpr[rs] < 0) {
-        state.cpu.nextAction = State::Action::Delay;
-        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-    } else {
-        state.reg.pc += 4;
-    }
+    branch_likely((i64)state.reg.gpr[rs] < 0,
+        state.reg.pc + 4 + (i64)(imm << 2),
+        state.reg.pc + 8);
 }
 
 void eval_BGEZAL(u32 instr) {
     IType(instr, sign_extend);
     i64 r = state.reg.gpr[rs];
     state.reg.gpr[31] = state.reg.pc + 8;
-    if (r >= 0) {
-        state.cpu.nextAction = State::Action::Delay;
-        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-    }
+    branch(r >= 0,
+        state.reg.pc + 4 + (i64)(imm << 2),
+        state.reg.pc + 8);
 }
 
 void eval_BGEZALL(u32 instr) {
     IType(instr, sign_extend);
     i64 r = state.reg.gpr[rs];
     state.reg.gpr[31] = state.reg.pc + 8;
-    if (r >= 0) {
-        state.cpu.nextAction = State::Action::Delay;
-        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-    } else {
-        state.reg.pc += 4;
-    }
+    branch_likely(r >= 0,
+        state.reg.pc + 4 + (i64)(imm << 2),
+        state.reg.pc + 8);
 }
 
 void eval_BLTZAL(u32 instr) {
     IType(instr, sign_extend);
     i64 r = state.reg.gpr[rs];
     state.reg.gpr[31] = state.reg.pc + 8;
-    if (r < 0) {
-        state.cpu.nextAction = State::Action::Delay;
-        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-    }
+    branch(r < 0,
+        state.reg.pc + 4 + (i64)(imm << 2),
+        state.reg.pc + 8);
 }
 
 void eval_BLTZALL(u32 instr) {
     IType(instr, sign_extend);
     i64 r = state.reg.gpr[rs];
     state.reg.gpr[31] = state.reg.pc + 8;
-    if (r < 0) {
-        state.cpu.nextAction = State::Action::Delay;
-        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-    } else {
-        state.reg.pc += 4;
-    }
+    branch_likely(r < 0,
+        state.reg.pc + 4 + (i64)(imm << 2),
+        state.reg.pc + 8);
 }
 
 void eval_TEQI(u32 instr) {
@@ -623,74 +607,58 @@ void eval_ANDI(u32 instr) {
 
 void eval_BEQ(u32 instr) {
     IType(instr, sign_extend);
-    if (state.reg.gpr[rt] == state.reg.gpr[rs]) {
-        state.cpu.nextAction = State::Action::Delay;
-        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-    }
+    branch(state.reg.gpr[rt] == state.reg.gpr[rs],
+        state.reg.pc + 4 + (i64)(imm << 2),
+        state.reg.pc + 8);
 }
 
 void eval_BEQL(u32 instr) {
     IType(instr, sign_extend);
-    if (state.reg.gpr[rt] == state.reg.gpr[rs]) {
-        state.cpu.nextAction = State::Action::Delay;
-        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-    } else {
-        state.reg.pc += 4;
-    }
+    branch_likely(state.reg.gpr[rt] == state.reg.gpr[rs],
+        state.reg.pc + 4 + (i64)(imm << 2),
+        state.reg.pc + 8);
 }
 
 void eval_BGTZ(u32 instr) {
     IType(instr, sign_extend);
-    if ((i64)state.reg.gpr[rs] > 0) {
-        state.cpu.nextAction = State::Action::Delay;
-        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-    }
+    branch((i64)state.reg.gpr[rs] > 0,
+        state.reg.pc + 4 + (i64)(imm << 2),
+        state.reg.pc + 8);
 }
 
 void eval_BGTZL(u32 instr) {
     IType(instr, sign_extend);
-    if ((i64)state.reg.gpr[rs] > 0) {
-        state.cpu.nextAction = State::Action::Delay;
-        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-    } else {
-        state.reg.pc += 4;
-    }
+    branch_likely((i64)state.reg.gpr[rs] > 0,
+        state.reg.pc + 4 + (i64)(imm << 2),
+        state.reg.pc + 8);
 }
 
 void eval_BLEZ(u32 instr) {
     IType(instr, sign_extend);
-    if ((i64)state.reg.gpr[rs] <= 0) {
-        state.cpu.nextAction = State::Action::Delay;
-        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-    }
+    branch((i64)state.reg.gpr[rs] <= 0,
+        state.reg.pc + 4 + (i64)(imm << 2),
+        state.reg.pc + 8);
 }
 
 void eval_BLEZL(u32 instr) {
     IType(instr, sign_extend);
-    if ((i64)state.reg.gpr[rs] <= 0) {
-        state.cpu.nextAction = State::Action::Delay;
-        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-    } else {
-        state.reg.pc += 4;
-    }
+    branch_likely((i64)state.reg.gpr[rs] <= 0,
+        state.reg.pc + 4 + (i64)(imm << 2),
+        state.reg.pc + 8);
 }
 
 void eval_BNE(u32 instr) {
     IType(instr, sign_extend);
-    if (state.reg.gpr[rt] != state.reg.gpr[rs]) {
-        state.cpu.nextAction = State::Action::Delay;
-        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-    }
+    branch(state.reg.gpr[rt] != state.reg.gpr[rs],
+        state.reg.pc + 4 + (i64)(imm << 2),
+        state.reg.pc + 8);
 }
 
 void eval_BNEL(u32 instr) {
     IType(instr, sign_extend);
-    if (state.reg.gpr[rt] != state.reg.gpr[rs]) {
-        state.cpu.nextAction = State::Action::Delay;
-        state.cpu.nextPc = state.reg.pc + 4 + (i64)(imm << 2);
-    } else {
-        state.reg.pc += 4;
-    }
+    branch_likely(state.reg.gpr[rt] != state.reg.gpr[rs],
+        state.reg.pc + 4 + (i64)(imm << 2),
+        state.reg.pc + 8);
 }
 
 void eval_CACHE(u32 instr) {
