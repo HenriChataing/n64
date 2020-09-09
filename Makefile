@@ -177,4 +177,57 @@ bin/recompiler_test_suite:
 	@mkdir -p bin
 	$(Q)$(LD) -o $@ $(LDFLAGS) $^
 
+bin/recompiler_test_server: CFLAGS += \
+    -std=c11 \
+    -I$(SRCDIR)/src
+
+bin/recompiler_test_server: CXXFLAGS += \
+    -std=c++17 \
+    -I$(SRCDIR)/src \
+    -I$(EXTDIR)/tomlplusplus/include \
+    -I$(EXTDIR)/fmt/include
+
+bin/recompiler_test_server: \
+    $(OBJDIR)/src/debugger.o \
+    $(OBJDIR)/src/memory.o \
+    $(OBJDIR)/src/r4300/export.o \
+    $(OBJDIR)/src/r4300/mmu.o \
+    $(OBJDIR)/src/r4300/cpu.o \
+    $(OBJDIR)/src/r4300/state.o \
+    $(OBJDIR)/src/r4300/hw/ai.o \
+    $(OBJDIR)/src/r4300/hw/cart.o \
+    $(OBJDIR)/src/r4300/hw/dpc.o \
+    $(OBJDIR)/src/r4300/hw/mi.o \
+    $(OBJDIR)/src/r4300/hw/pi.o \
+    $(OBJDIR)/src/r4300/hw/pif.o \
+    $(OBJDIR)/src/r4300/hw/ri.o \
+    $(OBJDIR)/src/r4300/hw/sp.o \
+    $(OBJDIR)/src/r4300/hw/vi.o \
+    $(OBJDIR)/src/r4300/rsp.o \
+    $(OBJDIR)/src/r4300/rdp.o \
+    $(OBJDIR)/src/interpreter.o \
+    $(OBJDIR)/src/interpreter/cpu.o \
+    $(OBJDIR)/src/interpreter/cop0.o \
+    $(OBJDIR)/src/interpreter/cop1.o \
+    $(OBJDIR)/test/recompiler_test_server.o \
+    $(OBJDIR)/src/recompiler/ir.o \
+    $(OBJDIR)/src/recompiler/backend.o \
+    $(OBJDIR)/src/recompiler/passes/typecheck.o \
+    $(OBJDIR)/src/recompiler/passes/run.o \
+    $(OBJDIR)/src/recompiler/target/mips.o \
+    $(OBJDIR)/src/assembly/disassembler.o \
+    $(OBJDIR)/src/gui/gui.o \
+    $(OBJDIR)/src/gui/graphics.o \
+    $(OBJDIR)/src/gui/imgui_impl_glfw.o \
+    $(OBJDIR)/src/gui/imgui_impl_opengl3.o \
+    $(OBJDIR)/external/fmt/src/format.o \
+    $(OBJDIR)/external/imgui/imgui.o \
+    $(OBJDIR)/external/imgui/imgui_draw.o \
+    $(OBJDIR)/external/imgui/imgui_widgets.o
+
+bin/recompiler_test_server:
+	@echo "  LD      $@"
+	@mkdir -p bin
+	$(Q)$(LD) -o $@ $(LDFLAGS) $^ $(LIBS)
+
 .PHONY: clean all
