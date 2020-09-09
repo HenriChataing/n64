@@ -2317,7 +2317,9 @@ static void DPC_read(u64 *dwords, unsigned nr_dwords) {
             memcpy(&value, &state.dmem[offset], sizeof(value));
             value = __builtin_bswap64(value);
         } else {
-            state.bus->load_u64(start, &value);
+            u64 offset = start & UINT64_C(0xffffff);
+            memcpy(&value, &state.dram[offset], sizeof(value));
+            value = __builtin_bswap64(value);
         }
         *dwords = value;
     }
