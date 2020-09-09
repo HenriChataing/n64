@@ -9,6 +9,7 @@
 #include <fmt/format.h>
 
 #include <assembly/disassembler.h>
+#include <assembly/registers.h>
 #include <interpreter/interpreter.h>
 #include <recompiler/ir.h>
 #include <recompiler/backend.h>
@@ -132,7 +133,7 @@ bool match_cpureg(const cpureg &left, const cpureg &right) {
 void print_cpureg_diff(const cpureg &left, const cpureg &right) {
     for (unsigned nr = 0; nr < 32; nr++) {
         print_register_diff(left.gpr[nr], right.gpr[nr],
-            fmt::format("r{}", nr));
+            n64::assembly::cpu::RegisterNames[nr]);
     }
     print_register_diff(left.multLo, right.multLo, "multlo");
     print_register_diff(left.multHi, right.multHi, "multhi");
@@ -274,6 +275,24 @@ void print_ir_disassembly(ir_graph_t *graph) {
         for (instr = block->instrs; instr != NULL; instr = instr->next) {
             ir_print_instr(line, sizeof(line), instr);
             fmt::print("    {}\n", line);
+        }
+    }
+}
+
+void print_memory_log(void) {
+    fmt::print("--------------- memory log ----------------\n");
+
+    for (unsigned nr = 0; nr < trace_sync->memory_log_len; nr++) {
+        if (trace_memory_log[nr].access == Memory::Store) {
+            fmt::print("    store_u{}(0x{:x}, 0x{:x})\n",
+                trace_memory_log[nr].bytes * 8,
+                trace_memory_log[nr].address,
+                trace_memory_log[nr].value);
+        } else {
+            fmt::print("    load_u{}(0x{:x}) -> 0x{:x}\n",
+                trace_memory_log[nr].bytes * 8,
+                trace_memory_log[nr].address,
+                trace_memory_log[nr].value);
         }
     }
 }
@@ -486,6 +505,7 @@ failure:
     }
 
     print_trace_info();
+    print_memory_log();
     print_raw_disassembly();
     print_ir_disassembly(graph);
 
