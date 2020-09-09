@@ -49,22 +49,26 @@ failure:
 
 void ir_bind_register(ir_recompiler_backend_t *backend,
                       ir_register_t register_,
-                      ir_type_t type, void *ptr) {
+                      ir_type_t type,
+                      char const *name,
+                      void *ptr) {
     if (backend == NULL || register_ >= backend->nr_registers)
         return;
     backend->registers[register_] =
-        (ir_register_backend_t){ type, ptr };
+        (ir_register_backend_t){ type, name, ptr };
 }
 
 void ir_bind_register_u32(ir_recompiler_backend_t *backend,
                           ir_register_t register_,
+                          char const *name,
                           uint32_t *ptr) {
-    ir_bind_register(backend, register_, ir_make_iN(32), ptr);
+    ir_bind_register(backend, register_, ir_make_iN(32), name, ptr);
 }
 void ir_bind_register_u64(ir_recompiler_backend_t *backend,
                           ir_register_t register_,
+                          char const *name,
                           uint64_t *ptr) {
-    ir_bind_register(backend, register_, ir_make_iN(64), ptr);
+    ir_bind_register(backend, register_, ir_make_iN(64), name, ptr);
 }
 
 void ir_reset_backend(ir_recompiler_backend_t *backend) {

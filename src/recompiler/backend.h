@@ -31,7 +31,8 @@ typedef struct ir_memory_backend {
  * not implemented, and compiled as a zero value. */
 typedef struct ir_register_backend {
     ir_type_t           type;
-    void *              ptr;
+    char const         *name;
+    void               *ptr;
 } ir_register_backend_t;
 
 /** Recompiler backend.
@@ -72,12 +73,16 @@ ir_create_recompiler_backend(ir_memory_backend_t *memory,
 /** Bind a register to a physical memory location. */
 void ir_bind_register(ir_recompiler_backend_t *backend,
                       ir_register_t register_,
-                      ir_type_t type, void *ptr);
+                      ir_type_t type,
+                      char const *name,
+                      void *ptr);
 void ir_bind_register_u32(ir_recompiler_backend_t *backend,
                           ir_register_t register_,
+                          char const *name,
                           uint32_t *ptr);
 void ir_bind_register_u64(ir_recompiler_backend_t *backend,
                           ir_register_t register_,
+                          char const *name,
                           uint64_t *ptr);
 
 void        ir_reset_backend(ir_recompiler_backend_t *backend);

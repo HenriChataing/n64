@@ -2129,42 +2129,43 @@ ir_recompiler_backend_t *ir_mips_recompiler_backend(void) {
         ir_create_recompiler_backend(&memory_backend, REG_MAX,
                                      IR_BLOCK_MAX, IR_INSTR_MAX);
     for (unsigned i = 1; i < 32; i++) {
-        ir_bind_register_u64(backend, i, &R4300::state.reg.gpr[i]);
+        ir_bind_register_u64(backend, i, n64::assembly::cpu::RegisterNames[i],
+            &R4300::state.reg.gpr[i]);
     }
 
-    ir_bind_register_u64(backend, REG_PC,       &R4300::state.reg.pc);
-    ir_bind_register_u64(backend, REG_MULTHI,   &R4300::state.reg.multHi);
-    ir_bind_register_u64(backend, REG_MULTLO,   &R4300::state.reg.multLo);
-    ir_bind_register_u32(backend, REG_INDEX,    &R4300::state.cp0reg.index);
-    ir_bind_register_u32(backend, REG_RANDOM,   &R4300::state.cp0reg.random);
-    ir_bind_register_u64(backend, REG_ENTRYLO0, &R4300::state.cp0reg.entrylo0);
-    ir_bind_register_u64(backend, REG_ENTRYLO1, &R4300::state.cp0reg.entrylo1);
-    ir_bind_register_u64(backend, REG_CONTEXT,  &R4300::state.cp0reg.context);
-    ir_bind_register_u32(backend, REG_PAGEMASK, &R4300::state.cp0reg.pagemask);
-    ir_bind_register_u32(backend, REG_WIRED,    &R4300::state.cp0reg.wired);
-    ir_bind_register_u64(backend, REG_BADVADDR, &R4300::state.cp0reg.badvaddr);
-    ir_bind_register_u32(backend, REG_COUNT,    &R4300::state.cp0reg.count);
-    ir_bind_register_u64(backend, REG_ENTRYHI,  &R4300::state.cp0reg.entryhi);
-    ir_bind_register_u32(backend, REG_COMPARE,  &R4300::state.cp0reg.compare);
-    ir_bind_register_u32(backend, REG_SR,       &R4300::state.cp0reg.sr);
-    ir_bind_register_u32(backend, REG_CAUSE,    &R4300::state.cp0reg.cause);
-    ir_bind_register_u64(backend, REG_EPC,      &R4300::state.cp0reg.epc);
-    ir_bind_register_u32(backend, REG_PRID,     &R4300::state.cp0reg.prid);
-    ir_bind_register_u32(backend, REG_CONFIG,   &R4300::state.cp0reg.config);
-    ir_bind_register_u32(backend, REG_LLADDR,   &R4300::state.cp0reg.lladdr);
-    ir_bind_register_u32(backend, REG_WATCHLO,  &R4300::state.cp0reg.watchlo);
-    ir_bind_register_u32(backend, REG_WATCHHI,  &R4300::state.cp0reg.watchhi);
-    ir_bind_register_u64(backend, REG_XCONTEXT, &R4300::state.cp0reg.xcontext);
-    ir_bind_register_u32(backend, REG_PERR,     &R4300::state.cp0reg.perr);
-    ir_bind_register_u32(backend, REG_CACHEERR, &R4300::state.cp0reg.cacheerr);
-    ir_bind_register_u32(backend, REG_TAGLO,    &R4300::state.cp0reg.taglo);
-    ir_bind_register_u32(backend, REG_TAGHI,    &R4300::state.cp0reg.taghi);
-    ir_bind_register_u64(backend, REG_ERROREPC, &R4300::state.cp0reg.errorepc);
+    ir_bind_register_u64(backend, REG_PC,       "pc", &R4300::state.reg.pc);
+    ir_bind_register_u64(backend, REG_MULTHI,   "multhi", &R4300::state.reg.multHi);
+    ir_bind_register_u64(backend, REG_MULTLO,   "multlo", &R4300::state.reg.multLo);
+    ir_bind_register_u32(backend, REG_INDEX,    "index", &R4300::state.cp0reg.index);
+    ir_bind_register_u32(backend, REG_RANDOM,   "random", &R4300::state.cp0reg.random);
+    ir_bind_register_u64(backend, REG_ENTRYLO0, "entrylo0", &R4300::state.cp0reg.entrylo0);
+    ir_bind_register_u64(backend, REG_ENTRYLO1, "entrylo1", &R4300::state.cp0reg.entrylo1);
+    ir_bind_register_u64(backend, REG_CONTEXT,  "context", &R4300::state.cp0reg.context);
+    ir_bind_register_u32(backend, REG_PAGEMASK, "pagemask", &R4300::state.cp0reg.pagemask);
+    ir_bind_register_u32(backend, REG_WIRED,    "wired", &R4300::state.cp0reg.wired);
+    ir_bind_register_u64(backend, REG_BADVADDR, "badvaddr", &R4300::state.cp0reg.badvaddr);
+    ir_bind_register_u32(backend, REG_COUNT,    "count", &R4300::state.cp0reg.count);
+    ir_bind_register_u64(backend, REG_ENTRYHI,  "entryhi", &R4300::state.cp0reg.entryhi);
+    ir_bind_register_u32(backend, REG_COMPARE,  "compare", &R4300::state.cp0reg.compare);
+    ir_bind_register_u32(backend, REG_SR,       "sr", &R4300::state.cp0reg.sr);
+    ir_bind_register_u32(backend, REG_CAUSE,    "cause", &R4300::state.cp0reg.cause);
+    ir_bind_register_u64(backend, REG_EPC,      "epc", &R4300::state.cp0reg.epc);
+    ir_bind_register_u32(backend, REG_PRID,     "prid", &R4300::state.cp0reg.prid);
+    ir_bind_register_u32(backend, REG_CONFIG,   "config", &R4300::state.cp0reg.config);
+    ir_bind_register_u32(backend, REG_LLADDR,   "lladdr", &R4300::state.cp0reg.lladdr);
+    ir_bind_register_u32(backend, REG_WATCHLO,  "watchlo", &R4300::state.cp0reg.watchlo);
+    ir_bind_register_u32(backend, REG_WATCHHI,  "watchhi", &R4300::state.cp0reg.watchhi);
+    ir_bind_register_u64(backend, REG_XCONTEXT, "xcontext", &R4300::state.cp0reg.xcontext);
+    ir_bind_register_u32(backend, REG_PERR,     "perr", &R4300::state.cp0reg.perr);
+    ir_bind_register_u32(backend, REG_CACHEERR, "cacheerr", &R4300::state.cp0reg.cacheerr);
+    ir_bind_register_u32(backend, REG_TAGLO,    "taglo", &R4300::state.cp0reg.taglo);
+    ir_bind_register_u32(backend, REG_TAGHI,    "taghi", &R4300::state.cp0reg.taghi);
+    ir_bind_register_u64(backend, REG_ERROREPC, "errorepc", &R4300::state.cp0reg.errorepc);
 
-    ir_bind_register_u32(backend, REG_FCR0,     &R4300::state.cp1reg.fcr0);
-    ir_bind_register_u32(backend, REG_FCR31,    &R4300::state.cp1reg.fcr31);
+    ir_bind_register_u32(backend, REG_FCR0,     "fcr0", &R4300::state.cp1reg.fcr0);
+    ir_bind_register_u32(backend, REG_FCR31,    "fcr31", &R4300::state.cp1reg.fcr31);
 
-    ir_bind_register_u64(backend, REG_CYCLES,   &R4300::state.cycles);
+    ir_bind_register_u64(backend, REG_CYCLES,   "cycles", &R4300::state.cycles);
     return backend;
 }
 
