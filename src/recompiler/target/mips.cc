@@ -582,11 +582,11 @@ static void disas_MULT(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 
     multhi = ir_append_binop(c, IR_SRL, vd, ir_make_const_u64(32));
     multhi = ir_append_trunc_i32(c, multhi);
-    multhi = ir_append_zext_i64(c, multhi);
+    multhi = ir_append_sext_i64(c, multhi);
     ir_mips_append_write(c, REG_MULTHI, multhi);
 
     multlo = ir_append_trunc_i32(c, vd);
-    multlo = ir_append_zext_i64(c, multlo);
+    multlo = ir_append_sext_i64(c, multlo);
     ir_mips_append_write(c, REG_MULTLO, multlo);
     disas_push(address + 4, *c);
 }
@@ -601,11 +601,11 @@ static void disas_MULTU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 
     multhi = ir_append_binop(c, IR_SRL, vd, ir_make_const_u64(32));
     multhi = ir_append_trunc_i32(c, multhi);
-    multhi = ir_append_zext_i64(c, multhi);
+    multhi = ir_append_sext_i64(c, multhi);
     ir_mips_append_write(c, REG_MULTHI, multhi);
 
     multlo = ir_append_trunc_i32(c, vd);
-    multlo = ir_append_zext_i64(c, multlo);
+    multlo = ir_append_sext_i64(c, multlo);
     ir_mips_append_write(c, REG_MULTLO, multlo);
     disas_push(address + 4, *c);
 }
@@ -1005,6 +1005,12 @@ static void disas_CACHE(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     disas_push(address + 4, *c);
 }
 
+/** Specific helper to read the current count value. */
+extern "C" uint32_t eval_MFC0_Count(void) {
+    return R4300::state.cp0reg.count +
+        (R4300::state.cycles - R4300::state.cp0reg.lastCounterUpdate) / 2;
+}
+
 static void disas_MFC0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     using namespace n64::assembly::cpu;
     ir_value_t vd;
@@ -1029,7 +1035,11 @@ static void disas_MFC0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
         vd = ir_append_trunc_i32(c,
              ir_append_read_i64(c, REG_BADVADDR));
         break;
-    case Count:     vd = ir_append_read_i32(c, REG_COUNT); break;
+    case Count:
+        ir_mips_commit_cycles(c);
+        vd = ir_append_call(c, ir_make_iN(32),
+            (ir_callback_t)eval_MFC0_Count, 0);
+        break;
     case EntryHi:
         vd = ir_append_trunc_i32(c,
              ir_append_read_i64(c, REG_ENTRYHI));
@@ -1082,8 +1092,10 @@ static void disas_DMFC0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     case ErrorEPC:  vd = ir_append_read_i64(c, REG_ERROREPC); break;
     /* 32-bit registers */
     case Count:
+        ir_mips_commit_cycles(c);
         vd = ir_append_zext_i64(c,
-             ir_append_read_i32(c, REG_COUNT));
+             ir_append_call(c, ir_make_iN(32),
+                (ir_callback_t)eval_MFC0_Count, 0));
         break;
     default:
         vd = ir_make_const_u64(0);
