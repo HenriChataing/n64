@@ -1,225 +1,566 @@
 
-#include <stdbool.h>
-#include "x86_64.h"
+#include <inttypes.h>
+#include <stdio.h>
+#include <string.h>
 
-int x86_64_emitter_start(x86_64_emitter_t *emitter,
-    unsigned char *ptr, size_t capacity) {
-    emitter->ptr = ptr;
-    emitter->length = 0;
-    emitter->capacity = capacity;
+#include <recompiler/emitter/x86_64/emitter.h>
+#include <recompiler/ir.h>
+#include <recompiler/passes.h>
 
-    switch (setjmp(emitter->jmp_buf)) {
-    case 0: return 0;
-    default: return -1;
+#define IR_BLOCK_MAX 64
+#define IR_VAR_MAX 4096
+#define IR_INSTR_MAX 1024
+
+typedef struct ir_block_context {
+    unsigned char *start;
+} ir_block_context_t;
+
+typedef struct ir_var_context {
+    unsigned stack_offset;
+} ir_var_context_t;
+
+typedef struct ir_br_context {
+    ir_block_t const *block;
+    unsigned char *rel32;
+} ir_br_context_t;
+
+typedef struct ir_exit_context {
+    unsigned char *rel32;
+} ir_exit_context_t;
+
+static ir_block_context_t ir_block_context[IR_BLOCK_MAX];
+static ir_var_context_t   ir_var_context[IR_VAR_MAX];
+static ir_br_context_t    ir_br_queue[IR_INSTR_MAX];
+static unsigned           ir_br_queue_len;
+static ir_exit_context_t  ir_exit_queue[IR_INSTR_MAX];
+static unsigned           ir_exit_queue_len;
+
+static inline unsigned round_up_to_power2(unsigned v) {
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
+    return v < 8 ? 8 : v;
+}
+
+/** Load a value into the selected register. */
+static void load_value(code_buffer_t *emitter, ir_value_t value, unsigned r) {
+    unsigned width = round_up_to_power2(value.type.width);
+    if (value.kind == IR_CONST) {
+        switch (width) {
+        case 8:  emit_mov_r8_imm8(emitter, r, value.const_.int_);   break;
+        case 16: emit_mov_r16_imm16(emitter, r, value.const_.int_); break;
+        case 32: emit_mov_r32_imm32(emitter, r, value.const_.int_); break;
+        case 64: emit_mov_r64_imm64(emitter, r, value.const_.int_); break;
+        default: fail_code_buffer(emitter);
+        }
+    } else {
+        x86_64_mem_t mN = mem_indirect_disp(RSP,
+            ir_var_context[value.var].stack_offset);
+        switch (width) {
+        case 8:  emit_mov_r8_m8(emitter, r, mN);   break;
+        case 16: emit_mov_r16_m16(emitter, r, mN); break;
+        case 32: emit_mov_r32_m32(emitter, r, mN); break;
+        case 64: emit_mov_r64_m64(emitter, r, mN); break;
+        default: fail_code_buffer(emitter);
+        }
     }
 }
 
-void emit_u8(x86_64_emitter_t *emitter, uint8_t b) {
-    if (emitter->length >= emitter->capacity)
-        longjmp(emitter->jmp_buf, -1);
-    emitter->ptr[emitter->length++] = b;
+/** Load a value to the selected pseudo register. */
+static void store_value(code_buffer_t *emitter, ir_type_t type,
+                        ir_var_t var, unsigned r) {
+    // TODO
 }
 
-void emit_u16_le(x86_64_emitter_t *emitter, uint16_t w) {
-    if ((emitter->length + 1) >= emitter->capacity)
-        longjmp(emitter->jmp_buf, -1);
-    emitter->ptr[emitter->length++] = w;
-    emitter->ptr[emitter->length++] = w >> 8;
+static void assemble_exit(ir_recompiler_backend_t const *backend,
+                          code_buffer_t *emitter,
+                          ir_instr_t const *instr) {
+    // TODO
 }
 
-void emit_u32_le(x86_64_emitter_t *emitter, uint32_t d) {
-    if ((emitter->length + 3) >= emitter->capacity)
-        longjmp(emitter->jmp_buf, -1);
-    emitter->ptr[emitter->length++] = d;
-    emitter->ptr[emitter->length++] = d >> 8;
-    emitter->ptr[emitter->length++] = d >> 16;
-    emitter->ptr[emitter->length++] = d >> 24;
+static void assemble_br(ir_recompiler_backend_t const *backend,
+                        code_buffer_t *emitter,
+                        ir_instr_t const *instr) {
+    unsigned char *rel32;
+    load_value(emitter, instr->br.cond, RAX);
+    emit_cmp_al_imm8(emitter, 0);
+    rel32 = emit_je_rel32(emitter);
+    ir_br_queue[ir_br_queue_len].rel32 = rel32;
+    ir_br_queue[ir_br_queue_len].block = instr->br.target;
+    ir_br_queue_len++;
 }
 
-static inline uint8_t modrm(uint8_t mod, uint8_t reg, uint8_t rm) {
-    return ((mod & 0x3) << 6) | ((reg & 0x7) << 3) | (rm & 0x7);
+static void assemble_call(ir_recompiler_backend_t const *backend,
+                          code_buffer_t *emitter,
+                          ir_instr_t const *instr) {
+
+    // The call IR instruction only supports passing scalar parameters,
+    // the System V ABI is quite simple in this case: all types are rounded
+    // up to 64bits, the first 6 parameters are passed by register, the others
+    // on the stack.
+    // For this implementation, we are not concerned with caller saved
+    // registers, as register allocation is not present.
+
+    unsigned frame_size = 0;
+    static const unsigned register_parameters[6] = {
+        RDI, RSI, RDX, RCX, R8, R9,
+    };
+
+    for (unsigned nr = 0; nr < instr->call.nr_params && nr < 6; nr++) {
+        load_value(emitter, instr->call.params[nr], register_parameters[nr]);
+    }
+    if (instr->call.nr_params > 6) {
+        frame_size = 8 * (instr->call.nr_params - 6);
+        frame_size = (frame_size + 15) / 16;
+        frame_size = frame_size * 16;
+        emit_sub_r64_imm32(emitter, RSP, frame_size);
+    }
+    for (unsigned nr = 6; nr < instr->call.nr_params; nr++) {
+        load_value(emitter, instr->call.params[nr], RAX);
+        emit_mov_m64_r64(emitter, mem_indirect_disp(RSP, 8 * (nr - 6)), RAX);
+    }
+
+    emit_call(emitter, instr->call.func);
+
+    if (instr->call.nr_params > 6) {
+        emit_add_r64_imm32(emitter, RSP, frame_size);
+    }
+    if (instr->type.width > 0) {
+        store_value(emitter, instr->type, instr->res, RAX);
+    }
 }
 
-static inline uint8_t rex(uint8_t w, uint8_t r, uint8_t x, uint8_t b) {
-    return 0x40 | (w << 3) | (r << 2) | (x << 1) | (b << 0);
+static void assemble_not(ir_recompiler_backend_t const *backend,
+                         code_buffer_t *emitter,
+                         ir_instr_t const *instr) {
+    load_value(emitter, instr->unop.value, RAX);
+    emit_not_r64(emitter, RAX);
+    store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static inline uint8_t sib(uint8_t scale, uint8_t index, uint8_t base) {
-    return ((scale & 0x3) << 6) | ((index & 0x7) << 3) | (base & 0x7);
+static void assemble_add(ir_recompiler_backend_t const *backend,
+                         code_buffer_t *emitter,
+                         ir_instr_t const *instr) {
+    load_value(emitter, instr->binop.left, RAX);
+    load_value(emitter, instr->binop.right, RCX);
+    emit_add_rN_rN(emitter, instr->type.width, RAX, RCX);
+    store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static inline void emit_rex_reg_mem(x86_64_emitter_t *emitter,
-                            bool w, unsigned reg, x86_64_mem_t *mem) {
 
-    unsigned base = mem->mode == INDIRECT ? mem->rm : mem->base;
-    bool r = (reg >> 3) & 1;
-    bool x = (mem->index >> 3) & 1;
-    bool b = (base  >> 3) & 1;
-    uint8_t rex_val = rex(w, r, x, b);
-
-    if (rex_val != 0x40) emit_u8(emitter, rex_val);
+static void assemble_sub(ir_recompiler_backend_t const *backend,
+                         code_buffer_t *emitter,
+                         ir_instr_t const *instr) {
+    load_value(emitter, instr->binop.left, RAX);
+    load_value(emitter, instr->binop.right, RCX);
+    emit_sub_rN_rN(emitter, instr->type.width, RAX, RCX);
+    store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static inline void emit_rex_reg_rm(x86_64_emitter_t *emitter,
-                            bool w, unsigned reg, unsigned rm) {
-    bool r = (reg >> 3) & 1;
-    bool b = (rm  >> 3) & 1;
-    uint8_t rex_val = rex(w, r, 0, b);
-
-    if (rex_val != 0x40) emit_u8(emitter, rex_val);
+static void assemble_umul(ir_recompiler_backend_t const *backend,
+                          code_buffer_t *emitter,
+                          ir_instr_t const *instr) {
+    load_value(emitter, instr->binop.left, RAX);
+    load_value(emitter, instr->binop.right, RCX);
+    emit_imul_rN_rN(emitter, instr->type.width, RAX, RCX);
+    store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static inline void emit_reg_mem(x86_64_emitter_t *emitter,
-                                unsigned reg, x86_64_mem_t *mem) {
-    bool has_sib    = mem->rm == 4;
-    bool has_disp8  = mem->mode == INDIRECT_DISP8;
-    bool has_disp32 = mem->mode == INDIRECT_DISP32 ||
-                     (mem->mode == INDIRECT && mem->base == 5);
-
-    unsigned scale =
-        mem->scale == 1 ? 0 :
-        mem->scale == 2 ? 1 :
-        mem->scale == 4 ? 2 :
-        mem->scale == 8 ? 3 : 0;
-
-    emit_u8(emitter, modrm(mem->mode, reg, mem->rm));
-
-    if (has_sib)    emit_u8(emitter, sib(scale, mem->index, mem->base));
-    if (has_disp8)  emit_u8(emitter, (uint8_t)(int8_t)mem->disp);
-    if (has_disp32) emit_u32_le(emitter, (uint32_t)mem->disp);
+static void assemble_smul(ir_recompiler_backend_t const *backend,
+                          code_buffer_t *emitter,
+                          ir_instr_t const *instr) {
+    load_value(emitter, instr->binop.left, RAX);
+    load_value(emitter, instr->binop.right, RCX);
+    emit_imul_rN_rN(emitter, instr->type.width, RAX, RCX);
+    store_value(emitter, instr->type, instr->res, RAX);
 }
 
-void emit_add_al_imm8(x86_64_emitter_t *emitter, int8_t imm8) {
-    emit_u8(emitter, 0x04);
-    emit_u8(emitter, (uint8_t)imm8);
+static void assemble_udiv(ir_recompiler_backend_t const *backend,
+                          code_buffer_t *emitter,
+                          ir_instr_t const *instr) {
+    load_value(emitter, instr->binop.left, RAX);
+    load_value(emitter, instr->binop.right, RCX);
+
+    switch (instr->type.width) {
+    case 32:
+        emit_mov_r32_imm32(emitter, EDX, 0);
+        emit_div_edx_eax_r32(emitter, ECX);
+    case 64:
+        emit_mov_r64_imm64(emitter, RDX, 0);
+        emit_div_rdx_rax_r64(emitter, RCX);
+        break;
+    default:
+        fail_code_buffer(emitter);
+        break;
+    }
+
+    store_value(emitter, instr->type, instr->res, RAX);
 }
 
-void emit_add_eax_imm32(x86_64_emitter_t *emitter, int32_t imm32) {
-    emit_u8(emitter, 0x05);
-    emit_u32_le(emitter, (uint32_t)imm32);
+static void assemble_sdiv(ir_recompiler_backend_t const *backend,
+                          code_buffer_t *emitter,
+                          ir_instr_t const *instr) {
+    load_value(emitter, instr->binop.left, RAX);
+    load_value(emitter, instr->binop.right, RCX);
+
+    switch (instr->type.width) {
+    case 32:
+        emit_cdq(emitter);
+        emit_idiv_edx_eax_r32(emitter, ECX);
+    case 64:
+        emit_cqo(emitter);
+        emit_idiv_rdx_rax_r64(emitter, RCX);
+        break;
+    default:
+        fail_code_buffer(emitter);
+        break;
+    }
+
+    store_value(emitter, instr->type, instr->res, RAX);
 }
 
-void emit_add_rax_imm32(x86_64_emitter_t *emitter, int32_t imm32) {
-    emit_rex_reg_rm(emitter, 1, 0, 0);
-    emit_u8(emitter, 0x05);
-    emit_u32_le(emitter, (uint32_t)imm32);
+static void assemble_urem(ir_recompiler_backend_t const *backend,
+                          code_buffer_t *emitter,
+                          ir_instr_t const *instr) {
+    load_value(emitter, instr->binop.left, RAX);
+    load_value(emitter, instr->binop.right, RCX);
+
+    switch (instr->type.width) {
+    case 32:
+        emit_mov_r32_imm32(emitter, EDX, 0);
+        emit_div_edx_eax_r32(emitter, ECX);
+    case 64:
+        emit_mov_r64_imm64(emitter, RDX, 0);
+        emit_div_rdx_rax_r64(emitter, RCX);
+        break;
+    default:
+        fail_code_buffer(emitter);
+        break;
+    }
+
+    store_value(emitter, instr->type, instr->res, RDX);
 }
 
-void emit_add_r8_imm8(x86_64_emitter_t *emitter, unsigned r8, int8_t imm8) {
-    emit_u8(emitter, 0x80);
-    emit_u8(emitter, modrm(DIRECT, 0, r8));
-    emit_u8(emitter, (uint8_t)imm8);
+static void assemble_srem(ir_recompiler_backend_t const *backend,
+                          code_buffer_t *emitter,
+                          ir_instr_t const *instr) {
+    load_value(emitter, instr->binop.left, RAX);
+    load_value(emitter, instr->binop.right, RCX);
+
+    switch (instr->type.width) {
+    case 32:
+        emit_cdq(emitter);
+        emit_idiv_edx_eax_r32(emitter, ECX);
+    case 64:
+        emit_cqo(emitter);
+        emit_idiv_rdx_rax_r64(emitter, RCX);
+        break;
+    default:
+        fail_code_buffer(emitter);
+        break;
+    }
+
+    store_value(emitter, instr->type, instr->res, RDX);
 }
 
-void emit_add_m8_imm8(x86_64_emitter_t *emitter, x86_64_mem_t m8, int8_t imm8) {
-    emit_rex_reg_mem(emitter, 0, 0, &m8);
-    emit_u8(emitter, 0x80);
-    emit_reg_mem(emitter, 0, &m8);
-    emit_u8(emitter, (uint8_t)imm8);
+static void assemble_and(ir_recompiler_backend_t const *backend,
+                         code_buffer_t *emitter,
+                         ir_instr_t const *instr) {
+    load_value(emitter, instr->binop.left, RAX);
+    load_value(emitter, instr->binop.right, RCX);
+    emit_and_r64_r64(emitter, RAX, RCX);
+    store_value(emitter, instr->type, instr->res, RAX);
 }
 
-void emit_add_r32_imm32(x86_64_emitter_t *emitter, unsigned r32, int32_t imm32) {
-    emit_u8(emitter, 0x81);
-    emit_u8(emitter, modrm(DIRECT, 0, r32));
-    emit_u32_le(emitter, (uint32_t)imm32);
+static void assemble_or(ir_recompiler_backend_t const *backend,
+                        code_buffer_t *emitter,
+                        ir_instr_t const *instr) {
+    load_value(emitter, instr->binop.left, RAX);
+    load_value(emitter, instr->binop.right, RCX);
+    emit_or_r64_r64(emitter, RAX, RCX);
+    store_value(emitter, instr->type, instr->res, RAX);
 }
 
-void emit_add_m32_imm32(x86_64_emitter_t *emitter, x86_64_mem_t m32, int32_t imm32) {
-    emit_rex_reg_mem(emitter, 0, 0, &m32);
-    emit_u8(emitter, 0x81);
-    emit_reg_mem(emitter, 0, &m32);
-    emit_u32_le(emitter, (uint32_t)imm32);
+static void assemble_xor(ir_recompiler_backend_t const *backend,
+                         code_buffer_t *emitter,
+                         ir_instr_t const *instr) {
+    load_value(emitter, instr->binop.left, RAX);
+    load_value(emitter, instr->binop.right, RCX);
+    emit_xor_r64_r64(emitter, RAX, RCX);
+    store_value(emitter, instr->type, instr->res, RAX);
 }
 
-void emit_add_r64_imm32(x86_64_emitter_t *emitter, unsigned r64, int32_t imm32) {
-    emit_rex_reg_rm(emitter, 1, 0, r64);
-    emit_u8(emitter, 0x81);
-    emit_u8(emitter, modrm(DIRECT, 0, r64));
-    emit_u32_le(emitter, (uint32_t)imm32);
+static void assemble_sll(ir_recompiler_backend_t const *backend,
+                         code_buffer_t *emitter,
+                         ir_instr_t const *instr) {
+    load_value(emitter, instr->binop.left, RAX);
+    load_value(emitter, instr->binop.right, CL);
+    emit_shl_rN_cl(emitter, RAX, RCX);
+    store_value(emitter, instr->type, instr->res, RAX);
 }
 
-void emit_add_m64_imm32(x86_64_emitter_t *emitter, x86_64_mem_t m64, int32_t imm32) {
-    emit_rex_reg_mem(emitter, 1, 0, &m64);
-    emit_u8(emitter, 0x81);
-    emit_reg_mem(emitter, 0, &m64);
-    emit_u32_le(emitter, (uint32_t)imm32);
+static void assemble_srl(ir_recompiler_backend_t const *backend,
+                         code_buffer_t *emitter,
+                         ir_instr_t const *instr) {
+    load_value(emitter, instr->binop.left, RAX);
+    load_value(emitter, instr->binop.right, CL);
+    emit_shr_rN_cl(emitter, RAX, RCX);
+    store_value(emitter, instr->type, instr->res, RAX);
 }
 
-void emit_add_r32_imm8(x86_64_emitter_t *emitter, unsigned r32, int8_t imm8) {
-    emit_u8(emitter, 0x83);
-    emit_u8(emitter, modrm(DIRECT, 0, r32));
-    emit_u8(emitter, (uint8_t)imm8);
+static void assemble_sra(ir_recompiler_backend_t const *backend,
+                         code_buffer_t *emitter,
+                         ir_instr_t const *instr) {
+    load_value(emitter, instr->binop.left, RAX);
+    load_value(emitter, instr->binop.right, CL);
+    emit_sra_rN_cl(emitter, RAX, RCX);
+    store_value(emitter, instr->type, instr->res, RAX);
 }
 
-void emit_add_m32_imm8(x86_64_emitter_t *emitter, x86_64_mem_t m32, int8_t imm8) {
-    emit_rex_reg_mem(emitter, 0, 0, &m32);
-    emit_u8(emitter, 0x83);
-    emit_reg_mem(emitter, 0, &m32);
-    emit_u8(emitter, (uint8_t)imm8);
+static void assemble_icmp(ir_recompiler_backend_t const *backend,
+                          code_buffer_t *emitter,
+                          ir_instr_t const *instr) {
+    load_value(emitter, instr->icmp.left, RAX);
+    load_value(emitter, instr->icmp.right, RCX);
+    emit_cmp_rN_rN(emitter, instr->icmp.left.type.width, RAX, RCX);
+
+    x86_64_mem_t m8 = mem_indirect_disp(RSP,
+        ir_var_context[instr->res].stack_offset);
+
+    switch (instr->icmp.op) {
+    case IR_EQ:  emit_sete_m8(emitter, m8); break;
+    case IR_NE:  emit_setne_m8(emitter, m8); break;
+    case IR_UGT: emit_seta_m8(emitter, m8); break;
+    case IR_UGE: emit_setae_m8(emitter, m8); break;
+    case IR_ULT: emit_setb_m8(emitter, m8); break;
+    case IR_ULE: emit_setbe_m8(emitter, m8); break;
+    case IR_SGT: emit_setg_m8(emitter, m8); break;
+    case IR_SGE: emit_setge_m8(emitter, m8); break;
+    case IR_SLT: emit_setl_m8(emitter, m8); break;
+    case IR_SLE: emit_setle_m8(emitter, m8); break;
+    default:     fail_code_buffer(emitter);
+    }
 }
 
-void emit_add_r64_imm8(x86_64_emitter_t *emitter, unsigned r64, int8_t imm8) {
-    emit_rex_reg_rm(emitter, 1, 0, 0);
-    emit_u8(emitter, 0x83);
-    emit_u8(emitter, modrm(DIRECT, 0, r64));
-    emit_u8(emitter, (uint8_t)imm8);
+static void assemble_load(ir_recompiler_backend_t const *backend,
+                          code_buffer_t *emitter,
+                          ir_instr_t const *instr) {
+    ir_memory_backend_t const *memory = &backend->memory;
+
+    load_value(emitter, instr->load.address, RDI);
+    emit_mov_r64_r64(emitter, RSI, RSP);
+    emit_add_r64_imm32(emitter, RSI, ir_var_context[instr->res].stack_offset);
+
+    switch (instr->type.width) {
+    case 8:  emit_call(emitter, memory->load_u8); break;
+    case 16: emit_call(emitter, memory->load_u16); break;
+    case 32: emit_call(emitter, memory->load_u32); break;
+    case 64: emit_call(emitter, memory->load_u64); break;
+    default: fail_code_buffer(emitter); break;
+    }
 }
 
-void emit_add_m64_imm8(x86_64_emitter_t *emitter, x86_64_mem_t m64, int8_t imm8) {
-    emit_rex_reg_mem(emitter, 1, 0, &m64);
-    emit_u8(emitter, 0x83);
-    emit_reg_mem(emitter, 0, &m64);
-    emit_u8(emitter, (uint8_t)imm8);
+static void assemble_store(ir_recompiler_backend_t const *backend,
+                           code_buffer_t *emitter,
+                           ir_instr_t const *instr) {
+    ir_memory_backend_t const *memory = &backend->memory;
+
+    load_value(emitter, instr->store.address, RDI);
+    load_value(emitter, instr->store.value, RSI);
+
+    switch (instr->type.width) {
+    case 8:  emit_call(emitter, memory->store_u8); break;
+    case 16: emit_call(emitter, memory->store_u16); break;
+    case 32: emit_call(emitter, memory->store_u32); break;
+    case 64: emit_call(emitter, memory->store_u64); break;
+    default: fail_code_buffer(emitter); break;
+    }
 }
 
-void emit_add_r8_r8(x86_64_emitter_t *emitter, unsigned dr8, unsigned sr8) {
-    emit_u8(emitter, 0x00);
-    emit_u8(emitter, modrm(DIRECT, sr8, dr8));
+static void assemble_read(ir_recompiler_backend_t const *backend,
+                          code_buffer_t *emitter,
+                          ir_instr_t const *instr) {
+    ir_register_t register_ = instr->read.register_;
+    if (register_ > backend->nr_registers ||
+        backend->registers[register_].ptr == NULL) {
+        fail_code_buffer(emitter);
+        return;
+    }
+
+    void *ptr = backend->registers[register_].ptr;
+    ir_type_t type = backend->registers[register_].type;
+
+    emit_mov_r64_imm64(emitter, RAX, (intptr_t)ptr);
+    emit_mov_rN_mN(emitter, type.width, RAX, mem_indirect(RAX));
+    store_value(emitter, type, instr->res, RAX);
 }
 
-void emit_add_m8_r8(x86_64_emitter_t *emitter, x86_64_mem_t m8, unsigned r8) {
-    emit_rex_reg_mem(emitter, 0, 0, &m8);
-    emit_u8(emitter, 0x00);
-    emit_reg_mem(emitter, r8, &m8);
+static void assemble_write(ir_recompiler_backend_t const *backend,
+                           code_buffer_t *emitter,
+                           ir_instr_t const *instr) {
+
+    ir_register_t register_ = instr->write.register_;
+    if (register_ > backend->nr_registers ||
+        backend->registers[register_].ptr == NULL) {
+        fail_code_buffer(emitter);
+        return;
+    }
+
+    void *ptr = backend->registers[register_].ptr;
+    ir_type_t type = backend->registers[register_].type;
+
+    emit_mov_r64_imm64(emitter, RAX, (intptr_t)ptr);
+    load_value(emitter, instr->write.value, RCX);
+    emit_mov_mN_rN(emitter, type.width, mem_indirect(RAX), RCX);
 }
 
-void emit_add_r8_m8(x86_64_emitter_t *emitter, unsigned r8, x86_64_mem_t m8) {
-    emit_rex_reg_mem(emitter, 0, 0, &m8);
-    emit_u8(emitter, 0x02);
-    emit_reg_mem(emitter, r8, &m8);
+static void assemble_trunc(ir_recompiler_backend_t const *backend,
+                           code_buffer_t *emitter,
+                           ir_instr_t const *instr) {
+    // TODO
 }
 
-void emit_add_r32_r32(x86_64_emitter_t *emitter, unsigned dr32, unsigned sr32) {
-    emit_u8(emitter, 0x01);
-    emit_u8(emitter, modrm(DIRECT, sr32, dr32));
+static void assemble_sext(ir_recompiler_backend_t const *backend,
+                          code_buffer_t *emitter,
+                          ir_instr_t const *instr) {
+    // TODO
 }
 
-void emit_add_m32_r32(x86_64_emitter_t *emitter, x86_64_mem_t m32, unsigned r32) {
-    emit_rex_reg_mem(emitter, 0, 0, &m32);
-    emit_u8(emitter, 0x01);
-    emit_reg_mem(emitter, r32, &m32);
+static void assemble_zext(ir_recompiler_backend_t const *backend,
+                          code_buffer_t *emitter,
+                          ir_instr_t const *instr) {
+    // TODO
 }
 
-void emit_add_r32_m32(x86_64_emitter_t *emitter, unsigned r32, x86_64_mem_t m32) {
-    emit_rex_reg_mem(emitter, 0, 0, &m32);
-    emit_u8(emitter, 0x03);
-    emit_reg_mem(emitter, r32, &m32);
+static const void (*assemble_callbacks[])(ir_recompiler_backend_t const *backend,
+                                          code_buffer_t *emitter,
+                                          ir_instr_t const *instr) = {
+    [IR_EXIT]  = assemble_exit,
+    [IR_BR]    = assemble_br,
+    [IR_CALL]  = assemble_call,
+    [IR_NOT]   = assemble_not,
+    [IR_ADD]   = assemble_add,
+    [IR_SUB]   = assemble_sub,
+    [IR_UMUL]  = assemble_umul,
+    [IR_SMUL]  = assemble_smul,
+    [IR_UDIV]  = assemble_udiv,
+    [IR_SDIV]  = assemble_sdiv,
+    [IR_UREM]  = assemble_urem,
+    [IR_SREM]  = assemble_srem,
+    [IR_SLL]   = assemble_sll,
+    [IR_SRL]   = assemble_srl,
+    [IR_SRA]   = assemble_sra,
+    [IR_AND]   = assemble_and,
+    [IR_OR]    = assemble_or,
+    [IR_XOR]   = assemble_xor,
+    [IR_ICMP]  = assemble_icmp,
+    [IR_LOAD]  = assemble_load,
+    [IR_STORE] = assemble_store,
+    [IR_READ]  = assemble_read,
+    [IR_WRITE] = assemble_write,
+    [IR_TRUNC] = assemble_trunc,
+    [IR_SEXT]  = assemble_sext,
+    [IR_ZEXT]  = assemble_zext,
+};
+
+static void assemble_instr(ir_recompiler_backend_t const *backend,
+                           code_buffer_t *emitter,
+                           ir_instr_t const *instr) {
+    return assemble_callbacks[instr->kind](backend, emitter, instr);
 }
 
-void emit_add_r64_r64(x86_64_emitter_t *emitter, unsigned dr64, unsigned sr64) {
-    emit_rex_reg_rm(emitter, 1, sr64, dr64);
-    emit_u8(emitter, 0x01);
-    emit_u8(emitter, modrm(DIRECT, sr64, dr64));
+static void assemble_block(ir_recompiler_backend_t const *backend,
+                           code_buffer_t *emitter,
+                           ir_block_t const *block) {
+    ir_instr_t const *instr = block->instrs, *next;
+    for (; instr != NULL; instr = next) {
+        next = instr->next;
+        assemble_instr(backend, emitter, instr);
+    }
 }
 
-void emit_add_m64_r64(x86_64_emitter_t *emitter, x86_64_mem_t m64, unsigned r64) {
-    emit_rex_reg_mem(emitter, 1, r64, &m64);
-    emit_u8(emitter, 0x01);
-    emit_reg_mem(emitter, r64, &m64);
+/**
+ * Allocate the stack frame for storing all intermediate variables.
+ * The allocation spills all variables, and ignores lifetime.
+ * Returns the required stack frame size.
+ */
+static unsigned alloc_vars(ir_graph_t const *graph) {
+    unsigned offset = 0;
+    for (unsigned nr = 0; nr < graph->nr_blocks; nr++) {
+        ir_instr_t const *instr = graph->blocks[nr].instrs;
+        for (; instr != NULL; instr = instr->next) {
+            if (ir_is_void_instr(instr))
+                continue;
+
+            // Align the offset to the return type size.
+            unsigned width = round_up_to_power2(instr->type.width);
+            offset = (offset + width - 1) & ~(width - 1);
+
+            // Save the offset to the var metadata, update the current
+            // stack offset.
+            ir_var_context[instr->res].stack_offset = offset;
+            offset = offset + width;
+        }
+    }
+
+    return (offset + 15) & ~15u;
 }
 
-void emit_add_r64_m64(x86_64_emitter_t *emitter, unsigned r64, x86_64_mem_t m64) {
-    emit_rex_reg_mem(emitter, 1, r64, &m64);
-    emit_u8(emitter, 0x03);
-    emit_reg_mem(emitter, r64, &m64);
+void *ir_x86_64_assemble(ir_recompiler_backend_t const *backend,
+                         code_buffer_t *emitter,
+                         ir_graph_t const *graph) {
+
+    // Reset the emitter. Sets a catch point for exception generated by the
+    // emit_* helpers. An negative return signifies a generation failure.
+    if (reset_code_buffer(emitter) < 0) {
+        return NULL;
+    }
+
+    // Clear the assembler context.
+    ir_br_queue_len = 0;
+    ir_exit_queue_len = 0;
+    for (unsigned nr = 0; nr < IR_BLOCK_MAX; nr++) {
+        ir_block_context[nr].start = NULL;
+    }
+
+    // Allocate the stack frame for the assembled graph.
+    unsigned stack_size = alloc_vars(graph);
+
+    // Generate the function prelude to enter into compiled code.
+    // Because it is a dummy generator, no register is scratched.
+    emit_sub_r64_imm32(emitter, RSP, stack_size);
+
+    // Start the assembly with the first block.
+    ir_br_queue[0].rel32 = NULL;
+    ir_br_queue[0].block = &graph->blocks[0];
+    ir_br_queue_len = 1;
+
+    // Loop until all instructions are compiled.
+    while (ir_br_queue_len > 0) {
+        ir_br_context_t context = ir_br_queue[--ir_br_queue_len];
+        unsigned char *start = ir_block_context[context.block->label].start;
+        if (start == NULL) {
+            start = emitter->ptr + emitter->length;
+            ir_block_context[context.block->label].start = start;
+            assemble_block(backend, emitter, context.block);
+        }
+        patch_jmp_rel32(emitter, context.rel32, start);
+    }
+
+    // Generate the function postlude.
+    unsigned char *exit_label = emitter->ptr + emitter->length;
+    emit_add_r64_imm32(emitter, RSP, stack_size);
+    emit_ret(emitter);
+
+    // Patch all exit instructions to jump to the exit label.
+    for (unsigned nr = 0; nr < ir_exit_queue_len; nr++) {
+        patch_jmp_rel32(emitter, ir_exit_queue[nr].rel32, exit_label);
+    }
+
+    // Return the address of the graph entry.
+    return ir_block_context[0].start;
 }

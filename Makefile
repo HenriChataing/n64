@@ -216,6 +216,8 @@ bin/recompiler_test_server: \
     $(OBJDIR)/src/recompiler/passes/run.o \
     $(OBJDIR)/src/recompiler/target/mips.o \
     $(OBJDIR)/src/recompiler/emitter/x86_64.o \
+    $(OBJDIR)/src/recompiler/emitter/x86_64/emitter.o \
+    $(OBJDIR)/src/recompiler/emitter/code_buffer.o \
     $(OBJDIR)/src/assembly/disassembler.o \
     $(OBJDIR)/src/gui/gui.o \
     $(OBJDIR)/src/gui/graphics.o \
