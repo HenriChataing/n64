@@ -73,13 +73,21 @@ static void load_value(code_buffer_t *emitter, ir_value_t value, unsigned r) {
 /** Load a value to the selected pseudo register. */
 static void store_value(code_buffer_t *emitter, ir_type_t type,
                         ir_var_t var, unsigned r) {
-    // TODO
+    x86_64_mem_t mN = mem_indirect_disp(RSP,
+        ir_var_context[var].stack_offset);
+    switch (type.width) {
+    case 8:  emit_mov_m8_r8(emitter, mN, r);   break;
+    case 16: emit_mov_m16_r16(emitter, mN, r); break;
+    case 32: emit_mov_m32_r32(emitter, mN, r); break;
+    case 64: emit_mov_m64_r64(emitter, mN, r); break;
+    default: fail_code_buffer(emitter);
+    }
 }
 
 static void assemble_exit(ir_recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
-    // TODO
+    emit_ret(emitter);
 }
 
 static void assemble_br(ir_recompiler_backend_t const *backend,
@@ -421,19 +429,37 @@ static void assemble_write(ir_recompiler_backend_t const *backend,
 static void assemble_trunc(ir_recompiler_backend_t const *backend,
                            code_buffer_t *emitter,
                            ir_instr_t const *instr) {
-    // TODO
+    load_value(emitter, instr->cvt.value, RAX);
+    store_value(emitter, instr->type, instr->res, RAX);
 }
 
 static void assemble_sext(ir_recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
-    // TODO
+    load_value(emitter, instr->cvt.value, RAX);
+    store_value(emitter, instr->type, instr->res, RAX);
 }
 
 static void assemble_zext(ir_recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
-    // TODO
+    unsigned from_width = instr->cvt.value.type.width;
+    unsigned to_width   = instr->type.width;
+
+    load_value(emitter, instr->cvt.value, RAX);
+
+    if (from_width <= 16 && to_width > 16) {
+        emit_cwd(emitter);
+        emit_shl_r32_imm8(emitter, EDX, 16);
+        emit_or_r32_r32(emitter, EAX, EDX);
+    }
+    if (from_width <= 32 && to_width > 32) {
+        emit_cdq(emitter);
+        emit_shl_r64_imm8(emitter, EDX, 32);
+        emit_or_r64_r64(emitter, EAX, EDX);
+    }
+
+    store_value(emitter, instr->type, instr->res, RAX);
 }
 
 static const void (*assemble_callbacks[])(ir_recompiler_backend_t const *backend,

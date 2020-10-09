@@ -651,6 +651,11 @@ void emit_not_r64(code_buffer_t *emitter, unsigned r64) {
     emit_u8(emitter, modrm(DIRECT, 2, r64));
 }
 
+void emit_or_r32_r32(code_buffer_t *emitter, unsigned dr32, unsigned sr32) {
+    emit_u8(emitter, 0x09);
+    emit_u8(emitter, modrm(DIRECT, sr32, dr32));
+}
+
 void emit_or_r64_r64(code_buffer_t *emitter, unsigned dr64, unsigned sr64) {
     emit_rex_reg_rm(emitter, 1, sr64, dr64);
     emit_u8(emitter, 0x09);
@@ -730,6 +735,19 @@ void emit_setle_m8(code_buffer_t *emitter, x86_64_mem_t m8) {
     emit_u8(emitter, 0x0f);
     emit_u8(emitter, 0x9e);
     emit_reg_mem(emitter, 0, &m8);
+}
+
+void emit_shl_r32_imm8(code_buffer_t *emitter, unsigned r32, uint8_t imm8) {
+    emit_u8(emitter, 0xc1);
+    emit_u8(emitter, modrm(DIRECT, 4, r32));
+    emit_u8(emitter, imm8);
+}
+
+void emit_shl_r64_imm8(code_buffer_t *emitter, unsigned r64, uint8_t imm8) {
+    emit_rex_reg_rm(emitter, 1, 0, r64);
+    emit_u8(emitter, 0xc1);
+    emit_u8(emitter, modrm(DIRECT, 4, r64));
+    emit_u8(emitter, imm8);
 }
 
 void emit_shl_r8_cl(code_buffer_t *emitter, unsigned r8) {

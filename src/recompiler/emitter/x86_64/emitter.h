@@ -203,6 +203,7 @@ void emit_not_r16(code_buffer_t *emitter, unsigned r16);
 void emit_not_r32(code_buffer_t *emitter, unsigned r32);
 void emit_not_r64(code_buffer_t *emitter, unsigned r64);
 
+void emit_or_r32_r32(code_buffer_t *emitter, unsigned dr32, unsigned sr32);
 void emit_or_r64_r64(code_buffer_t *emitter, unsigned dr64, unsigned sr64);
 
 void emit_ret(code_buffer_t *emitter);
@@ -218,6 +219,8 @@ void emit_setge_m8(code_buffer_t *emitter, x86_64_mem_t m8);
 void emit_setl_m8(code_buffer_t *emitter, x86_64_mem_t m8);
 void emit_setle_m8(code_buffer_t *emitter, x86_64_mem_t m8);
 
+void emit_shl_r32_imm8(code_buffer_t *emitter, unsigned r32, uint8_t imm8);
+void emit_shl_r64_imm8(code_buffer_t *emitter, unsigned r64, uint8_t imm8);
 void emit_shl_r8_cl(code_buffer_t *emitter, unsigned r8);
 void emit_shl_m8_cl(code_buffer_t *emitter, x86_64_mem_t m8);
 void emit_shl_r16_cl(code_buffer_t *emitter, unsigned r16);
