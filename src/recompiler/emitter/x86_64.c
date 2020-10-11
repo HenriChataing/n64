@@ -58,7 +58,7 @@ static void load_value(code_buffer_t *emitter, ir_value_t value, unsigned r) {
         default: fail_code_buffer(emitter);
         }
     } else {
-        x86_64_mem_t mN = mem_indirect_disp(RSP,
+        x86_64_mem_t mN = mem_indirect_disp(RBP,
             ir_var_context[value.var].stack_offset);
         switch (width) {
         case 8:  emit_mov_r8_m8(emitter, r, mN);   break;
@@ -73,7 +73,7 @@ static void load_value(code_buffer_t *emitter, ir_value_t value, unsigned r) {
 /** Load a value to the selected pseudo register. */
 static void store_value(code_buffer_t *emitter, ir_type_t type,
                         ir_var_t var, unsigned r) {
-    x86_64_mem_t mN = mem_indirect_disp(RSP,
+    x86_64_mem_t mN = mem_indirect_disp(RBP,
         ir_var_context[var].stack_offset);
     switch (type.width) {
     case 8:  emit_mov_m8_r8(emitter, mN, r);   break;
@@ -87,7 +87,9 @@ static void store_value(code_buffer_t *emitter, ir_type_t type,
 static void assemble_exit(ir_recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
-    emit_ret(emitter);
+
+    ir_exit_queue[ir_exit_queue_len].rel32 = emit_jmp_rel32(emitter);
+    ir_exit_queue_len++;
 }
 
 static void assemble_br(ir_recompiler_backend_t const *backend,
@@ -125,17 +127,22 @@ static void assemble_call(ir_recompiler_backend_t const *backend,
         frame_size = 8 * (instr->call.nr_params - 6);
         frame_size = (frame_size + 15) / 16;
         frame_size = frame_size * 16;
+        emit_push_r64(emitter, R12);
+        emit_push_r64(emitter, R13); // To preserve stack alignment.
         emit_sub_r64_imm32(emitter, RSP, frame_size);
+        emit_mov_r64_r64(emitter, R12, RSP);
     }
     for (unsigned nr = 6; nr < instr->call.nr_params; nr++) {
         load_value(emitter, instr->call.params[nr], RAX);
-        emit_mov_m64_r64(emitter, mem_indirect_disp(RSP, 8 * (nr - 6)), RAX);
+        emit_mov_m64_r64(emitter, mem_indirect_disp(R12, 8 * (nr - 6)), RAX);
     }
 
     emit_call(emitter, instr->call.func);
 
     if (instr->call.nr_params > 6) {
         emit_add_r64_imm32(emitter, RSP, frame_size);
+        emit_pop_r64(emitter, R13);
+        emit_pop_r64(emitter, R12);
     }
     if (instr->type.width > 0) {
         store_value(emitter, instr->type, instr->res, RAX);
@@ -192,14 +199,11 @@ static void assemble_udiv(ir_recompiler_backend_t const *backend,
                           ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
     load_value(emitter, instr->binop.right, RCX);
+    emit_xor_r64_r64(emitter, RDX, RDX);
 
     switch (instr->type.width) {
-    case 32:
-        emit_mov_r32_imm32(emitter, EDX, 0);
-        emit_div_edx_eax_r32(emitter, ECX);
-    case 64:
-        emit_mov_r64_imm64(emitter, RDX, 0);
-        emit_div_rdx_rax_r64(emitter, RCX);
+    case 32: emit_div_edx_eax_r32(emitter, ECX);
+    case 64: emit_div_rdx_rax_r64(emitter, RCX);
         break;
     default:
         fail_code_buffer(emitter);
@@ -236,14 +240,11 @@ static void assemble_urem(ir_recompiler_backend_t const *backend,
                           ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
     load_value(emitter, instr->binop.right, RCX);
+    emit_xor_r64_r64(emitter, RDX, RDX);
 
     switch (instr->type.width) {
-    case 32:
-        emit_mov_r32_imm32(emitter, EDX, 0);
-        emit_div_edx_eax_r32(emitter, ECX);
-    case 64:
-        emit_mov_r64_imm64(emitter, RDX, 0);
-        emit_div_rdx_rax_r64(emitter, RCX);
+    case 32: emit_div_edx_eax_r32(emitter, ECX);
+    case 64: emit_div_rdx_rax_r64(emitter, RCX);
         break;
     default:
         fail_code_buffer(emitter);
@@ -307,7 +308,7 @@ static void assemble_sll(ir_recompiler_backend_t const *backend,
                          ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
     load_value(emitter, instr->binop.right, CL);
-    emit_shl_rN_cl(emitter, RAX, RCX);
+    emit_shl_rN_cl(emitter, instr->binop.left.type.width, RAX);
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
@@ -316,7 +317,7 @@ static void assemble_srl(ir_recompiler_backend_t const *backend,
                          ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
     load_value(emitter, instr->binop.right, CL);
-    emit_shr_rN_cl(emitter, RAX, RCX);
+    emit_shr_rN_cl(emitter, instr->binop.left.type.width, RAX);
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
@@ -325,7 +326,7 @@ static void assemble_sra(ir_recompiler_backend_t const *backend,
                          ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
     load_value(emitter, instr->binop.right, CL);
-    emit_sra_rN_cl(emitter, RAX, RCX);
+    emit_sra_rN_cl(emitter, instr->binop.left.type.width, RAX);
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
@@ -336,7 +337,7 @@ static void assemble_icmp(ir_recompiler_backend_t const *backend,
     load_value(emitter, instr->icmp.right, RCX);
     emit_cmp_rN_rN(emitter, instr->icmp.left.type.width, RAX, RCX);
 
-    x86_64_mem_t m8 = mem_indirect_disp(RSP,
+    x86_64_mem_t m8 = mem_indirect_disp(RBP,
         ir_var_context[instr->res].stack_offset);
 
     switch (instr->icmp.op) {
@@ -436,29 +437,29 @@ static void assemble_trunc(ir_recompiler_backend_t const *backend,
 static void assemble_sext(ir_recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
+    unsigned from_width = instr->cvt.value.type.width;
+    unsigned to_width   = instr->type.width;
+
     load_value(emitter, instr->cvt.value, RAX);
+
+    if (from_width <=  8 && to_width >  8) {
+        emit_cbw(emitter);
+    }
+    if (from_width <= 16 && to_width > 16) {
+        emit_cwde(emitter);
+    }
+    if (from_width <= 32 && to_width > 32) {
+        emit_cdqe(emitter);
+    }
+
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
 static void assemble_zext(ir_recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
-    unsigned from_width = instr->cvt.value.type.width;
-    unsigned to_width   = instr->type.width;
-
+    emit_xor_r64_r64(emitter, RAX, RAX);
     load_value(emitter, instr->cvt.value, RAX);
-
-    if (from_width <= 16 && to_width > 16) {
-        emit_cwd(emitter);
-        emit_shl_r32_imm8(emitter, EDX, 16);
-        emit_or_r32_r32(emitter, EAX, EDX);
-    }
-    if (from_width <= 32 && to_width > 32) {
-        emit_cdq(emitter);
-        emit_shl_r64_imm8(emitter, EDX, 32);
-        emit_or_r64_r64(emitter, EAX, EDX);
-    }
-
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
@@ -502,9 +503,8 @@ static void assemble_instr(ir_recompiler_backend_t const *backend,
 static void assemble_block(ir_recompiler_backend_t const *backend,
                            code_buffer_t *emitter,
                            ir_block_t const *block) {
-    ir_instr_t const *instr = block->instrs, *next;
-    for (; instr != NULL; instr = next) {
-        next = instr->next;
+    ir_instr_t const *instr = block->instrs;
+    for (; instr != NULL; instr = instr->next) {
         assemble_instr(backend, emitter, instr);
     }
 }
@@ -558,7 +558,10 @@ void *ir_x86_64_assemble(ir_recompiler_backend_t const *backend,
 
     // Generate the function prelude to enter into compiled code.
     // Because it is a dummy generator, no register is scratched.
+    void *entry = emitter->ptr + emitter->length;
+    emit_push_r64(emitter, RBP);
     emit_sub_r64_imm32(emitter, RSP, stack_size);
+    emit_mov_r64_r64(emitter, RBP, RSP);
 
     // Start the assembly with the first block.
     ir_br_queue[0].rel32 = NULL;
@@ -580,6 +583,7 @@ void *ir_x86_64_assemble(ir_recompiler_backend_t const *backend,
     // Generate the function postlude.
     unsigned char *exit_label = emitter->ptr + emitter->length;
     emit_add_r64_imm32(emitter, RSP, stack_size);
+    emit_pop_r64(emitter, RBP);
     emit_ret(emitter);
 
     // Patch all exit instructions to jump to the exit label.
@@ -588,5 +592,5 @@ void *ir_x86_64_assemble(ir_recompiler_backend_t const *backend,
     }
 
     // Return the address of the graph entry.
-    return ir_block_context[0].start;
+    return entry;
 }
