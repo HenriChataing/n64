@@ -28,6 +28,9 @@ using namespace Memory;
  */
 class ReplayBus: public Memory::Bus
 {
+private:
+    bool _bad;
+
 public:
     ReplayBus(unsigned bits) : Bus(bits) {}
     virtual ~ReplayBus() {}
@@ -38,8 +41,13 @@ public:
     void reset(std::vector<BusLog> &log) {
         this->log.clear();
         this->index = 0;
+        this->_bad = false;
         std::copy(log.begin(), log.end(),
             std::back_inserter(this->log));
+    }
+
+    bool bad() {
+        return _bad;
     }
 
     virtual bool load(unsigned bytes, u64 addr, u64 *val) {
@@ -51,20 +59,21 @@ public:
         if (log[index].access != Memory::Load ||
             log[index].bytes != bytes ||
             log[index].address != addr) {
+            _bad = true;
             fmt::print(fmt::emphasis::italic,
                 "unexpected memory access:\n");
             fmt::print(fmt::emphasis::italic,
-                "    played:  load_u{}(0x{:x})\n",
+                "    played:   load_u{}(0x{:x})\n",
                 bytes * 8, addr);
             if (log[index].access == Memory::Store) {
                 fmt::print(fmt::emphasis::italic,
-                    "    exected: store_u{}(0x{:x}, 0x{:x})\n",
+                    "    expected: store_u{}(0x{:x}, 0x{:x})\n",
                     log[index].bytes * 8,
                     log[index].address,
                     log[index].value);
             } else {
                 fmt::print(fmt::emphasis::italic,
-                    "    exected: load_u{}(0x{:x})\n",
+                    "    expected: load_u{}(0x{:x})\n",
                     log[index].bytes * 8,
                     log[index].address);
             }
@@ -83,20 +92,21 @@ public:
             log[index].bytes != bytes ||
             log[index].address != addr ||
             log[index].value != val) {
+            _bad = true;
             fmt::print(fmt::emphasis::italic,
                 "unexpected memory access:\n");
             fmt::print(fmt::emphasis::italic,
-                "    played:  store_u{}(0x{:x}, 0x{:x})\n",
+                "    played:   store_u{}(0x{:x}, 0x{:x})\n",
                 bytes * 8, addr, val);
             if (log[index].access == Memory::Store) {
                 fmt::print(fmt::emphasis::italic,
-                    "    exected: store_u{}(0x{:x}, 0x{:x})\n",
+                    "    expected: store_u{}(0x{:x}, 0x{:x})\n",
                     log[index].bytes * 8,
                     log[index].address,
                     log[index].value);
             } else {
                 fmt::print(fmt::emphasis::italic,
-                    "    exected: load_u{}(0x{:x})\n",
+                    "    expected: load_u{}(0x{:x})\n",
                     log[index].bytes * 8,
                     log[index].address);
             }
@@ -687,6 +697,7 @@ int run_test_suite(ir_recompiler_backend_t *backend,
         bool run_success;
 
         if (!(run_success = print_assembly_run(header, backend, entry)) ||
+            bus->bad() ||
             !match_cpureg(reg,    R4300::state.reg) ||
             !match_cp0reg(cp0reg, R4300::state.cp0reg) ||
             !match_cp1reg(cp1reg, R4300::state.cp1reg) ||
