@@ -732,6 +732,7 @@ int run_test_suite(ir_recompiler_backend_t *backend,
         print_input_info(header);
         print_raw_disassembly(header);
         print_ir_disassembly(header);
+        print_ir_assembly(header, emitter);
     }
 
     input.close();
