@@ -169,6 +169,9 @@ bin/recompiler_test_suite: \
     $(OBJDIR)/src/recompiler/passes/typecheck.o \
     $(OBJDIR)/src/recompiler/passes/run.o \
     $(OBJDIR)/src/recompiler/target/mips.o \
+    $(OBJDIR)/src/recompiler/emitter/x86_64.o \
+    $(OBJDIR)/src/recompiler/emitter/x86_64/emitter.o \
+    $(OBJDIR)/src/recompiler/emitter/code_buffer.o \
     $(OBJDIR)/src/assembly/disassembler.o \
     $(OBJDIR)/external/fmt/src/format.o
 

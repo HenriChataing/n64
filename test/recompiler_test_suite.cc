@@ -13,6 +13,8 @@
 #include <recompiler/ir.h>
 #include <recompiler/backend.h>
 #include <recompiler/passes.h>
+#include <recompiler/emitter/code_buffer.h>
+#include <recompiler/emitter/x86_64.h>
 #include <recompiler/target/mips.h>
 #include <debugger.h>
 
@@ -313,6 +315,11 @@ void print_ir_disassembly(struct test_header &test) {
     }
 }
 
+void print_ir_assembly(struct test_header &test, const code_buffer_t *emitter) {
+    fmt::print("--------------- ir assembly ---------------\n");
+    dump_code_buffer(stdout, emitter);
+}
+
 bool print_typecheck(struct test_header &test, bool log_success) {
 
     ir_instr_t const *instr;
@@ -354,6 +361,16 @@ bool print_run(struct test_header &test,
     }
 
     return success;
+}
+
+bool print_assembly_run(struct test_header &test,
+                        ir_recompiler_backend_t const *backend,
+                        void *entry) {
+
+    typedef void (*entry_func_t)(void);
+    void (*entry_func)(void) = (entry_func_t)entry;
+    entry_func();
+    return true;
 }
 
 void print_run_vars(void) {
@@ -517,6 +534,7 @@ static int parse_test_case(toml::node const *test_node,
 }
 
 int run_test_suite(ir_recompiler_backend_t *backend,
+                   code_buffer_t *emitter,
                    std::string const &test_suite_name,
                    struct test_statistics *stats,
                    bool verbose) {
@@ -584,6 +602,7 @@ int run_test_suite(ir_recompiler_backend_t *backend,
     header.graph = ir_mips_disassemble(backend, header.start_address,
                                        header.bin_code, header.bin_code_len);
 
+
     if (!print_typecheck(header, false)) {
         print_input_info(header);
         print_raw_disassembly(header);
@@ -591,10 +610,20 @@ int run_test_suite(ir_recompiler_backend_t *backend,
         stats->total_failed += nr_tests;
         return -1;
     }
+
+    clear_code_buffer(emitter);
+    void *entry = ir_x86_64_assemble(backend, emitter, header.graph);
+    if (entry == NULL) {
+        printf("trololo\n");
+        debugger::error(Debugger::CPU, "failed to generate x86_64 binary code");
+        return -1;
+    }
+
     if (verbose) {
         print_input_info(header);
         print_raw_disassembly(header);
         print_ir_disassembly(header);
+        print_ir_assembly(header, emitter);
     }
 
     /* Load input parameters and output values from the files *.rsp
@@ -657,7 +686,7 @@ int run_test_suite(ir_recompiler_backend_t *backend,
         bus->reset(test.trace);
         bool run_success;
 
-        if (!(run_success = print_run(header, backend)) ||
+        if (!(run_success = print_assembly_run(header, backend, entry)) ||
             !match_cpureg(reg,    R4300::state.reg) ||
             !match_cp0reg(cp0reg, R4300::state.cp0reg) ||
             !match_cp1reg(cp1reg, R4300::state.cp1reg) ||
@@ -745,6 +774,7 @@ int main(int argc, char **argv) {
     struct test_statistics test_stats = {};
     bool stop_at_first_fail = false;
     ir_recompiler_backend_t *backend = ir_mips_recompiler_backend();
+    code_buffer_t *emitter = alloc_code_buffer(8192);
 
     if (mode == SELECTED) {
         for (; selected < test_suites.size(); selected++) {
@@ -764,12 +794,12 @@ int main(int argc, char **argv) {
 
     if (mode == ALL) {
         for (unsigned nr = 0; nr < test_suites.size(); nr++) {
-            run_test_suite(backend, test_suites[nr], &test_stats, false);
+            run_test_suite(backend, emitter, test_suites[nr], &test_stats, false);
             if (stop_at_first_fail && test_stats.total_failed)
                 break;
         }
     } else {
-        run_test_suite(backend, test_suites[selected], &test_stats, true);
+        run_test_suite(backend, emitter, test_suites[selected], &test_stats, true);
     }
 
     unsigned total_tests =
