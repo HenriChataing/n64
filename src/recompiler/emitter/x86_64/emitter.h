@@ -150,8 +150,11 @@ void emit_cmp_m64_r64(code_buffer_t *emitter, x86_64_mem_t m64, unsigned r64);
 void emit_cmp_r64_m64(code_buffer_t *emitter, unsigned r64, x86_64_mem_t m64);
 void emit_cmp_rN_rN(code_buffer_t *emitter, unsigned width, unsigned drN, unsigned srN);
 
+void emit_cbw(code_buffer_t *emitter);
 void emit_cwd(code_buffer_t *emitter);
+void emit_cwde(code_buffer_t *emitter);
 void emit_cdq(code_buffer_t *emitter);
+void emit_cdqe(code_buffer_t *emitter);
 void emit_cqo(code_buffer_t *emitter);
 
 void emit_div_ax_r8(code_buffer_t *emitter, unsigned r8);
@@ -180,6 +183,7 @@ void emit_imul_r64_r64(code_buffer_t *emitter, unsigned dr64, unsigned sr64);
 void emit_imul_r64_m64(code_buffer_t *emitter, unsigned r64, x86_64_mem_t m64);
 void emit_imul_rN_rN(code_buffer_t *emitter, unsigned width, unsigned drN, unsigned srN);
 
+unsigned char *emit_jmp_rel32(code_buffer_t *emitter);
 unsigned char *emit_je_rel32(code_buffer_t *emitter);
 
 void emit_mov_r8_imm8(code_buffer_t *emitter, unsigned r8, int8_t imm8);
@@ -205,6 +209,10 @@ void emit_not_r64(code_buffer_t *emitter, unsigned r64);
 
 void emit_or_r32_r32(code_buffer_t *emitter, unsigned dr32, unsigned sr32);
 void emit_or_r64_r64(code_buffer_t *emitter, unsigned dr64, unsigned sr64);
+
+void emit_pop_r64(code_buffer_t *emitter, unsigned r64);
+
+void emit_push_r64(code_buffer_t *emitter, unsigned r64);
 
 void emit_ret(code_buffer_t *emitter);
 

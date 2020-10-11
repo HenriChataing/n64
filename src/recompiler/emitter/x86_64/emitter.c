@@ -256,7 +256,7 @@ void emit_call(code_buffer_t *emitter, void *ptr) {
     // the relative offset size need to be deducted.
     emit_u8(emitter, 0xe8);
     ptrdiff_t rel = (unsigned char *)ptr -
-        (emitter->ptr + emitter->length) + sizeof(uint32_t);
+        (emitter->ptr + emitter->length) - 4;
     if (rel < INT32_MIN || rel > INT32_MAX) {
         fail_code_buffer(emitter);
     }
@@ -360,13 +360,27 @@ void emit_cmp_rN_rN(code_buffer_t *emitter, unsigned width,
     }
 }
 
+void emit_cbw(code_buffer_t *emitter) {
+    emit_u8(emitter, 0x66);
+    emit_u8(emitter, 0x98);
+}
+
 void emit_cwd(code_buffer_t *emitter) {
+    emit_u8(emitter, 0x66);
     emit_u8(emitter, 0x99);
 }
 
+void emit_cwde(code_buffer_t *emitter) {
+    emit_u8(emitter, 0x98);
+}
+
 void emit_cdq(code_buffer_t *emitter) {
-    emit_u8(emitter, 0x66);
     emit_u8(emitter, 0x99);
+}
+
+void emit_cdqe(code_buffer_t *emitter) {
+    emit_rex_reg_rm(emitter, 1, 0, 0);
+    emit_u8(emitter, 0x98);
 }
 
 void emit_cqo(code_buffer_t *emitter) {
@@ -520,6 +534,14 @@ void emit_imul_rN_rN(code_buffer_t *emitter, unsigned width,
     }
 }
 
+unsigned char *emit_jmp_rel32(code_buffer_t *emitter) {
+    unsigned char *rel32;
+    emit_u8(emitter, 0xe9);
+    rel32 = emitter->ptr + emitter->length;
+    emit_u32_le(emitter, 0);
+    return rel32;
+}
+
 unsigned char *emit_je_rel32(code_buffer_t *emitter) {
     unsigned char *rel32;
     emit_u8(emitter, 0x0f);
@@ -547,7 +569,7 @@ void emit_mov_r32_imm32(code_buffer_t *emitter, unsigned r32, int32_t imm32) {
 
 void emit_mov_r64_imm64(code_buffer_t *emitter, unsigned r64, int64_t imm64) {
     emit_rex_reg_rm(emitter, 1, 0, r64);
-    emit_u8(emitter, 0xb8 | r64);
+    emit_u8(emitter, 0xb8 | (r64 & 0x7));
     emit_u64_le(emitter, (uint64_t)imm64);
 }
 
@@ -660,6 +682,16 @@ void emit_or_r64_r64(code_buffer_t *emitter, unsigned dr64, unsigned sr64) {
     emit_rex_reg_rm(emitter, 1, sr64, dr64);
     emit_u8(emitter, 0x09);
     emit_u8(emitter, modrm(DIRECT, sr64, dr64));
+}
+
+void emit_pop_r64(code_buffer_t *emitter, unsigned r64) {
+    emit_rex_reg_rm(emitter, 0, 0, r64);
+    emit_u8(emitter, 0x58 | (r64 & 0x7));
+}
+
+void emit_push_r64(code_buffer_t *emitter, unsigned r64) {
+    emit_rex_reg_rm(emitter, 0, 0, r64);
+    emit_u8(emitter, 0x50 | (r64 & 0x7));
 }
 
 void emit_ret(code_buffer_t *emitter) {
