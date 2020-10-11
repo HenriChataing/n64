@@ -379,7 +379,12 @@ static void assemble_store(ir_recompiler_backend_t const *backend,
     ir_memory_backend_t const *memory = &backend->memory;
 
     load_value(emitter, instr->store.address, RDI);
-    load_value(emitter, instr->store.value, RSI);
+    if (instr->store.value.type.width == 8) {
+        load_value(emitter, instr->store.value, AL);
+        emit_mov_r64_r64(emitter, RSI, RAX);
+    } else {
+        load_value(emitter, instr->store.value, RSI);
+    }
 
     switch (instr->type.width) {
     case 8:  emit_call(emitter, memory->store_u8); break;

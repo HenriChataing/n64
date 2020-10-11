@@ -486,7 +486,7 @@ void emit_imul_r16_r16(code_buffer_t *emitter, unsigned dr16, unsigned sr16) {
     emit_u8(emitter, 0x66);
     emit_u8(emitter, 0x0f);
     emit_u8(emitter, 0xaf);
-    emit_u8(emitter, modrm(DIRECT, sr16, dr16));
+    emit_u8(emitter, modrm(DIRECT, dr16, sr16));
 }
 
 void emit_imul_r16_m16(code_buffer_t *emitter, unsigned r16, x86_64_mem_t m16) {
@@ -500,7 +500,7 @@ void emit_imul_r16_m16(code_buffer_t *emitter, unsigned r16, x86_64_mem_t m16) {
 void emit_imul_r32_r32(code_buffer_t *emitter, unsigned dr32, unsigned sr32) {
     emit_u8(emitter, 0x0f);
     emit_u8(emitter, 0xaf);
-    emit_u8(emitter, modrm(DIRECT, sr32, dr32));
+    emit_u8(emitter, modrm(DIRECT, dr32, sr32));
 }
 
 void emit_imul_r32_m32(code_buffer_t *emitter, unsigned r32, x86_64_mem_t m32) {
@@ -511,10 +511,10 @@ void emit_imul_r32_m32(code_buffer_t *emitter, unsigned r32, x86_64_mem_t m32) {
 }
 
 void emit_imul_r64_r64(code_buffer_t *emitter, unsigned dr64, unsigned sr64) {
-    emit_rex_reg_rm(emitter, 1, sr64, dr64);
+    emit_rex_reg_rm(emitter, 1, dr64, sr64);
     emit_u8(emitter, 0x0f);
     emit_u8(emitter, 0xaf);
-    emit_u8(emitter, modrm(DIRECT, sr64, dr64));
+    emit_u8(emitter, modrm(DIRECT, dr64, sr64));
 }
 
 void emit_imul_r64_m64(code_buffer_t *emitter, unsigned r64, x86_64_mem_t m64) {
@@ -818,6 +818,7 @@ void emit_shl_m32_cl(code_buffer_t *emitter, x86_64_mem_t m32) {
 }
 
 void emit_shl_r64_cl(code_buffer_t *emitter, unsigned r64) {
+    emit_rex_reg_rm(emitter, 1, 4, r64);
     emit_u8(emitter, 0xd3);
     emit_u8(emitter, modrm(DIRECT, 4, r64));
 }
@@ -874,6 +875,7 @@ void emit_shr_m32_cl(code_buffer_t *emitter, x86_64_mem_t m32) {
 }
 
 void emit_shr_r64_cl(code_buffer_t *emitter, unsigned r64) {
+    emit_rex_reg_rm(emitter, 1, 5, r64);
     emit_u8(emitter, 0xd3);
     emit_u8(emitter, modrm(DIRECT, 5, r64));
 }
@@ -930,6 +932,7 @@ void emit_sra_m32_cl(code_buffer_t *emitter, x86_64_mem_t m32) {
 }
 
 void emit_sra_r64_cl(code_buffer_t *emitter, unsigned r64) {
+    emit_rex_reg_rm(emitter, 1, 7, r64);
     emit_u8(emitter, 0xd3);
     emit_u8(emitter, modrm(DIRECT, 7, r64));
 }
