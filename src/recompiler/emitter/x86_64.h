@@ -8,6 +8,10 @@
 
 #include <recompiler/emitter/code_buffer.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 /**
  * @brief Compile an IR program to x86_64 binary.
  *
@@ -17,5 +21,9 @@
 void *ir_x86_64_assemble(ir_recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_graph_t const *graph);
+
+#ifdef __cplusplus
+}; /* extern "C" */
+#endif /* __cplusplus */
 
 #endif /* _RECOMPILER_EMITTER_X86_64_H_INCLUDED_ */

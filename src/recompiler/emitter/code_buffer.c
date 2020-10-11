@@ -41,21 +41,11 @@ code_buffer_t *alloc_code_buffer(size_t capacity) {
     return buffer;
 }
 
-/**
- * Initialize the code emitter context. The function is used as exception
- * catch point for code emission failure. Hence, if the function returns
- * an error, it must be interpreted as a code emission memory shortage.
- *
- * @return 0 on success
- * @return -1 on code emission failure
- */
-int reset_code_buffer(code_buffer_t *emitter) {
-    switch (setjmp(emitter->jmp_buf)) {
-    case 0: return 0;
-    default: return -1;
-    }
+void clear_code_buffer(code_buffer_t *emitter) {
+    emitter->length = 0;
 }
 
+__attribute__((noreturn))
 void fail_code_buffer(code_buffer_t *emitter) {
     longjmp(emitter->jmp_buf, -1);
 }
@@ -93,4 +83,13 @@ void emit_u64_le(code_buffer_t *emitter, uint64_t q) {
     emitter->ptr[emitter->length++] = q >> 40;
     emitter->ptr[emitter->length++] = q >> 48;
     emitter->ptr[emitter->length++] = q >> 56;
+}
+
+void dump_code_buffer(FILE *fd, const code_buffer_t *emitter) {
+    fprintf(fd, "   ");
+    for (unsigned i = 0; i < emitter->length; i++) {
+        if (i && (i % 16) == 0) fprintf(fd, "\n   ");
+        fprintf(fd, " %02x", emitter->ptr[i]);
+    }
+    fprintf(fd, "\n");
 }
