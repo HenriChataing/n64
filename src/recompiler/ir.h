@@ -335,6 +335,8 @@ ir_instr_t ir_make_cvt(ir_var_t res,
 
 #endif /* __cplusplus */
 
+bool ir_is_void_instr(ir_instr_t const *instr);
+
 int ir_print_type(char *buf, size_t len, ir_type_t const *type);
 int ir_print_value(char *buf, size_t len, ir_value_t const *value);
 int ir_print_instr(char *buf, size_t len, ir_instr_t const *instr);

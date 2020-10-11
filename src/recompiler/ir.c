@@ -1,10 +1,16 @@
 
 #include <inttypes.h>
-
 #include <stdlib.h>
 #include <stdio.h>
 
 #include <recompiler/ir.h>
+
+bool ir_is_void_instr(ir_instr_t const *instr) {
+    return instr->kind == IR_EXIT ||
+           instr->kind == IR_BR ||
+           instr->kind == IR_STORE ||
+           instr->kind == IR_WRITE;
+}
 
 int ir_print_type(char *buf, size_t len, ir_type_t const *type) {
     return snprintf(buf, len, "i%u", type->width);
