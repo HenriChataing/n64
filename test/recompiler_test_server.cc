@@ -15,6 +15,8 @@
 #include <recompiler/backend.h>
 #include <recompiler/passes.h>
 #include <recompiler/target/mips.h>
+#include <recompiler/emitter/code_buffer.h>
+#include <recompiler/emitter/x86_64.h>
 #include <r4300/state.h>
 #include <debugger.h>
 
@@ -31,6 +33,9 @@ namespace Memory {
  */
 class ReplayBus: public Memory::Bus
 {
+private:
+    bool _bad;
+
 public:
     ReplayBus(unsigned bits) : Bus(bits) {}
     virtual ~ReplayBus() {}
@@ -41,15 +46,21 @@ public:
     void reset(BusLog *log, size_t log_len) {
         this->log.clear();
         this->index = 0;
+        this->_bad = false;
         for (size_t i = 0; i < log_len; i++) {
             this->log.push_back(log[i]);
         }
+    }
+
+    bool bad() {
+        return _bad;
     }
 
     virtual bool load(unsigned bytes, u64 addr, u64 *val) {
         if (index >= log.size()) {
             fmt::print(fmt::emphasis::italic,
                 "unexpected memory access: outside recorded trace\n");
+            _bad = true;
             return false;
         }
         if (log[index].access != Memory::Load ||
@@ -72,6 +83,7 @@ public:
                     log[index].bytes * 8,
                     log[index].address);
             }
+            _bad = true;
             return false;
         }
         *val = log[index++].value;
@@ -81,6 +93,7 @@ public:
         if (index >= log.size()) {
             fmt::print(fmt::emphasis::italic,
                 "unexpected memory access: outside recorded trace\n");
+            _bad = true;
             return false;
         }
         if (log[index].access != Memory::Store ||
@@ -104,6 +117,7 @@ public:
                     log[index].bytes * 8,
                     log[index].address);
             }
+            _bad = true;
             return false;
         }
         index++;
@@ -422,7 +436,8 @@ void run_interpreter(void) {
     startGui();
 }
 
-int run_recompiler_test(ir_recompiler_backend_t *backend) {
+int run_recompiler_test(ir_recompiler_backend_t *backend,
+                        code_buffer_t *emitter) {
     // Run the recompiler on the trace recorded.
     // Memory synchronization with interpreter process is handled by
     // the caller, the trace records can be safely accessed.
@@ -434,6 +449,7 @@ int run_recompiler_test(ir_recompiler_backend_t *backend) {
 
     Memory::ReplayBus *bus = dynamic_cast<Memory::ReplayBus*>(R4300::state.bus);
     const ir_instr_t *err_instr;
+    x86_64_func_t entry;
     char line[128];
     bool run = false;
 
@@ -445,6 +461,14 @@ int run_recompiler_test(ir_recompiler_backend_t *backend) {
         fmt::print(fmt::emphasis::italic, "in instruction:\n");
         ir_print_instr(line, sizeof(line), err_instr);
         fmt::print(fmt::emphasis::italic, "    {}\n", line);
+        goto failure;
+    }
+
+    // Re-compile to x86_64.
+    clear_code_buffer(emitter);
+    entry = ir_x86_64_assemble(backend, emitter, graph);
+    if (entry == NULL) {
+        debugger::error(Debugger::CPU, "failed to generate x86_64 binary code");
         goto failure;
     }
 
@@ -460,6 +484,7 @@ int run_recompiler_test(ir_recompiler_backend_t *backend) {
     bus->reset(trace_memory_log, trace_sync->memory_log_len);
     run = true;
 
+#if 0
     if (!ir_run(backend, graph, &err_instr, line, sizeof(line))) {
         fmt::print(fmt::emphasis::italic, "run failure:\n");
         fmt::print(fmt::emphasis::italic, "    {}\n", line);
@@ -468,6 +493,10 @@ int run_recompiler_test(ir_recompiler_backend_t *backend) {
         fmt::print(fmt::emphasis::italic, "    {}\n", line);
         goto failure;
     }
+#endif
+
+    // Run generated assembly.
+    entry();
 
     // Finally, compare the registers values on exiting the recompiler,
     // with the recorded values. Make sure the whole memory trace was executed.
@@ -475,7 +504,8 @@ int run_recompiler_test(ir_recompiler_backend_t *backend) {
         R4300::state.cycles != trace_registers->end_cycles ||
         !match_cpureg(trace_registers->end_cpureg, R4300::state.reg) ||
         !match_cp0reg(trace_registers->end_cp0reg, R4300::state.cp0reg) ||
-        !match_cp1reg(trace_registers->end_cp1reg, R4300::state.cp1reg)) {
+        !match_cp1reg(trace_registers->end_cp1reg, R4300::state.cp1reg) ||
+        bus->bad()) {
         fmt::print(fmt::fg(fmt::color::tomato), "run invalid:\n");
         goto failure;
     }
@@ -527,11 +557,14 @@ void run_recompiler(void) {
     // Allocate a recompiler backend.
     ir_recompiler_backend_t *backend = ir_mips_recompiler_backend();
 
+    // Allocated a code buffer.
+    code_buffer_t *emitter = alloc_code_buffer(8192);
+
     while (1) {
         // Wait for a trace from the interpreter process,
         // handle it and notify the test result.
         if (sem_wait(&trace_sync->request) != 0) break;
-        trace_sync->status = run_recompiler_test(backend);
+        trace_sync->status = run_recompiler_test(backend, emitter);
         if (sem_post(&trace_sync->response) != 0) break;
     }
 
