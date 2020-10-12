@@ -375,11 +375,8 @@ bool print_run(struct test_header &test,
 
 bool print_assembly_run(struct test_header &test,
                         ir_recompiler_backend_t const *backend,
-                        void *entry) {
-
-    typedef void (*entry_func_t)(void);
-    void (*entry_func)(void) = (entry_func_t)entry;
-    entry_func();
+                        x86_64_func_t entry) {
+    entry();
     return true;
 }
 
@@ -622,9 +619,8 @@ int run_test_suite(ir_recompiler_backend_t *backend,
     }
 
     clear_code_buffer(emitter);
-    void *entry = ir_x86_64_assemble(backend, emitter, header.graph);
+    x86_64_func_t entry = ir_x86_64_assemble(backend, emitter, header.graph);
     if (entry == NULL) {
-        printf("trololo\n");
         debugger::error(Debugger::CPU, "failed to generate x86_64 binary code");
         return -1;
     }
