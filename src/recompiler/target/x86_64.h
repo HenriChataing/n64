@@ -7,7 +7,7 @@
 #include <stddef.h>
 
 #include <recompiler/backend.h>
-#include <recompiler/emitter/code_buffer.h>
+#include <recompiler/code_buffer.h>
 
 #ifdef __cplusplus
 extern "C" {

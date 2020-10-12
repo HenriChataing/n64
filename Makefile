@@ -166,12 +166,12 @@ bin/recompiler_test_suite: \
     $(OBJDIR)/test/recompiler_test_suite.o \
     $(OBJDIR)/src/recompiler/ir.o \
     $(OBJDIR)/src/recompiler/backend.o \
+    $(OBJDIR)/src/recompiler/code_buffer.o \
     $(OBJDIR)/src/recompiler/passes/typecheck.o \
     $(OBJDIR)/src/recompiler/passes/run.o \
-    $(OBJDIR)/src/recompiler/target/mips.o \
-    $(OBJDIR)/src/recompiler/emitter/x86_64.o \
-    $(OBJDIR)/src/recompiler/emitter/x86_64/emitter.o \
-    $(OBJDIR)/src/recompiler/emitter/code_buffer.o \
+    $(OBJDIR)/src/recompiler/target/mips/disassembler.o \
+    $(OBJDIR)/src/recompiler/target/x86_64/assembler.o \
+    $(OBJDIR)/src/recompiler/target/x86_64/emitter.o \
     $(OBJDIR)/src/assembly/disassembler.o \
     $(OBJDIR)/external/fmt/src/format.o
 
@@ -215,12 +215,12 @@ bin/recompiler_test_server: \
     $(OBJDIR)/test/recompiler_test_server.o \
     $(OBJDIR)/src/recompiler/ir.o \
     $(OBJDIR)/src/recompiler/backend.o \
+    $(OBJDIR)/src/recompiler/code_buffer.o \
     $(OBJDIR)/src/recompiler/passes/typecheck.o \
     $(OBJDIR)/src/recompiler/passes/run.o \
-    $(OBJDIR)/src/recompiler/target/mips.o \
-    $(OBJDIR)/src/recompiler/emitter/x86_64.o \
-    $(OBJDIR)/src/recompiler/emitter/x86_64/emitter.o \
-    $(OBJDIR)/src/recompiler/emitter/code_buffer.o \
+    $(OBJDIR)/src/recompiler/target/mips/disassembler.o \
+    $(OBJDIR)/src/recompiler/target/x86_64/assembler.o \
+    $(OBJDIR)/src/recompiler/target/x86_64/emitter.o \
     $(OBJDIR)/src/assembly/disassembler.o \
     $(OBJDIR)/src/gui/gui.o \
     $(OBJDIR)/src/gui/graphics.o \

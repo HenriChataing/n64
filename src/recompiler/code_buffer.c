@@ -3,7 +3,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include <recompiler/emitter/code_buffer.h>
+#include <recompiler/code_buffer.h>
 
 code_buffer_t *alloc_code_buffer(size_t capacity) {
     /* Allocate page aligned code buffer. */

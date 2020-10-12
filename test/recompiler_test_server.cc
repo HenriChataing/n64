@@ -13,10 +13,10 @@
 #include <interpreter/interpreter.h>
 #include <recompiler/ir.h>
 #include <recompiler/backend.h>
+#include <recompiler/code_buffer.h>
 #include <recompiler/passes.h>
 #include <recompiler/target/mips.h>
-#include <recompiler/emitter/code_buffer.h>
-#include <recompiler/emitter/x86_64.h>
+#include <recompiler/target/x86_64.h>
 #include <r4300/state.h>
 #include <debugger.h>
 

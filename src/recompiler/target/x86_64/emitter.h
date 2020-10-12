@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include <recompiler/emitter/code_buffer.h>
+#include <recompiler/code_buffer.h>
 
 enum x86_64_register {
     /* 8bit registers */

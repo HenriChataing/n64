@@ -3,10 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <recompiler/emitter/x86_64/emitter.h>
-#include <recompiler/emitter/x86_64.h>
 #include <recompiler/ir.h>
-#include <recompiler/passes.h>
+#include <recompiler/target/x86_64/emitter.h>
+#include <recompiler/target/x86_64.h>
 
 #define IR_BLOCK_MAX 64
 #define IR_VAR_MAX 4096
