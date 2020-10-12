@@ -1,6 +1,6 @@
 
-#ifndef _RECOMPILER_MIPS_H_INCLUDED_
-#define _RECOMPILER_MIPS_H_INCLUDED_
+#ifndef _RECOMPILER_TARGET_MIPS_H_INCLUDED_
+#define _RECOMPILER_TARGET_MIPS_H_INCLUDED_
 
 #include <stddef.h>
 #include <stdint.h>
@@ -60,4 +60,4 @@ ir_graph_t *ir_mips_disassemble(ir_recompiler_backend_t *backend,
 }; /* extern "C" */
 #endif /* __cplusplus */
 
-#endif /* _RECOMPILER_MIPS_H_INCLUDED_ */
+#endif /* _RECOMPILER_TARGET_MIPS_H_INCLUDED_ */

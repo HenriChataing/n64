@@ -1,6 +1,6 @@
 
-#ifndef _RECOMPILER_EMITTER_X86_64_EMITTER_H_INCLUDED_
-#define _RECOMPILER_EMITTER_X86_64_EMITTER_H_INCLUDED_
+#ifndef _RECOMPILER_TARGET_X86_64_EMITTER_H_INCLUDED_
+#define _RECOMPILER_TARGET_X86_64_EMITTER_H_INCLUDED_
 
 #include <limits.h>
 #include <stdint.h>
@@ -276,4 +276,4 @@ void emit_sub_rN_rN(code_buffer_t *emitter, unsigned width, unsigned drN, unsign
 
 void emit_xor_r64_r64(code_buffer_t *emitter, unsigned dr64, unsigned sr64);
 
-#endif /* _RECOMPILER_EMITTER_X86_64_EMITTER_H_INCLUDED_ */
+#endif /* _RECOMPILER_TARGET_X86_64_EMITTER_H_INCLUDED_ */

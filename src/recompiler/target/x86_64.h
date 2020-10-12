@@ -1,6 +1,6 @@
 
-#ifndef _RECOMPILER_EMITTER_X86_64_H_INCLUDED_
-#define _RECOMPILER_EMITTER_X86_64_H_INCLUDED_
+#ifndef _RECOMPILER_TARGET_X86_64_H_INCLUDED_
+#define _RECOMPILER_TARGET_X86_64_H_INCLUDED_
 
 #include <limits.h>
 #include <stdint.h>
@@ -29,4 +29,4 @@ x86_64_func_t ir_x86_64_assemble(ir_recompiler_backend_t const *backend,
 }; /* extern "C" */
 #endif /* __cplusplus */
 
-#endif /* _RECOMPILER_EMITTER_X86_64_H_INCLUDED_ */
+#endif /* _RECOMPILER_TARGET_X86_64_H_INCLUDED_ */

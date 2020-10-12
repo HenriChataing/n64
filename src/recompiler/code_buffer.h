@@ -1,6 +1,6 @@
 
-#ifndef _RECOMPILER_EMITTER_CODE_BUFFER_H_INCLUDED_
-#define _RECOMPILER_EMITTER_CODE_BUFFER_H_INCLUDED_
+#ifndef _RECOMPILER_CODE_BUFFER_H_INCLUDED_
+#define _RECOMPILER_CODE_BUFFER_H_INCLUDED_
 
 #include <setjmp.h>
 #include <stddef.h>
@@ -56,4 +56,4 @@ void dump_code_buffer(FILE *fd, const code_buffer_t *emitter);
 }; /* extern "C" */
 #endif /* __cplusplus */
 
-#endif /* _RECOMPILER_EMITTER_CODE_BUFFER_H_INCLUDED_ */
+#endif /* _RECOMPILER_CODE_BUFFER_H_INCLUDED_ */
