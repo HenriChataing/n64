@@ -60,8 +60,7 @@ static int ir_print_binop(char *buf, size_t len, ir_instr_t const *instr) {
     switch (instr->kind) {
     case IR_ADD:  op = "add"; break;
     case IR_SUB:  op = "sub"; break;
-    case IR_UMUL: op = "umul"; break;
-    case IR_SMUL: op = "smul"; break;
+    case IR_MUL:  op = "mul"; break;
     case IR_UDIV: op = "udiv"; break;
     case IR_SDIV: op = "sdiv"; break;
     case IR_UREM: op = "urem"; break;
@@ -185,8 +184,7 @@ int ir_print_instr(char *buf, size_t len, ir_instr_t const *instr) {
         return ir_print_unop(buf, len, instr);
     case IR_ADD:
     case IR_SUB:
-    case IR_UMUL:
-    case IR_SMUL:
+    case IR_MUL:
     case IR_UDIV:
     case IR_SDIV:
     case IR_UREM:

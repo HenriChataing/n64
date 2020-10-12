@@ -121,8 +121,7 @@ typedef enum ir_instr_kind {
     /* Binary operations. */
     IR_ADD,
     IR_SUB,
-    IR_UMUL,
-    IR_SMUL,
+    IR_MUL,
     IR_UDIV,
     IR_SDIV,
     IR_UREM,

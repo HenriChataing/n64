@@ -203,8 +203,7 @@ static bool ir_typecheck_instr(ir_instr_t const *instr) {
         return ir_typecheck_unop(instr);
     case IR_ADD:
     case IR_SUB:
-    case IR_UMUL:
-    case IR_SMUL:
+    case IR_MUL:
     case IR_UDIV:
     case IR_SDIV:
     case IR_UREM:

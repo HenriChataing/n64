@@ -104,8 +104,7 @@ static bool ir_run_binop(ir_instr_t const *instr) {
     switch (instr->kind) {
     case IR_ADD:    res = left + right; break;
     case IR_SUB:    res = left - right; break;
-    case IR_UMUL:   res = left * right; break;
-    case IR_SMUL:   res = left * right; break;
+    case IR_MUL:    res = left * right; break;
     case IR_UDIV:   res = (left & mask) / (right & mask); break;
     case IR_SDIV:   res = (left & mask) / (right & mask); break;
     case IR_UREM:   res = (left & mask) % (right & mask); break;
@@ -301,8 +300,7 @@ static bool ir_run_instr(ir_recompiler_backend_t const *backend,
         return ir_run_unop(instr);
     case IR_ADD:
     case IR_SUB:
-    case IR_UMUL:
-    case IR_SMUL:
+    case IR_MUL:
     case IR_UDIV:
     case IR_SDIV:
     case IR_UREM:

@@ -176,18 +176,9 @@ static void assemble_sub(ir_recompiler_backend_t const *backend,
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static void assemble_umul(ir_recompiler_backend_t const *backend,
-                          code_buffer_t *emitter,
-                          ir_instr_t const *instr) {
-    load_value(emitter, instr->binop.left, RAX);
-    load_value(emitter, instr->binop.right, RCX);
-    emit_imul_rN_rN(emitter, instr->type.width, RAX, RCX);
-    store_value(emitter, instr->type, instr->res, RAX);
-}
-
-static void assemble_smul(ir_recompiler_backend_t const *backend,
-                          code_buffer_t *emitter,
-                          ir_instr_t const *instr) {
+static void assemble_mul(ir_recompiler_backend_t const *backend,
+                         code_buffer_t *emitter,
+                         ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
     load_value(emitter, instr->binop.right, RCX);
     emit_imul_rN_rN(emitter, instr->type.width, RAX, RCX);
@@ -477,8 +468,7 @@ static const void (*assemble_callbacks[])(ir_recompiler_backend_t const *backend
     [IR_NOT]   = assemble_not,
     [IR_ADD]   = assemble_add,
     [IR_SUB]   = assemble_sub,
-    [IR_UMUL]  = assemble_umul,
-    [IR_SMUL]  = assemble_smul,
+    [IR_MUL]   = assemble_mul,
     [IR_UDIV]  = assemble_udiv,
     [IR_SDIV]  = assemble_sdiv,
     [IR_UREM]  = assemble_urem,
