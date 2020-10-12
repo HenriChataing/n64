@@ -18,9 +18,21 @@ typedef struct code_buffer {
     jmp_buf jmp_buf;
 } code_buffer_t;
 
+typedef void (*code_entry_t)(void);
+
 /** Allocate a buffer of size len with read,write,execute
  * memory access rights. */
 code_buffer_t *alloc_code_buffer(size_t capacity);
+
+/** Allocate an array of buffers each of size len with read,write,execute
+ * memory access rights. */
+code_buffer_t *alloc_code_buffer_array(size_t count, size_t capacity);
+
+/** Destroy a code buffer. */
+void free_code_buffer(code_buffer_t *emitter);
+
+/** Destroy an array of code buffers. */
+void free_code_buffer_array(code_buffer_t *emitters);
 
 /** Clear the code buffer context. */
 void clear_code_buffer(code_buffer_t *emitter);

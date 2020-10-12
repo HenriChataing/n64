@@ -5,40 +5,60 @@
 
 #include <recompiler/code_buffer.h>
 
-code_buffer_t *alloc_code_buffer(size_t capacity) {
+code_buffer_t *alloc_code_buffer_array(size_t count, size_t capacity) {
     /* Allocate page aligned code buffer. */
-    code_buffer_t *buffer;
-    void *ptr;
-    int ret;
     long page_size;
+    code_buffer_t *buffers;
+    unsigned char *ptr;
+    int ret;
 
-    /* Allocate code buffer object. */
-    buffer = malloc(sizeof(*buffer));
-    if (buffer == NULL) {
+    /* Allocate code buffer objects. */
+    buffers = malloc(count * sizeof(*buffers));
+    if (buffers == NULL) {
         return NULL;
     }
 
     /* Allocate code buffer memory. */
     page_size = sysconf(_SC_PAGESIZE);
-    ptr = aligned_alloc(page_size, capacity);
+    capacity = ((capacity + page_size - 1) / page_size) * page_size;
+    ptr = aligned_alloc(page_size, count * capacity);
     if (ptr == NULL) {
-        free(buffer);
+        free(buffers);
         return NULL;
     }
 
     /* Change access permissions to code buffer to enable executing
      * code inside. */
-    ret = mprotect(ptr, capacity, PROT_WRITE | PROT_READ | PROT_EXEC);
+    ret = mprotect(ptr, count * capacity, PROT_WRITE | PROT_READ | PROT_EXEC);
     if (ret < 0) {
-        free(buffer);
+        free(buffers);
         free(ptr);
         return NULL;
     }
 
-    buffer->ptr = ptr;
-    buffer->capacity = capacity;
-    buffer->length = 0;
-    return buffer;
+    for (unsigned nr = 0; nr < count; nr++) {
+        buffers[nr].ptr = ptr + (nr * capacity);
+        buffers[nr].capacity = capacity;
+        buffers[nr].length = 0;
+    }
+    return buffers;
+}
+
+code_buffer_t *alloc_code_buffer(size_t capacity) {
+    return alloc_code_buffer_array(1, capacity);
+}
+
+void free_code_buffer(code_buffer_t *emitter) {
+    free_code_buffer_array(emitter);
+}
+
+void free_code_buffer_array(code_buffer_t *emitters) {
+    if (emitters == NULL) {
+        return;
+    }
+
+    free(emitters->ptr);
+    free(emitters);
 }
 
 void clear_code_buffer(code_buffer_t *emitter) {
