@@ -114,7 +114,7 @@ int update_recompiler_cache(recompiler_cache_t *cache,
     }
 
     address_map_t *map = cache->address_maps + page_nr * cache->map_size;
-    unsigned hash = address % cache->map_size;
+    unsigned hash = (address >> 2) % cache->map_size;
     for (unsigned nr = 0; nr < cache->map_size; nr++) {
         unsigned index = (nr + hash) % cache->map_size;
         if (map[index].entry == NULL || map[index].address == address) {
@@ -177,7 +177,7 @@ code_entry_t query_recompiler_cache(recompiler_cache_t *cache,
     }
 
     address_map_t *map = cache->address_maps + page_nr * cache->map_size;
-    unsigned hash = address % cache->map_size;
+    unsigned hash = (address >> 2) % cache->map_size;
     *emitter = cache->code_buffers + page_nr;
     for (unsigned nr = 0; nr < cache->map_size; nr++) {
         unsigned index = (nr + hash) % cache->map_size;

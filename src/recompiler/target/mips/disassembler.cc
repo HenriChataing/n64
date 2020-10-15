@@ -578,7 +578,7 @@ static void disas_MULT(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_append_binop(c, IR_AND, vs, ir_make_const_u64(0xfffffffflu));
     vt = ir_mips_append_read(c, mips_get_rt(instr));
     vt = ir_append_binop(c, IR_AND, vt, ir_make_const_u64(0xfffffffflu));
-    vd = ir_append_binop(c, IR_SMUL, vs, vt);
+    vd = ir_append_binop(c, IR_MUL, vs, vt);
 
     multhi = ir_append_binop(c, IR_SRL, vd, ir_make_const_u64(32));
     multhi = ir_append_trunc_i32(c, multhi);
@@ -597,7 +597,7 @@ static void disas_MULTU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_append_binop(c, IR_AND, vs, ir_make_const_u64(0xfffffffflu));
     vt = ir_mips_append_read(c, mips_get_rt(instr));
     vt = ir_append_binop(c, IR_AND, vt, ir_make_const_u64(0xfffffffflu));
-    vd = ir_append_binop(c, IR_UMUL, vs, vt);
+    vd = ir_append_binop(c, IR_MUL, vs, vt);
 
     multhi = ir_append_binop(c, IR_SRL, vd, ir_make_const_u64(32));
     multhi = ir_append_trunc_i32(c, multhi);
