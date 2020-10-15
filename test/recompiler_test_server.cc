@@ -551,8 +551,6 @@ int run_recompiler_test(ir_recompiler_backend_t *backend,
         bus->bad()) {
         fmt::print(fmt::fg(fmt::color::tomato), "run invalid:\n");
         goto failure;
-    } else {
-        fmt::print(fmt::fg(fmt::color::chartreuse), "success\n");
     }
 
     // Success: the recompiler was validated on this trace.
@@ -611,7 +609,7 @@ void run_recompiler(void) {
     // Allocate recompiler cache for the physical address range
     // 0x0 - 0x400000.
     recompiler_cache_t *cache =
-        alloc_recompiler_cache(0x4000, 0x100, 0x8000, 0x200);
+        alloc_recompiler_cache(0x4000, 0x100, 0x20000, 0x200);
     if (cache == NULL) {
         fmt::print(fmt::fg(fmt::color::tomato),
             "failed to allocate recompiler cache\n");
