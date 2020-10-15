@@ -13,6 +13,7 @@
 #include <interpreter/interpreter.h>
 #include <recompiler/ir.h>
 #include <recompiler/backend.h>
+#include <recompiler/cache.h>
 #include <recompiler/code_buffer.h>
 #include <recompiler/passes.h>
 #include <recompiler/target/mips.h>
@@ -278,6 +279,10 @@ void print_raw_disassembly(void) {
 }
 
 void print_ir_disassembly(ir_graph_t *graph) {
+    if (graph == NULL) {
+        return;
+    }
+
     fmt::print("------------- ir disassembly --------------\n");
     ir_instr_t const *instr;
     ir_block_t const *block;
@@ -291,6 +296,11 @@ void print_ir_disassembly(ir_graph_t *graph) {
             fmt::print("    {}\n", line);
         }
     }
+}
+
+void print_x86_64_assembly(const code_buffer_t *emitter) {
+    fmt::print("--------------- ir assembly ---------------\n");
+    dump_code_buffer(stdout, emitter);
 }
 
 void print_memory_log(void) {
@@ -437,39 +447,72 @@ void run_interpreter(void) {
 }
 
 int run_recompiler_test(ir_recompiler_backend_t *backend,
-                        code_buffer_t *emitter) {
-    // Run the recompiler on the trace recorded.
-    // Memory synchronization with interpreter process is handled by
-    // the caller, the trace records can be safely accessed.
-
-    ir_reset_backend(backend);
-    ir_graph_t *graph = ir_mips_disassemble(
-        backend, trace_registers->start_address,
-        trace_binary, trace_sync->binary_len);
+                        recompiler_cache_t *cache) {
 
     Memory::ReplayBus *bus = dynamic_cast<Memory::ReplayBus*>(R4300::state.bus);
-    const ir_instr_t *err_instr;
-    x86_64_func_t entry;
-    char line[128];
+    uint64_t address = trace_registers->start_address;
+    uint64_t phys_address;
+    ir_graph_t *graph = NULL;
+    code_buffer_t *emitter = NULL;
+    code_entry_t entry;
     bool run = false;
 
-    // Preliminary sanity checks on the generated intermediate
-    // representation. Really should not fail here.
-    if (!ir_typecheck(graph, &err_instr, line, sizeof(line))) {
-        fmt::print(fmt::emphasis::italic, "typecheck failure:\n");
-        fmt::print(fmt::emphasis::italic, "    {}\n", line);
-        fmt::print(fmt::emphasis::italic, "in instruction:\n");
-        ir_print_instr(line, sizeof(line), err_instr);
-        fmt::print(fmt::emphasis::italic, "    {}\n", line);
-        goto failure;
+    // Translate the program counter, i.e. the block start address.
+    // The block is skipped if the address is not from the physical ram.
+    if (translateAddress(address, &phys_address, false) != Exception::None ||
+        phys_address >= 0x400000) {
+        return 0;
     }
 
-    // Re-compile to x86_64.
-    clear_code_buffer(emitter);
-    entry = ir_x86_64_assemble(backend, emitter, graph);
+    // Query the recompiler cache.
+    entry = query_recompiler_cache(cache, phys_address, &emitter);
     if (entry == NULL) {
-        debugger::error(Debugger::CPU, "failed to generate x86_64 binary code");
-        goto failure;
+        // Run the recompiler on the trace recorded.
+        // Memory synchronization with interpreter process is handled by
+        // the caller, the trace records can be safely accessed.
+
+        if (emitter == NULL) {
+            fmt::print(fmt::fg(fmt::color::tomato), "emitter is not provided\n");
+            goto failure;
+        }
+
+        ir_reset_backend(backend);
+        graph = ir_mips_disassemble(
+            backend, trace_registers->start_address,
+            trace_binary, trace_sync->binary_len);
+
+        const ir_instr_t *err_instr;
+        char line[128];
+
+        // Preliminary sanity checks on the generated intermediate
+        // representation. Really should not fail here.
+        if (!ir_typecheck(graph, &err_instr, line, sizeof(line))) {
+            fmt::print(fmt::emphasis::italic, "typecheck failure:\n");
+            fmt::print(fmt::emphasis::italic, "    {}\n", line);
+            fmt::print(fmt::emphasis::italic, "in instruction:\n");
+            ir_print_instr(line, sizeof(line), err_instr);
+            fmt::print(fmt::emphasis::italic, "    {}\n", line);
+            goto failure;
+        }
+
+        // Re-compile to x86_64.
+        entry = ir_x86_64_assemble(backend, emitter, graph);
+        if (entry == NULL) {
+            fmt::print(fmt::fg(fmt::color::tomato),
+                "failed to generate x86_64 binary code\n");
+            fmt::print(fmt::fg(fmt::color::tomato),
+                "emitter capacity={} length={}\n",
+                emitter ? emitter->capacity : 0,
+                emitter ? emitter->length : 0);
+            invalidate_recompiler_cache(cache, phys_address, phys_address + 1);
+            return 0;
+        }
+
+        // Update the recompiler cache.
+        if (update_recompiler_cache(cache, phys_address, entry) < 0) {
+            invalidate_recompiler_cache(cache, phys_address, phys_address + 1);
+            return 0;
+        }
     }
 
     // Load the trace registers and memory log into the state context,
@@ -508,6 +551,8 @@ int run_recompiler_test(ir_recompiler_backend_t *backend,
         bus->bad()) {
         fmt::print(fmt::fg(fmt::color::tomato), "run invalid:\n");
         goto failure;
+    } else {
+        fmt::print(fmt::fg(fmt::color::chartreuse), "success\n");
     }
 
     // Success: the recompiler was validated on this trace.
@@ -538,6 +583,7 @@ failure:
     print_memory_log();
     print_raw_disassembly();
     print_ir_disassembly(graph);
+    print_x86_64_assembly(emitter);
 
     fmt::print(
         "----------------------------------------"
@@ -556,19 +602,32 @@ void run_recompiler(void) {
 
     // Allocate a recompiler backend.
     ir_recompiler_backend_t *backend = ir_mips_recompiler_backend();
+    if (backend == NULL) {
+        fmt::print(fmt::fg(fmt::color::tomato),
+            "failed to allocate recompiler backend\n");
+        return;
+    }
 
-    // Allocated a code buffer.
-    code_buffer_t *emitter = alloc_code_buffer(8192);
+    // Allocate recompiler cache for the physical address range
+    // 0x0 - 0x400000.
+    recompiler_cache_t *cache =
+        alloc_recompiler_cache(0x4000, 0x100, 0x8000, 0x200);
+    if (cache == NULL) {
+        fmt::print(fmt::fg(fmt::color::tomato),
+            "failed to allocate recompiler cache\n");
+        free(backend);
+        return;
+    }
 
     while (1) {
         // Wait for a trace from the interpreter process,
         // handle it and notify the test result.
         if (sem_wait(&trace_sync->request) != 0) break;
-        trace_sync->status = run_recompiler_test(backend, emitter);
+        trace_sync->status = run_recompiler_test(backend, cache);
         if (sem_post(&trace_sync->response) != 0) break;
     }
 
-    fmt::print(fmt::fg(fmt::color::tomato), "recompiler process exeiting\n");
+    fmt::print(fmt::fg(fmt::color::tomato), "recompiler process exiting\n");
     free(backend);
 }
 

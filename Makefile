@@ -215,6 +215,7 @@ bin/recompiler_test_server: \
     $(OBJDIR)/test/recompiler_test_server.o \
     $(OBJDIR)/src/recompiler/ir.o \
     $(OBJDIR)/src/recompiler/backend.o \
+    $(OBJDIR)/src/recompiler/cache.o \
     $(OBJDIR)/src/recompiler/code_buffer.o \
     $(OBJDIR)/src/recompiler/passes/typecheck.o \
     $(OBJDIR)/src/recompiler/passes/run.o \
