@@ -65,6 +65,10 @@ void clear_code_buffer(code_buffer_t *emitter) {
     emitter->length = 0;
 }
 
+unsigned char *code_buffer_ptr(code_buffer_t *emitter) {
+    return emitter->ptr + emitter->length;
+}
+
 __attribute__((noreturn))
 void fail_code_buffer(code_buffer_t *emitter) {
     longjmp(emitter->jmp_buf, -1);

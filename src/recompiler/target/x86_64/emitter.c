@@ -970,6 +970,14 @@ void emit_sub_r64_imm32(code_buffer_t *emitter, unsigned r64, int32_t imm32) {
     emit_u32_le(emitter, (uint32_t)imm32);
 }
 
+void patch_sub_r64_imm32(unsigned char *ptr, int32_t imm32) {
+    uint32_t _imm32 = (uint32_t)imm32;
+    ptr[3] = _imm32;
+    ptr[4] = _imm32 >> 8;
+    ptr[5] = _imm32 >> 16;
+    ptr[6] = _imm32 >> 24;
+}
+
 void emit_sub_r8_r8(code_buffer_t *emitter, unsigned dr8, unsigned sr8) {
     emit_u8(emitter, 0x28);
     emit_u8(emitter, modrm(DIRECT, sr8, dr8));

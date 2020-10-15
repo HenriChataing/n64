@@ -175,8 +175,9 @@ int ir_print_instr(char *buf, size_t len, ir_instr_t const *instr) {
     case IR_BR:
         written  = snprintf(buf, len, "br ");
         written += ir_print_value(buf+written, len-written, &instr->br.cond);
-        written += snprintf(buf+written, len-written, ", L%u",
-                            instr->br.target->label);
+        written += snprintf(buf+written, len-written, ", L%u, L%u",
+                            instr->br.target[0]->label,
+                            instr->br.target[1]->label);
         return written;
     case IR_CALL:
         return ir_print_call(buf, len, instr);

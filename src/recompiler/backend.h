@@ -1,5 +1,4 @@
 
-
 #ifndef _RECOMPILER_BACKEND_H_INCLUDED_
 #define _RECOMPILER_BACKEND_H_INCLUDED_
 
@@ -52,7 +51,6 @@ typedef struct ir_recompiler_backend {
     ir_instr_t             *instrs;
     unsigned                nr_instrs;
     unsigned                cur_instr;
-    ir_var_t                cur_var;
 } ir_recompiler_backend_t;
 
 /** Type alias for instruction code continuation. Contains the emplacement
@@ -86,7 +84,7 @@ void ir_bind_register_u64(ir_recompiler_backend_t *backend,
                           uint64_t *ptr);
 
 void        ir_reset_backend(ir_recompiler_backend_t *backend);
-ir_var_t    ir_alloc_var(ir_recompiler_backend_t *backend);
+ir_var_t    ir_alloc_var(ir_instr_cont_t *cont);
 ir_instr_t *ir_alloc_instr(ir_recompiler_backend_t *backend);
 ir_block_t *ir_alloc_block(ir_recompiler_backend_t *backend);
 ir_graph_t *ir_make_graph(ir_recompiler_backend_t *backend);
@@ -94,7 +92,8 @@ ir_graph_t *ir_make_graph(ir_recompiler_backend_t *backend);
 void       ir_append_exit(ir_instr_cont_t *cont);
 void       ir_append_br(ir_instr_cont_t *cont,
                         ir_value_t cond,
-                        ir_instr_cont_t *target);
+                        ir_instr_cont_t *target_false,
+                        ir_instr_cont_t *target_true);
 ir_value_t ir_append_call(ir_instr_cont_t *cont,
                           ir_type_t type,
                           void (*func)(),

@@ -108,6 +108,7 @@ typedef struct ir_block {
     unsigned label;
     ir_instr_t *instrs;
     unsigned nr_instrs;
+    unsigned nr_vars;
 } ir_block_t;
 
 /** List instructions defined by the intermediate representation. */
@@ -169,7 +170,7 @@ typedef enum ir_call_flag {
 } ir_call_flag_t;
 
 typedef struct ir_br {
-    ir_block_t         *target;
+    ir_block_t         *target[2];
     ir_value_t          cond;
 } ir_br_t;
 
@@ -250,9 +251,11 @@ ir_instr_t ir_make_exit(void) {
 }
 
 static inline
-ir_instr_t ir_make_br(ir_value_t cond, ir_block_t *target) {
+ir_instr_t ir_make_br(ir_value_t cond,
+                      ir_block_t *target_false,
+                      ir_block_t *target_true) {
     return (ir_instr_t){ .kind = IR_BR,
-        .br = { .cond = cond, .target = target, } };
+        .br = { .cond = cond, .target = { target_false, target_true } } };
 }
 
 static inline

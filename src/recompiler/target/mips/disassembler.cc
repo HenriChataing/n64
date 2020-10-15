@@ -234,20 +234,22 @@ static uint32_t disas_read_instr(uint64_t address) {
 static void disas_branch(ir_instr_cont_t *c, ir_value_t cond,
                          uint64_t address, uint32_t instr) {
     uint64_t imm = mips_get_imm_u64(instr);
-    ir_instr_cont_t br;
+    ir_instr_cont_t br_false, br_true;
     append_instr(c, address + 4, disas_read_instr(address + 4));
     ir_mips_commit_cycles(c);
-    ir_append_br(c, cond, &br);
+    ir_append_br(c, cond, &br_false, &br_true);
+
 #if IR_DISAS_BRANCH_ENABLE
-    disas_push(address + 4 + (imm << 2), br);
-    disas_push(address + 8, *c);
+    disas_push(address + 4 + (imm << 2), br_true);
+    disas_push(address + 8, br_false);
 #else
-    ir_append_write_i64(c, REG_PC,
+    ir_append_write_i64(&br_false, REG_PC,
         ir_make_const_u64(address + 8));
-    ir_append_exit(c);
-    ir_append_write_i64(&br, REG_PC,
+    ir_append_exit(&br_false);
+
+    ir_append_write_i64(&br_true, REG_PC,
         ir_make_const_u64(address + 4 + (imm << 2)));
-    ir_append_exit(&br);
+    ir_append_exit(&br_true);
 #endif /* DISAS_BRANCH_ENABLE */
 }
 
@@ -261,22 +263,23 @@ static void disas_branch(ir_instr_cont_t *c, ir_value_t cond,
 static void disas_branch_likely(ir_instr_cont_t *c, ir_value_t cond,
                                 uint64_t address, uint32_t instr) {
     uint64_t imm = mips_get_imm_u64(instr);
-    ir_instr_cont_t br;
+    ir_instr_cont_t br_false, br_true;
     ir_mips_commit_cycles(c);
-    ir_append_br(c, cond, &br);
-    append_instr(&br, address + 4, disas_read_instr(address + 4));
+    ir_append_br(c, cond, &br_false, &br_true);
+    append_instr(&br_true, address + 4, disas_read_instr(address + 4));
 
 #if IR_DISAS_BRANCH_ENABLE
-    disas_push(address + 4 + (imm << 2), br);
-    disas_push(address + 8, *c);
+    disas_push(address + 4 + (imm << 2), br_true);
+    disas_push(address + 8, br_false);
 #else
-    ir_append_write_i64(c, REG_PC,
+    ir_append_write_i64(&br_false, REG_PC,
         ir_make_const_u64(address + 8));
-    ir_append_exit(c);
-    ir_append_write_i64(&br, REG_PC,
+    ir_append_exit(&br_false);
+
+    ir_append_write_i64(&br_true, REG_PC,
         ir_make_const_u64(address + 4 + (imm << 2)));
-    ir_mips_commit_cycles(&br);
-    ir_append_exit(&br);
+    ir_mips_commit_cycles(&br_true);
+    ir_append_exit(&br_true);
 #endif /* DISAS_BRANCH_ENABLE */
 }
 
@@ -1303,27 +1306,29 @@ static void disas_TLBP(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 
 static void disas_ERET(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_value_t  sr, erl, pc;
-    ir_instr_cont_t br;
+    ir_instr_cont_t br_erl, br_exl;
 
     sr  = ir_append_read_i32(c, REG_SR);
     erl = ir_append_binop(c, IR_AND, sr, ir_make_const_u32(STATUS_ERL));
     ir_mips_commit_cycles(c);
     ir_append_br(c,
-        ir_append_icmp(c, IR_EQ, erl, ir_make_const_u32(0)), &br);
+        ir_append_icmp(c, IR_EQ, erl, ir_make_const_u32(0)), &br_erl, &br_exl);
 
     /* ERL == 1 */
-    ir_append_write_i32(c, REG_SR,
-        ir_append_binop(c, IR_AND, sr, ir_make_const_u32(~STATUS_ERL)));
-    pc = ir_append_read_i64(c, REG_ERROREPC);
-    ir_append_write_i64(c, REG_PC, pc);
-    ir_append_exit(c);
+    sr = ir_append_read_i32(&br_erl, REG_SR);
+    ir_append_write_i32(&br_erl, REG_SR,
+        ir_append_binop(&br_erl, IR_AND, sr, ir_make_const_u32(~STATUS_ERL)));
+    pc = ir_append_read_i64(&br_erl, REG_ERROREPC);
+    ir_append_write_i64(&br_erl, REG_PC, pc);
+    ir_append_exit(&br_erl);
 
     /* ERL == 0 */
-    ir_append_write_i32(&br, REG_SR,
-        ir_append_binop(&br, IR_AND, sr, ir_make_const_u32(~STATUS_EXL)));
-    pc = ir_append_read_i64(&br, REG_EPC);
-    ir_append_write_i64(&br, REG_PC, pc);
-    ir_append_exit(&br);
+    sr = ir_append_read_i32(&br_exl, REG_SR);
+    ir_append_write_i32(&br_exl, REG_SR,
+        ir_append_binop(&br_exl, IR_AND, sr, ir_make_const_u32(~STATUS_EXL)));
+    pc = ir_append_read_i64(&br_exl, REG_EPC);
+    ir_append_write_i64(&br_exl, REG_PC, pc);
+    ir_append_exit(&br_exl);
 }
 
 static void disas_COP0(ir_instr_cont_t *c, uint64_t address, uint32_t instr)

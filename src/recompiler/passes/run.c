@@ -31,9 +31,10 @@ static bool ir_run_br(ir_instr_t const *instr,
     ir_const_t value = ir_eval_value(instr->br.cond);
     switch (value.int_) {
     case 0:
+        *next_instr = instr->br.target[0]->instrs;
         return true;
     case 1:
-        *next_instr = instr->br.target->instrs;
+        *next_instr = instr->br.target[1]->instrs;
         return true;
     default:
         snprintf(ir_error_msg, ir_error_msg_len,

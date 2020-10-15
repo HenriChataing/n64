@@ -261,6 +261,7 @@ void emit_sra_m64_cl(code_buffer_t *emitter, x86_64_mem_t m64);
 void emit_sra_rN_cl(code_buffer_t *emitter, unsigned width, unsigned rN);
 
 void emit_sub_r64_imm32(code_buffer_t *emitter, unsigned r64, int32_t imm32);
+void patch_sub_r64_imm32(unsigned char *ptr, int32_t imm32);
 void emit_sub_r8_r8(code_buffer_t *emitter, unsigned dr8, unsigned sr8);
 void emit_sub_m8_r8(code_buffer_t *emitter, x86_64_mem_t m8, unsigned r8);
 void emit_sub_r8_m8(code_buffer_t *emitter, unsigned r8, x86_64_mem_t m8);

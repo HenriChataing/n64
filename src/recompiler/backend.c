@@ -74,11 +74,10 @@ void ir_bind_register_u64(ir_recompiler_backend_t *backend,
 void ir_reset_backend(ir_recompiler_backend_t *backend) {
     backend->cur_block = 0;
     backend->cur_instr = 0;
-    backend->cur_var = 0;
 }
 
-ir_var_t ir_alloc_var(ir_recompiler_backend_t *backend) {
-    return backend->cur_var++;
+ir_var_t ir_alloc_var(ir_instr_cont_t *cont) {
+    return cont->block->nr_vars++;
 }
 
 ir_instr_t *ir_alloc_instr(ir_recompiler_backend_t *backend) {
@@ -90,6 +89,7 @@ ir_block_t *ir_alloc_block(ir_recompiler_backend_t *backend) {
     // if (backend->cur_block >= backend->nr_blocks)
     ir_block_t *block = &backend->blocks[backend->cur_block];
     block->label = backend->cur_block;
+    block->nr_vars = 0;
     backend->cur_block++;
     return block;
 }
@@ -110,19 +110,24 @@ void       ir_append_exit(ir_instr_cont_t *cont)
 
 void       ir_append_br(ir_instr_cont_t *cont,
                         ir_value_t cond,
-                        ir_instr_cont_t *target)
+                        ir_instr_cont_t *target_false,
+                        ir_instr_cont_t *target_true)
 {
     ir_instr_t *next = ir_alloc_instr(cont->backend);
-    ir_block_t *block = ir_alloc_block(cont->backend);
+    ir_block_t *block_false = ir_alloc_block(cont->backend);
+    ir_block_t *block_true = ir_alloc_block(cont->backend);
 
-    *next = ir_make_br(cond, block);
+    *next = ir_make_br(cond, block_false, block_true);
     *cont->next = next;
-    cont->next = &next->next;
     cont->block->nr_instrs++;
 
-    target->backend = cont->backend;
-    target->block = block;
-    target->next = &block->instrs;
+    target_false->backend = cont->backend;
+    target_false->block = block_false;
+    target_false->next = &block_false->instrs;
+
+    target_true->backend = cont->backend;
+    target_true->block = block_true;
+    target_true->next = &block_true->instrs;
 }
 
 ir_value_t ir_append_call(ir_instr_cont_t *cont,
@@ -140,7 +145,7 @@ ir_value_t ir_append_call(ir_instr_cont_t *cont,
     va_end(vparams);
 
     /* Generate the instruction. */
-    ir_var_t res = type.width > 0 ? ir_alloc_var(cont->backend) : 0;
+    ir_var_t res = type.width > 0 ? ir_alloc_var(cont) : 0;
     ir_instr_t *next = ir_alloc_instr(cont->backend);
     *next = ir_make_call(res, type, func, params, nr_params);
     *cont->next = next;
@@ -152,7 +157,7 @@ ir_value_t ir_append_unop(ir_instr_cont_t *cont,
                           ir_instr_kind_t op,
                           ir_value_t value)
 {
-    ir_var_t res = ir_alloc_var(cont->backend);
+    ir_var_t res = ir_alloc_var(cont);
     ir_instr_t *next = ir_alloc_instr(cont->backend);
     *next = ir_make_unop(res, op, value);
     *cont->next = next;
@@ -165,7 +170,7 @@ ir_value_t ir_append_binop(ir_instr_cont_t *cont,
                            ir_value_t left,
                            ir_value_t right)
 {
-    ir_var_t res = ir_alloc_var(cont->backend);
+    ir_var_t res = ir_alloc_var(cont);
     ir_instr_t *next = ir_alloc_instr(cont->backend);
     *next = ir_make_binop(res, op, left, right);
     *cont->next = next;
@@ -178,7 +183,7 @@ ir_value_t ir_append_icmp(ir_instr_cont_t *cont,
                           ir_value_t left,
                           ir_value_t right)
 {
-    ir_var_t res = ir_alloc_var(cont->backend);
+    ir_var_t res = ir_alloc_var(cont);
     ir_instr_t *next = ir_alloc_instr(cont->backend);
     *next = ir_make_icmp(res, op, left, right);
     *cont->next = next;
@@ -190,7 +195,7 @@ ir_value_t ir_append_load(ir_instr_cont_t *cont,
                           ir_type_t type,
                           ir_value_t address)
 {
-    ir_var_t res = ir_alloc_var(cont->backend);
+    ir_var_t res = ir_alloc_var(cont);
     ir_instr_t *next = ir_alloc_instr(cont->backend);
     *next = ir_make_load(res, type, address);
     *cont->next = next;
@@ -213,7 +218,7 @@ ir_value_t ir_append_read(ir_instr_cont_t *cont,
                           ir_type_t type,
                           ir_register_t register_)
 {
-    ir_var_t res = ir_alloc_var(cont->backend);
+    ir_var_t res = ir_alloc_var(cont);
     ir_instr_t *next = ir_alloc_instr(cont->backend);
     *next = ir_make_read(res, type, register_);
     *cont->next = next;
@@ -237,7 +242,7 @@ ir_value_t ir_append_cvt(ir_instr_cont_t *cont,
                          ir_instr_kind_t op,
                          ir_value_t value)
 {
-    ir_var_t res = ir_alloc_var(cont->backend);
+    ir_var_t res = ir_alloc_var(cont);
     ir_instr_t *next = ir_alloc_instr(cont->backend);
     *next = ir_make_cvt(res, type, op, value);
     *cont->next = next;

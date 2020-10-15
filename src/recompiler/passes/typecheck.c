@@ -236,6 +236,7 @@ static bool ir_typecheck_instr(ir_instr_t const *instr) {
 
 static bool ir_typecheck_block(ir_block_t const *block,
                                ir_instr_t const **err_instr) {
+    memset(ir_var_types, 0, sizeof(ir_var_types));
     for (ir_instr_t *instr = block->instrs; instr != NULL; instr = instr->next) {
         if (!ir_typecheck_instr(instr)) {
             *err_instr = instr;
@@ -248,7 +249,6 @@ static bool ir_typecheck_block(ir_block_t const *block,
 bool ir_typecheck(ir_graph_t const *graph, ir_instr_t const **err_instr,
                   char *err_msg, size_t err_msg_len) {
     /* Set the default type i0 for all variables. */
-    memset(ir_var_types, 0, sizeof(ir_var_types));
     ir_error_msg = err_msg;
     ir_error_msg_len = err_msg_len;
 

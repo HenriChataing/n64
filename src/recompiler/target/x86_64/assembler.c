@@ -100,7 +100,13 @@ static void assemble_br(ir_recompiler_backend_t const *backend,
     emit_cmp_al_imm8(emitter, 0);
     rel32 = emit_je_rel32(emitter);
     ir_br_queue[ir_br_queue_len].rel32 = rel32;
-    ir_br_queue[ir_br_queue_len].block = instr->br.target;
+    ir_br_queue[ir_br_queue_len].block = instr->br.target[1];
+    ir_br_queue_len++;
+    // The false branch is assembled directly after the current block
+    // (the branch instruction is final). No additional branch
+    // instruction required.
+    ir_br_queue[ir_br_queue_len].rel32 = NULL;
+    ir_br_queue[ir_br_queue_len].block = instr->br.target[0];
     ir_br_queue_len++;
 }
 
@@ -509,23 +515,21 @@ static void assemble_block(ir_recompiler_backend_t const *backend,
  * The allocation spills all variables, and ignores lifetime.
  * Returns the required stack frame size.
  */
-static unsigned alloc_vars(ir_graph_t const *graph) {
+static unsigned alloc_vars(ir_block_t const *block) {
     unsigned offset = 0;
-    for (unsigned nr = 0; nr < graph->nr_blocks; nr++) {
-        ir_instr_t const *instr = graph->blocks[nr].instrs;
-        for (; instr != NULL; instr = instr->next) {
-            if (ir_is_void_instr(instr))
-                continue;
+    ir_instr_t const *instr = block->instrs;
+    for (; instr != NULL; instr = instr->next) {
+        if (ir_is_void_instr(instr))
+            continue;
 
-            // Align the offset to the return type size.
-            unsigned width = round_up_to_power2(instr->type.width);
-            offset = (offset + width - 1) & ~(width - 1);
+        // Align the offset to the return type size.
+        unsigned width = round_up_to_power2(instr->type.width);
+        offset = (offset + width - 1) & ~(width - 1);
 
-            // Save the offset to the var metadata, update the current
-            // stack offset.
-            ir_var_context[instr->res].stack_offset = offset;
-            offset = offset + width;
-        }
+        // Save the offset to the var metadata, update the current
+        // stack offset.
+        ir_var_context[instr->res].stack_offset = offset;
+        offset = offset + width;
     }
 
     return (offset + 15) & ~15u;
@@ -548,14 +552,13 @@ x86_64_func_t ir_x86_64_assemble(ir_recompiler_backend_t const *backend,
         ir_block_context[nr].start = NULL;
     }
 
-    // Allocate the stack frame for the assembled graph.
-    unsigned stack_size = alloc_vars(graph);
-
     // Generate the function prelude to enter into compiled code.
     // Because it is a dummy generator, no register is scratched.
-    void *entry = emitter->ptr + emitter->length;
+    void *entry = code_buffer_ptr(emitter);
+    unsigned stack_size = 0;
     emit_push_r64(emitter, RBP);
-    emit_sub_r64_imm32(emitter, RSP, stack_size);
+    unsigned char *stack_size_alloc_instr = code_buffer_ptr(emitter);
+    emit_sub_r64_imm32(emitter, RSP, 0);
     emit_mov_r64_r64(emitter, RBP, RSP);
 
     // Start the assembly with the first block.
@@ -568,8 +571,11 @@ x86_64_func_t ir_x86_64_assemble(ir_recompiler_backend_t const *backend,
         ir_br_context_t context = ir_br_queue[--ir_br_queue_len];
         unsigned char *start = ir_block_context[context.block->label].start;
         if (start == NULL) {
-            start = emitter->ptr + emitter->length;
+            start = code_buffer_ptr(emitter);
             ir_block_context[context.block->label].start = start;
+            unsigned block_stack_size = alloc_vars(context.block);
+            if (block_stack_size > stack_size)
+                stack_size = block_stack_size;
             assemble_block(backend, emitter, context.block);
         }
         patch_jmp_rel32(emitter, context.rel32, start);
@@ -580,6 +586,9 @@ x86_64_func_t ir_x86_64_assemble(ir_recompiler_backend_t const *backend,
     emit_add_r64_imm32(emitter, RSP, stack_size);
     emit_pop_r64(emitter, RBP);
     emit_ret(emitter);
+
+    // Patch the stack size allocation with the maximum block stack size.
+    patch_sub_r64_imm32(stack_size_alloc_instr, stack_size);
 
     // Patch all exit instructions to jump to the exit label.
     for (unsigned nr = 0; nr < ir_exit_queue_len; nr++) {

@@ -37,6 +37,9 @@ void free_code_buffer_array(code_buffer_t *emitters);
 /** Clear the code buffer context. */
 void clear_code_buffer(code_buffer_t *emitter);
 
+/** Return the pointer to the buffer's current location. */
+unsigned char *code_buffer_ptr(code_buffer_t *emitter);
+
 /**
  * Initialize the code emitter context. The function is used as exception
  * catch point for code emission failure. Must be used as part of if()
