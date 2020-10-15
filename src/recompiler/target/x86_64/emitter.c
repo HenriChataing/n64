@@ -272,7 +272,7 @@ void emit_call(code_buffer_t *emitter, void *ptr, unsigned r64) {
     // Call with relative address if the offset can fit in rel32,
     // otherwise generate call with absolute 64bit address.
     ptrdiff_t rel = (unsigned char *)ptr -
-        (emitter->ptr + emitter->length) - 4;
+        (emitter->ptr + emitter->length + 1) - 4;
     if (rel >= INT32_MIN && rel <= INT32_MAX) {
         emit_u8(emitter, 0xe8);
         emit_u32_le(emitter, (uint32_t)(int32_t)rel);
