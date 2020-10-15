@@ -132,8 +132,9 @@ void emit_add_rN_rN(code_buffer_t *emitter, unsigned width, unsigned drN, unsign
 
 void emit_and_r64_r64(code_buffer_t *emitter, unsigned dr64, unsigned sr64);
 
-void emit_call(code_buffer_t *emitter, void *ptr);
+void emit_call_r64(code_buffer_t *emitter, unsigned r64);
 unsigned char *emit_call_rel32(code_buffer_t *emitter);
+void emit_call(code_buffer_t *emitter, void *ptr, unsigned r64);
 
 void emit_cmp_al_imm8(code_buffer_t *emitter, int8_t imm8);
 void emit_cmp_r8_r8(code_buffer_t *emitter, unsigned dr8, unsigned sr8);

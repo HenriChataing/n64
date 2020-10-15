@@ -249,27 +249,37 @@ void emit_and_r64_r64(code_buffer_t *emitter, unsigned dr64, unsigned sr64) {
     emit_u8(emitter, modrm(DIRECT, sr64, dr64));
 }
 
-void emit_call(code_buffer_t *emitter, void *ptr) {
-    // Near call.
-    // The relative offset is added to the EIP registers, which
-    // contains the address of the instruction immediately following,
-    // the relative offset size need to be deducted.
-    emit_u8(emitter, 0xe8);
-    ptrdiff_t rel = (unsigned char *)ptr -
-        (emitter->ptr + emitter->length) - 4;
-    if (rel < INT32_MIN || rel > INT32_MAX) {
-        fail_code_buffer(emitter);
-    }
-    emit_u32_le(emitter, (uint32_t)(int32_t)rel);
+void emit_call_r64(code_buffer_t *emitter, unsigned r64) {
+    // Call near, absolute indirect, address given in r64.
+    emit_rex_reg_rm(emitter, 0, 0, r64);
+    emit_u8(emitter, 0xff);
+    emit_u8(emitter, modrm(DIRECT, 2, r64));
 }
 
 unsigned char *emit_call_rel32(code_buffer_t *emitter) {
-    // Near call.
+    // Call near.
+    // The relative offset is added to the EIP registers, which
+    // contains the address of the instruction immediately following,
+    // the relative offset size need to be deducted.
     unsigned char *rel32;
     emit_u8(emitter, 0xe8);
     rel32 = emitter->ptr + emitter->length;
     emit_u32_le(emitter, 0);
     return rel32;
+}
+
+void emit_call(code_buffer_t *emitter, void *ptr, unsigned r64) {
+    // Call with relative address if the offset can fit in rel32,
+    // otherwise generate call with absolute 64bit address.
+    ptrdiff_t rel = (unsigned char *)ptr -
+        (emitter->ptr + emitter->length) - 4;
+    if (rel >= INT32_MIN && rel <= INT32_MAX) {
+        emit_u8(emitter, 0xe8);
+        emit_u32_le(emitter, (uint32_t)(int32_t)rel);
+    } else {
+        emit_mov_r64_imm64(emitter, r64, (int64_t)(uint64_t)(uintptr_t)ptr);
+        emit_call_r64(emitter, r64);
+    }
 }
 
 void emit_cmp_al_imm8(code_buffer_t *emitter, int8_t imm8) {

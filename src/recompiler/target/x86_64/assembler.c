@@ -137,7 +137,7 @@ static void assemble_call(ir_recompiler_backend_t const *backend,
         emit_mov_m64_r64(emitter, mem_indirect_disp(R12, 8 * (nr - 6)), RAX);
     }
 
-    emit_call(emitter, instr->call.func);
+    emit_call(emitter, instr->call.func, R13);
 
     if (instr->call.nr_params > 6) {
         emit_add_r64_imm32(emitter, RSP, frame_size);
@@ -356,10 +356,10 @@ static void assemble_load(ir_recompiler_backend_t const *backend,
     emit_add_r64_imm32(emitter, RSI, ir_var_context[instr->res].stack_offset);
 
     switch (instr->type.width) {
-    case 8:  emit_call(emitter, memory->load_u8); break;
-    case 16: emit_call(emitter, memory->load_u16); break;
-    case 32: emit_call(emitter, memory->load_u32); break;
-    case 64: emit_call(emitter, memory->load_u64); break;
+    case 8:  emit_call(emitter, memory->load_u8, RAX); break;
+    case 16: emit_call(emitter, memory->load_u16, RAX); break;
+    case 32: emit_call(emitter, memory->load_u32, RAX); break;
+    case 64: emit_call(emitter, memory->load_u64, RAX); break;
     default: fail_code_buffer(emitter); break;
     }
 }
@@ -378,10 +378,10 @@ static void assemble_store(ir_recompiler_backend_t const *backend,
     }
 
     switch (instr->type.width) {
-    case 8:  emit_call(emitter, memory->store_u8); break;
-    case 16: emit_call(emitter, memory->store_u16); break;
-    case 32: emit_call(emitter, memory->store_u32); break;
-    case 64: emit_call(emitter, memory->store_u64); break;
+    case 8:  emit_call(emitter, memory->store_u8, RAX); break;
+    case 16: emit_call(emitter, memory->store_u16, RAX); break;
+    case 32: emit_call(emitter, memory->store_u32, RAX); break;
+    case 64: emit_call(emitter, memory->store_u64, RAX); break;
     default: fail_code_buffer(emitter); break;
     }
 }
