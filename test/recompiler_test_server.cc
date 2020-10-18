@@ -495,6 +495,20 @@ int run_recompiler_test(ir_recompiler_backend_t *backend,
             goto failure;
         }
 
+        // Optimize generated graph.
+        ir_optimize(backend, graph);
+
+        // Sanity checks on the optimized intermediate
+        // representation. Really should not fail here.
+        if (!ir_typecheck(graph, &err_instr, line, sizeof(line))) {
+            fmt::print(fmt::emphasis::italic, "typecheck failure:\n");
+            fmt::print(fmt::emphasis::italic, "    {}\n", line);
+            fmt::print(fmt::emphasis::italic, "in instruction:\n");
+            ir_print_instr(line, sizeof(line), err_instr);
+            fmt::print(fmt::emphasis::italic, "    {}\n", line);
+            goto failure;
+        }
+
         // Re-compile to x86_64.
         entry = ir_x86_64_assemble(backend, emitter, graph);
         if (entry == NULL) {
@@ -574,6 +588,10 @@ failure:
             fmt::print(fmt::emphasis::italic,
                 "    pc      : {:<16x} - {:16x}\n",
                 trace_registers->end_address, R4300::state.reg.pc);
+        }
+        if (bus->bad()) {
+            fmt::print(fmt::emphasis::italic,
+                "memory trace invalid, index={}\n", bus->index);
         }
     }
 
