@@ -610,6 +610,25 @@ int run_test_suite(ir_recompiler_backend_t *backend,
                                        header.bin_code, header.bin_code_len);
 
 
+    /* Type check the generated graph. */
+    if (!print_typecheck(header, false)) {
+        print_input_info(header);
+        print_raw_disassembly(header);
+        print_ir_disassembly(header);
+        stats->total_failed += nr_tests;
+        return -1;
+    }
+
+    if (verbose) {
+        print_input_info(header);
+        print_raw_disassembly(header);
+        print_ir_disassembly(header);
+    }
+
+    /* Optimize the generated graph. */
+    ir_optimize(backend, header.graph);
+
+    /* Type check again to verify the result of the optimize pass. */
     if (!print_typecheck(header, false)) {
         print_input_info(header);
         print_raw_disassembly(header);
@@ -622,12 +641,11 @@ int run_test_suite(ir_recompiler_backend_t *backend,
     x86_64_func_t entry = ir_x86_64_assemble(backend, emitter, header.graph);
     if (entry == NULL) {
         debugger::error(Debugger::CPU, "failed to generate x86_64 binary code");
+        stats->total_failed += nr_tests;
         return -1;
     }
 
     if (verbose) {
-        print_input_info(header);
-        print_raw_disassembly(header);
         print_ir_disassembly(header);
         print_ir_assembly(header, emitter);
     }

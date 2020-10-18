@@ -169,6 +169,7 @@ bin/recompiler_test_suite: \
     $(OBJDIR)/src/recompiler/code_buffer.o \
     $(OBJDIR)/src/recompiler/passes/typecheck.o \
     $(OBJDIR)/src/recompiler/passes/run.o \
+    $(OBJDIR)/src/recompiler/passes/optimize.o \
     $(OBJDIR)/src/recompiler/target/mips/disassembler.o \
     $(OBJDIR)/src/recompiler/target/x86_64/assembler.o \
     $(OBJDIR)/src/recompiler/target/x86_64/emitter.o \
@@ -219,6 +220,7 @@ bin/recompiler_test_server: \
     $(OBJDIR)/src/recompiler/code_buffer.o \
     $(OBJDIR)/src/recompiler/passes/typecheck.o \
     $(OBJDIR)/src/recompiler/passes/run.o \
+    $(OBJDIR)/src/recompiler/passes/optimize.o \
     $(OBJDIR)/src/recompiler/target/mips/disassembler.o \
     $(OBJDIR)/src/recompiler/target/x86_64/assembler.o \
     $(OBJDIR)/src/recompiler/target/x86_64/emitter.o \
