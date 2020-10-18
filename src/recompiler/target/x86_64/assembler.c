@@ -16,7 +16,7 @@ typedef struct ir_block_context {
 } ir_block_context_t;
 
 typedef struct ir_var_context {
-    unsigned stack_offset;
+    int32_t stack_offset;
 } ir_var_context_t;
 
 typedef struct ir_br_context {
@@ -358,7 +358,7 @@ static void assemble_load(ir_recompiler_backend_t const *backend,
     ir_memory_backend_t const *memory = &backend->memory;
 
     load_value(emitter, instr->load.address, RDI);
-    emit_mov_r64_r64(emitter, RSI, RSP);
+    emit_mov_r64_r64(emitter, RSI, RBP);
     emit_add_r64_imm32(emitter, RSI, ir_var_context[instr->res].stack_offset);
 
     switch (instr->type.width) {
@@ -523,15 +523,16 @@ static unsigned alloc_vars(ir_block_t const *block) {
             continue;
 
         // Align the offset to the return type size.
-        unsigned width = round_up_to_power2(instr->type.width);
+        unsigned width = round_up_to_power2(instr->type.width) / 8;
         offset = (offset + width - 1) & ~(width - 1);
+        offset = offset + width;
 
         // Save the offset to the var metadata, update the current
         // stack offset.
-        ir_var_context[instr->res].stack_offset = offset;
-        offset = offset + width;
+        ir_var_context[instr->res].stack_offset = -offset;
     }
 
+    // Round to 16 to preserve the stack alignment on function calls.
     return (offset + 15) & ~15u;
 }
 
@@ -552,21 +553,20 @@ x86_64_func_t ir_x86_64_assemble(ir_recompiler_backend_t const *backend,
         ir_block_context[nr].start = NULL;
     }
 
-    // Generate the function prelude to enter into compiled code.
-    // Because it is a dummy generator, no register is scratched.
+    // Generate the standard function prelude to enter into compiled code.
     void *entry = code_buffer_ptr(emitter);
     unsigned stack_size = 0;
     emit_push_r64(emitter, RBP);
+    emit_mov_r64_r64(emitter, RBP, RSP);
     unsigned char *stack_size_alloc_instr = code_buffer_ptr(emitter);
     emit_sub_r64_imm32(emitter, RSP, 0);
-    emit_mov_r64_r64(emitter, RBP, RSP);
 
     // Start the assembly with the first block.
     ir_br_queue[0].rel32 = NULL;
     ir_br_queue[0].block = &graph->blocks[0];
     ir_br_queue_len = 1;
 
-    // Loop until all instructions are compiled.
+    // Loop until all instruction blocks are compiled.
     while (ir_br_queue_len > 0) {
         ir_br_context_t context = ir_br_queue[--ir_br_queue_len];
         unsigned char *start = ir_block_context[context.block->label].start;
@@ -581,9 +581,9 @@ x86_64_func_t ir_x86_64_assemble(ir_recompiler_backend_t const *backend,
         patch_jmp_rel32(emitter, context.rel32, start);
     }
 
-    // Generate the function postlude.
-    unsigned char *exit_label = emitter->ptr + emitter->length;
-    emit_add_r64_imm32(emitter, RSP, stack_size);
+    // Generate the standard function postlude.
+    unsigned char *exit_label = code_buffer_ptr(emitter);
+    emit_mov_r64_r64(emitter, RSP, RBP);
     emit_pop_r64(emitter, RBP);
     emit_ret(emitter);
 
