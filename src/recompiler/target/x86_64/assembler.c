@@ -129,12 +129,12 @@ static void assemble_call(ir_recompiler_backend_t const *backend,
     for (unsigned nr = 0; nr < instr->call.nr_params && nr < 6; nr++) {
         load_value(emitter, instr->call.params[nr], register_parameters[nr]);
     }
+    emit_push_r64(emitter, R12);
+    emit_push_r64(emitter, R13);
     if (instr->call.nr_params > 6) {
         frame_size = 8 * (instr->call.nr_params - 6);
         frame_size = (frame_size + 15) / 16;
         frame_size = frame_size * 16;
-        emit_push_r64(emitter, R12);
-        emit_push_r64(emitter, R13); // To preserve stack alignment.
         emit_sub_r64_imm32(emitter, RSP, frame_size);
         emit_mov_r64_r64(emitter, R12, RSP);
     }
@@ -147,9 +147,9 @@ static void assemble_call(ir_recompiler_backend_t const *backend,
 
     if (instr->call.nr_params > 6) {
         emit_add_r64_imm32(emitter, RSP, frame_size);
-        emit_pop_r64(emitter, R13);
-        emit_pop_r64(emitter, R12);
     }
+    emit_pop_r64(emitter, R13);
+    emit_pop_r64(emitter, R12);
     if (instr->type.width > 0) {
         store_value(emitter, instr->type, instr->res, RAX);
     }
