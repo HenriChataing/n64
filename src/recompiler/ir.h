@@ -72,6 +72,11 @@ static inline ir_value_t ir_make_const(ir_type_t type, ir_const_t const_) {
     return (ir_value_t){ IR_CONST, type, { const_ } };
 }
 
+/** @brief Create a constant value representation. */
+static inline ir_value_t ir_make_const_int(ir_type_t type, uintmax_t int_) {
+    return ir_make_const(type, (ir_const_t){ .int_ = int_ });
+}
+
 /** @brief Create a u8 constant value representation. */
 static inline ir_value_t ir_make_const_u8(uint8_t const_) {
     return ir_make_const(ir_make_iN(8), (ir_const_t){ .int_ = const_ });

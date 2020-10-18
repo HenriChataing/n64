@@ -23,9 +23,16 @@ extern "C" {
 bool ir_typecheck(ir_graph_t const *graph, ir_instr_t const **err_instr,
                   char *err_msg, size_t err_msg_len);
 
+/**
+ * Optimize an instruction graph.
+ * @param backend   Pointer to the recompiler backend.
+ * @param block     Pointer to the graph to optimize.
+ */
+void ir_optimize(ir_recompiler_backend_t *backend,
+                 ir_graph_t *graph);
 
 /**
- * Execute the generated instruction tree. The initial state is assumed to have
+ * Execute the generated instruction graph. The initial state is assumed to have
  * been previously loaded.
  * @param backend   Pointer to the recompiler backend.
  * @param graph     Pointer to the instruction graph.
