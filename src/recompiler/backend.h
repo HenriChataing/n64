@@ -47,10 +47,13 @@ typedef struct ir_recompiler_backend {
     ir_graph_t              graph;
     ir_block_t             *blocks;
     unsigned                nr_blocks;
-    unsigned                cur_block;
     ir_instr_t             *instrs;
     unsigned                nr_instrs;
+    ir_value_t             *params;
+    unsigned                nr_params;
+    unsigned                cur_block;
     unsigned                cur_instr;
+    unsigned                cur_param;
 } ir_recompiler_backend_t;
 
 /** Type alias for instruction code continuation. Contains the emplacement
@@ -66,7 +69,8 @@ ir_recompiler_backend_t *
 ir_create_recompiler_backend(ir_memory_backend_t *memory,
                              unsigned nr_registers,
                              unsigned nr_blocks,
-                             unsigned nr_instrs);
+                             unsigned nr_instrs,
+                             unsigned nr_params);
 
 /** Bind a register to a physical memory location. */
 void ir_bind_register(ir_recompiler_backend_t *backend,

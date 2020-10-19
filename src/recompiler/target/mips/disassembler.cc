@@ -9,6 +9,7 @@
 
 #define IR_BLOCK_MAX 16
 #define IR_INSTR_MAX 1024
+#define IR_PARAM_MAX 1024
 
 /* Stand-in interpreter, default callback when the instruction cannot
  * be translated to IR. */
@@ -2132,7 +2133,7 @@ ir_recompiler_backend_t *ir_mips_recompiler_backend(void) {
     };
     ir_recompiler_backend_t *backend =
         ir_create_recompiler_backend(&memory_backend, REG_MAX,
-                                     IR_BLOCK_MAX, IR_INSTR_MAX);
+                                     IR_BLOCK_MAX, IR_INSTR_MAX, IR_PARAM_MAX);
     for (unsigned i = 1; i < 32; i++) {
         ir_bind_register_u64(backend, i, n64::assembly::cpu::RegisterNames[i],
             &R4300::state.reg.gpr[i]);

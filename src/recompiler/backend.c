@@ -9,7 +9,8 @@ ir_recompiler_backend_t *
 ir_create_recompiler_backend(ir_memory_backend_t *memory,
                              unsigned nr_registers,
                              unsigned nr_blocks,
-                             unsigned nr_instrs) {
+                             unsigned nr_instrs,
+                             unsigned nr_params) {
     ir_recompiler_backend_t *backend = malloc(sizeof(ir_recompiler_backend_t));
     if (backend == NULL) {
         return NULL;
@@ -17,6 +18,7 @@ ir_create_recompiler_backend(ir_memory_backend_t *memory,
     backend->registers = NULL;
     backend->blocks = NULL;
     backend->instrs = NULL;
+    backend->params = NULL;
 
     backend->nr_registers = nr_registers;
     backend->registers = malloc(nr_registers * sizeof(ir_recompiler_backend_t));
@@ -33,16 +35,23 @@ ir_create_recompiler_backend(ir_memory_backend_t *memory,
     if (backend->instrs == NULL) {
         goto failure;
     }
+    backend->nr_params = nr_params;
+    backend->params = malloc(nr_params * sizeof(ir_value_t));
+    if (backend->params == NULL) {
+        goto failure;
+    }
 
     backend->memory = *memory;
     backend->cur_block = 0;
     backend->cur_instr = 0;
+    backend->cur_param = 0;
     return backend;
 
 failure:
     free(backend->registers);
     free(backend->blocks);
     free(backend->instrs);
+    free(backend->params);
     free(backend);
     return NULL;
 }
@@ -74,6 +83,7 @@ void ir_bind_register_u64(ir_recompiler_backend_t *backend,
 void ir_reset_backend(ir_recompiler_backend_t *backend) {
     backend->cur_block = 0;
     backend->cur_instr = 0;
+    backend->cur_param = 0;
 }
 
 ir_var_t ir_alloc_var(ir_instr_cont_t *cont) {
@@ -137,7 +147,10 @@ ir_value_t ir_append_call(ir_instr_cont_t *cont,
                           ...) {
     /* Gather the parameters into an allocated parameter array. */
     va_list vparams;
-    ir_value_t *params = malloc(nr_params * sizeof(ir_value_t)); // TODO
+    ir_value_t *params = cont->backend->params + cont->backend->cur_param;
+    cont->backend->cur_param += nr_params;
+    // if (cont->backend->cur_param > cont->backend->nr_params)
+
     va_start(vparams, nr_params);
     for (unsigned i = 0; i < nr_params; i++) {
         params[i] = va_arg(vparams, ir_value_t);
