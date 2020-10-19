@@ -555,7 +555,16 @@ unsigned char *emit_jmp_rel32(code_buffer_t *emitter) {
 unsigned char *emit_je_rel32(code_buffer_t *emitter) {
     unsigned char *rel32;
     emit_u8(emitter, 0x0f);
-    emit_u8(emitter, 0x87);
+    emit_u8(emitter, 0x84);
+    rel32 = emitter->ptr + emitter->length;
+    emit_u32_le(emitter, 0);
+    return rel32;
+}
+
+unsigned char *emit_jne_rel32(code_buffer_t *emitter) {
+    unsigned char *rel32;
+    emit_u8(emitter, 0x0f);
+    emit_u8(emitter, 0x85);
     rel32 = emitter->ptr + emitter->length;
     emit_u32_le(emitter, 0);
     return rel32;
@@ -1059,6 +1068,16 @@ void emit_sub_rN_rN(code_buffer_t *emitter, unsigned width,
     case 64: emit_sub_r64_r64(emitter, drN, srN); break;
     default: fail_code_buffer(emitter);
     }
+}
+
+void emit_test_al_imm8(code_buffer_t *emitter, int8_t imm8) {
+    emit_u8(emitter, 0xa8);
+    emit_u8(emitter, (uint8_t)imm8);
+}
+
+void emit_test_r8_r8(code_buffer_t *emitter, unsigned dr8, unsigned sr8) {
+    emit_u8(emitter, 0x84);
+    emit_u8(emitter, modrm(DIRECT, sr8, dr8));
 }
 
 void emit_xor_r64_r64(code_buffer_t *emitter, unsigned dr64, unsigned sr64) {

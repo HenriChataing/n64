@@ -186,6 +186,7 @@ void emit_imul_rN_rN(code_buffer_t *emitter, unsigned width, unsigned drN, unsig
 
 unsigned char *emit_jmp_rel32(code_buffer_t *emitter);
 unsigned char *emit_je_rel32(code_buffer_t *emitter);
+unsigned char *emit_jne_rel32(code_buffer_t *emitter);
 
 void emit_mov_r8_imm8(code_buffer_t *emitter, unsigned r8, int8_t imm8);
 void emit_mov_r16_imm16(code_buffer_t *emitter, unsigned r16, int16_t imm16);
@@ -275,6 +276,9 @@ void emit_sub_r64_r64(code_buffer_t *emitter, unsigned dr64, unsigned sr64);
 void emit_sub_m64_r64(code_buffer_t *emitter, x86_64_mem_t m64, unsigned r64);
 void emit_sub_r64_m64(code_buffer_t *emitter, unsigned r64, x86_64_mem_t m64);
 void emit_sub_rN_rN(code_buffer_t *emitter, unsigned width, unsigned drN, unsigned srN);
+
+void emit_test_al_imm8(code_buffer_t *emitter, int8_t imm8);
+void emit_test_r8_r8(code_buffer_t *emitter, unsigned dr8, unsigned sr8);
 
 void emit_xor_r64_r64(code_buffer_t *emitter, unsigned dr64, unsigned sr64);
 

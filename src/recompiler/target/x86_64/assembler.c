@@ -96,9 +96,9 @@ static void assemble_br(ir_recompiler_backend_t const *backend,
                         code_buffer_t *emitter,
                         ir_instr_t const *instr) {
     unsigned char *rel32;
-    load_value(emitter, instr->br.cond, RAX);
-    emit_cmp_al_imm8(emitter, 0);
-    rel32 = emit_je_rel32(emitter);
+    load_value(emitter, instr->br.cond, AL);
+    emit_test_al_imm8(emitter, 1);
+    rel32 = emit_jne_rel32(emitter);
     ir_br_queue[ir_br_queue_len].rel32 = rel32;
     ir_br_queue[ir_br_queue_len].block = instr->br.target[1];
     ir_br_queue_len++;
