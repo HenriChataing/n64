@@ -33,6 +33,7 @@ typedef enum ir_mips_register {
     REG_FCR0,       REG_FCR31,
     /* State globals. */
     REG_CYCLES,
+    REG_DELAY_SLOT,
     REG_MAX,
 } ir_mips_register_t;
 

@@ -169,6 +169,13 @@ ir_value_t ir_append_read_i64(ir_instr_cont_t *cont,
 }
 
 static inline
+void      ir_append_write_i8(ir_instr_cont_t *cont,
+                              ir_register_t register_,
+                              ir_value_t value) {
+    return ir_append_write(cont, ir_make_iN(8), register_, value);
+}
+
+static inline
 void      ir_append_write_i32(ir_instr_cont_t *cont,
                               ir_register_t register_,
                               ir_value_t value) {

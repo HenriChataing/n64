@@ -2172,6 +2172,8 @@ ir_recompiler_backend_t *ir_mips_recompiler_backend(void) {
     ir_bind_register_u32(backend, REG_FCR31,    "fcr31", &R4300::state.cp1reg.fcr31);
 
     ir_bind_register_u64(backend, REG_CYCLES,   "cycles", &R4300::state.cycles);
+    ir_bind_register(backend, REG_DELAY_SLOT, ir_make_iN(8),
+        "delay_slot", &R4300::state.cpu.delaySlot);
     return backend;
 }
 
