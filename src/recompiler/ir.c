@@ -6,7 +6,8 @@
 #include <recompiler/ir.h>
 
 bool ir_is_void_instr(ir_instr_t const *instr) {
-    return instr->kind == IR_EXIT ||
+    return (instr->kind == IR_CALL && instr->type.width == 0) ||
+           instr->kind == IR_EXIT ||
            instr->kind == IR_BR ||
            instr->kind == IR_STORE ||
            instr->kind == IR_WRITE;
