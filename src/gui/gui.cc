@@ -1,6 +1,7 @@
 
 #include <cinttypes>
 #include <cstdio>
+#include <ctime>
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -24,7 +25,8 @@ static Disassembler dramDisassembler(22);
 static Disassembler romDisassembler(12);
 static Trace cpuTrace(&debugger::debugger.cpuTrace);
 static Trace rspTrace(&debugger::debugger.rspTrace);
-
+static clock_t startTime;
+static unsigned long startCycles;
 
 static void glfwErrorCallback(int error, const char* description) {
     fprintf(stderr, "Glfw Error %d: %s\n", error, description);
@@ -918,8 +920,20 @@ static void ShowDebuggerWindow(void) {
         }
 
         // CPU freq is 93.75 MHz
-        ImGui::Text("Real time: %lums (%lu)\n", R4300::state.cycles / 93750lu,
-            R4300::state.cycles);
+        clock_t updateTime = clock();
+        unsigned long updateCycles = R4300::state.cycles;
+        float elapsedMilliseconds = (updateTime - startTime) * 1000.0 / CLOCKS_PER_SEC;
+        float machineMilliseconds = (updateCycles - startCycles) / 93750.0;
+        float timeRatio = machineMilliseconds * 100.0 / elapsedMilliseconds;
+
+        ImGui::Text("Real time: %lums (%lu) %.2f%%\n",
+            updateCycles / 93750lu, updateCycles, timeRatio);
+
+        if (elapsedMilliseconds > 1000) {
+            startTime = updateTime;
+            startCycles = updateCycles;
+        }
+
         if (debugger::debugger.halted) {
             ImGui::Text("Machine halt reason: '%s'\n",
                 debugger::debugger.haltedReason.c_str());
@@ -933,8 +947,6 @@ static void ShowDebuggerWindow(void) {
                 debugger::halt("Interrupted by user");
             }
         }
-
-        ImGui::Text("fps %f", getInstantFrameRate());
 
         static int selected = 0;
         ImGui::Separator();
@@ -1018,6 +1030,8 @@ int startGui()
     // Initialize the machine state.
     R4300::state.reset();
     // Start interpreter thread.
+    startTime = clock();
+    startCycles = 0;
     debugger::debugger.startInterpreter();
 
     // Setup window
