@@ -375,7 +375,7 @@ bool print_run(struct test_header &test,
 
 bool print_assembly_run(struct test_header &test,
                         ir_recompiler_backend_t const *backend,
-                        x86_64_func_t entry) {
+                        code_entry_t entry) {
     entry();
     return true;
 }
@@ -638,7 +638,7 @@ int run_test_suite(ir_recompiler_backend_t *backend,
     }
 
     clear_code_buffer(emitter);
-    x86_64_func_t entry = ir_x86_64_assemble(backend, emitter, header.graph);
+    code_entry_t entry = ir_x86_64_assemble(backend, emitter, header.graph, NULL);
     if (entry == NULL) {
         debugger::error(Debugger::CPU, "failed to generate x86_64 binary code");
         stats->total_failed += nr_tests;

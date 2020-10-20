@@ -298,9 +298,15 @@ void print_ir_disassembly(ir_graph_t *graph) {
     }
 }
 
-void print_x86_64_assembly(const code_buffer_t *emitter) {
+void print_x86_64_assembly(code_entry_t binary, size_t binary_len) {
     fmt::print("--------------- ir assembly ---------------\n");
-    dump_code_buffer(stdout, emitter);
+    unsigned char *ptr = (unsigned char *)binary;
+    fprintf(stdout, "   ");
+    for (unsigned i = 0; i < binary_len; i++) {
+        if (i && (i % 16) == 0) fprintf(stdout, "\n   ");
+        fprintf(stdout, " %02x", ptr[i]);
+    }
+    fprintf(stdout, "\n");
 }
 
 void print_memory_log(void) {
@@ -454,7 +460,8 @@ int run_recompiler_test(ir_recompiler_backend_t *backend,
     uint64_t phys_address;
     ir_graph_t *graph = NULL;
     code_buffer_t *emitter = NULL;
-    code_entry_t entry;
+    code_entry_t binary;
+    size_t binary_len;
     bool run = false;
 
     // Translate the program counter, i.e. the block start address.
@@ -465,8 +472,8 @@ int run_recompiler_test(ir_recompiler_backend_t *backend,
     }
 
     // Query the recompiler cache.
-    entry = query_recompiler_cache(cache, phys_address, &emitter);
-    if (entry == NULL) {
+    binary = query_recompiler_cache(cache, phys_address, &emitter, &binary_len);
+    if (binary == NULL) {
         // Run the recompiler on the trace recorded.
         // Memory synchronization with interpreter process is handled by
         // the caller, the trace records can be safely accessed.
@@ -510,20 +517,14 @@ int run_recompiler_test(ir_recompiler_backend_t *backend,
         }
 
         // Re-compile to x86_64.
-        entry = ir_x86_64_assemble(backend, emitter, graph);
-        if (entry == NULL) {
-            fmt::print(fmt::fg(fmt::color::tomato),
-                "failed to generate x86_64 binary code\n");
-            fmt::print(fmt::fg(fmt::color::tomato),
-                "emitter capacity={} length={}\n",
-                emitter ? emitter->capacity : 0,
-                emitter ? emitter->length : 0);
+        binary = ir_x86_64_assemble(backend, emitter, graph, &binary_len);
+        if (binary == NULL) {
             invalidate_recompiler_cache(cache, phys_address, phys_address + 1);
             return 0;
         }
 
         // Update the recompiler cache.
-        if (update_recompiler_cache(cache, phys_address, entry) < 0) {
+        if (update_recompiler_cache(cache, phys_address, binary, binary_len) < 0) {
             invalidate_recompiler_cache(cache, phys_address, phys_address + 1);
             return 0;
         }
@@ -553,7 +554,7 @@ int run_recompiler_test(ir_recompiler_backend_t *backend,
 #endif
 
     // Run generated assembly.
-    entry();
+    binary();
 
     // Finally, compare the registers values on exiting the recompiler,
     // with the recorded values. Make sure the whole memory trace was executed.
@@ -588,6 +589,9 @@ failure:
             fmt::print(fmt::emphasis::italic,
                 "    pc      : {:<16x} - {:16x}\n",
                 trace_registers->end_address, R4300::state.reg.pc);
+            fmt::print(fmt::emphasis::italic,
+                "    next_pc : {:<16x}\n",
+                R4300::state.cpu.nextPc);
         }
         if (bus->bad()) {
             fmt::print(fmt::emphasis::italic,
@@ -599,7 +603,7 @@ failure:
     print_memory_log();
     print_raw_disassembly();
     print_ir_disassembly(graph);
-    print_x86_64_assembly(emitter);
+    print_x86_64_assembly(binary, binary_len);
 
     fmt::print(
         "----------------------------------------"

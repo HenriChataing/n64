@@ -43,12 +43,13 @@ void free_recompiler_cache(recompiler_cache_t *cache);
  * @brief Push code to the code cache.
  * @param cache         Code cache
  * @param address       Address of the newly compiled code block
- * @param entry         Entry address of the newly compiled code block
- * @return              -1 on failure, 0 on success
+ * @param binary        Entry address of the newly compiled code block
+ * @param binary_len    Length of the compiled code block
  */
 int update_recompiler_cache(recompiler_cache_t *cache,
                             uint64_t address,
-                            code_entry_t entry);
+                            code_entry_t binary,
+                            size_t binary_len);
 
 /**
  * @brief Invalidate a segment of the code cache.
@@ -78,7 +79,8 @@ void invalidate_recompiler_cache(recompiler_cache_t *cache,
  */
 code_entry_t query_recompiler_cache(recompiler_cache_t *cache,
                                     uint64_t address,
-                                    code_buffer_t **emitter);
+                                    code_buffer_t **emitter,
+                                    size_t *binary_len);
 
 #ifdef __cplusplus
 }; /* extern "C" */

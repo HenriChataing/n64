@@ -6,7 +6,8 @@
 
 typedef struct address_map {
     uint64_t address;
-    code_entry_t entry;
+    code_entry_t binary;
+    size_t binary_len;
 } address_map_t;
 
 struct recompiler_cache {
@@ -103,11 +104,13 @@ void free_recompiler_cache(recompiler_cache_t *cache) {
  * @brief Push code to the code cache.
  * @param cache         Code cache
  * @param address       Address of the newly compiled code block
- * @param entry         Entry address of the newly compiled code block
+ * @param binary        Entry address of the newly compiled code block
+ * @param binary_len    Length of the compiled code block
  */
 int update_recompiler_cache(recompiler_cache_t *cache,
                             uint64_t address,
-                            code_entry_t entry) {
+                            code_entry_t binary,
+                            size_t binary_len) {
     uint64_t page_nr = address >> cache->page_shift;
     if (page_nr > cache->page_count) {
         return -1;
@@ -117,8 +120,9 @@ int update_recompiler_cache(recompiler_cache_t *cache,
     unsigned hash = (address >> 2) % cache->map_size;
     for (unsigned nr = 0; nr < cache->map_size; nr++) {
         unsigned index = (nr + hash) % cache->map_size;
-        if (map[index].entry == NULL || map[index].address == address) {
-            map[index].entry = entry;
+        if (map[index].binary == NULL || map[index].address == address) {
+            map[index].binary = binary;
+            map[index].binary_len = binary_len;
             return 0;
         }
     }
@@ -169,7 +173,8 @@ void invalidate_recompiler_cache(recompiler_cache_t *cache,
  */
 code_entry_t query_recompiler_cache(recompiler_cache_t *cache,
                                     uint64_t address,
-                                    code_buffer_t **emitter) {
+                                    code_buffer_t **emitter,
+                                    size_t *binary_len) {
     uint64_t page_nr = address >> cache->page_shift;
     if (page_nr > cache->page_count) {
         *emitter = NULL;
@@ -181,11 +186,12 @@ code_entry_t query_recompiler_cache(recompiler_cache_t *cache,
     *emitter = cache->code_buffers + page_nr;
     for (unsigned nr = 0; nr < cache->map_size; nr++) {
         unsigned index = (nr + hash) % cache->map_size;
-        if (map[index].entry == NULL) {
+        if (map[index].binary == NULL) {
             return NULL;
         }
         if (map[index].address == address) {
-            return map[index].entry;
+            if (binary_len) *binary_len = map[index].binary_len;
+            return map[index].binary;
         }
     }
 
