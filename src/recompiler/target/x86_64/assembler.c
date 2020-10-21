@@ -368,6 +368,11 @@ static void assemble_load(ir_recompiler_backend_t const *backend,
     case 64: emit_call(emitter, memory->load_u64, RAX); break;
     default: fail_code_buffer(emitter); break;
     }
+
+    // Check function return for early exit.
+    emit_test_r8_r8(emitter, AL, AL);
+    ir_exit_queue[ir_exit_queue_len].rel32 = emit_je_rel32(emitter);
+    ir_exit_queue_len++;
 }
 
 static void assemble_store(ir_recompiler_backend_t const *backend,
@@ -390,6 +395,11 @@ static void assemble_store(ir_recompiler_backend_t const *backend,
     case 64: emit_call(emitter, memory->store_u64, RAX); break;
     default: fail_code_buffer(emitter); break;
     }
+
+    // Check function return for early exit.
+    emit_test_r8_r8(emitter, AL, AL);
+    ir_exit_queue[ir_exit_queue_len].rel32 = emit_je_rel32(emitter);
+    ir_exit_queue_len++;
 }
 
 static void assemble_read(ir_recompiler_backend_t const *backend,

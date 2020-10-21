@@ -34,50 +34,114 @@ extern "C" void take_cop3_unusable_exception(void) {
 
 extern "C" bool cpu_load_u8(uintmax_t vAddr, uint8_t *value) {
     uint64_t pAddr;
-    return R4300::translateAddress(vAddr, &pAddr, false) == R4300::Exception::None &&
-           R4300::state.bus->load_u8(pAddr, value);
+    R4300::Exception exn = R4300::translateAddress(vAddr, &pAddr, false);
+    if (exn != R4300::Exception::None) {
+        takeException(exn, vAddr, false, true, 0);
+        return false;
+    }
+    if (!R4300::state.bus->load_u8(pAddr, value)) {
+        takeException(R4300::Exception::BusError, vAddr, false, true, 0);
+        return false;
+    }
+    return true;
 }
 
 extern "C" bool cpu_load_u16(uintmax_t vAddr, uint16_t *value) {
     uint64_t pAddr;
-    return R4300::translateAddress(vAddr, &pAddr, false) == R4300::Exception::None &&
-           R4300::state.bus->load_u16(pAddr, value);
+    R4300::Exception exn = R4300::translateAddress(vAddr, &pAddr, false);
+    if (exn != R4300::Exception::None) {
+        takeException(exn, vAddr, false, true, 0);
+        return false;
+    }
+    if (!R4300::state.bus->load_u16(pAddr, value)) {
+        takeException(R4300::Exception::BusError, vAddr, false, true, 0);
+        return false;
+    }
+    return true;
 }
 
 extern "C" bool cpu_load_u32(uintmax_t vAddr, uint32_t *value) {
     uint64_t pAddr;
-    return R4300::translateAddress(vAddr, &pAddr, false) == R4300::Exception::None &&
-           R4300::state.bus->load_u32(pAddr, value);
+    R4300::Exception exn = R4300::translateAddress(vAddr, &pAddr, false);
+    if (exn != R4300::Exception::None) {
+        takeException(exn, vAddr, false, true, 0);
+        return false;
+    }
+    if (!R4300::state.bus->load_u32(pAddr, value)) {
+        takeException(R4300::Exception::BusError, vAddr, false, true, 0);
+        return false;
+    }
+    return true;
 }
 
 extern "C" bool cpu_load_u64(uintmax_t vAddr, uint64_t *value) {
     uint64_t pAddr;
-    return R4300::translateAddress(vAddr, &pAddr, false) == R4300::Exception::None &&
-           R4300::state.bus->load_u64(pAddr, value);
+    R4300::Exception exn = R4300::translateAddress(vAddr, &pAddr, false);
+    if (exn != R4300::Exception::None) {
+        takeException(exn, vAddr, false, true, 0);
+        return false;
+    }
+    if (!R4300::state.bus->load_u64(pAddr, value)) {
+        takeException(R4300::Exception::BusError, vAddr, false, true, 0);
+        return false;
+    }
+    return true;
 }
 
 extern "C" bool cpu_store_u8(uintmax_t vAddr, uint8_t value) {
     uint64_t pAddr;
-    return R4300::translateAddress(vAddr, &pAddr, false) == R4300::Exception::None &&
-           R4300::state.bus->store_u8(pAddr, value);
+    R4300::Exception exn = R4300::translateAddress(vAddr, &pAddr, false);
+    if (exn != R4300::Exception::None) {
+        takeException(exn, vAddr, false, false, 0);
+        return false;
+    }
+    if (!R4300::state.bus->store_u8(pAddr, value)) {
+        takeException(R4300::Exception::BusError, vAddr, false, false, 0);
+        return false;
+    }
+    return true;
 }
 
 extern "C" bool cpu_store_u16(uintmax_t vAddr, uint16_t value) {
     uint64_t pAddr;
-    return R4300::translateAddress(vAddr, &pAddr, false) == R4300::Exception::None &&
-           R4300::state.bus->store_u16(pAddr, value);
+    R4300::Exception exn = R4300::translateAddress(vAddr, &pAddr, false);
+    if (exn != R4300::Exception::None) {
+        takeException(exn, vAddr, false, false, 0);
+        return false;
+    }
+    if (!R4300::state.bus->store_u16(pAddr, value)) {
+        takeException(R4300::Exception::BusError, vAddr, false, false, 0);
+        return false;
+    }
+    return true;
 }
 
 extern "C" bool cpu_store_u32(uintmax_t vAddr, uint32_t value) {
     uint64_t pAddr;
-    return R4300::translateAddress(vAddr, &pAddr, false) == R4300::Exception::None &&
-           R4300::state.bus->store_u32(pAddr, value);
+    R4300::Exception exn = R4300::translateAddress(vAddr, &pAddr, false);
+    if (exn != R4300::Exception::None) {
+        takeException(exn, vAddr, false, false, 0);
+        return false;
+    }
+    if (!R4300::state.bus->store_u32(pAddr, value)) {
+        takeException(R4300::Exception::BusError, vAddr, false, false, 0);
+        return false;
+    }
+    return true;
 }
 
 extern "C" bool cpu_store_u64(uintmax_t vAddr, uint64_t value) {
     uint64_t pAddr;
-    return R4300::translateAddress(vAddr, &pAddr, false) == R4300::Exception::None &&
-           R4300::state.bus->store_u64(pAddr, value);
+    R4300::Exception exn = R4300::translateAddress(vAddr, &pAddr, false);
+    if (exn != R4300::Exception::None) {
+        takeException(exn, vAddr, false, false, 0);
+        return false;
+    }
+    if (!R4300::state.bus->store_u64(pAddr, value)) {
+        takeException(R4300::Exception::BusError, vAddr, false, false, 0);
+        return false;
+    }
+    return true;
 }
 
 #define IR_DISAS_BRANCH_ENABLE 0
@@ -1546,15 +1610,19 @@ static void disas_COP1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 }
 
 static void disas_COP2(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    ir_mips_append_interpreter(c, address, instr);
-    disas_push(address + 4, *c);
-    // takeR4300::Exception(CoprocessorUnusable, 0, false, false, 2);
+    ir_mips_append_write(c, REG_PC, ir_make_const_u64(address));
+    ir_mips_append_write(c, REG_DELAY_SLOT, ir_make_const_u8(0)); // TODO
+    ir_mips_commit_cycles(c);
+    ir_append_call(c, ir_make_iN(0), take_cop2_unusable_exception, 0);
+    ir_append_exit(c);
 }
 
 static void disas_COP3(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    ir_mips_append_interpreter(c, address, instr);
-    disas_push(address + 4, *c);
-    // takeR4300::Exception(CoprocessorUnusable, 0, false, false, 3);
+    ir_mips_append_write(c, REG_PC, ir_make_const_u64(address));
+    ir_mips_append_write(c, REG_DELAY_SLOT, ir_make_const_u8(0)); // TODO
+    ir_mips_commit_cycles(c);
+    ir_append_call(c, ir_make_iN(0), take_cop3_unusable_exception, 0);
+    ir_append_exit(c);
 }
 
 static void disas_DADDI(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
@@ -1599,6 +1667,8 @@ static void disas_LB(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
+    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
+    ir_mips_commit_cycles(c);
     vt = ir_append_load_i8(c, vs);
     vt = ir_append_sext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
@@ -1610,6 +1680,8 @@ static void disas_LBU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
+    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
+    ir_mips_commit_cycles(c);
     vt = ir_append_load_i8(c, vs);
     vt = ir_append_zext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
@@ -1728,6 +1800,8 @@ static void disas_LH(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
+    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
+    ir_mips_commit_cycles(c);
     vt = ir_append_load_i16(c, vs);
     vt = ir_append_sext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
@@ -1739,6 +1813,8 @@ static void disas_LHU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
+    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
+    ir_mips_commit_cycles(c);
     vt = ir_append_load_i16(c, vs);
     vt = ir_append_zext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
@@ -1771,6 +1847,8 @@ static void disas_LW(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
+    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
+    ir_mips_commit_cycles(c);
     vt = ir_append_load_i32(c, vs);
     vt = ir_append_sext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
@@ -1885,6 +1963,8 @@ static void disas_LWU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
+    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
+    ir_mips_commit_cycles(c);
     vt = ir_append_load_i32(c, vs);
     vt = ir_append_zext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
@@ -1907,6 +1987,8 @@ static void disas_SB(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_append_binop(c, IR_ADD, vs, imm);
     vt = ir_mips_append_read(c, mips_get_rt(instr));
     vt = ir_append_trunc_i8(c, vt);
+    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
+    ir_mips_commit_cycles(c);
     ir_append_store_i8(c, vs, vt);
     disas_push(address + 4, *c);
 }
@@ -2024,6 +2106,8 @@ static void disas_SH(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_append_binop(c, IR_ADD, vs, imm);
     vt = ir_mips_append_read(c, mips_get_rt(instr));
     vt = ir_append_trunc_i16(c, vt);
+    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
+    ir_mips_commit_cycles(c);
     ir_append_store_i16(c, vs, vt);
     disas_push(address + 4, *c);
 }
