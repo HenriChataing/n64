@@ -364,9 +364,17 @@ void stop_capture(u64 address) {
 
     Memory::LoggingBus *bus = dynamic_cast<Memory::LoggingBus *>(state.bus);
     address = trace_registers->start_address;
+
+    uint64_t phys_address;
+    if (translateAddress(address, &phys_address, false) != R4300::Exception::None) {
+        fmt::print(fmt::fg(fmt::color::dark_orange),
+            "cannot translate start address 0x{:x}\n", address);
+        goto clear_capture;
+    }
+
     for (Memory::BusLog entry: bus->log) {
         if (entry.access == Memory::BusAccess::Load && entry.bytes == 4 &&
-            (entry.address & 0xffffffflu) == (address & 0xffffffflu)) {
+            entry.address == phys_address) {
             if ((trace_sync->binary_len + 4) > trace_binary_maxlen) {
                 // Insufficient binary storage, cannot store the full binary
                 // code for the recompiler.
@@ -379,6 +387,7 @@ void stop_capture(u64 address) {
             trace_binary[trace_sync->binary_len + 2] = (uint8_t)(entry.value >> 8);
             trace_binary[trace_sync->binary_len + 3] = (uint8_t)(entry.value >> 0);
             trace_sync->binary_len += 4;
+            phys_address += 4;
             address += 4;
         } else {
             if (trace_sync->memory_log_len >= trace_memory_log_maxlen) {
@@ -415,8 +424,6 @@ void stop_capture(u64 address) {
         }
 
         u32 instr;
-        u64 phys_address;
-        translateAddress(address, &phys_address, false);
         bus->load_u32(phys_address, &instr);
         trace_binary[trace_sync->binary_len + 0] = (uint8_t)(instr >> 24);
         trace_binary[trace_sync->binary_len + 1] = (uint8_t)(instr >> 16);
@@ -593,6 +600,12 @@ failure:
                 "    next_pc : {:<16x}\n",
                 R4300::state.cpu.nextPc);
         }
+        fmt::print(fmt::emphasis::italic,
+            "    sr      : {:<8x}\n",
+            trace_registers->start_cp0reg.sr);
+        fmt::print(fmt::emphasis::italic,
+            "    ra      : {:<16x}\n",
+            trace_registers->start_cpureg.gpr[31]);
         if (bus->bad()) {
             fmt::print(fmt::emphasis::italic,
                 "memory trace invalid, index={}\n", bus->index);
