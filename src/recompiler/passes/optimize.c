@@ -4,10 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <recompiler/config.h>
 #include <recompiler/passes.h>
-
-#define IR_VAR_MAX 4096
-#define IR_REGISTER_MAX 128
 
 typedef struct ir_var_context {
     ir_value_t value;
@@ -18,9 +16,9 @@ typedef struct ir_register_context {
     bool set;
 } ir_register_context_t;
 
-static ir_var_context_t      ir_var_context[IR_VAR_MAX];
+static ir_var_context_t      ir_var_context[RECOMPILER_VAR_MAX];
 static unsigned              ir_cur_var;
-static ir_register_context_t ir_register_context[IR_REGISTER_MAX];
+static ir_register_context_t ir_register_context[RECOMPILER_GLOBAL_MAX];
 
 static inline uintmax_t make_mask(unsigned width) {
     return width >= CHAR_BIT * sizeof(uintmax_t) ?

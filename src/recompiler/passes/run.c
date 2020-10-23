@@ -3,12 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <recompiler/config.h>
 #include <recompiler/ir.h>
 #include <recompiler/passes.h>
 
-#define IR_RUN_VAR_MAX 4096
-
-static ir_const_t ir_var_values[IR_RUN_VAR_MAX];
+static ir_const_t ir_var_values[RECOMPILER_VAR_MAX];
 static unsigned nr_var_values;
 static char *ir_error_msg;
 static size_t ir_error_msg_len;

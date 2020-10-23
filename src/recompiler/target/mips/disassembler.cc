@@ -3,13 +3,10 @@
 #include <assembly/registers.h>
 #include <r4300/state.h>
 
+#include <recompiler/config.h>
 #include <recompiler/ir.h>
 #include <recompiler/backend.h>
 #include <recompiler/target/mips.h>
-
-#define IR_BLOCK_MAX 16
-#define IR_INSTR_MAX 1024
-#define IR_PARAM_MAX 1024
 
 /* Stand-in interpreter, default callback when the instruction cannot
  * be translated to IR. */
@@ -144,10 +141,6 @@ extern "C" bool cpu_store_u64(uintmax_t vAddr, uint64_t value) {
     return true;
 }
 
-#define IR_DISAS_BRANCH_ENABLE 0
-#define IR_DISAS_QUEUE_SIZE    32
-#define IR_DISAS_MAP_SIZE      1024
-
 static inline uint32_t mips_get_rs(uint32_t instr) {
     return (instr >> 21) & 0x1flu;
 }
@@ -235,13 +228,13 @@ static struct {
 
 /** Queue containing current disassembly entry points. */
 static struct {
-    ir_disas_entrypoint_t queue[IR_DISAS_QUEUE_SIZE];
+    ir_disas_entrypoint_t queue[RECOMPILER_BLOCK_MAX];
     unsigned length;
 } ir_disas_queue;
 
 /** Map address offsets to disassembled instructions. */
 static struct {
-    ir_instr_t     *map[IR_DISAS_MAP_SIZE];
+    ir_instr_t     *map[RECOMPILER_INSTR_MAX];
     unsigned        base;
 } ir_disas_map;
 
@@ -385,7 +378,7 @@ static void disas_branch(ir_instr_cont_t *c, ir_value_t cond, uint64_t address,
     ir_mips_commit_cycles(c);
     ir_append_br(c, cond, &br_false, &br_true);
 
-#if IR_DISAS_BRANCH_ENABLE
+#if RECOMPILER_DISAS_BRANCH_ENABLE
     disas_push(address + 4 + (imm << 2), br_true);
     disas_push(address + 8, br_false);
 #else
@@ -414,7 +407,7 @@ static void disas_branch_likely(ir_instr_cont_t *c, ir_value_t cond,
     ir_append_br(c, cond, &br_false, &br_true);
     append_instr(&br_true, address + 4, disas_read_instr(address + 4));
 
-#if IR_DISAS_BRANCH_ENABLE
+#if RECOMPILER_DISAS_BRANCH_ENABLE
     disas_push(address + 4 + (imm << 2), br_true);
     disas_push(address + 8, br_false);
 #else
@@ -2334,7 +2327,9 @@ ir_recompiler_backend_t *ir_mips_recompiler_backend(void) {
     };
     ir_recompiler_backend_t *backend =
         ir_create_recompiler_backend(&memory_backend, REG_MAX,
-                                     IR_BLOCK_MAX, IR_INSTR_MAX, IR_PARAM_MAX);
+                                     RECOMPILER_BLOCK_MAX,
+                                     RECOMPILER_INSTR_MAX,
+                                     RECOMPILER_PARAM_MAX);
     for (unsigned i = 1; i < 32; i++) {
         ir_bind_register_u64(backend, i, n64::assembly::cpu::RegisterNames[i],
             &R4300::state.reg.gpr[i]);
@@ -2380,8 +2375,8 @@ ir_recompiler_backend_t *ir_mips_recompiler_backend(void) {
 
 ir_graph_t *ir_mips_disassemble(ir_recompiler_backend_t *backend,
                                 uint64_t address, unsigned char *ptr, size_t len) {
-    if (len > (IR_DISAS_MAP_SIZE * sizeof(uint32_t)))
-        len = (IR_DISAS_MAP_SIZE * sizeof(uint32_t));
+    if (len > (RECOMPILER_INSTR_MAX * sizeof(uint32_t)))
+        len = (RECOMPILER_INSTR_MAX * sizeof(uint32_t));
 
     ir_disas_region.start = address;
     ir_disas_region.end   = address + len;

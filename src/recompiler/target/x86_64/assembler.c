@@ -3,13 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <recompiler/config.h>
 #include <recompiler/ir.h>
 #include <recompiler/target/x86_64/emitter.h>
 #include <recompiler/target/x86_64.h>
 
-#define IR_BLOCK_MAX 64
-#define IR_VAR_MAX 4096
-#define IR_INSTR_MAX 1024
 
 typedef struct ir_block_context {
     unsigned char *start;
@@ -28,11 +26,11 @@ typedef struct ir_exit_context {
     unsigned char *rel32;
 } ir_exit_context_t;
 
-static ir_block_context_t ir_block_context[IR_BLOCK_MAX];
-static ir_var_context_t   ir_var_context[IR_VAR_MAX];
-static ir_br_context_t    ir_br_queue[IR_INSTR_MAX];
+static ir_block_context_t ir_block_context[RECOMPILER_BLOCK_MAX];
+static ir_var_context_t   ir_var_context[RECOMPILER_VAR_MAX];
+static ir_br_context_t    ir_br_queue[RECOMPILER_BLOCK_MAX];
 static unsigned           ir_br_queue_len;
-static ir_exit_context_t  ir_exit_queue[IR_INSTR_MAX];
+static ir_exit_context_t  ir_exit_queue[RECOMPILER_INSTR_MAX]; // TODO BLOCK
 static unsigned           ir_exit_queue_len;
 
 static inline unsigned round_up_to_power2(unsigned v) {
@@ -560,7 +558,7 @@ code_entry_t ir_x86_64_assemble(ir_recompiler_backend_t const *backend,
     // Clear the assembler context.
     ir_br_queue_len = 0;
     ir_exit_queue_len = 0;
-    for (unsigned nr = 0; nr < IR_BLOCK_MAX; nr++) {
+    for (unsigned nr = 0; nr < RECOMPILER_BLOCK_MAX; nr++) {
         ir_block_context[nr].start = NULL;
     }
 
