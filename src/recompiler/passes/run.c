@@ -8,16 +8,30 @@
 #include <recompiler/passes.h>
 
 static ir_const_t ir_var_values[RECOMPILER_VAR_MAX];
-static unsigned nr_var_values;
-static char *ir_error_msg;
-static size_t ir_error_msg_len;
+static const ir_block_t *cur_block;
+static const ir_instr_t *cur_instr;
+static const ir_instr_t *next_instr;
+static char instr_str[128];
 
-static inline uintmax_t ir_make_mask(unsigned width) {
+static char const *print_instr(ir_instr_t const *instr) {
+    ir_print_instr(instr_str, sizeof(instr), instr);
+    return instr_str;
+}
+
+static inline uintmax_t make_mask(unsigned width) {
     return width >= CHAR_BIT * sizeof(uintmax_t) ?
         UINTMAX_C(-1) : (UINTMAX_C(1) << width) - 1;
 }
 
-static ir_const_t ir_eval_value(ir_value_t value) {
+static inline uintmax_t make_sign_bit(unsigned width) {
+    return UINTMAX_C(1) << (width - 1);
+}
+
+static inline uintmax_t make_sign_ext(unsigned width, unsigned shift) {
+    return make_mask(width) << shift;
+}
+
+static ir_const_t eval_value(ir_value_t value) {
     switch (value.kind) {
     case IR_CONST: return value.const_;
     case IR_VAR:   return ir_var_values[value.var];
@@ -25,31 +39,27 @@ static ir_const_t ir_eval_value(ir_value_t value) {
     }
 }
 
-static bool ir_run_br(ir_instr_t const *instr,
-                      ir_instr_t const **next_instr) {
-    ir_const_t value = ir_eval_value(instr->br.cond);
-    switch (value.int_) {
-    case 0:
-        *next_instr = instr->br.target[0]->instrs;
-        return true;
-    case 1:
-        *next_instr = instr->br.target[1]->instrs;
-        return true;
-    default:
-        snprintf(ir_error_msg, ir_error_msg_len,
-            "branch condition evaluated to non boolean value %" PRIuMAX,
-            value.int_);
-        return false;
-    }
+static bool run_exit(ir_recompiler_backend_t *backend,
+                     ir_instr_t const *instr) {
+    return true;
 }
 
-static bool ir_run_call(ir_instr_t const *instr) {
+static bool run_br(ir_recompiler_backend_t *backend,
+                   ir_instr_t const *instr) {
+    ir_const_t value = eval_value(instr->br.cond);
+    cur_block = instr->br.target[value.int_ != 0];
+    next_instr = cur_block->instrs;
+    return true;
+}
+
+static bool run_call(ir_recompiler_backend_t *backend,
+                     ir_instr_t const *instr) {
     if (instr->call.nr_params == 0 && instr->type.width == 0) {
         instr->call.func();
         return true;
     }
-    if (instr->call.nr_params == 0) {
-        uintmax_t mask = ir_make_mask(instr->type.width);
+    else if (instr->call.nr_params == 0) {
+        uintmax_t mask = make_mask(instr->type.width);
         uintmax_t res;
         uint32_t (*func_i32)(void) = (void *)instr->call.func;
         uint64_t (*func_i64)(void) = (void *)instr->call.func;
@@ -57,89 +67,101 @@ static bool ir_run_call(ir_instr_t const *instr) {
         case 32: res = func_i32(); break;
         case 64: res = func_i64(); break;
         default:
-            snprintf(ir_error_msg, ir_error_msg_len,
-                "function call unsupported in IR run");
+            raise_recompiler_error(backend, "run",
+                "unsupported return bit width %u"
+                " in function call with no parameters\n"
+                "in block .L%u, instruction:\n    %s",
+                instr->type.width, cur_block->label, print_instr(instr));
             return false;
         }
-        ir_var_values[instr->res] = (ir_const_t){ .int_ = res & mask };
+        ir_var_values[instr->res] = (ir_const_t){ res & mask };
         return true;
     }
-    if (instr->call.nr_params == 1) {
-        ir_const_t const_ = ir_eval_value(instr->call.params[0]);
+    else if (instr->call.nr_params == 1 && instr->type.width == 0) {
+        uintmax_t value = eval_value(instr->call.params[0]).int_;
         switch (instr->call.params[0].type.width) {
-        case 8:  instr->call.func((uint8_t)const_.int_);  return true;
-        case 16: instr->call.func((uint16_t)const_.int_); return true;
-        case 32: instr->call.func((uint32_t)const_.int_); return true;
-        case 64: instr->call.func((uint64_t)const_.int_); return true;
+        case 8:  instr->call.func((uint8_t)value);  break;
+        case 16: instr->call.func((uint16_t)value); break;
+        case 32: instr->call.func((uint32_t)value); break;
+        case 64: instr->call.func((uint64_t)value); break;
         default:
-            break;
+            raise_recompiler_error(backend, "run",
+                "unsupported parameter bit width %u"
+                " in function call with one parameter\n"
+                "in block .L%u, instruction:\n    %s",
+                instr->call.params[0].type.width,
+                cur_block->label, print_instr(instr));
+            return false;
         }
+        return true;
     }
-    snprintf(ir_error_msg, ir_error_msg_len,
-        "function call unsupported in IR run");
-    return false;
-}
-
-static bool ir_run_unop(ir_instr_t const *instr) {
-    uintmax_t value = ir_eval_value(instr->unop.value).int_;
-    uintmax_t mask = ir_make_mask(instr->unop.value.type.width);
-    uintmax_t res;
-    switch (instr->kind) {
-    case IR_NOT:    res = ~value; break;
-    default:
+    else {
+        raise_recompiler_error(backend, "run",
+            "unsupported function call with %u parameters"
+            " and return type i%u\n"
+            "in block .L%u, instruction:\n    %s",
+            instr->call.nr_params, instr->type.width,
+            cur_block->label, print_instr(instr));
         return false;
     }
+}
 
-    ir_var_values[instr->res] = (ir_const_t){ .int_ = res & mask };
+static bool run_not(ir_recompiler_backend_t *backend,
+                    ir_instr_t const *instr) {
+    uintmax_t value = eval_value(instr->unop.value).int_;
+    uintmax_t mask = make_mask(instr->type.width);
+    ir_var_values[instr->res] = (ir_const_t){ ~value & mask };
     return true;
 }
 
-static bool ir_run_binop(ir_instr_t const *instr) {
-    uintmax_t left  = ir_eval_value(instr->binop.left).int_;
-    uintmax_t right = ir_eval_value(instr->binop.right).int_;
-    unsigned width = instr->binop.left.type.width;
-    uintmax_t mask  = ir_make_mask(width);
+static bool run_binop(ir_recompiler_backend_t *backend,
+                      ir_instr_t const *instr) {
+    unsigned width = instr->type.width;
+    uintmax_t mask = make_mask(width);
+    uintmax_t left = eval_value(instr->binop.left).int_;
+    uintmax_t right = eval_value(instr->binop.right).int_;
+    uintmax_t sign_bit = make_sign_bit(width);
+    uintmax_t sign_ext = make_sign_ext(
+        CHAR_BIT * sizeof(uintmax_t) - width, width);
+    uintmax_t left_s = left & sign_bit ? left | sign_ext : left;
+    uintmax_t right_s = right & sign_bit ? right | sign_ext : right;
     uintmax_t res;
 
     switch (instr->kind) {
     case IR_ADD:    res = left + right; break;
     case IR_SUB:    res = left - right; break;
     case IR_MUL:    res = left * right; break;
-    case IR_UDIV:   res = (left & mask) / (right & mask); break;
-    case IR_SDIV:   res = (left & mask) / (right & mask); break;
-    case IR_UREM:   res = (left & mask) % (right & mask); break;
-    case IR_SREM:   res = (left & mask) % (right & mask); break;
+    case IR_UDIV:   res = left / right; break;
+    case IR_SDIV:   res = (uintmax_t)((intmax_t)left_s / (intmax_t)right_s); break;
+    case IR_UREM:   res = (uintmax_t)((intmax_t)left_s % (intmax_t)right_s); break;
+    case IR_SREM:   res = left % right; break;
     case IR_AND:    res = left & right; break;
     case IR_OR:     res = left | right; break;
     case IR_XOR:    res = left ^ right; break;
     case IR_SLL:    res = left << right; break;
     case IR_SRL:    res = left >> right; break;
-    case IR_SRA: {
-        uintmax_t sign_bit = 1lu << (width - 1);
-        uintmax_t sign_ext = ir_make_mask(right) << (width - right);
-        res = (left & sign_bit) ? (left >> right) | sign_ext : (left >> right);
-        break;
-    }
-    default:
-        return false;
+    case IR_SRA:    res = left_s >> right; break;
+    default: return false;
     }
 
-    ir_var_values[instr->res] = (ir_const_t){ .int_ = res & mask };
+    ir_var_values[instr->res] = (ir_const_t){ res & mask };
     return true;
 }
 
-static bool ir_run_icmp(ir_instr_t const *instr) {
-    unsigned width  = instr->icmp.left.type.width;
-    uintmax_t left  = ir_eval_value(instr->icmp.left).int_;
-    uintmax_t right = ir_eval_value(instr->icmp.right).int_;
-    uintmax_t sign_bit   = 1llu << (width - 1);
-    uintmax_t sign_width = CHAR_BIT * sizeof(uintmax_t) - width;
-    uintmax_t sign_ext   = ((1llu << sign_width) - 1) << width;
-    intmax_t left_s = (left & sign_bit) ?
+static bool run_icmp(ir_recompiler_backend_t *backend,
+                     ir_instr_t const *instr) {
+    unsigned width = instr->icmp.left.type.width;
+    uintmax_t left = eval_value(instr->icmp.left).int_;
+    uintmax_t right = eval_value(instr->icmp.right).int_;
+    uintmax_t sign_bit = make_sign_bit(width);
+    uintmax_t sign_ext = make_sign_ext(
+        CHAR_BIT * sizeof(uintmax_t) - width, width);
+    intmax_t left_s = left & sign_bit ?
         (intmax_t)(left | sign_ext) : (intmax_t)left;
-    intmax_t right_s = (right & sign_bit) ?
+    intmax_t right_s = right & sign_bit ?
         (intmax_t)(right | sign_ext) : (intmax_t)right;
     bool res;
+
     switch (instr->icmp.op) {
     case IR_EQ:  res = left == right; break;
     case IR_NE:  res = left != right; break;
@@ -152,210 +174,228 @@ static bool ir_run_icmp(ir_instr_t const *instr) {
     case IR_SLT: res = left_s < right_s; break;
     case IR_SLE: res = left_s <= right_s; break;
     default:
+        raise_recompiler_error(backend, "run",
+            "unsupported icmp comparator %u\n"
+            "in block .L%u, instruction:\n    %s",
+            instr->icmp.op, cur_block->label, print_instr(instr));
         return false;
     }
 
-    ir_var_values[instr->res] = (ir_const_t){ .int_ = res };
+    ir_var_values[instr->res] = (ir_const_t){ res };
     return true;
 }
 
-static bool ir_run_load(ir_recompiler_backend_t const *backend,
-                        ir_instr_t const *instr) {
+static bool run_load(ir_recompiler_backend_t *backend,
+                     ir_instr_t const *instr) {
     ir_memory_backend_t const *memory = &backend->memory;
-    uintmax_t address = ir_eval_value(instr->load.address).int_;
+    uintmax_t address = eval_value(instr->load.address).int_;
     uintmax_t res;
-    uint8_t res_u8;
-    uint16_t res_u16;
-    uint32_t res_u32;
-    uint64_t res_u64;
+    uint8_t res_u8 = 0;
+    uint16_t res_u16 = 0;
+    uint32_t res_u32 = 0;
+    uint64_t res_u64 = 0;
+    bool exception = false;
 
-    switch (instr->load.type.width) {
+    switch (instr->type.width) {
     case 8:
-        if (!memory->load_u8(address, &res_u8))   return false;
+        exception = !memory->load_u8(address, &res_u8);
         res = res_u8;
         break;
     case 16:
-        if (!memory->load_u16(address, &res_u16)) return false;
+        exception = !memory->load_u16(address, &res_u16);
         res = res_u16;
         break;
     case 32:
-        if (!memory->load_u32(address, &res_u32)) return false;
+        exception = !memory->load_u32(address, &res_u32);
         res = res_u32;
         break;
     case 64:
-        if (!memory->load_u64(address, &res_u64)) return false;
+        exception = !memory->load_u64(address, &res_u64);
         res = res_u64;
         break;
     default:
+        raise_recompiler_error(backend, "run",
+            "unsupported load bit width %u\n"
+            "in block .L%u, instruction:\n    %s",
+            instr->type.width, cur_block->label, print_instr(instr));
         return false;
     }
 
-    ir_var_values[instr->res] = (ir_const_t){ .int_ = res };
-    return true;
+    if (exception) {
+        raise_recompiler_error(backend, "run",
+            "unhandled synchronous exception in memory load\n"
+            "in block .L%u, instruction:\n    %s",
+            cur_block->label, print_instr(instr));
+        return false;
+    } else {
+        ir_var_values[instr->res] = (ir_const_t){ res };
+        return true;
+    }
 }
 
-static bool ir_run_store(ir_recompiler_backend_t const *backend,
-                         ir_instr_t const *instr) {
+static bool run_store(ir_recompiler_backend_t *backend,
+                      ir_instr_t const *instr) {
     ir_memory_backend_t const *memory = &backend->memory;
-    uintmax_t address = ir_eval_value(instr->store.address).int_;
-    uintmax_t value   = ir_eval_value(instr->store.value).int_;
+    uintmax_t address = eval_value(instr->store.address).int_;
+    uintmax_t value   = eval_value(instr->store.value).int_;
+    bool exception = false;
 
     switch (instr->type.width) {
-    case 8:     return memory->store_u8(address, value);
-    case 16:    return memory->store_u16(address, value);
-    case 32:    return memory->store_u32(address, value);
-    case 64:    return memory->store_u64(address, value);
+    case 8:     exception = !memory->store_u8(address, value);  break;
+    case 16:    exception = !memory->store_u16(address, value); break;
+    case 32:    exception = !memory->store_u32(address, value); break;
+    case 64:    exception = !memory->store_u64(address, value); break;
     default:
+        raise_recompiler_error(backend, "run",
+            "unsupported store bit width %u\n"
+            "in block .L%u, instruction:\n    %s",
+            instr->type.width, cur_block->label, print_instr(instr));
         return false;
     }
+
+    if (exception) {
+        raise_recompiler_error(backend, "run",
+            "unhandled synchronous exception in memory store\n"
+            "in block .L%u, instruction:\n    %s",
+            cur_block->label, print_instr(instr));
+    }
+    return !exception;
 }
 
-static bool ir_run_read(ir_recompiler_backend_t const *backend,
-                        ir_instr_t const *instr) {
+static bool run_read(ir_recompiler_backend_t *backend,
+                     ir_instr_t const *instr) {
     ir_register_t register_ = instr->read.register_;
-    if (register_ > backend->nr_registers ||
-        backend->registers[register_].ptr == NULL) {
-        snprintf(ir_error_msg, ir_error_msg_len,
-            "undefined register $%u", register_);
-        return false;
-    }
     void *ptr = backend->registers[register_].ptr;
     ir_type_t type = backend->registers[register_].type;
-    ir_const_t *const_ = &ir_var_values[instr->res];
+    uintmax_t *value_ptr = &ir_var_values[instr->res].int_;
 
     switch (type.width) {
-    case 8:  const_->int_ = *(uint8_t *)ptr; break;
-    case 16: const_->int_ = *(uint16_t *)ptr; break;
-    case 32: const_->int_ = *(uint32_t *)ptr; break;
-    case 64: const_->int_ = *(uint64_t *)ptr; break;
+    case 8:  *value_ptr = *(uint8_t  *)ptr; break;
+    case 16: *value_ptr = *(uint16_t *)ptr; break;
+    case 32: *value_ptr = *(uint32_t *)ptr; break;
+    case 64: *value_ptr = *(uint64_t *)ptr; break;
     default:
-        snprintf(ir_error_msg, ir_error_msg_len,
-            "invalid register size %u for $%u", type.width, register_);
+        raise_recompiler_error(backend, "run",
+            "unsupported register bit width %u\n"
+            "in block .L%u, instruction:\n    %s",
+            type.width, cur_block->label, print_instr(instr));
         return false;
     }
     return true;
 }
 
-static bool ir_run_write(ir_recompiler_backend_t const *backend,
-                         ir_instr_t const *instr) {
+static bool run_write(ir_recompiler_backend_t *backend,
+                      ir_instr_t const *instr) {
     ir_register_t register_ = instr->write.register_;
-    if (register_ > backend->nr_registers ||
-        backend->registers[register_].ptr == NULL) {
-        snprintf(ir_error_msg, ir_error_msg_len,
-            "undefined register $%u", register_);
-        return false;
-    }
     void *ptr = backend->registers[register_].ptr;
     ir_type_t type = backend->registers[register_].type;
-    ir_const_t const_ = ir_eval_value(instr->write.value);
+    uintmax_t value = eval_value(instr->write.value).int_;
+
     switch (type.width) {
-    case 8:  *(uint8_t *)ptr = const_.int_; break;
-    case 16: *(uint16_t *)ptr = const_.int_; break;
-    case 32: *(uint32_t *)ptr = const_.int_; break;
-    case 64: *(uint64_t *)ptr = const_.int_; break;
+    case 8:  *(uint8_t  *)ptr = value; break;
+    case 16: *(uint16_t *)ptr = value; break;
+    case 32: *(uint32_t *)ptr = value; break;
+    case 64: *(uint64_t *)ptr = value; break;
     default:
-        snprintf(ir_error_msg, ir_error_msg_len,
-            "invalid register size %u for $%u", type.width, register_);
+        raise_recompiler_error(backend, "run",
+            "unsupported register bit width %u\n"
+            "in block .L%u, instruction:\n    %s",
+            type.width, cur_block->label, print_instr(instr));
         return false;
     }
     return true;
 }
 
-static bool ir_run_cvt(ir_recompiler_backend_t const *backend,
-                       ir_instr_t const *instr) {
-    uintmax_t value = ir_eval_value(instr->cvt.value).int_;
+static bool run_trunc(ir_recompiler_backend_t *backend,
+                      ir_instr_t const *instr) {
+    uintmax_t value = eval_value(instr->cvt.value).int_;
+    uintmax_t mask = make_mask(instr->type.width);
+    ir_var_values[instr->res] = (ir_const_t) { value & mask };
+    return true;
+}
+
+static bool run_sext(ir_recompiler_backend_t *backend,
+                     ir_instr_t const *instr) {
+    uintmax_t value = eval_value(instr->cvt.value).int_;
     unsigned in_width = instr->cvt.value.type.width;
     unsigned out_width = instr->type.width;
-    uintmax_t sign_bit   = 1llu << (in_width - 1);
-    uintmax_t sign_width = CHAR_BIT * sizeof(uintmax_t) - in_width;
-    uintmax_t sign_ext   = ((1llu << sign_width) - 1) << in_width;
-    uintmax_t out_mask =
-        out_width >= CHAR_BIT * sizeof(uintmax_t) ? -1llu : (1llu << out_width) - 1;
-    uintmax_t res;
-
-    switch (instr->kind) {
-    case IR_ZEXT:    res = value; break;
-    case IR_TRUNC:   res = value & out_mask; break;
-    case IR_SEXT:    res = value & sign_bit ? value | sign_ext : value; break;
-    default:
-        return false;
-    }
-
-    ir_var_values[instr->res] = (ir_const_t){ .int_ = res };
+    uintmax_t sign_bit = make_sign_bit(in_width);
+    uintmax_t sign_ext = make_sign_ext(out_width - in_width, in_width);
+    uintmax_t res = value & sign_bit ? value | sign_ext : value;
+    ir_var_values[instr->res] = (ir_const_t) { res };
     return true;
 }
 
-
-static bool ir_run_instr(ir_recompiler_backend_t const *backend,
-                         ir_instr_t const *instr,
-                         ir_instr_t const **next_instr) {
-    *next_instr = instr->next;
-    switch (instr->kind) {
-    case IR_EXIT:       return true;
-    case IR_BR:
-        return ir_run_br(instr, next_instr);
-    case IR_CALL:
-        return ir_run_call(instr);
-    case IR_NOT:
-        return ir_run_unop(instr);
-    case IR_ADD:
-    case IR_SUB:
-    case IR_MUL:
-    case IR_UDIV:
-    case IR_SDIV:
-    case IR_UREM:
-    case IR_SREM:
-    case IR_SLL:
-    case IR_SRL:
-    case IR_SRA:
-    case IR_AND:
-    case IR_OR:
-    case IR_XOR:
-        return ir_run_binop(instr);
-    case IR_ICMP:
-        return ir_run_icmp(instr);
-    case IR_LOAD:
-        return ir_run_load(backend, instr);
-    case IR_STORE:
-        return ir_run_store(backend, instr);
-    case IR_READ:
-        return ir_run_read(backend, instr);
-    case IR_WRITE:
-        return ir_run_write(backend, instr);
-    case IR_TRUNC:
-    case IR_SEXT:
-    case IR_ZEXT:
-        return ir_run_cvt(backend, instr);
-    }
-
-    return false;
+static bool run_zext(ir_recompiler_backend_t *backend,
+                     ir_instr_t const *instr) {
+    uintmax_t value = eval_value(instr->cvt.value).int_;
+    ir_var_values[instr->res] = (ir_const_t) { value };
+    return true;
 }
 
-bool ir_run(ir_recompiler_backend_t const *backend,
-            ir_graph_t const *graph,
-            ir_instr_t const **err_instr,
-            char *err_msg, size_t err_msg_len) {
+/**
+ * Run callbacks specialized for one IR instruction.
+ * Return true if the execution is successful, false otherwise.
+ */
+static const bool (*run_callbacks[])(ir_recompiler_backend_t *backend,
+                                     ir_instr_t const *instr) = {
+    [IR_EXIT]  = run_exit,
+    [IR_BR]    = run_br,
+    [IR_CALL]  = run_call,
+    [IR_NOT]   = run_not,
+    [IR_ADD]   = run_binop,
+    [IR_SUB]   = run_binop,
+    [IR_MUL]   = run_binop,
+    [IR_UDIV]  = run_binop,
+    [IR_SDIV]  = run_binop,
+    [IR_UREM]  = run_binop,
+    [IR_SREM]  = run_binop,
+    [IR_SLL]   = run_binop,
+    [IR_SRL]   = run_binop,
+    [IR_SRA]   = run_binop,
+    [IR_AND]   = run_binop,
+    [IR_OR]    = run_binop,
+    [IR_XOR]   = run_binop,
+    [IR_ICMP]  = run_icmp,
+    [IR_LOAD]  = run_load,
+    [IR_STORE] = run_store,
+    [IR_READ]  = run_read,
+    [IR_WRITE] = run_write,
+    [IR_TRUNC] = run_trunc,
+    [IR_SEXT]  = run_sext,
+    [IR_ZEXT]  = run_zext,
+};
+
+static bool run_instr(ir_recompiler_backend_t *backend,
+                      ir_instr_t const *instr) {
+    return run_callbacks[instr->kind](backend, instr);
+}
+
+/**
+ * @brief Execute the generated instruction graph.
+ * The initial state is assumed to have been previously loaded
+ * into the global variables.
+ * @param backend
+ *      Pointer to the recompiler backend used to generate
+ *      the instruction graph.
+ * @param graph     Pointer to the instruction graph.
+ * @return
+ *      True if the execution completed successfully, false otherwise.
+ */
+bool ir_run(ir_recompiler_backend_t *backend,
+            ir_graph_t const *graph) {
 
     memset(ir_var_values, 0, sizeof(ir_var_values));
-    ir_error_msg = err_msg;
-    ir_error_msg_len = err_msg_len;
-    nr_var_values = 0;
+    cur_block = &graph->blocks[0];
+    ir_instr_t const *instr;
 
-    for (ir_instr_t const *instr = graph->blocks[0].instrs; instr != NULL;) {
-        ir_instr_t const *next = instr;
-        nr_var_values += instr->type.width != 0;
+    for (instr = cur_block->instrs; instr != NULL; instr = next_instr) {
+        next_instr = instr->next;
+        cur_instr = instr;
 
-        if (!ir_run_instr(backend, instr, &next)) {
-            *err_instr = instr;
+        if (!run_instr(backend, instr)) {
             return false;
         }
-
-        instr = next;
     }
     return true;
-}
-
-void ir_run_vars(ir_const_t const **vars, unsigned *nr_vars) {
-    *vars = ir_var_values;
-    *nr_vars = nr_var_values;
 }

@@ -17,6 +17,9 @@
 /** Maximum number of global variables defined per backend. */
 #define RECOMPILER_GLOBAL_MAX           128
 
+/** Maximum length of recompiler error messages. */
+#define RECOMPILER_ERROR_MAX_LEN        256
+
 /** Defines whether the disassembly stops at branch instructions or not. */
 #define RECOMPILER_DISAS_BRANCH_ENABLE  0
 

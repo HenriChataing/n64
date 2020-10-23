@@ -3,10 +3,12 @@
 #define _RECOMPILER_BACKEND_H_INCLUDED_
 
 #include <limits.h>
+#include <setjmp.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
+#include <recompiler/config.h>
 #include <recompiler/ir.h>
 
 #ifdef __cplusplus
@@ -34,6 +36,19 @@ typedef struct ir_register_backend {
     void               *ptr;
 } ir_register_backend_t;
 
+/**
+ * @brief Recompiler error.
+ * Errors can be raised by any of the recompiler passes,
+ * or with resource allocation, using \ref recompiler_raise_error().
+ * The log can be probed with \ref recompiler_has_error()
+ * and \ref recompiler_next_error().
+ */
+typedef struct recompiler_error {
+    struct recompiler_error *next;
+    char const *module;
+    char message[RECOMPILER_ERROR_MAX_LEN];
+} recompiler_error_t;
+
 /** Recompiler backend.
  * Saves information about the machine memory and registers,
  * as well as interrnal data structures. */
@@ -54,6 +69,13 @@ typedef struct ir_recompiler_backend {
     unsigned                cur_block;
     unsigned                cur_instr;
     unsigned                cur_param;
+
+    /* Error logs */
+    recompiler_error_t     *errors;
+    recompiler_error_t    **last_error;
+
+    /* Exception catch point. */
+    jmp_buf                 jmp_buf;
 } ir_recompiler_backend_t;
 
 /** Type alias for instruction code continuation. Contains the emplacement
@@ -87,7 +109,24 @@ void ir_bind_register_u64(ir_recompiler_backend_t *backend,
                           char const *name,
                           uint64_t *ptr);
 
-void        ir_reset_backend(ir_recompiler_backend_t *backend);
+/**
+ * Initialize the backend context. The function is used as exception
+ * catch point for resource allocation failure. Must be used as part of if()
+ * condition, otherwise the behavior is undefined.
+ * Evaluates to 0 on success, -1 on allocation failure.
+ */
+#define reset_recompiler_backend(backend) setjmp(backend->jmp_buf)
+
+__attribute__((noreturn))
+void fail_recompiler_backend(ir_recompiler_backend_t *backend);
+void clear_recompiler_backend(ir_recompiler_backend_t *backend);
+void raise_recompiler_error(ir_recompiler_backend_t *backend,
+                            char const *module, char const *fmt, ...);
+bool has_recompiler_error(ir_recompiler_backend_t *backend);
+bool next_recompiler_error(ir_recompiler_backend_t *backend,
+                           char const **module,
+                           char message[RECOMPILER_ERROR_MAX_LEN]);
+
 ir_var_t    ir_alloc_var(ir_instr_cont_t *cont);
 ir_instr_t *ir_alloc_instr(ir_recompiler_backend_t *backend);
 ir_block_t *ir_alloc_block(ir_recompiler_backend_t *backend);

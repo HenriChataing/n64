@@ -1,5 +1,6 @@
 
 #include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -45,6 +46,8 @@ ir_create_recompiler_backend(ir_memory_backend_t *memory,
     backend->cur_block = 0;
     backend->cur_instr = 0;
     backend->cur_param = 0;
+    backend->errors = NULL;
+    backend->last_error = &backend->errors;
     return backend;
 
 failure:
@@ -54,6 +57,105 @@ failure:
     free(backend->params);
     free(backend);
     return NULL;
+}
+
+/**
+ * @brief Raise an exception on the recompiler backend.
+ * Jumps to the latest call to \ref reset_recompiler_backend.
+ * Undefined if called before \ref reset_recompiler_backend.
+ */
+__attribute__((noreturn))
+void fail_recompiler_backend(ir_recompiler_backend_t *backend) {
+    longjmp(backend->jmp_buf, -1);
+}
+
+/**
+ * @brief Clear a recompiler backend.
+ * All allocated resources are reset, the error logs are cleared.
+ */
+void clear_recompiler_backend(ir_recompiler_backend_t *backend) {
+    recompiler_error_t *error, *next;
+    for (error = backend->errors; error != NULL; error = next) {
+        next = error->next;
+        free(error);
+    }
+
+    backend->errors = NULL;
+    backend->last_error = &backend->errors;
+    backend->cur_block = 0;
+    backend->cur_instr = 0;
+    backend->cur_param = 0;
+}
+
+/**
+ * @brief Raise a recompiler error.
+ * Generates an error log for the recompiler module \p module,
+ * with the formatted message \p fmt.
+ * The message line is limited to 128 characters.
+ *
+ * @param backend   Used recompiler backend.
+ * @param module    Recompiler module raising the error.
+ * @param fmt       Error message format.
+ */
+void raise_recompiler_error(ir_recompiler_backend_t *backend,
+                            char const *module, char const *fmt, ...) {
+
+    recompiler_error_t *error = malloc(sizeof(*error));
+    va_list vparams;
+    if (error == NULL) {
+        return;
+    }
+
+    error->module = module;
+    error->next = NULL;
+    va_start(vparams, fmt);
+    vsnprintf(error->message, sizeof(error->message), fmt, vparams);
+    va_end(vparams);
+
+    *backend->last_error = error;
+    backend->last_error = &error->next;
+}
+
+/**
+ * @brief Return whether recompiler errors were raised.
+ * @param backend   Used recompiled backend.
+ * @return
+ *    true if \ref recompiler_raise_error was called since the last time
+ *    the error list was cleared, false otherwise.
+ */
+bool has_recompiler_error(ir_recompiler_backend_t *backend) {
+    return backend->errors != NULL;
+}
+
+/**
+ * @brief Fetch and pop the oldest recompiler error.
+ * Always succeeds if \ref recompiler_has_error returned true.
+ * @param backend   Used recompiler backend, must not be NULL.
+ * @param module
+ *    Pointer to a buffer where to store the recompiler module which
+ *    raised the error, must not be NULL.
+ * @param message
+ *    Pointer to a buffer where to copy the nul-terminated
+ *    error message, must not be NULL.
+ * @return
+ *    true if \ref recompiler_raise_error was called since the last time
+ *    the error list was cleared, false otherwise.
+ */
+bool next_recompiler_error(ir_recompiler_backend_t *backend,
+                           char const **module,
+                           char message[RECOMPILER_ERROR_MAX_LEN]) {
+    if (backend->errors == NULL) {
+        return false;
+    }
+
+    recompiler_error_t *error = backend->errors;
+    backend->errors = error->next;
+    backend->last_error = backend->errors ?
+        backend->last_error : &backend->errors;
+    *module = error->module;
+    memcpy(message, error->message, sizeof(error->message));
+    free(error);
+    return true;
 }
 
 void ir_bind_register(ir_recompiler_backend_t *backend,
@@ -80,23 +182,25 @@ void ir_bind_register_u64(ir_recompiler_backend_t *backend,
     ir_bind_register(backend, register_, ir_make_iN(64), name, ptr);
 }
 
-void ir_reset_backend(ir_recompiler_backend_t *backend) {
-    backend->cur_block = 0;
-    backend->cur_instr = 0;
-    backend->cur_param = 0;
-}
-
 ir_var_t ir_alloc_var(ir_instr_cont_t *cont) {
     return cont->block->nr_vars++;
 }
 
 ir_instr_t *ir_alloc_instr(ir_recompiler_backend_t *backend) {
-    // if (backend->cur_instr >= backend->nr_instrs)
+    if (backend->cur_instr >= backend->nr_instrs) {
+        raise_recompiler_error(backend,
+            "backend", "out of ir instruction memory");
+        fail_recompiler_backend(backend);
+    }
     return &backend->instrs[backend->cur_instr++];
 }
 
 ir_block_t *ir_alloc_block(ir_recompiler_backend_t *backend) {
-    // if (backend->cur_block >= backend->nr_blocks)
+    if (backend->cur_block >= backend->nr_blocks) {
+        raise_recompiler_error(backend,
+            "backend", "out of ir block memory");
+        fail_recompiler_backend(backend);
+    }
     ir_block_t *block = &backend->blocks[backend->cur_block];
     block->label = backend->cur_block;
     block->nr_vars = 0;
@@ -152,7 +256,12 @@ ir_value_t ir_append_call(ir_instr_cont_t *cont,
     va_list vparams;
     ir_value_t *params = cont->backend->params + cont->backend->cur_param;
     cont->backend->cur_param += nr_params;
-    // if (cont->backend->cur_param > cont->backend->nr_params)
+
+    if (cont->backend->cur_param > cont->backend->nr_params) {
+        raise_recompiler_error(cont->backend,
+            "backend", "out of ir parameter memory");
+        fail_recompiler_backend(cont->backend);
+    }
 
     va_start(vparams, nr_params);
     for (unsigned i = 0; i < nr_params; i++) {

@@ -325,71 +325,51 @@ void print_ir_disassembly(struct test_header &test) {
     }
 }
 
+void print_backend_error_log(ir_recompiler_backend_t *backend) {
+    char message[RECOMPILER_ERROR_MAX_LEN] = "";
+    char const *module;
+
+    while (next_recompiler_error(backend, &module, message)) {
+        fmt::print(fmt::emphasis::italic, "{} failure:\n{}\n",
+            module, message);
+    }
+}
+
 void print_ir_assembly(struct test_header &test, const code_buffer_t *emitter) {
     fmt::print("--------------- ir assembly ---------------\n");
     dump_code_buffer(stdout, emitter);
 }
 
-bool print_typecheck(struct test_header &test, bool log_success) {
+bool print_typecheck(ir_recompiler_backend_t *backend,
+                     struct test_header &test, bool log_success) {
 
-    ir_instr_t const *instr;
-    char line[128];
-    bool success = ir_typecheck(test.graph, &instr, line, sizeof(line));
-
+    bool success = ir_typecheck(backend, test.graph);
     if (success && log_success)  {
         fmt::print("------------- ir typecheck ----------------\n");
         fmt::print("typecheck success!\n");
     } else if (!success) {
         fmt::print("------------- ir typecheck ----------------\n");
-        fmt::print("typecheck failure:\n");
-        puts(line);
-        fmt::print("in instruction:\n");
-        ir_print_instr(line, sizeof(line), instr);
-        puts(line);
+        print_backend_error_log(backend);
     }
-
     return success;
 }
 
-bool print_run(struct test_header &test,
-               ir_recompiler_backend_t const *backend) {
+bool print_run(ir_recompiler_backend_t *backend,
+               struct test_header &test) {
 
-    ir_instr_t const *instr;
-    char line[128] = { 0 };
-    bool success = ir_run(backend, test.graph, &instr, line, sizeof(line));
-
+    bool success = ir_run(backend, test.graph) & !has_recompiler_error(backend);
     if (!success) {
-        if (line[0] != '\n') {
-            fmt::print(fmt::emphasis::italic, "run failure:\n");
-            fmt::print(fmt::emphasis::italic, "    {}\n", line);
-            fmt::print(fmt::emphasis::italic, "in instruction:\n");
-        } else {
-            fmt::print(fmt::emphasis::italic, "run failure in instruction:\n");
-        }
-        ir_print_instr(line, sizeof(line), instr);
-        fmt::print(fmt::emphasis::italic, "    {}\n", line);
+        fmt::print("---------------- ir run -------------------\n");
+        print_backend_error_log(backend);
     }
-
     return success;
 }
 
-bool print_assembly_run(struct test_header &test,
-                        ir_recompiler_backend_t const *backend,
+bool print_assembly_run(ir_recompiler_backend_t *backend,
+                        struct test_header &test,
                         code_entry_t entry) {
     entry();
     return true;
-}
-
-void print_run_vars(void) {
-    ir_const_t const *vars;
-    unsigned nr_vars;
-    ir_run_vars(&vars, &nr_vars);
-
-    fmt::print(fmt::emphasis::italic, "variable values:\n");
-    for (unsigned nr = 0; nr < nr_vars; nr++) {
-        fmt::print(fmt::emphasis::italic,
-            "    %{} = 0x{:x}\n", nr, vars[nr].int_);
-    }
 }
 
 static int parse_word_array(toml::array const *array,
@@ -605,13 +585,13 @@ int run_test_suite(ir_recompiler_backend_t *backend,
     header.bin_code_len = bin_code_len;
     header.asm_code = **asm_code_node.as_string();
 
-    ir_reset_backend(backend);
+    clear_recompiler_backend(backend);
     header.graph = ir_mips_disassemble(backend, header.start_address,
                                        header.bin_code, header.bin_code_len);
 
 
     /* Type check the generated graph. */
-    if (!print_typecheck(header, false)) {
+    if (!print_typecheck(backend, header, false)) {
         print_input_info(header);
         print_raw_disassembly(header);
         print_ir_disassembly(header);
@@ -629,7 +609,7 @@ int run_test_suite(ir_recompiler_backend_t *backend,
     ir_optimize(backend, header.graph);
 
     /* Type check again to verify the result of the optimize pass. */
-    if (!print_typecheck(header, false)) {
+    if (!print_typecheck(backend, header, false)) {
         print_input_info(header);
         print_raw_disassembly(header);
         print_ir_disassembly(header);
@@ -710,13 +690,13 @@ int run_test_suite(ir_recompiler_backend_t *backend,
         bus->reset(test.trace);
         bool run_success;
 
-        if (!(run_success = print_assembly_run(header, backend, entry)) ||
+        // if (!(run_success = print_run(backend, header)) ||
+        if (!(run_success = print_assembly_run(backend, header, entry)) ||
             bus->bad() ||
             !match_cpureg(reg,    R4300::state.reg) ||
             !match_cp0reg(cp0reg, R4300::state.cp0reg) ||
             !match_cp1reg(cp1reg, R4300::state.cp1reg) ||
             R4300::state.cycles != test.end_cycles) {
-            print_run_vars();
             if (run_success) {
                 fmt::print(fmt::emphasis::italic,
                     "register differences (expected, computed):\n");

@@ -309,6 +309,16 @@ void print_x86_64_assembly(code_entry_t binary, size_t binary_len) {
     fprintf(stdout, "\n");
 }
 
+void print_backend_error_log(ir_recompiler_backend_t *backend) {
+    char message[RECOMPILER_ERROR_MAX_LEN] = "";
+    char const *module;
+
+    while (next_recompiler_error(backend, &module, message)) {
+        fmt::print(fmt::emphasis::italic, "{} failure:\n{}\n",
+            module, message);
+    }
+}
+
 void print_memory_log(void) {
     fmt::print("--------------- memory log ----------------\n");
 
@@ -324,18 +334,6 @@ void print_memory_log(void) {
                 trace_memory_log[nr].address,
                 trace_memory_log[nr].value);
         }
-    }
-}
-
-void print_run_vars(void) {
-    ir_const_t const *vars;
-    unsigned nr_vars;
-    ir_run_vars(&vars, &nr_vars);
-
-    fmt::print(fmt::emphasis::italic, "variable values:\n");
-    for (unsigned nr = 0; nr < nr_vars; nr++) {
-        fmt::print(fmt::emphasis::italic,
-            "    %{} = 0x{:x}\n", nr, vars[nr].int_);
     }
 }
 
@@ -490,22 +488,15 @@ int run_recompiler_test(ir_recompiler_backend_t *backend,
             goto failure;
         }
 
-        ir_reset_backend(backend);
+        clear_recompiler_backend(backend);
         graph = ir_mips_disassemble(
             backend, trace_registers->start_address,
             trace_binary, trace_sync->binary_len);
 
-        const ir_instr_t *err_instr;
-        char line[128];
-
         // Preliminary sanity checks on the generated intermediate
         // representation. Really should not fail here.
-        if (!ir_typecheck(graph, &err_instr, line, sizeof(line))) {
-            fmt::print(fmt::emphasis::italic, "typecheck failure:\n");
-            fmt::print(fmt::emphasis::italic, "    {}\n", line);
-            fmt::print(fmt::emphasis::italic, "in instruction:\n");
-            ir_print_instr(line, sizeof(line), err_instr);
-            fmt::print(fmt::emphasis::italic, "    {}\n", line);
+        if (!ir_typecheck(backend, graph)) {
+            print_backend_error_log(backend);
             goto failure;
         }
 
@@ -514,12 +505,8 @@ int run_recompiler_test(ir_recompiler_backend_t *backend,
 
         // Sanity checks on the optimized intermediate
         // representation. Really should not fail here.
-        if (!ir_typecheck(graph, &err_instr, line, sizeof(line))) {
-            fmt::print(fmt::emphasis::italic, "typecheck failure:\n");
-            fmt::print(fmt::emphasis::italic, "    {}\n", line);
-            fmt::print(fmt::emphasis::italic, "in instruction:\n");
-            ir_print_instr(line, sizeof(line), err_instr);
-            fmt::print(fmt::emphasis::italic, "    {}\n", line);
+        if (!ir_typecheck(backend, graph)) {
+            print_backend_error_log(backend);
             goto failure;
         }
 
@@ -581,7 +568,6 @@ int run_recompiler_test(ir_recompiler_backend_t *backend,
 failure:
     // Print debug information.
     if (run) {
-        print_run_vars();
         fmt::print(fmt::emphasis::italic,
             "register differences (expected, computed):\n");
         print_cpureg_diff(trace_registers->end_cpureg, R4300::state.reg);
