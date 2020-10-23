@@ -110,26 +110,29 @@ ir_graph_t *ir_make_graph(ir_recompiler_backend_t *backend) {
     return &backend->graph;
 }
 
-void       ir_append_exit(ir_instr_cont_t *cont)
-{
+static inline ir_instr_t * ir_append_instr(ir_instr_cont_t *cont,
+                                           ir_instr_t instr) {
     ir_instr_t *next = ir_alloc_instr(cont->backend);
-    *next = ir_make_exit();
+    *next = instr;
     *cont->next = next;
+    cont->next = &next->next;
     cont->block->nr_instrs++;
+    return next;
 }
 
-void       ir_append_br(ir_instr_cont_t *cont,
-                        ir_value_t cond,
-                        ir_instr_cont_t *target_false,
-                        ir_instr_cont_t *target_true)
-{
-    ir_instr_t *next = ir_alloc_instr(cont->backend);
+void ir_append_exit(ir_instr_cont_t *cont) {
+    ir_append_instr(cont, ir_make_exit());
+}
+
+void ir_append_br(ir_instr_cont_t *cont,
+                  ir_value_t cond,
+                  ir_instr_cont_t *target_false,
+                  ir_instr_cont_t *target_true) {
     ir_block_t *block_false = ir_alloc_block(cont->backend);
     ir_block_t *block_true = ir_alloc_block(cont->backend);
 
-    *next = ir_make_br(cond, block_false, block_true);
-    *cont->next = next;
-    cont->block->nr_instrs++;
+    ir_append_instr(cont,
+        ir_make_br(cond, block_false, block_true));
 
     target_false->backend = cont->backend;
     target_false->block = block_false;
@@ -159,106 +162,71 @@ ir_value_t ir_append_call(ir_instr_cont_t *cont,
 
     /* Generate the instruction. */
     ir_var_t res = type.width > 0 ? ir_alloc_var(cont) : 0;
-    ir_instr_t *next = ir_alloc_instr(cont->backend);
-    *next = ir_make_call(res, type, func, params, nr_params);
-    *cont->next = next;
-    cont->next = &next->next;
+    ir_append_instr(cont, ir_make_call(res, type, func, params, nr_params));
     return ir_make_var(res, type);
 }
 
 ir_value_t ir_append_unop(ir_instr_cont_t *cont,
                           ir_instr_kind_t op,
-                          ir_value_t value)
-{
+                          ir_value_t value) {
     ir_var_t res = ir_alloc_var(cont);
-    ir_instr_t *next = ir_alloc_instr(cont->backend);
-    *next = ir_make_unop(res, op, value);
-    *cont->next = next;
-    cont->next = &next->next;
+    ir_append_instr(cont, ir_make_unop(res, op, value));
     return ir_make_var(res, value.type);
 }
 
 ir_value_t ir_append_binop(ir_instr_cont_t *cont,
                            ir_instr_kind_t op,
                            ir_value_t left,
-                           ir_value_t right)
-{
+                           ir_value_t right) {
     ir_var_t res = ir_alloc_var(cont);
-    ir_instr_t *next = ir_alloc_instr(cont->backend);
-    *next = ir_make_binop(res, op, left, right);
-    *cont->next = next;
-    cont->next = &next->next;
+    ir_append_instr(cont, ir_make_binop(res, op, left, right));
     return ir_make_var(res, left.type);
 }
 
 ir_value_t ir_append_icmp(ir_instr_cont_t *cont,
                           ir_icmp_kind_t op,
                           ir_value_t left,
-                          ir_value_t right)
-{
+                          ir_value_t right) {
     ir_var_t res = ir_alloc_var(cont);
-    ir_instr_t *next = ir_alloc_instr(cont->backend);
-    *next = ir_make_icmp(res, op, left, right);
-    *cont->next = next;
-    cont->next = &next->next;
+    ir_append_instr(cont, ir_make_icmp(res, op, left, right));
     return ir_make_var(res, ir_make_iN(1));
 }
 
 ir_value_t ir_append_load(ir_instr_cont_t *cont,
                           ir_type_t type,
-                          ir_value_t address)
-{
+                          ir_value_t address) {
     ir_var_t res = ir_alloc_var(cont);
-    ir_instr_t *next = ir_alloc_instr(cont->backend);
-    *next = ir_make_load(res, type, address);
-    *cont->next = next;
-    cont->next = &next->next;
+    ir_append_instr(cont, ir_make_load(res, type, address));
     return ir_make_var(res, type);
 }
 
-void       ir_append_store(ir_instr_cont_t *cont,
-                           ir_type_t type,
-                           ir_value_t address,
-                           ir_value_t value)
-{
-    ir_instr_t *next = ir_alloc_instr(cont->backend);
-    *next = ir_make_store(type, address, value);
-    *cont->next = next;
-    cont->next = &next->next;
+void ir_append_store(ir_instr_cont_t *cont,
+                     ir_type_t type,
+                     ir_value_t address,
+                     ir_value_t value) {
+    ir_append_instr(cont, ir_make_store(type, address, value));
 }
 
 ir_value_t ir_append_read(ir_instr_cont_t *cont,
                           ir_type_t type,
-                          ir_register_t register_)
-{
+                          ir_register_t register_) {
     ir_var_t res = ir_alloc_var(cont);
-    ir_instr_t *next = ir_alloc_instr(cont->backend);
-    *next = ir_make_read(res, type, register_);
-    *cont->next = next;
-    cont->next = &next->next;
+    ir_append_instr(cont, ir_make_read(res, type, register_));
     return ir_make_var(res, type);
 }
 
-void       ir_append_write(ir_instr_cont_t *cont,
-                           ir_type_t type,
-                           ir_register_t register_,
-                           ir_value_t value)
-{
-    ir_instr_t *next = ir_alloc_instr(cont->backend);
-    *next = ir_make_write(type, register_, value);
-    *cont->next = next;
-    cont->next = &next->next;
+void ir_append_write(ir_instr_cont_t *cont,
+                     ir_type_t type,
+                     ir_register_t register_,
+                     ir_value_t value) {
+    ir_append_instr(cont, ir_make_write(type, register_, value));
 }
 
 ir_value_t ir_append_cvt(ir_instr_cont_t *cont,
                          ir_type_t type,
                          ir_instr_kind_t op,
-                         ir_value_t value)
-{
+                         ir_value_t value) {
     ir_var_t res = ir_alloc_var(cont);
-    ir_instr_t *next = ir_alloc_instr(cont->backend);
-    *next = ir_make_cvt(res, type, op, value);
-    *cont->next = next;
-    cont->next = &next->next;
+    ir_append_instr(cont, ir_make_cvt(res, type, op, value));
     return ir_make_var(res, type);
 }
