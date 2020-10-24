@@ -79,6 +79,13 @@ static bool optimize_call(ir_recompiler_backend_t *backend,
     return false;
 }
 
+static bool optimize_alloc(ir_recompiler_backend_t *backend,
+                           ir_instr_t *instr) {
+    (void)backend;
+    (void)instr;
+    return false;
+}
+
 static bool optimize_not(ir_recompiler_backend_t *backend,
                          ir_instr_t *instr) {
     ir_value_t value = convert_value(instr->unop.value);
@@ -342,6 +349,7 @@ static const bool (*optimize_callbacks[])(ir_recompiler_backend_t *backend,
     [IR_EXIT]  = optimize_exit,
     [IR_BR]    = optimize_br,
     [IR_CALL]  = optimize_call,
+    [IR_ALLOC] = optimize_alloc,
     [IR_NOT]   = optimize_not,
     [IR_ADD]   = optimize_binop,
     [IR_SUB]   = optimize_binop,

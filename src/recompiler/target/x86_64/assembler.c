@@ -15,6 +15,7 @@ typedef struct ir_block_context {
 
 typedef struct ir_var_context {
     int32_t stack_offset;
+    bool allocated;
 } ir_var_context_t;
 
 typedef struct ir_br_context {
@@ -55,6 +56,9 @@ static void load_value(code_buffer_t *emitter, ir_value_t value, unsigned r) {
         case 64: emit_mov_r64_imm64(emitter, r, value.const_.int_); break;
         default: fail_code_buffer(emitter);
         }
+    } else if (ir_var_context[value.var].allocated) {
+        emit_mov_r64_r64(emitter, r, RBP);
+        emit_add_r64_imm32(emitter, r, ir_var_context[value.var].stack_offset);
     } else {
         x86_64_mem_t mN = mem_indirect_disp(RBP,
             ir_var_context[value.var].stack_offset);
@@ -151,6 +155,17 @@ static void assemble_call(ir_recompiler_backend_t const *backend,
     if (instr->type.width > 0) {
         store_value(emitter, instr->type, instr->res, RAX);
     }
+}
+
+static void assemble_alloc(ir_recompiler_backend_t const *backend,
+                           code_buffer_t *emitter,
+                           ir_instr_t const *instr) {
+    // Stack allocated variables are phantom variables,
+    // rather than materializing the variable containing the address to
+    // the allocated memory, the variable is inlined in all its uses.
+    (void)backend;
+    (void)emitter;
+    (void)instr;
 }
 
 static void assemble_not(ir_recompiler_backend_t const *backend,
@@ -479,6 +494,7 @@ static const void (*assemble_callbacks[])(ir_recompiler_backend_t const *backend
     [IR_EXIT]  = assemble_exit,
     [IR_BR]    = assemble_br,
     [IR_CALL]  = assemble_call,
+    [IR_ALLOC] = assemble_alloc,
     [IR_NOT]   = assemble_not,
     [IR_ADD]   = assemble_add,
     [IR_SUB]   = assemble_sub,
@@ -530,14 +546,20 @@ static unsigned alloc_vars(ir_block_t const *block) {
         if (ir_is_void_instr(instr))
             continue;
 
+        // Allocated variables are phantom, only the requested memory
+        // is allocated, not the variable slot.
+        unsigned width = instr->kind == IR_ALLOC ?
+            instr->alloc.type.width : instr->type.width;
+
         // Align the offset to the return type size.
-        unsigned width = round_up_to_power2(instr->type.width) / 8;
+        width = round_up_to_power2(width) / 8;
         offset = (offset + width - 1) & ~(width - 1);
         offset = offset + width;
 
         // Save the offset to the var metadata, update the current
         // stack offset.
         ir_var_context[instr->res].stack_offset = -offset;
+        ir_var_context[instr->res].allocated = instr->kind == IR_ALLOC;
     }
 
     // Round to 16 to preserve the stack alignment on function calls.

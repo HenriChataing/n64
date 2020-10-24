@@ -122,6 +122,8 @@ typedef enum ir_instr_kind {
     IR_EXIT,
     IR_BR,
     IR_CALL,
+    /* Variable allocation. */
+    IR_ALLOC,
     /* Unary operations. */
     IR_NOT,
     /* Binary operations. */
@@ -188,6 +190,10 @@ typedef struct ir_call {
     unsigned            flags;
 } ir_call_t;
 
+typedef struct ir_alloc {
+    ir_type_t           type;
+} ir_alloc_t;
+
 typedef struct ir_unop {
     ir_value_t          value;
 } ir_unop_t;
@@ -237,6 +243,7 @@ typedef struct ir_instr {
     union {
     ir_br_t             br;
     ir_call_t           call;
+    ir_alloc_t          alloc;
     ir_unop_t           unop;
     ir_binop_t          binop;
     ir_icmp_t           icmp;
@@ -271,6 +278,13 @@ ir_instr_t ir_make_call(ir_var_t res,
                         unsigned nr_params) {
     return (ir_instr_t){ .kind = IR_CALL, .res = res, .type = type,
         .call = { .func = func, .params = params, .nr_params = nr_params } };
+}
+
+static inline
+ir_instr_t ir_make_alloc(ir_var_t res,
+                         ir_type_t type) {
+    return (ir_instr_t){ .kind = IR_ALLOC, .res = res, .type = ir_make_iptr(),
+        .alloc = { .type = type, } };
 }
 
 static inline

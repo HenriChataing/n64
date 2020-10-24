@@ -275,6 +275,13 @@ ir_value_t ir_append_call(ir_instr_cont_t *cont,
     return ir_make_var(res, type);
 }
 
+ir_value_t ir_append_alloc(ir_instr_cont_t *cont,
+                           ir_type_t type) {
+    ir_var_t res = ir_alloc_var(cont);
+    ir_append_instr(cont, ir_make_alloc(res, type));
+    return ir_make_var(res, ir_make_iptr());
+}
+
 ir_value_t ir_append_unop(ir_instr_cont_t *cont,
                           ir_instr_kind_t op,
                           ir_value_t value) {

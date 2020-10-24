@@ -112,6 +112,19 @@ static bool typecheck_call(ir_recompiler_backend_t *backend,
     return valid;
 }
 
+static bool typecheck_alloc(ir_recompiler_backend_t *backend,
+                            ir_instr_t const *instr) {
+    if (!ir_type_equals(instr->type, ir_make_iptr())) {
+        raise_recompiler_error(backend, "typecheck",
+            "alloc result is expected to have type i%u, but has type i%u\n"
+            "in block .L%u, instruction:\n    %s",
+            ir_make_iptr().width, instr->type.width,
+            cur_block->label, print_instr(instr));
+        return false;
+    }
+    return typecheck_res(backend, instr->res, instr->type);
+}
+
 static bool typecheck_unop(ir_recompiler_backend_t *backend,
                            ir_instr_t const *instr) {
     if (!typecheck_value(backend, &instr->unop.value, instr->unop.value.type))  {
@@ -252,6 +265,7 @@ static const bool (*typecheck_callbacks[])(ir_recompiler_backend_t *backend,
     [IR_EXIT]  = typecheck_exit,
     [IR_BR]    = typecheck_br,
     [IR_CALL]  = typecheck_call,
+    [IR_ALLOC] = typecheck_alloc,
     [IR_NOT]   = typecheck_unop,
     [IR_ADD]   = typecheck_binop,
     [IR_SUB]   = typecheck_binop,

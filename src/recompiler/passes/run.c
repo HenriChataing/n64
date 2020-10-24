@@ -8,6 +8,7 @@
 #include <recompiler/passes.h>
 
 static ir_const_t ir_var_values[RECOMPILER_VAR_MAX];
+static uintmax_t ir_var_alloc[RECOMPILER_VAR_MAX];
 static const ir_block_t *cur_block;
 static const ir_instr_t *cur_instr;
 static const ir_instr_t *next_instr;
@@ -104,6 +105,14 @@ static bool run_call(ir_recompiler_backend_t *backend,
             cur_block->label, print_instr(instr));
         return false;
     }
+}
+
+static bool run_alloc(ir_recompiler_backend_t *backend,
+                      ir_instr_t const *instr) {
+    ir_var_values[instr->res] = (ir_const_t){
+        (uintptr_t)&ir_var_alloc[instr->res],
+    };
+    return true;
 }
 
 static bool run_not(ir_recompiler_backend_t *backend,
@@ -342,6 +351,7 @@ static const bool (*run_callbacks[])(ir_recompiler_backend_t *backend,
     [IR_EXIT]  = run_exit,
     [IR_BR]    = run_br,
     [IR_CALL]  = run_call,
+    [IR_ALLOC] = run_alloc,
     [IR_NOT]   = run_not,
     [IR_ADD]   = run_binop,
     [IR_SUB]   = run_binop,

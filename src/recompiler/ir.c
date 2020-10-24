@@ -41,6 +41,11 @@ static int ir_print_call(char *buf, size_t len, ir_instr_t const *instr) {
     return written;
 }
 
+static int ir_print_alloc(char *buf, size_t len, ir_instr_t const *instr) {
+    return snprintf(buf, len, "%%%u = alloc_i%u",
+        instr->res, instr->alloc.type.width);
+}
+
 static int ir_print_unop(char *buf, size_t len, ir_instr_t const *instr) {
     char const *op = "?";
     switch (instr->kind) {
@@ -182,6 +187,8 @@ int ir_print_instr(char *buf, size_t len, ir_instr_t const *instr) {
         return written;
     case IR_CALL:
         return ir_print_call(buf, len, instr);
+    case IR_ALLOC:
+        return ir_print_alloc(buf, len, instr);
     case IR_NOT:
         return ir_print_unop(buf, len, instr);
     case IR_ADD:

@@ -142,6 +142,8 @@ ir_value_t ir_append_call(ir_instr_cont_t *cont,
                           void (*func)(),
                           unsigned nr_params,
                           ...);
+ir_value_t ir_append_alloc(ir_instr_cont_t *cont,
+                           ir_type_t type);
 ir_value_t ir_append_unop(ir_instr_cont_t *cont,
                           ir_instr_kind_t op,
                           ir_value_t value);
