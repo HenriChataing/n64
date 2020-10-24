@@ -40,7 +40,7 @@ typedef enum ir_mips_register {
 /**
  * @brief Return the backend for the MIPS recompiler.
  */
-ir_recompiler_backend_t *ir_mips_recompiler_backend(void);
+recompiler_backend_t *ir_mips_recompiler_backend(void);
 
 /**
  * @brief Disassemble a memory segment, producing IR bytecode.
@@ -54,7 +54,7 @@ ir_recompiler_backend_t *ir_mips_recompiler_backend(void);
  * - the target instruction is one of : JR, JALR, ERET, i.e. instructions
  *   with variable, context dependant target addresses.
  */
-ir_graph_t *ir_mips_disassemble(ir_recompiler_backend_t *backend,
+ir_graph_t *ir_mips_disassemble(recompiler_backend_t *backend,
                                 uint64_t address, unsigned char *ptr, size_t len);
 
 #ifdef __cplusplus

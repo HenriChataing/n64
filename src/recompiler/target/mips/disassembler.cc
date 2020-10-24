@@ -2314,7 +2314,7 @@ static void append_instr(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_disas_queue.length = prev_length;
 }
 
-ir_recompiler_backend_t *ir_mips_recompiler_backend(void) {
+recompiler_backend_t *ir_mips_recompiler_backend(void) {
     ir_memory_backend_t memory_backend = {
         cpu_load_u8,
         cpu_load_u16,
@@ -2325,8 +2325,8 @@ ir_recompiler_backend_t *ir_mips_recompiler_backend(void) {
         cpu_store_u32,
         cpu_store_u64,
     };
-    ir_recompiler_backend_t *backend =
-        ir_create_recompiler_backend(&memory_backend, REG_MAX,
+    recompiler_backend_t *backend =
+        create_recompiler_backend(&memory_backend, REG_MAX,
                                      RECOMPILER_BLOCK_MAX,
                                      RECOMPILER_INSTR_MAX,
                                      RECOMPILER_PARAM_MAX);
@@ -2373,7 +2373,7 @@ ir_recompiler_backend_t *ir_mips_recompiler_backend(void) {
     return backend;
 }
 
-ir_graph_t *ir_mips_disassemble(ir_recompiler_backend_t *backend,
+ir_graph_t *ir_mips_disassemble(recompiler_backend_t *backend,
                                 uint64_t address, unsigned char *ptr, size_t len) {
     /* Catch recompiler allocation errors. */
     if (reset_recompiler_backend(backend) < 0) {

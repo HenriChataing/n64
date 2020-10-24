@@ -18,7 +18,7 @@ extern "C" {
  * @param graph     Pointer to the instruction graph.
  * @return          True if the graph is well-typed, false otherwise.
  */
-bool ir_typecheck(ir_recompiler_backend_t *backend,
+bool ir_typecheck(recompiler_backend_t *backend,
                   ir_graph_t const *graph);
 
 /**
@@ -26,7 +26,7 @@ bool ir_typecheck(ir_recompiler_backend_t *backend,
  * @param backend   Pointer to the recompiler backend.
  * @param block     Pointer to the graph to optimize.
  */
-void ir_optimize(ir_recompiler_backend_t *backend,
+void ir_optimize(recompiler_backend_t *backend,
                  ir_graph_t *graph);
 
 /**
@@ -40,7 +40,7 @@ void ir_optimize(ir_recompiler_backend_t *backend,
  * @return
  *      True if the execution completed successfully, false otherwise.
  */
-bool ir_run(ir_recompiler_backend_t *backend,
+bool ir_run(recompiler_backend_t *backend,
             ir_graph_t const *graph);
 
 #ifdef __cplusplus

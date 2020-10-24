@@ -6,13 +6,13 @@
 
 #include <recompiler/backend.h>
 
-ir_recompiler_backend_t *
-ir_create_recompiler_backend(ir_memory_backend_t *memory,
-                             unsigned nr_registers,
-                             unsigned nr_blocks,
-                             unsigned nr_instrs,
-                             unsigned nr_params) {
-    ir_recompiler_backend_t *backend = malloc(sizeof(ir_recompiler_backend_t));
+recompiler_backend_t *
+create_recompiler_backend(ir_memory_backend_t *memory,
+                          unsigned nr_registers,
+                          unsigned nr_blocks,
+                          unsigned nr_instrs,
+                          unsigned nr_params) {
+    recompiler_backend_t *backend = malloc(sizeof(recompiler_backend_t));
     if (backend == NULL) {
         return NULL;
     }
@@ -22,7 +22,7 @@ ir_create_recompiler_backend(ir_memory_backend_t *memory,
     backend->params = NULL;
 
     backend->nr_registers = nr_registers;
-    backend->registers = malloc(nr_registers * sizeof(ir_recompiler_backend_t));
+    backend->registers = malloc(nr_registers * sizeof(recompiler_backend_t));
     if (backend->registers == NULL) {
         goto failure;
     }
@@ -65,7 +65,7 @@ failure:
  * Undefined if called before \ref reset_recompiler_backend.
  */
 __attribute__((noreturn))
-void fail_recompiler_backend(ir_recompiler_backend_t *backend) {
+void fail_recompiler_backend(recompiler_backend_t *backend) {
     longjmp(backend->jmp_buf, -1);
 }
 
@@ -73,7 +73,7 @@ void fail_recompiler_backend(ir_recompiler_backend_t *backend) {
  * @brief Clear a recompiler backend.
  * All allocated resources are reset, the error logs are cleared.
  */
-void clear_recompiler_backend(ir_recompiler_backend_t *backend) {
+void clear_recompiler_backend(recompiler_backend_t *backend) {
     recompiler_error_t *error, *next;
     for (error = backend->errors; error != NULL; error = next) {
         next = error->next;
@@ -97,7 +97,7 @@ void clear_recompiler_backend(ir_recompiler_backend_t *backend) {
  * @param module    Recompiler module raising the error.
  * @param fmt       Error message format.
  */
-void raise_recompiler_error(ir_recompiler_backend_t *backend,
+void raise_recompiler_error(recompiler_backend_t *backend,
                             char const *module, char const *fmt, ...) {
 
     recompiler_error_t *error = malloc(sizeof(*error));
@@ -123,7 +123,7 @@ void raise_recompiler_error(ir_recompiler_backend_t *backend,
  *    true if \ref recompiler_raise_error was called since the last time
  *    the error list was cleared, false otherwise.
  */
-bool has_recompiler_error(ir_recompiler_backend_t *backend) {
+bool has_recompiler_error(recompiler_backend_t *backend) {
     return backend->errors != NULL;
 }
 
@@ -141,7 +141,7 @@ bool has_recompiler_error(ir_recompiler_backend_t *backend) {
  *    true if \ref recompiler_raise_error was called since the last time
  *    the error list was cleared, false otherwise.
  */
-bool next_recompiler_error(ir_recompiler_backend_t *backend,
+bool next_recompiler_error(recompiler_backend_t *backend,
                            char const **module,
                            char message[RECOMPILER_ERROR_MAX_LEN]) {
     if (backend->errors == NULL) {
@@ -158,7 +158,7 @@ bool next_recompiler_error(ir_recompiler_backend_t *backend,
     return true;
 }
 
-void ir_bind_register(ir_recompiler_backend_t *backend,
+void ir_bind_register(recompiler_backend_t *backend,
                       ir_register_t register_,
                       ir_type_t type,
                       char const *name,
@@ -169,13 +169,13 @@ void ir_bind_register(ir_recompiler_backend_t *backend,
         (ir_register_backend_t){ type, name, ptr };
 }
 
-void ir_bind_register_u32(ir_recompiler_backend_t *backend,
+void ir_bind_register_u32(recompiler_backend_t *backend,
                           ir_register_t register_,
                           char const *name,
                           uint32_t *ptr) {
     ir_bind_register(backend, register_, ir_make_iN(32), name, ptr);
 }
-void ir_bind_register_u64(ir_recompiler_backend_t *backend,
+void ir_bind_register_u64(recompiler_backend_t *backend,
                           ir_register_t register_,
                           char const *name,
                           uint64_t *ptr) {
@@ -186,7 +186,7 @@ ir_var_t ir_alloc_var(ir_instr_cont_t *cont) {
     return cont->block->nr_vars++;
 }
 
-ir_instr_t *ir_alloc_instr(ir_recompiler_backend_t *backend) {
+ir_instr_t *ir_alloc_instr(recompiler_backend_t *backend) {
     if (backend->cur_instr >= backend->nr_instrs) {
         raise_recompiler_error(backend,
             "backend", "out of ir instruction memory");
@@ -195,7 +195,7 @@ ir_instr_t *ir_alloc_instr(ir_recompiler_backend_t *backend) {
     return &backend->instrs[backend->cur_instr++];
 }
 
-ir_block_t *ir_alloc_block(ir_recompiler_backend_t *backend) {
+ir_block_t *ir_alloc_block(recompiler_backend_t *backend) {
     if (backend->cur_block >= backend->nr_blocks) {
         raise_recompiler_error(backend,
             "backend", "out of ir block memory");
@@ -208,7 +208,7 @@ ir_block_t *ir_alloc_block(ir_recompiler_backend_t *backend) {
     return block;
 }
 
-ir_graph_t *ir_make_graph(ir_recompiler_backend_t *backend) {
+ir_graph_t *ir_make_graph(recompiler_backend_t *backend) {
     backend->graph.blocks = backend->blocks;
     backend->graph.nr_blocks = backend->cur_block;
     return &backend->graph;

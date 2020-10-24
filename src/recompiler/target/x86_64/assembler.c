@@ -86,7 +86,7 @@ static void store_value(code_buffer_t *emitter, ir_type_t type,
     }
 }
 
-static void assemble_exit(ir_recompiler_backend_t const *backend,
+static void assemble_exit(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
 
@@ -94,7 +94,7 @@ static void assemble_exit(ir_recompiler_backend_t const *backend,
     ir_exit_queue_len++;
 }
 
-static void assemble_br(ir_recompiler_backend_t const *backend,
+static void assemble_br(recompiler_backend_t const *backend,
                         code_buffer_t *emitter,
                         ir_instr_t const *instr) {
     unsigned char *rel32;
@@ -112,7 +112,7 @@ static void assemble_br(ir_recompiler_backend_t const *backend,
     ir_br_queue_len++;
 }
 
-static void assemble_call(ir_recompiler_backend_t const *backend,
+static void assemble_call(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
 
@@ -157,7 +157,7 @@ static void assemble_call(ir_recompiler_backend_t const *backend,
     }
 }
 
-static void assemble_alloc(ir_recompiler_backend_t const *backend,
+static void assemble_alloc(recompiler_backend_t const *backend,
                            code_buffer_t *emitter,
                            ir_instr_t const *instr) {
     // Stack allocated variables are phantom variables,
@@ -168,7 +168,7 @@ static void assemble_alloc(ir_recompiler_backend_t const *backend,
     (void)instr;
 }
 
-static void assemble_not(ir_recompiler_backend_t const *backend,
+static void assemble_not(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
     load_value(emitter, instr->unop.value, RAX);
@@ -176,7 +176,7 @@ static void assemble_not(ir_recompiler_backend_t const *backend,
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static void assemble_add(ir_recompiler_backend_t const *backend,
+static void assemble_add(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
@@ -186,7 +186,7 @@ static void assemble_add(ir_recompiler_backend_t const *backend,
 }
 
 
-static void assemble_sub(ir_recompiler_backend_t const *backend,
+static void assemble_sub(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
@@ -195,7 +195,7 @@ static void assemble_sub(ir_recompiler_backend_t const *backend,
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static void assemble_mul(ir_recompiler_backend_t const *backend,
+static void assemble_mul(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
@@ -204,7 +204,7 @@ static void assemble_mul(ir_recompiler_backend_t const *backend,
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static void assemble_udiv(ir_recompiler_backend_t const *backend,
+static void assemble_udiv(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
@@ -223,7 +223,7 @@ static void assemble_udiv(ir_recompiler_backend_t const *backend,
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static void assemble_sdiv(ir_recompiler_backend_t const *backend,
+static void assemble_sdiv(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
@@ -245,7 +245,7 @@ static void assemble_sdiv(ir_recompiler_backend_t const *backend,
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static void assemble_urem(ir_recompiler_backend_t const *backend,
+static void assemble_urem(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
@@ -264,7 +264,7 @@ static void assemble_urem(ir_recompiler_backend_t const *backend,
     store_value(emitter, instr->type, instr->res, RDX);
 }
 
-static void assemble_srem(ir_recompiler_backend_t const *backend,
+static void assemble_srem(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
@@ -286,7 +286,7 @@ static void assemble_srem(ir_recompiler_backend_t const *backend,
     store_value(emitter, instr->type, instr->res, RDX);
 }
 
-static void assemble_and(ir_recompiler_backend_t const *backend,
+static void assemble_and(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
@@ -295,7 +295,7 @@ static void assemble_and(ir_recompiler_backend_t const *backend,
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static void assemble_or(ir_recompiler_backend_t const *backend,
+static void assemble_or(recompiler_backend_t const *backend,
                         code_buffer_t *emitter,
                         ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
@@ -304,7 +304,7 @@ static void assemble_or(ir_recompiler_backend_t const *backend,
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static void assemble_xor(ir_recompiler_backend_t const *backend,
+static void assemble_xor(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
@@ -313,7 +313,7 @@ static void assemble_xor(ir_recompiler_backend_t const *backend,
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static void assemble_sll(ir_recompiler_backend_t const *backend,
+static void assemble_sll(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
@@ -322,7 +322,7 @@ static void assemble_sll(ir_recompiler_backend_t const *backend,
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static void assemble_srl(ir_recompiler_backend_t const *backend,
+static void assemble_srl(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
@@ -331,7 +331,7 @@ static void assemble_srl(ir_recompiler_backend_t const *backend,
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static void assemble_sra(ir_recompiler_backend_t const *backend,
+static void assemble_sra(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
     load_value(emitter, instr->binop.left, RAX);
@@ -340,7 +340,7 @@ static void assemble_sra(ir_recompiler_backend_t const *backend,
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static void assemble_icmp(ir_recompiler_backend_t const *backend,
+static void assemble_icmp(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
     load_value(emitter, instr->icmp.left, RAX);
@@ -365,7 +365,7 @@ static void assemble_icmp(ir_recompiler_backend_t const *backend,
     }
 }
 
-static void assemble_load(ir_recompiler_backend_t const *backend,
+static void assemble_load(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
     ir_memory_backend_t const *memory = &backend->memory;
@@ -388,7 +388,7 @@ static void assemble_load(ir_recompiler_backend_t const *backend,
     ir_exit_queue_len++;
 }
 
-static void assemble_store(ir_recompiler_backend_t const *backend,
+static void assemble_store(recompiler_backend_t const *backend,
                            code_buffer_t *emitter,
                            ir_instr_t const *instr) {
     ir_memory_backend_t const *memory = &backend->memory;
@@ -415,7 +415,7 @@ static void assemble_store(ir_recompiler_backend_t const *backend,
     ir_exit_queue_len++;
 }
 
-static void assemble_read(ir_recompiler_backend_t const *backend,
+static void assemble_read(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
     ir_register_t register_ = instr->read.register_;
@@ -433,7 +433,7 @@ static void assemble_read(ir_recompiler_backend_t const *backend,
     store_value(emitter, type, instr->res, RAX);
 }
 
-static void assemble_write(ir_recompiler_backend_t const *backend,
+static void assemble_write(recompiler_backend_t const *backend,
                            code_buffer_t *emitter,
                            ir_instr_t const *instr) {
 
@@ -452,14 +452,14 @@ static void assemble_write(ir_recompiler_backend_t const *backend,
     emit_mov_mN_rN(emitter, type.width, mem_indirect(RAX), RCX);
 }
 
-static void assemble_trunc(ir_recompiler_backend_t const *backend,
+static void assemble_trunc(recompiler_backend_t const *backend,
                            code_buffer_t *emitter,
                            ir_instr_t const *instr) {
     load_value(emitter, instr->cvt.value, RAX);
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static void assemble_sext(ir_recompiler_backend_t const *backend,
+static void assemble_sext(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
     unsigned from_width = instr->cvt.value.type.width;
@@ -480,7 +480,7 @@ static void assemble_sext(ir_recompiler_backend_t const *backend,
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static void assemble_zext(ir_recompiler_backend_t const *backend,
+static void assemble_zext(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
     emit_xor_r64_r64(emitter, RAX, RAX);
@@ -488,7 +488,7 @@ static void assemble_zext(ir_recompiler_backend_t const *backend,
     store_value(emitter, instr->type, instr->res, RAX);
 }
 
-static const void (*assemble_callbacks[])(ir_recompiler_backend_t const *backend,
+static const void (*assemble_callbacks[])(recompiler_backend_t const *backend,
                                           code_buffer_t *emitter,
                                           ir_instr_t const *instr) = {
     [IR_EXIT]  = assemble_exit,
@@ -519,13 +519,13 @@ static const void (*assemble_callbacks[])(ir_recompiler_backend_t const *backend
     [IR_ZEXT]  = assemble_zext,
 };
 
-static void assemble_instr(ir_recompiler_backend_t const *backend,
+static void assemble_instr(recompiler_backend_t const *backend,
                            code_buffer_t *emitter,
                            ir_instr_t const *instr) {
     return assemble_callbacks[instr->kind](backend, emitter, instr);
 }
 
-static void assemble_block(ir_recompiler_backend_t const *backend,
+static void assemble_block(recompiler_backend_t const *backend,
                            code_buffer_t *emitter,
                            ir_block_t const *block) {
     ir_instr_t const *instr = block->instrs;
@@ -566,7 +566,7 @@ static unsigned alloc_vars(ir_block_t const *block) {
     return (offset + 15) & ~15u;
 }
 
-code_entry_t ir_x86_64_assemble(ir_recompiler_backend_t const *backend,
+code_entry_t ir_x86_64_assemble(recompiler_backend_t const *backend,
                                 code_buffer_t *emitter,
                                 ir_graph_t const *graph,
                                 size_t *binary_len) {

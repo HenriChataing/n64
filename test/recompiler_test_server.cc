@@ -309,7 +309,7 @@ void print_x86_64_assembly(code_entry_t binary, size_t binary_len) {
     fprintf(stdout, "\n");
 }
 
-void print_backend_error_log(ir_recompiler_backend_t *backend) {
+void print_backend_error_log(recompiler_backend_t *backend) {
     char message[RECOMPILER_ERROR_MAX_LEN] = "";
     char const *module;
 
@@ -457,7 +457,7 @@ void run_interpreter(void) {
     startGui();
 }
 
-int run_recompiler_test(ir_recompiler_backend_t *backend,
+int run_recompiler_test(recompiler_backend_t *backend,
                         recompiler_cache_t *cache) {
 
     Memory::ReplayBus *bus = dynamic_cast<Memory::ReplayBus*>(R4300::state.bus);
@@ -620,7 +620,7 @@ void run_recompiler(void) {
     R4300::state.bus = new Memory::ReplayBus(32);
 
     // Allocate a recompiler backend.
-    ir_recompiler_backend_t *backend = ir_mips_recompiler_backend();
+    recompiler_backend_t *backend = ir_mips_recompiler_backend();
     if (backend == NULL) {
         fmt::print(fmt::fg(fmt::color::tomato),
             "failed to allocate recompiler backend\n");

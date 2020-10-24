@@ -17,7 +17,7 @@ static char const *print_instr(ir_instr_t const *instr) {
     return instr_str;
 }
 
-static bool typecheck_res(ir_recompiler_backend_t *backend,
+static bool typecheck_res(recompiler_backend_t *backend,
                           ir_var_t res, ir_type_t type) {
     if (ir_var_types[res].width != 0) {
         raise_recompiler_error(backend, "typecheck",
@@ -39,7 +39,7 @@ static bool typecheck_res(ir_recompiler_backend_t *backend,
     return true;
 }
 
-static bool typecheck_const(ir_recompiler_backend_t *backend,
+static bool typecheck_const(recompiler_backend_t *backend,
                             ir_value_t const *value, ir_type_t type) {
     if (!ir_type_equals(value->type, type)) {
         raise_recompiler_error(backend, "typecheck",
@@ -52,7 +52,7 @@ static bool typecheck_const(ir_recompiler_backend_t *backend,
     return true;
 }
 
-static bool typecheck_var(ir_recompiler_backend_t *backend,
+static bool typecheck_var(recompiler_backend_t *backend,
                           ir_value_t const *value, ir_type_t type) {
     if (ir_var_types[value->var].width == 0) {
         raise_recompiler_error(backend, "typecheck",
@@ -80,7 +80,7 @@ static bool typecheck_var(ir_recompiler_backend_t *backend,
     return true;
 }
 
-static bool typecheck_value(ir_recompiler_backend_t *backend,
+static bool typecheck_value(recompiler_backend_t *backend,
                             ir_value_t const *value, ir_type_t type) {
     switch (value->kind) {
     case IR_CONST: return typecheck_const(backend, value, type);
@@ -89,17 +89,17 @@ static bool typecheck_value(ir_recompiler_backend_t *backend,
     }
 }
 
-static bool typecheck_exit(ir_recompiler_backend_t *backend,
+static bool typecheck_exit(recompiler_backend_t *backend,
                            ir_instr_t const *instr) {
     return true;
 }
 
-static bool typecheck_br(ir_recompiler_backend_t *backend,
+static bool typecheck_br(recompiler_backend_t *backend,
                          ir_instr_t const *instr) {
     return typecheck_value(backend, &instr->br.cond, ir_make_iN(1));
 }
 
-static bool typecheck_call(ir_recompiler_backend_t *backend,
+static bool typecheck_call(recompiler_backend_t *backend,
                            ir_instr_t const *instr) {
     bool valid = true;
     for (unsigned i = 0; i < instr->call.nr_params; i++) {
@@ -112,7 +112,7 @@ static bool typecheck_call(ir_recompiler_backend_t *backend,
     return valid;
 }
 
-static bool typecheck_alloc(ir_recompiler_backend_t *backend,
+static bool typecheck_alloc(recompiler_backend_t *backend,
                             ir_instr_t const *instr) {
     if (!ir_type_equals(instr->type, ir_make_iptr())) {
         raise_recompiler_error(backend, "typecheck",
@@ -125,7 +125,7 @@ static bool typecheck_alloc(ir_recompiler_backend_t *backend,
     return typecheck_res(backend, instr->res, instr->type);
 }
 
-static bool typecheck_unop(ir_recompiler_backend_t *backend,
+static bool typecheck_unop(recompiler_backend_t *backend,
                            ir_instr_t const *instr) {
     if (!typecheck_value(backend, &instr->unop.value, instr->unop.value.type))  {
         return false;
@@ -141,7 +141,7 @@ static bool typecheck_unop(ir_recompiler_backend_t *backend,
     return typecheck_res(backend, instr->res, instr->type);
 }
 
-static bool typecheck_binop(ir_recompiler_backend_t *backend,
+static bool typecheck_binop(recompiler_backend_t *backend,
                             ir_instr_t const *instr) {
     if (!typecheck_value(backend, &instr->binop.left, instr->binop.left.type) ||
         !typecheck_value(backend, &instr->binop.right, instr->binop.right.type)) {
@@ -166,7 +166,7 @@ static bool typecheck_binop(ir_recompiler_backend_t *backend,
     return typecheck_res(backend, instr->res, instr->type);
 }
 
-static bool typecheck_icmp(ir_recompiler_backend_t *backend,
+static bool typecheck_icmp(recompiler_backend_t *backend,
                            ir_instr_t const *instr) {
     if (!typecheck_value(backend, &instr->icmp.left, instr->icmp.left.type) ||
         !typecheck_value(backend, &instr->icmp.right, instr->icmp.right.type))  {
@@ -190,21 +190,21 @@ static bool typecheck_icmp(ir_recompiler_backend_t *backend,
     return typecheck_res(backend, instr->res, instr->type);
 }
 
-static bool typecheck_load(ir_recompiler_backend_t *backend,
+static bool typecheck_load(recompiler_backend_t *backend,
                            ir_instr_t const *instr) {
     return  typecheck_value(backend,
                 &instr->load.address, instr->load.address.type) &&
             typecheck_res(backend, instr->res, instr->type);
 }
 
-static bool typecheck_store(ir_recompiler_backend_t *backend,
+static bool typecheck_store(recompiler_backend_t *backend,
                             ir_instr_t const *instr) {
     return  typecheck_value(backend,
                 &instr->store.address, instr->store.address.type) &&
             typecheck_value(backend, &instr->store.value, instr->type);
 }
 
-static bool typecheck_read(ir_recompiler_backend_t *backend,
+static bool typecheck_read(recompiler_backend_t *backend,
                            ir_instr_t const *instr) {
     unsigned register_ = instr->read.register_;
     if (register_ >= backend->nr_registers ||
@@ -227,7 +227,7 @@ static bool typecheck_read(ir_recompiler_backend_t *backend,
     return  typecheck_res(backend, instr->res, instr->type);
 }
 
-static bool typecheck_write(ir_recompiler_backend_t *backend,
+static bool typecheck_write(recompiler_backend_t *backend,
                             ir_instr_t const *instr) {
     unsigned register_ = instr->write.register_;
     if (register_ >= backend->nr_registers ||
@@ -250,7 +250,7 @@ static bool typecheck_write(ir_recompiler_backend_t *backend,
     return  typecheck_value(backend, &instr->write.value, instr->type);
 }
 
-static bool typecheck_cvt(ir_recompiler_backend_t *backend,
+static bool typecheck_cvt(recompiler_backend_t *backend,
                           ir_instr_t const *instr) {
     return  typecheck_value(backend, &instr->cvt.value, instr->cvt.value.type) &&
             typecheck_res(backend, instr->res, instr->type);
@@ -260,7 +260,7 @@ static bool typecheck_cvt(ir_recompiler_backend_t *backend,
  * Typecheck callbacks specialized for one IR instruction.
  * Return true if the instruction is well-typed, false otherwise.
  */
-static const bool (*typecheck_callbacks[])(ir_recompiler_backend_t *backend,
+static const bool (*typecheck_callbacks[])(recompiler_backend_t *backend,
                                            ir_instr_t const *instr) = {
     [IR_EXIT]  = typecheck_exit,
     [IR_BR]    = typecheck_br,
@@ -290,12 +290,12 @@ static const bool (*typecheck_callbacks[])(ir_recompiler_backend_t *backend,
     [IR_ZEXT]  = typecheck_cvt,
 };
 
-static bool typecheck_instr(ir_recompiler_backend_t *backend,
+static bool typecheck_instr(recompiler_backend_t *backend,
                             ir_instr_t const *instr) {
     return typecheck_callbacks[instr->kind](backend, instr);
 }
 
-static bool typecheck_block(ir_recompiler_backend_t *backend,
+static bool typecheck_block(recompiler_backend_t *backend,
                             ir_block_t const *block) {
     bool valid = true;
     memset(ir_var_types, 0, sizeof(ir_var_types));
@@ -314,7 +314,7 @@ static bool typecheck_block(ir_recompiler_backend_t *backend,
  * @param graph     Pointer to the instruction graph.
  * @return          True if the graph is well-typed, false otherwise.
  */
-bool ir_typecheck(ir_recompiler_backend_t *backend,
+bool ir_typecheck(recompiler_backend_t *backend,
                   ir_graph_t const *graph) {
     bool valid = true;
     for (unsigned nr = 0; nr < graph->nr_blocks; nr++) {

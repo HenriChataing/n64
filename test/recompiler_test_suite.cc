@@ -325,7 +325,7 @@ void print_ir_disassembly(struct test_header &test) {
     }
 }
 
-void print_backend_error_log(ir_recompiler_backend_t *backend) {
+void print_backend_error_log(recompiler_backend_t *backend) {
     char message[RECOMPILER_ERROR_MAX_LEN] = "";
     char const *module;
 
@@ -340,7 +340,7 @@ void print_ir_assembly(struct test_header &test, const code_buffer_t *emitter) {
     dump_code_buffer(stdout, emitter);
 }
 
-bool print_typecheck(ir_recompiler_backend_t *backend,
+bool print_typecheck(recompiler_backend_t *backend,
                      struct test_header &test, bool log_success) {
 
     bool success = ir_typecheck(backend, test.graph);
@@ -354,7 +354,7 @@ bool print_typecheck(ir_recompiler_backend_t *backend,
     return success;
 }
 
-bool print_run(ir_recompiler_backend_t *backend,
+bool print_run(recompiler_backend_t *backend,
                struct test_header &test) {
 
     bool success = ir_run(backend, test.graph) & !has_recompiler_error(backend);
@@ -365,7 +365,7 @@ bool print_run(ir_recompiler_backend_t *backend,
     return success;
 }
 
-bool print_assembly_run(ir_recompiler_backend_t *backend,
+bool print_assembly_run(recompiler_backend_t *backend,
                         struct test_header &test,
                         code_entry_t entry) {
     entry();
@@ -520,7 +520,7 @@ static int parse_test_case(toml::node const *test_node,
     return 0;
 }
 
-int run_test_suite(ir_recompiler_backend_t *backend,
+int run_test_suite(recompiler_backend_t *backend,
                    code_buffer_t *emitter,
                    std::string const &test_suite_name,
                    struct test_statistics *stats,
@@ -779,7 +779,7 @@ int main(int argc, char **argv) {
     std::vector<std::string> test_suites = list_test_suites();
     struct test_statistics test_stats = {};
     bool stop_at_first_fail = false;
-    ir_recompiler_backend_t *backend = ir_mips_recompiler_backend();
+    recompiler_backend_t *backend = ir_mips_recompiler_backend();
     code_buffer_t *emitter = alloc_code_buffer(8192);
 
     if (mode == SELECTED) {

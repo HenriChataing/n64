@@ -51,14 +51,14 @@ static void remap_res(ir_instr_t *instr) {
     ir_cur_var++;
 }
 
-static bool optimize_exit(ir_recompiler_backend_t *backend,
+static bool optimize_exit(recompiler_backend_t *backend,
                           ir_instr_t *instr) {
     (void)backend;
     (void)instr;
     return false;
 }
 
-static bool optimize_br(ir_recompiler_backend_t *backend,
+static bool optimize_br(recompiler_backend_t *backend,
                         ir_instr_t *instr) {
     // TODO the br instruction should be replaced by a jmp when the
     // branch condition is constant.
@@ -66,7 +66,7 @@ static bool optimize_br(ir_recompiler_backend_t *backend,
     return false;
 }
 
-static bool optimize_call(ir_recompiler_backend_t *backend,
+static bool optimize_call(recompiler_backend_t *backend,
                           ir_instr_t *instr) {
     for (unsigned nr = 0; nr < instr->call.nr_params; nr++) {
         instr->call.params[nr] = convert_value(instr->call.params[nr]);
@@ -79,14 +79,14 @@ static bool optimize_call(ir_recompiler_backend_t *backend,
     return false;
 }
 
-static bool optimize_alloc(ir_recompiler_backend_t *backend,
+static bool optimize_alloc(recompiler_backend_t *backend,
                            ir_instr_t *instr) {
     (void)backend;
     (void)instr;
     return false;
 }
 
-static bool optimize_not(ir_recompiler_backend_t *backend,
+static bool optimize_not(recompiler_backend_t *backend,
                          ir_instr_t *instr) {
     ir_value_t value = convert_value(instr->unop.value);
     if (value.kind == IR_CONST) {
@@ -101,7 +101,7 @@ static bool optimize_not(ir_recompiler_backend_t *backend,
     }
 }
 
-static bool optimize_binop(ir_recompiler_backend_t *backend,
+static bool optimize_binop(recompiler_backend_t *backend,
                            ir_instr_t *instr) {
     ir_value_t left = convert_value(instr->binop.left);
     ir_value_t right = convert_value(instr->binop.right);
@@ -197,7 +197,7 @@ static bool optimize_binop(ir_recompiler_backend_t *backend,
     }
 }
 
-static bool optimize_binop_signed(ir_recompiler_backend_t *backend,
+static bool optimize_binop_signed(recompiler_backend_t *backend,
                                   ir_instr_t *instr) {
     ir_value_t left = convert_value(instr->binop.left);
     ir_value_t right = convert_value(instr->binop.right);
@@ -224,7 +224,7 @@ static bool optimize_binop_signed(ir_recompiler_backend_t *backend,
     }
 }
 
-static bool optimize_icmp(ir_recompiler_backend_t *backend,
+static bool optimize_icmp(recompiler_backend_t *backend,
                           ir_instr_t *instr) {
     ir_value_t left = convert_value(instr->icmp.left);
     ir_value_t right = convert_value(instr->icmp.right);
@@ -260,21 +260,21 @@ static bool optimize_icmp(ir_recompiler_backend_t *backend,
     }
 }
 
-static bool optimize_load(ir_recompiler_backend_t *backend,
+static bool optimize_load(recompiler_backend_t *backend,
                           ir_instr_t *instr) {
     instr->load.address = convert_value(instr->load.address);
     remap_res(instr);
     return false;
 }
 
-static bool optimize_store(ir_recompiler_backend_t *backend,
+static bool optimize_store(recompiler_backend_t *backend,
                            ir_instr_t *instr) {
     instr->store.address = convert_value(instr->store.address);
     instr->store.value = convert_value(instr->store.value);
     return false;
 }
 
-static bool optimize_read(ir_recompiler_backend_t *backend,
+static bool optimize_read(recompiler_backend_t *backend,
                           ir_instr_t *instr) {
     if (ir_register_context[instr->read.register_].set) {
         const_res(instr, ir_register_context[instr->read.register_].value);
@@ -288,7 +288,7 @@ static bool optimize_read(ir_recompiler_backend_t *backend,
     }
 }
 
-static bool optimize_write(ir_recompiler_backend_t *backend,
+static bool optimize_write(recompiler_backend_t *backend,
                            ir_instr_t *instr) {
     // TODO only the last write to a register should be kept,
     // (except when register values must be committed,
@@ -299,7 +299,7 @@ static bool optimize_write(ir_recompiler_backend_t *backend,
     return false;
 }
 
-static bool optimize_trunc(ir_recompiler_backend_t *backend,
+static bool optimize_trunc(recompiler_backend_t *backend,
                            ir_instr_t *instr) {
     ir_value_t value = convert_value(instr->cvt.value);
     if (value.kind == IR_CONST) {
@@ -314,7 +314,7 @@ static bool optimize_trunc(ir_recompiler_backend_t *backend,
     }
 }
 
-static bool optimize_sext(ir_recompiler_backend_t *backend,
+static bool optimize_sext(recompiler_backend_t *backend,
                           ir_instr_t *instr) {
     ir_value_t value = convert_value(instr->cvt.value);
     if (value.kind == IR_CONST) {
@@ -329,7 +329,7 @@ static bool optimize_sext(ir_recompiler_backend_t *backend,
     }
 }
 
-static bool optimize_zext(ir_recompiler_backend_t *backend,
+static bool optimize_zext(recompiler_backend_t *backend,
                           ir_instr_t *instr) {
     ir_value_t value = convert_value(instr->cvt.value);
     if (value.kind == IR_CONST) {
@@ -344,7 +344,7 @@ static bool optimize_zext(ir_recompiler_backend_t *backend,
 
 /** Optimize callbacks specialized for one IR instruction.
  * Return true iff the instruction is optimized away, false otherwise. */
-static const bool (*optimize_callbacks[])(ir_recompiler_backend_t *backend,
+static const bool (*optimize_callbacks[])(recompiler_backend_t *backend,
                                           ir_instr_t *instr) = {
     [IR_EXIT]  = optimize_exit,
     [IR_BR]    = optimize_br,
@@ -379,7 +379,7 @@ static const bool (*optimize_callbacks[])(ir_recompiler_backend_t *backend,
  * @param backend   Pointer to the recompiler backend.
  * @param block     Pointer to the block to optimize.
  */
-static bool optimize_instr(ir_recompiler_backend_t *backend,
+static bool optimize_instr(recompiler_backend_t *backend,
                            ir_instr_t *instr) {
     return optimize_callbacks[instr->kind](backend, instr);
 }
@@ -389,7 +389,7 @@ static bool optimize_instr(ir_recompiler_backend_t *backend,
  * @param backend   Pointer to the recompiler backend.
  * @param block     Pointer to the block to optimize.
  */
-static void optimize_block(ir_recompiler_backend_t *backend,
+static void optimize_block(recompiler_backend_t *backend,
                            ir_block_t *block) {
     ir_instr_t *instr = block->instrs;
     ir_instr_t *next_instr;
@@ -412,7 +412,7 @@ static void optimize_block(ir_recompiler_backend_t *backend,
  * @param backend   Pointer to the recompiler backend.
  * @param block     Pointer to the graph to optimize.
  */
-void ir_optimize(ir_recompiler_backend_t *backend,
+void ir_optimize(recompiler_backend_t *backend,
                  ir_graph_t *graph) {
     for (unsigned nr = 0; nr < graph->nr_blocks; nr++) {
         optimize_block(backend, &graph->blocks[nr]);

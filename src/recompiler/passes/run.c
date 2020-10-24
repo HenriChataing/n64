@@ -40,12 +40,12 @@ static ir_const_t eval_value(ir_value_t value) {
     }
 }
 
-static bool run_exit(ir_recompiler_backend_t *backend,
+static bool run_exit(recompiler_backend_t *backend,
                      ir_instr_t const *instr) {
     return true;
 }
 
-static bool run_br(ir_recompiler_backend_t *backend,
+static bool run_br(recompiler_backend_t *backend,
                    ir_instr_t const *instr) {
     ir_const_t value = eval_value(instr->br.cond);
     cur_block = instr->br.target[value.int_ != 0];
@@ -53,7 +53,7 @@ static bool run_br(ir_recompiler_backend_t *backend,
     return true;
 }
 
-static bool run_call(ir_recompiler_backend_t *backend,
+static bool run_call(recompiler_backend_t *backend,
                      ir_instr_t const *instr) {
     if (instr->call.nr_params == 0 && instr->type.width == 0) {
         instr->call.func();
@@ -107,7 +107,7 @@ static bool run_call(ir_recompiler_backend_t *backend,
     }
 }
 
-static bool run_alloc(ir_recompiler_backend_t *backend,
+static bool run_alloc(recompiler_backend_t *backend,
                       ir_instr_t const *instr) {
     ir_var_values[instr->res] = (ir_const_t){
         (uintptr_t)&ir_var_alloc[instr->res],
@@ -115,7 +115,7 @@ static bool run_alloc(ir_recompiler_backend_t *backend,
     return true;
 }
 
-static bool run_not(ir_recompiler_backend_t *backend,
+static bool run_not(recompiler_backend_t *backend,
                     ir_instr_t const *instr) {
     uintmax_t value = eval_value(instr->unop.value).int_;
     uintmax_t mask = make_mask(instr->type.width);
@@ -123,7 +123,7 @@ static bool run_not(ir_recompiler_backend_t *backend,
     return true;
 }
 
-static bool run_binop(ir_recompiler_backend_t *backend,
+static bool run_binop(recompiler_backend_t *backend,
                       ir_instr_t const *instr) {
     unsigned width = instr->type.width;
     uintmax_t mask = make_mask(width);
@@ -157,7 +157,7 @@ static bool run_binop(ir_recompiler_backend_t *backend,
     return true;
 }
 
-static bool run_icmp(ir_recompiler_backend_t *backend,
+static bool run_icmp(recompiler_backend_t *backend,
                      ir_instr_t const *instr) {
     unsigned width = instr->icmp.left.type.width;
     uintmax_t left = eval_value(instr->icmp.left).int_;
@@ -194,7 +194,7 @@ static bool run_icmp(ir_recompiler_backend_t *backend,
     return true;
 }
 
-static bool run_load(ir_recompiler_backend_t *backend,
+static bool run_load(recompiler_backend_t *backend,
                      ir_instr_t const *instr) {
     ir_memory_backend_t const *memory = &backend->memory;
     uintmax_t address = eval_value(instr->load.address).int_;
@@ -242,7 +242,7 @@ static bool run_load(ir_recompiler_backend_t *backend,
     }
 }
 
-static bool run_store(ir_recompiler_backend_t *backend,
+static bool run_store(recompiler_backend_t *backend,
                       ir_instr_t const *instr) {
     ir_memory_backend_t const *memory = &backend->memory;
     uintmax_t address = eval_value(instr->store.address).int_;
@@ -271,7 +271,7 @@ static bool run_store(ir_recompiler_backend_t *backend,
     return !exception;
 }
 
-static bool run_read(ir_recompiler_backend_t *backend,
+static bool run_read(recompiler_backend_t *backend,
                      ir_instr_t const *instr) {
     ir_register_t register_ = instr->read.register_;
     void *ptr = backend->registers[register_].ptr;
@@ -293,7 +293,7 @@ static bool run_read(ir_recompiler_backend_t *backend,
     return true;
 }
 
-static bool run_write(ir_recompiler_backend_t *backend,
+static bool run_write(recompiler_backend_t *backend,
                       ir_instr_t const *instr) {
     ir_register_t register_ = instr->write.register_;
     void *ptr = backend->registers[register_].ptr;
@@ -315,7 +315,7 @@ static bool run_write(ir_recompiler_backend_t *backend,
     return true;
 }
 
-static bool run_trunc(ir_recompiler_backend_t *backend,
+static bool run_trunc(recompiler_backend_t *backend,
                       ir_instr_t const *instr) {
     uintmax_t value = eval_value(instr->cvt.value).int_;
     uintmax_t mask = make_mask(instr->type.width);
@@ -323,7 +323,7 @@ static bool run_trunc(ir_recompiler_backend_t *backend,
     return true;
 }
 
-static bool run_sext(ir_recompiler_backend_t *backend,
+static bool run_sext(recompiler_backend_t *backend,
                      ir_instr_t const *instr) {
     uintmax_t value = eval_value(instr->cvt.value).int_;
     unsigned in_width = instr->cvt.value.type.width;
@@ -335,7 +335,7 @@ static bool run_sext(ir_recompiler_backend_t *backend,
     return true;
 }
 
-static bool run_zext(ir_recompiler_backend_t *backend,
+static bool run_zext(recompiler_backend_t *backend,
                      ir_instr_t const *instr) {
     uintmax_t value = eval_value(instr->cvt.value).int_;
     ir_var_values[instr->res] = (ir_const_t) { value };
@@ -346,7 +346,7 @@ static bool run_zext(ir_recompiler_backend_t *backend,
  * Run callbacks specialized for one IR instruction.
  * Return true if the execution is successful, false otherwise.
  */
-static const bool (*run_callbacks[])(ir_recompiler_backend_t *backend,
+static const bool (*run_callbacks[])(recompiler_backend_t *backend,
                                      ir_instr_t const *instr) = {
     [IR_EXIT]  = run_exit,
     [IR_BR]    = run_br,
@@ -376,7 +376,7 @@ static const bool (*run_callbacks[])(ir_recompiler_backend_t *backend,
     [IR_ZEXT]  = run_zext,
 };
 
-static bool run_instr(ir_recompiler_backend_t *backend,
+static bool run_instr(recompiler_backend_t *backend,
                       ir_instr_t const *instr) {
     return run_callbacks[instr->kind](backend, instr);
 }
@@ -392,7 +392,7 @@ static bool run_instr(ir_recompiler_backend_t *backend,
  * @return
  *      True if the execution completed successfully, false otherwise.
  */
-bool ir_run(ir_recompiler_backend_t *backend,
+bool ir_run(recompiler_backend_t *backend,
             ir_graph_t const *graph) {
 
     memset(ir_var_values, 0, sizeof(ir_var_values));
