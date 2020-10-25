@@ -84,6 +84,7 @@ void clear_recompiler_backend(recompiler_backend_t *backend) {
     backend->last_error = &backend->errors;
     backend->cur_block = 0;
     backend->cur_instr = 0;
+    backend->cur_var = 0;
     backend->cur_param = 0;
 }
 
@@ -183,7 +184,7 @@ void ir_bind_register_u64(recompiler_backend_t *backend,
 }
 
 ir_var_t ir_alloc_var(ir_instr_cont_t *cont) {
-    return cont->block->nr_vars++;
+    return cont->backend->cur_var++;
 }
 
 ir_instr_t *ir_alloc_instr(recompiler_backend_t *backend) {
@@ -203,7 +204,6 @@ ir_block_t *ir_alloc_block(recompiler_backend_t *backend) {
     }
     ir_block_t *block = &backend->blocks[backend->cur_block];
     block->label = backend->cur_block;
-    block->nr_vars = 0;
     backend->cur_block++;
     return block;
 }
@@ -211,6 +211,7 @@ ir_block_t *ir_alloc_block(recompiler_backend_t *backend) {
 ir_graph_t *ir_make_graph(recompiler_backend_t *backend) {
     backend->graph.blocks = backend->blocks;
     backend->graph.nr_blocks = backend->cur_block;
+    backend->graph.nr_vars = backend->cur_var;
     return &backend->graph;
 }
 

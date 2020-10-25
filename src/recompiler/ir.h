@@ -107,13 +107,13 @@ static inline ir_value_t ir_make_var(ir_var_t var, ir_type_t type) {
 typedef struct ir_graph {
     ir_block_t *blocks;
     unsigned nr_blocks;
+    unsigned nr_vars;
 } ir_graph_t;
 
 typedef struct ir_block {
     unsigned label;
     ir_instr_t *instrs;
     unsigned nr_instrs;
-    unsigned nr_vars;
 } ir_block_t;
 
 /** List instructions defined by the intermediate representation. */

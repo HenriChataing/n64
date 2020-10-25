@@ -70,6 +70,7 @@ typedef struct recompiler_backend {
     unsigned                nr_params;
     unsigned                cur_block;
     unsigned                cur_instr;
+    unsigned                cur_var;
     unsigned                cur_param;
 
     /* Error logs */

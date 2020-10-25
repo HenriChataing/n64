@@ -56,7 +56,7 @@ static bool typecheck_var(recompiler_backend_t *backend,
                           ir_value_t const *value, ir_type_t type) {
     if (ir_var_types[value->var].width == 0) {
         raise_recompiler_error(backend, "typecheck",
-            "the var %%%u is used here but is never defined\n"
+            "the var %%%u may be used uninitialized in this context\n"
             "in block .L%u, instruction:\n    %s",
             value->var, cur_block->label, print_instr(cur_instr));
         return false;
@@ -298,7 +298,6 @@ static bool typecheck_instr(recompiler_backend_t *backend,
 static bool typecheck_block(recompiler_backend_t *backend,
                             ir_block_t const *block) {
     bool valid = true;
-    memset(ir_var_types, 0, sizeof(ir_var_types));
     cur_block = block;
     for (cur_instr = block->instrs; cur_instr != NULL; cur_instr = cur_instr->next) {
         valid &= typecheck_instr(backend, cur_instr);
@@ -317,6 +316,7 @@ static bool typecheck_block(recompiler_backend_t *backend,
 bool ir_typecheck(recompiler_backend_t *backend,
                   ir_graph_t const *graph) {
     bool valid = true;
+    memset(ir_var_types, 0, sizeof(ir_var_types));
     for (unsigned nr = 0; nr < graph->nr_blocks; nr++) {
         valid &= typecheck_block(backend, &graph->blocks[nr]);
     }

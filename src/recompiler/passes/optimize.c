@@ -395,7 +395,6 @@ static void optimize_block(recompiler_backend_t *backend,
     ir_instr_t *next_instr;
     ir_instr_t **prev_instr = &block->instrs;
 
-    ir_cur_var = 0;
     memset(ir_register_context, 0, sizeof(ir_register_context));
 
     for (; instr != NULL; instr = next_instr) {
@@ -414,6 +413,7 @@ static void optimize_block(recompiler_backend_t *backend,
  */
 void ir_optimize(recompiler_backend_t *backend,
                  ir_graph_t *graph) {
+    ir_cur_var = 0;
     for (unsigned nr = 0; nr < graph->nr_blocks; nr++) {
         optimize_block(backend, &graph->blocks[nr]);
     }

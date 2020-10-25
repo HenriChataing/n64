@@ -11,8 +11,8 @@
 /** Maximum number of call parameters defined per graph. */
 #define RECOMPILER_PARAM_MAX            1024
 
-/** Maximum number of local variables defined per block. */
-#define RECOMPILER_VAR_MAX              512
+/** Maximum number of local variables defined per graph. */
+#define RECOMPILER_VAR_MAX              1024
 
 /** Maximum number of global variables defined per backend. */
 #define RECOMPILER_GLOBAL_MAX           128

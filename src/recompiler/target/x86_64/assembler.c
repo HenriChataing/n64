@@ -539,27 +539,31 @@ static void assemble_block(recompiler_backend_t const *backend,
  * The allocation spills all variables, and ignores lifetime.
  * Returns the required stack frame size.
  */
-static unsigned alloc_vars(ir_block_t const *block) {
+static unsigned alloc_vars(ir_graph_t const *graph) {
     unsigned offset = 0;
-    ir_instr_t const *instr = block->instrs;
-    for (; instr != NULL; instr = instr->next) {
-        if (ir_is_void_instr(instr))
-            continue;
+    for (unsigned label = 0; label < graph->nr_blocks; label++) {
+        ir_block_t const *block = graph->blocks + label;
+        ir_instr_t const *instr = block->instrs;
 
-        // Allocated variables are phantom, only the requested memory
-        // is allocated, not the variable slot.
-        unsigned width = instr->kind == IR_ALLOC ?
-            instr->alloc.type.width : instr->type.width;
+        for (; instr != NULL; instr = instr->next) {
+            if (ir_is_void_instr(instr))
+                continue;
 
-        // Align the offset to the return type size.
-        width = round_up_to_power2(width) / 8;
-        offset = (offset + width - 1) & ~(width - 1);
-        offset = offset + width;
+            // Allocated variables are phantom, only the requested memory
+            // is allocated, not the variable slot.
+            unsigned width = instr->kind == IR_ALLOC ?
+                instr->alloc.type.width : instr->type.width;
 
-        // Save the offset to the var metadata, update the current
-        // stack offset.
-        ir_var_context[instr->res].stack_offset = -offset;
-        ir_var_context[instr->res].allocated = instr->kind == IR_ALLOC;
+            // Align the offset to the return type size.
+            width = round_up_to_power2(width) / 8;
+            offset = (offset + width - 1) & ~(width - 1);
+            offset = offset + width;
+
+            // Save the offset to the var metadata, update the current
+            // stack offset.
+            ir_var_context[instr->res].stack_offset = -offset;
+            ir_var_context[instr->res].allocated = instr->kind == IR_ALLOC;
+        }
     }
 
     // Round to 16 to preserve the stack alignment on function calls.
@@ -586,11 +590,10 @@ code_entry_t ir_x86_64_assemble(recompiler_backend_t const *backend,
 
     // Generate the standard function prelude to enter into compiled code.
     void *entry = code_buffer_ptr(emitter);
-    unsigned stack_size = 0;
+    unsigned stack_size = alloc_vars(graph);
     emit_push_r64(emitter, RBP);
     emit_mov_r64_r64(emitter, RBP, RSP);
-    unsigned char *stack_size_alloc_instr = code_buffer_ptr(emitter);
-    emit_sub_r64_imm32(emitter, RSP, 0);
+    emit_sub_r64_imm32(emitter, RSP, stack_size);
 
     // Start the assembly with the first block.
     ir_br_queue[0].rel32 = NULL;
@@ -604,9 +607,6 @@ code_entry_t ir_x86_64_assemble(recompiler_backend_t const *backend,
         if (start == NULL) {
             start = code_buffer_ptr(emitter);
             ir_block_context[context.block->label].start = start;
-            unsigned block_stack_size = alloc_vars(context.block);
-            if (block_stack_size > stack_size)
-                stack_size = block_stack_size;
             assemble_block(backend, emitter, context.block);
         }
         patch_jmp_rel32(emitter, context.rel32, start);
@@ -617,9 +617,6 @@ code_entry_t ir_x86_64_assemble(recompiler_backend_t const *backend,
     emit_mov_r64_r64(emitter, RSP, RBP);
     emit_pop_r64(emitter, RBP);
     emit_ret(emitter);
-
-    // Patch the stack size allocation with the maximum block stack size.
-    patch_sub_r64_imm32(stack_size_alloc_instr, stack_size);
 
     // Patch all exit instructions to jump to the exit label.
     for (unsigned nr = 0; nr < ir_exit_queue_len; nr++) {
