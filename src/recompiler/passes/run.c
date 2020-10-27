@@ -49,7 +49,7 @@ static bool run_br(recompiler_backend_t *backend,
                    ir_instr_t const *instr) {
     ir_const_t value = eval_value(instr->br.cond);
     cur_block = instr->br.target[value.int_ != 0];
-    next_instr = cur_block->instrs;
+    next_instr = cur_block ? cur_block->instrs : NULL;
     return true;
 }
 
@@ -94,6 +94,49 @@ static bool run_call(recompiler_backend_t *backend,
                 cur_block->label, print_instr(instr));
             return false;
         }
+        return true;
+    }
+    else if (instr->call.nr_params == 1 && instr->type.width == 1) {
+        uintmax_t value = eval_value(instr->call.params[0]).int_;
+        bool (*func)() = (void *)instr->call.func;
+        bool res;
+        switch (instr->call.params[0].type.width) {
+        case 32: res = func((uint32_t)value); break;
+        case 64: res = func((uint64_t)value); break;
+        default:
+            raise_recompiler_error(backend, "run",
+                "unsupported parameter bit width %u"
+                " in function call with one parameter\n"
+                "in block .L%u, instruction:\n    %s",
+                instr->call.params[0].type.width,
+                cur_block->label, print_instr(instr));
+            return false;
+        }
+        ir_var_values[instr->res] = (ir_const_t){ res };
+        return true;
+    }
+    else if (instr->call.nr_params == 2 &&
+             instr->call.params[0].type.width == 64 &&
+             instr->type.width == 1) {
+        uintmax_t param0 = eval_value(instr->call.params[0]).int_;
+        uintmax_t param1 = eval_value(instr->call.params[1]).int_;
+        bool (*func)() = (void *)instr->call.func;
+        bool res;
+        switch (instr->call.params[1].type.width) {
+        case 8: res = func(param0,  (uint8_t)param1); break;
+        case 16: res = func(param0, (uint16_t)param1); break;
+        case 32: res = func(param0, (uint32_t)param1); break;
+        case 64: res = func(param0, (uint64_t)param1); break;
+        default:
+            raise_recompiler_error(backend, "run",
+                "unsupported parameter bit width %u"
+                " in function call with two parameters\n"
+                "in block .L%u, instruction:\n    %s",
+                instr->call.params[1].type.width,
+                cur_block->label, print_instr(instr));
+            return false;
+        }
+        ir_var_values[instr->res] = (ir_const_t){ res };
         return true;
     }
     else {
@@ -196,32 +239,14 @@ static bool run_icmp(recompiler_backend_t *backend,
 
 static bool run_load(recompiler_backend_t *backend,
                      ir_instr_t const *instr) {
-    ir_memory_backend_t const *memory = &backend->memory;
     uintmax_t address = eval_value(instr->load.address).int_;
     uintmax_t res;
-    uint8_t res_u8 = 0;
-    uint16_t res_u16 = 0;
-    uint32_t res_u32 = 0;
-    uint64_t res_u64 = 0;
-    bool exception = false;
 
     switch (instr->type.width) {
-    case 8:
-        exception = !memory->load_u8(address, &res_u8);
-        res = res_u8;
-        break;
-    case 16:
-        exception = !memory->load_u16(address, &res_u16);
-        res = res_u16;
-        break;
-    case 32:
-        exception = !memory->load_u32(address, &res_u32);
-        res = res_u32;
-        break;
-    case 64:
-        exception = !memory->load_u64(address, &res_u64);
-        res = res_u64;
-        break;
+    case 8:  res = *(uint8_t *)address; break;
+    case 16: res = *(uint16_t *)address; break;
+    case 32: res = *(uint32_t *)address; break;
+    case 64: res = *(uint64_t *)address; break;
     default:
         raise_recompiler_error(backend, "run",
             "unsupported load bit width %u\n"
@@ -230,30 +255,20 @@ static bool run_load(recompiler_backend_t *backend,
         return false;
     }
 
-    if (exception) {
-        raise_recompiler_error(backend, "run",
-            "unhandled synchronous exception in memory load\n"
-            "in block .L%u, instruction:\n    %s",
-            cur_block->label, print_instr(instr));
-        return false;
-    } else {
-        ir_var_values[instr->res] = (ir_const_t){ res };
-        return true;
-    }
+    ir_var_values[instr->res] = (ir_const_t){ res };
+    return true;
 }
 
 static bool run_store(recompiler_backend_t *backend,
                       ir_instr_t const *instr) {
-    ir_memory_backend_t const *memory = &backend->memory;
     uintmax_t address = eval_value(instr->store.address).int_;
     uintmax_t value   = eval_value(instr->store.value).int_;
-    bool exception = false;
 
     switch (instr->type.width) {
-    case 8:     exception = !memory->store_u8(address, value);  break;
-    case 16:    exception = !memory->store_u16(address, value); break;
-    case 32:    exception = !memory->store_u32(address, value); break;
-    case 64:    exception = !memory->store_u64(address, value); break;
+    case 8:  *(uint8_t *)address = value; break;
+    case 16: *(uint16_t *)address = value; break;
+    case 32: *(uint32_t *)address = value; break;
+    case 64: *(uint64_t *)address = value; break;
     default:
         raise_recompiler_error(backend, "run",
             "unsupported store bit width %u\n"
@@ -261,14 +276,7 @@ static bool run_store(recompiler_backend_t *backend,
             instr->type.width, cur_block->label, print_instr(instr));
         return false;
     }
-
-    if (exception) {
-        raise_recompiler_error(backend, "run",
-            "unhandled synchronous exception in memory store\n"
-            "in block .L%u, instruction:\n    %s",
-            cur_block->label, print_instr(instr));
-    }
-    return !exception;
+    return true;
 }
 
 static bool run_read(recompiler_backend_t *backend,

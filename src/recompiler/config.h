@@ -3,7 +3,7 @@
 #define _RECOMPILER_CONFIG_H_INCLUDED_
 
 /** Maximum number of blocks defined per graph. */
-#define RECOMPILER_BLOCK_MAX            32
+#define RECOMPILER_BLOCK_MAX            128
 
 /** Maximum number of instructions defined per graph. */
 #define RECOMPILER_INSTR_MAX            1024

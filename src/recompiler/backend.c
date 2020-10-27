@@ -7,8 +7,7 @@
 #include <recompiler/backend.h>
 
 recompiler_backend_t *
-create_recompiler_backend(ir_memory_backend_t *memory,
-                          unsigned nr_registers,
+create_recompiler_backend(unsigned nr_registers,
                           unsigned nr_blocks,
                           unsigned nr_instrs,
                           unsigned nr_params) {
@@ -42,7 +41,6 @@ create_recompiler_backend(ir_memory_backend_t *memory,
         goto failure;
     }
 
-    backend->memory = *memory;
     backend->cur_block = 0;
     backend->cur_instr = 0;
     backend->cur_param = 0;
@@ -233,19 +231,30 @@ void ir_append_br(ir_instr_cont_t *cont,
                   ir_value_t cond,
                   ir_instr_cont_t *target_false,
                   ir_instr_cont_t *target_true) {
-    ir_block_t *block_false = ir_alloc_block(cont->backend);
-    ir_block_t *block_true = ir_alloc_block(cont->backend);
+    if (target_true == NULL && target_false == NULL) {
+        ir_append_exit(cont);
+        return;
+    }
+
+    ir_block_t *block_false =
+        target_false ? ir_alloc_block(cont->backend) : NULL;
+    ir_block_t *block_true =
+        target_true ? ir_alloc_block(cont->backend) : NULL;
 
     ir_append_instr(cont,
         ir_make_br(cond, block_false, block_true));
 
-    target_false->backend = cont->backend;
-    target_false->block = block_false;
-    target_false->next = &block_false->instrs;
+    if (target_false) {
+        target_false->backend = cont->backend;
+        target_false->block = block_false;
+        target_false->next = &block_false->instrs;
+    }
 
-    target_true->backend = cont->backend;
-    target_true->block = block_true;
-    target_true->next = &block_true->instrs;
+    if (target_true) {
+        target_true->backend = cont->backend;
+        target_true->block = block_true;
+        target_true->next = &block_true->instrs;
+    }
 }
 
 ir_value_t ir_append_call(ir_instr_cont_t *cont,

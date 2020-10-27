@@ -574,6 +574,7 @@ int run_test_suite(recompiler_backend_t *backend,
     size_t bin_code_len = sizeof(bin_code);
     toml::array *test_array = test_list.as_array();
     unsigned nr_tests = test_array->size();
+    code_entry_t entry;
 
     if (parse_word_array(bin_code_node.as_array(), bin_code, &bin_code_len) < 0) {
         return -1;
@@ -589,40 +590,44 @@ int run_test_suite(recompiler_backend_t *backend,
     header.graph = ir_mips_disassemble(backend, header.start_address,
                                        header.bin_code, header.bin_code_len);
 
+    /* Disassembly can fail due to resource limitations. */
+    if (header.graph == NULL) {
+        debugger::error(Debugger::CPU, "failed to generate intermediate code");
+        print_backend_error_log(backend);
+        goto test_preparation_failure;
+    }
 
     /* Type check the generated graph. */
     if (!print_typecheck(backend, header, false)) {
         print_input_info(header);
         print_raw_disassembly(header);
         print_ir_disassembly(header);
-        stats->total_failed += nr_tests;
-        return -1;
+        goto test_preparation_failure;
     }
+
+    /* Optimize the generated graph. */
+    ir_optimize(backend, header.graph);
 
     if (verbose) {
         print_input_info(header);
         print_raw_disassembly(header);
         print_ir_disassembly(header);
+        print_ir_disassembly(header);
     }
-
-    /* Optimize the generated graph. */
-    ir_optimize(backend, header.graph);
 
     /* Type check again to verify the result of the optimize pass. */
     if (!print_typecheck(backend, header, false)) {
         print_input_info(header);
         print_raw_disassembly(header);
         print_ir_disassembly(header);
-        stats->total_failed += nr_tests;
-        return -1;
+        goto test_preparation_failure;
     }
 
     clear_code_buffer(emitter);
-    code_entry_t entry = ir_x86_64_assemble(backend, emitter, header.graph, NULL);
+    entry = ir_x86_64_assemble(backend, emitter, header.graph, NULL);
     if (entry == NULL) {
         debugger::error(Debugger::CPU, "failed to generate x86_64 binary code");
-        stats->total_failed += nr_tests;
-        return -1;
+        goto test_preparation_failure;
     }
 
     if (verbose) {
@@ -633,6 +638,7 @@ int run_test_suite(recompiler_backend_t *backend,
     /* Load input parameters and output values from the files *.rsp
      * and *.golden */
 
+    {  /* test execution */
     std::ifstream input(input_filename, std::ios::binary);
     std::ifstream output(output_filename, std::ios::binary);
     bool any_failed = false;
@@ -731,7 +737,14 @@ int run_test_suite(recompiler_backend_t *backend,
 
     input.close();
     output.close();
+    } /* test execution */
     return 0;
+
+test_preparation_failure:
+    fmt::print("+ [test -/{}] {}:- -- ", nr_tests, test_suite_name);
+    fmt::print(fmt::fg(fmt::color::tomato), "FAILED\n");
+    stats->total_failed += nr_tests;
+    return -1;
 }
 
 std::vector<std::string> list_test_suites(void) {
@@ -780,7 +793,7 @@ int main(int argc, char **argv) {
     struct test_statistics test_stats = {};
     bool stop_at_first_fail = false;
     recompiler_backend_t *backend = ir_mips_recompiler_backend();
-    code_buffer_t *emitter = alloc_code_buffer(8192);
+    code_buffer_t *emitter = alloc_code_buffer(0x4000);
 
     if (mode == SELECTED) {
         for (; selected < test_suites.size(); selected++) {

@@ -75,9 +75,10 @@ static void load_value(code_buffer_t *emitter, ir_value_t value, unsigned r) {
 /** Load a value to the selected pseudo register. */
 static void store_value(code_buffer_t *emitter, ir_type_t type,
                         ir_var_t var, unsigned r) {
+    unsigned width = round_up_to_power2(type.width);
     x86_64_mem_t mN = mem_indirect_disp(RBP,
         ir_var_context[var].stack_offset);
-    switch (type.width) {
+    switch (width) {
     case 8:  emit_mov_m8_r8(emitter, mN, r);   break;
     case 16: emit_mov_m16_r16(emitter, mN, r); break;
     case 32: emit_mov_m32_r32(emitter, mN, r); break;
@@ -89,7 +90,6 @@ static void store_value(code_buffer_t *emitter, ir_type_t type,
 static void assemble_exit(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
-
     ir_exit_queue[ir_exit_queue_len].rel32 = emit_jmp_rel32(emitter);
     ir_exit_queue_len++;
 }
@@ -100,16 +100,51 @@ static void assemble_br(recompiler_backend_t const *backend,
     unsigned char *rel32;
     load_value(emitter, instr->br.cond, AL);
     emit_test_al_imm8(emitter, 1);
-    rel32 = emit_jne_rel32(emitter);
-    ir_br_queue[ir_br_queue_len].rel32 = rel32;
-    ir_br_queue[ir_br_queue_len].block = instr->br.target[1];
-    ir_br_queue_len++;
-    // The false branch is assembled directly after the current block
-    // (the branch instruction is final). No additional branch
-    // instruction required.
-    ir_br_queue[ir_br_queue_len].rel32 = NULL;
-    ir_br_queue[ir_br_queue_len].block = instr->br.target[0];
-    ir_br_queue_len++;
+
+    if (instr->br.target[0] && instr->br.target[1]) {
+        // True branching instruction, the branch targets are two
+        // distinct blocks.
+        rel32 = emit_jne_rel32(emitter);
+        ir_br_queue[ir_br_queue_len].rel32 = rel32;
+        ir_br_queue[ir_br_queue_len].block = instr->br.target[1];
+        ir_br_queue_len++;
+        // The false branch is assembled directly after the current block
+        // (the branch instruction is final). No additional branch
+        // instruction required.
+        ir_br_queue[ir_br_queue_len].rel32 = NULL;
+        ir_br_queue[ir_br_queue_len].block = instr->br.target[0];
+        ir_br_queue_len++;
+    }
+    else if (instr->br.target[0]) {
+        // True condition is an exit condition.
+        rel32 = emit_jne_rel32(emitter);
+        ir_exit_queue[ir_exit_queue_len].rel32 = rel32;
+        ir_exit_queue_len++;
+        // The false branch is assembled directly after the current block
+        // (the branch instruction is final). No additional branch
+        // instruction required.
+        ir_br_queue[ir_br_queue_len].rel32 = NULL;
+        ir_br_queue[ir_br_queue_len].block = instr->br.target[0];
+        ir_br_queue_len++;
+    }
+    else if (instr->br.target[1]) {
+        // False condition is an exit condition.
+        rel32 = emit_je_rel32(emitter);
+        ir_exit_queue[ir_exit_queue_len].rel32 = rel32;
+        ir_exit_queue_len++;
+        // The false branch is assembled directly after the current block
+        // (the branch instruction is final). No additional branch
+        // instruction required.
+        ir_br_queue[ir_br_queue_len].rel32 = NULL;
+        ir_br_queue[ir_br_queue_len].block = instr->br.target[1];
+        ir_br_queue_len++;
+    }
+    else {
+        // Both conditions lead to the exit, an inconditional jump is generated.
+        // Should not happen in pratice.
+        ir_exit_queue[ir_exit_queue_len].rel32 = emit_jmp_rel32(emitter);
+        ir_exit_queue_len++;
+    }
 }
 
 static void assemble_call(recompiler_backend_t const *backend,
@@ -127,9 +162,22 @@ static void assemble_call(recompiler_backend_t const *backend,
     static const unsigned register_parameters[6] = {
         RDI, RSI, RDX, RCX, R8, R9,
     };
+    static const bool register_parameters_u8[6] = {
+        false, false, true, true, false, false,
+    };
+    static const bool register_parameters_u16[6] = {
+        true, true, true, true, false, false,
+    };
 
     for (unsigned nr = 0; nr < instr->call.nr_params && nr < 6; nr++) {
-        load_value(emitter, instr->call.params[nr], register_parameters[nr]);
+        ir_value_t param = instr->call.params[nr];
+        if ((param.type.width <= 8  && !register_parameters_u8[nr]) ||
+            (param.type.width <= 16 && !register_parameters_u16[nr])) {
+            load_value(emitter, param, RAX);
+            emit_mov_r64_r64(emitter, register_parameters[nr], RAX);
+        } else {
+            load_value(emitter, param, register_parameters[nr]);
+        }
     }
     emit_push_r64(emitter, R12);
     emit_push_r64(emitter, R13);
@@ -368,51 +416,36 @@ static void assemble_icmp(recompiler_backend_t const *backend,
 static void assemble_load(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
-    ir_memory_backend_t const *memory = &backend->memory;
+    x86_64_mem_t dst = mem_indirect_disp(RBP,
+        ir_var_context[instr->res].stack_offset);
 
-    load_value(emitter, instr->load.address, RDI);
-    emit_mov_r64_r64(emitter, RSI, RBP);
-    emit_add_r64_imm32(emitter, RSI, ir_var_context[instr->res].stack_offset);
+    load_value(emitter, instr->load.address, RAX);
+    emit_mov_rN_mN(emitter, instr->type.width, RCX, mem_indirect(RAX));
 
     switch (instr->type.width) {
-    case 8:  emit_call(emitter, memory->load_u8, RAX); break;
-    case 16: emit_call(emitter, memory->load_u16, RAX); break;
-    case 32: emit_call(emitter, memory->load_u32, RAX); break;
-    case 64: emit_call(emitter, memory->load_u64, RAX); break;
+    case 8:  emit_mov_m8_r8(emitter, dst, CL); break;
+    case 16: emit_mov_m16_r16(emitter, dst, CX); break;
+    case 32: emit_mov_m32_r32(emitter, dst, ECX); break;
+    case 64: emit_mov_m64_r64(emitter, dst, RCX); break;
     default: fail_code_buffer(emitter); break;
     }
-
-    // Check function return for early exit.
-    emit_test_r8_r8(emitter, AL, AL);
-    ir_exit_queue[ir_exit_queue_len].rel32 = emit_je_rel32(emitter);
-    ir_exit_queue_len++;
 }
 
 static void assemble_store(recompiler_backend_t const *backend,
                            code_buffer_t *emitter,
                            ir_instr_t const *instr) {
-    ir_memory_backend_t const *memory = &backend->memory;
+    x86_64_mem_t dst = mem_indirect(RAX);
 
-    load_value(emitter, instr->store.address, RDI);
-    if (instr->store.value.type.width == 8) {
-        load_value(emitter, instr->store.value, AL);
-        emit_mov_r64_r64(emitter, RSI, RAX);
-    } else {
-        load_value(emitter, instr->store.value, RSI);
-    }
+    load_value(emitter, instr->store.address, RAX);
+    load_value(emitter, instr->store.value, RCX);
 
     switch (instr->type.width) {
-    case 8:  emit_call(emitter, memory->store_u8, RAX); break;
-    case 16: emit_call(emitter, memory->store_u16, RAX); break;
-    case 32: emit_call(emitter, memory->store_u32, RAX); break;
-    case 64: emit_call(emitter, memory->store_u64, RAX); break;
+    case 8:  emit_mov_m8_r8(emitter, dst, CL); break;
+    case 16: emit_mov_m16_r16(emitter, dst, CX); break;
+    case 32: emit_mov_m32_r32(emitter, dst, ECX); break;
+    case 64: emit_mov_m64_r64(emitter, dst, RCX); break;
     default: fail_code_buffer(emitter); break;
     }
-
-    // Check function return for early exit.
-    emit_test_r8_r8(emitter, AL, AL);
-    ir_exit_queue[ir_exit_queue_len].rel32 = emit_je_rel32(emitter);
-    ir_exit_queue_len++;
 }
 
 static void assemble_read(recompiler_backend_t const *backend,

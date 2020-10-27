@@ -15,18 +15,6 @@
 extern "C" {
 #endif /* __cplusplus */
 
-/** Machine memory interface. */
-typedef struct ir_memory_backend {
-    bool (*load_u8  )(uintmax_t, uint8_t  *value);
-    bool (*load_u16 )(uintmax_t, uint16_t *value);
-    bool (*load_u32 )(uintmax_t, uint32_t *value);
-    bool (*load_u64 )(uintmax_t, uint64_t *value);
-    bool (*store_u8 )(uintmax_t, uint8_t   value);
-    bool (*store_u16)(uintmax_t, uint16_t  value);
-    bool (*store_u32)(uintmax_t, uint32_t  value);
-    bool (*store_u64)(uintmax_t, uint64_t  value);
-} ir_memory_backend_t;
-
 /** Saves information about a machine register : bit width and host memory
  * location. If `type` is i0, or `ptr` is NULL the register is considered
  * not implemented, and compiled as a zero value. */
@@ -56,7 +44,6 @@ typedef struct recompiler_error {
  */
 typedef struct recompiler_backend {
     /* Machine abstraction. */
-    ir_memory_backend_t     memory;
     ir_register_backend_t  *registers;
     unsigned                nr_registers;
 
@@ -91,8 +78,7 @@ typedef struct ir_instr_cont {
 
 /** Allocate a recompiler backend. */
 recompiler_backend_t *
-create_recompiler_backend(ir_memory_backend_t *memory,
-                          unsigned nr_registers,
+create_recompiler_backend(unsigned nr_registers,
                           unsigned nr_blocks,
                           unsigned nr_instrs,
                           unsigned nr_params);

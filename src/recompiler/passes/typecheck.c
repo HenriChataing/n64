@@ -13,7 +13,7 @@ static const ir_instr_t *cur_instr;
 static char instr_str[128];
 
 static char const *print_instr(ir_instr_t const *instr) {
-    ir_print_instr(instr_str, sizeof(instr), instr);
+    ir_print_instr(instr_str, sizeof(instr_str), instr);
     return instr_str;
 }
 

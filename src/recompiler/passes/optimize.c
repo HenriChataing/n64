@@ -81,8 +81,7 @@ static bool optimize_call(recompiler_backend_t *backend,
 
 static bool optimize_alloc(recompiler_backend_t *backend,
                            ir_instr_t *instr) {
-    (void)backend;
-    (void)instr;
+    remap_res(instr);
     return false;
 }
 

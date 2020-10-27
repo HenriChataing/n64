@@ -25,6 +25,21 @@ int ir_print_value(char *buf, size_t len, ir_value_t const *value) {
     return 0;
 }
 
+static int ir_print_br(char *buf, size_t len, ir_instr_t const *instr) {
+    int written;
+    written  = snprintf(buf, len, "br ");
+    written += ir_print_value(buf+written, len-written, &instr->br.cond);
+    written += instr->br.target[0] == NULL ?
+        snprintf(buf+written, len-written, ", exit") :
+        snprintf(buf+written, len-written, ", .L%u",
+            instr->br.target[0]->label);
+    written += instr->br.target[1] == NULL ?
+        snprintf(buf+written, len-written, ", exit") :
+        snprintf(buf+written, len-written, ", .L%u",
+            instr->br.target[1]->label);
+    return written;
+}
+
 static int ir_print_call(char *buf, size_t len, ir_instr_t const *instr) {
     int written;
     if (instr->type.width > 0) {
@@ -174,17 +189,11 @@ static int ir_print_cvt(char *buf, size_t len, ir_instr_t const *instr) {
 }
 
 int ir_print_instr(char *buf, size_t len, ir_instr_t const *instr) {
-    int written;
     switch (instr->kind) {
     case IR_EXIT:
         return snprintf(buf, len, "exit");
     case IR_BR:
-        written  = snprintf(buf, len, "br ");
-        written += ir_print_value(buf+written, len-written, &instr->br.cond);
-        written += snprintf(buf+written, len-written, ", L%u, L%u",
-                            instr->br.target[0]->label,
-                            instr->br.target[1]->label);
-        return written;
+        return ir_print_br(buf, len, instr);
     case IR_CALL:
         return ir_print_call(buf, len, instr);
     case IR_ALLOC:
