@@ -31,6 +31,11 @@ static inline ir_type_t ir_make_iN(unsigned n) {
     return (ir_type_t){ n };
 }
 
+static inline ir_type_t ir_make_i8(void) { return ir_make_iN(8); }
+static inline ir_type_t ir_make_i16(void) { return ir_make_iN(16); }
+static inline ir_type_t ir_make_i32(void) { return ir_make_iN(32); }
+static inline ir_type_t ir_make_i64(void) { return ir_make_iN(64); }
+
 /** @brief Create a host pointer type representation. */
 static inline ir_type_t ir_make_iptr(void) {
     return (ir_type_t){ CHAR_BIT * sizeof(void *) };
@@ -40,8 +45,8 @@ static inline bool ir_type_equals(ir_type_t left, ir_type_t right) {
     return (left.width == right.width);
 }
 
-/** Type of machine registers. */
-typedef unsigned ir_register_t;
+/** Type of global variables. */
+typedef unsigned ir_global_t;
 
 /** Type of pseudo variables. */
 typedef unsigned ir_var_t;
@@ -220,12 +225,12 @@ typedef struct ir_store {
 } ir_store_t;
 
 typedef struct ir_read {
-    ir_register_t       register_;
+    ir_global_t         global;
     ir_type_t           type;
 } ir_read_t;
 
 typedef struct ir_write {
-    ir_register_t       register_;
+    ir_global_t         global;
     ir_value_t          value;
 } ir_write_t;
 
@@ -332,17 +337,17 @@ ir_instr_t ir_make_store(ir_type_t type,
 static inline
 ir_instr_t ir_make_read(ir_var_t res,
                         ir_type_t type,
-                        ir_register_t register_) {
+                        ir_global_t global) {
     return (ir_instr_t){ .kind = IR_READ, .res = res, .type = type,
-        .read = { .register_ = register_, .type = type, } };
+        .read = { .global = global, .type = type, } };
 }
 
 static inline
 ir_instr_t ir_make_write(ir_type_t type,
-                         ir_register_t register_,
+                         ir_global_t global,
                          ir_value_t value) {
     return (ir_instr_t){ .kind = IR_WRITE, .type = type,
-        .write = { .register_ = register_, .value = value, } };
+        .write = { .global = global, .value = value, } };
 }
 
 static inline

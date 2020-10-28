@@ -155,7 +155,7 @@ static int ir_print_read(char *buf, size_t len, ir_instr_t const *instr) {
     int written;
     written  = snprintf(buf, len, "%%%u = read_", instr->res);
     written += ir_print_type(buf+written, len-written, &instr->type);
-    written += snprintf(buf+written, len-written, " $%u", instr->read.register_);
+    written += snprintf(buf+written, len-written, " $%u", instr->read.global);
     return written;
 }
 
@@ -163,7 +163,7 @@ static int ir_print_write(char *buf, size_t len, ir_instr_t const *instr) {
     int written;
     written  = snprintf(buf, len, "write_");
     written += ir_print_type(buf+written, len-written, &instr->type);
-    written += snprintf(buf+written, len-written, " $%u", instr->write.register_);
+    written += snprintf(buf+written, len-written, " $%u", instr->write.global);
     written += snprintf(buf+written, len-written, ", ");
     written += ir_print_value(buf+written, len-written, &instr->write.value);
     return written;

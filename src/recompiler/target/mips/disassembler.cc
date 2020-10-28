@@ -8,6 +8,34 @@
 #include <recompiler/backend.h>
 #include <recompiler/target/mips.h>
 
+enum {
+    /* General purpose registers. */
+    REG_ZERO,       REG_AT,         REG_V0,         REG_V1,
+    REG_A0,         REG_A1,         REG_A2,         REG_A3,
+    REG_T0,         REG_T1,         REG_T2,         REG_T3,
+    REG_T4,         REG_T5,         REG_T6,         REG_T7,
+    REG_S0,         REG_S1,         REG_S2,         REG_S3,
+    REG_S4,         REG_S5,         REG_S6,         REG_S7,
+    REG_T8,         REG_T9,         REG_K0,         REG_K1,
+    REG_GP,         REG_SP,         REG_FP,         REG_RA,
+    /* Special registers. */
+    REG_PC,         REG_MULTHI,     REG_MULTLO,
+    /* COP0 registers. */
+    REG_INDEX,      REG_RANDOM,     REG_ENTRYLO0,   REG_ENTRYLO1,
+    REG_CONTEXT,    REG_PAGEMASK,   REG_WIRED,      REG_BADVADDR,
+    REG_COUNT,      REG_ENTRYHI,    REG_COMPARE,    REG_SR,
+    REG_CAUSE,      REG_EPC,        REG_PRID,       REG_CONFIG,
+    REG_LLADDR,     REG_WATCHLO,    REG_WATCHHI,    REG_XCONTEXT,
+    REG_PERR,       REG_CACHEERR,   REG_TAGLO,      REG_TAGHI,
+    REG_ERROREPC,
+    /* COP1 registers. */
+    REG_FCR0,       REG_FCR31,
+    /* State globals. */
+    REG_CYCLES,
+    REG_DELAY_SLOT,
+    REG_MAX,
+};
+
 /* Stand-in interpreter, default callback when the instruction cannot
  * be translated to IR. */
 extern "C" void interpret(uint32_t instr) {
@@ -187,15 +215,15 @@ void ir_mips_append_store_i64(ir_instr_cont_t *c, ir_value_t addr,
 }
 
 static inline ir_value_t ir_mips_append_read(ir_instr_cont_t *c,
-                                             ir_register_t register_) {
-    return register_ ? ir_append_read_i64(c, register_)
+                                             ir_global_t global) {
+    return global ? ir_append_read_i64(c, global)
                      : ir_make_const_u64(0);
 }
 
 static inline void ir_mips_append_write(ir_instr_cont_t *c,
-                                        ir_register_t register_,
+                                        ir_global_t global,
                                         ir_value_t value) {
-    if (register_) ir_append_write_i64(c, register_, value);
+    if (global) ir_append_write_i64(c, global, value);
 }
 
 /** Number of cycle increments applied so far. */
@@ -1500,7 +1528,7 @@ static void disas_COP0(ir_instr_cont_t *c, uint64_t address, uint32_t instr)
 }
 
 static void disas_CFC1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    ir_register_t rd;
+    ir_global_t rd;
     switch (mips_get_rd(instr)) {
     case 0:  rd = REG_FCR0; break;
     case 31: rd = REG_FCR31; break;
@@ -1516,7 +1544,7 @@ static void disas_CFC1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 }
 
 static void disas_CTC1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    ir_register_t rd;
+    ir_global_t rd;
     switch (mips_get_rd(instr)) {
     case 0:  rd = REG_FCR0; break;
     case 31: rd = REG_FCR31; break;
@@ -2294,52 +2322,51 @@ static void append_delay_instr(ir_instr_cont_t *c, uint64_t address,
 }
 
 recompiler_backend_t *ir_mips_recompiler_backend(void) {
-    recompiler_backend_t *backend =
-        create_recompiler_backend(REG_MAX,
-                                  RECOMPILER_BLOCK_MAX,
-                                  RECOMPILER_INSTR_MAX,
-                                  RECOMPILER_PARAM_MAX);
+    ir_global_definition_t global_definitions[REG_MAX];
+    global_definitions[REG_PC] = { ir_make_i64(), "pc", &R4300::state.reg.pc };
+    global_definitions[REG_MULTHI] = { ir_make_i64(), "multhi", &R4300::state.reg.multHi };
+    global_definitions[REG_MULTLO] = { ir_make_i64(), "multlo", &R4300::state.reg.multLo };
+    global_definitions[REG_INDEX] = { ir_make_i32(), "index", &R4300::state.cp0reg.index };
+    global_definitions[REG_RANDOM] = { ir_make_i32(), "random", &R4300::state.cp0reg.random };
+    global_definitions[REG_ENTRYLO0] = { ir_make_i64(), "entrylo0", &R4300::state.cp0reg.entrylo0 };
+    global_definitions[REG_ENTRYLO1] = { ir_make_i64(), "entrylo1", &R4300::state.cp0reg.entrylo1 };
+    global_definitions[REG_CONTEXT] = { ir_make_i64(), "context", &R4300::state.cp0reg.context };
+    global_definitions[REG_PAGEMASK] = { ir_make_i32(), "pagemask", &R4300::state.cp0reg.pagemask };
+    global_definitions[REG_WIRED] = { ir_make_i32(), "wired", &R4300::state.cp0reg.wired };
+    global_definitions[REG_BADVADDR] = { ir_make_i64(), "badvaddr", &R4300::state.cp0reg.badvaddr };
+    global_definitions[REG_COUNT] = { ir_make_i32(), "count", &R4300::state.cp0reg.count };
+    global_definitions[REG_ENTRYHI] = { ir_make_i64(), "entryhi", &R4300::state.cp0reg.entryhi };
+    global_definitions[REG_COMPARE] = { ir_make_i32(), "compare", &R4300::state.cp0reg.compare };
+    global_definitions[REG_SR] = { ir_make_i32(), "sr", &R4300::state.cp0reg.sr };
+    global_definitions[REG_CAUSE] = { ir_make_i32(), "cause", &R4300::state.cp0reg.cause };
+    global_definitions[REG_EPC] = { ir_make_i64(), "epc", &R4300::state.cp0reg.epc };
+    global_definitions[REG_PRID] = { ir_make_i32(), "prid", &R4300::state.cp0reg.prid };
+    global_definitions[REG_CONFIG] = { ir_make_i32(), "config", &R4300::state.cp0reg.config };
+    global_definitions[REG_LLADDR] = { ir_make_i32(), "lladdr", &R4300::state.cp0reg.lladdr };
+    global_definitions[REG_WATCHLO] = { ir_make_i32(), "watchlo", &R4300::state.cp0reg.watchlo };
+    global_definitions[REG_WATCHHI] = { ir_make_i32(), "watchhi", &R4300::state.cp0reg.watchhi };
+    global_definitions[REG_XCONTEXT] = { ir_make_i64(), "xcontext", &R4300::state.cp0reg.xcontext };
+    global_definitions[REG_PERR] = { ir_make_i32(), "perr", &R4300::state.cp0reg.perr };
+    global_definitions[REG_CACHEERR] = { ir_make_i32(), "cacheerr", &R4300::state.cp0reg.cacheerr };
+    global_definitions[REG_TAGLO] = { ir_make_i32(), "taglo", &R4300::state.cp0reg.taglo };
+    global_definitions[REG_TAGHI] = { ir_make_i32(), "taghi", &R4300::state.cp0reg.taghi };
+    global_definitions[REG_ERROREPC] = { ir_make_i64(), "errorepc", &R4300::state.cp0reg.errorepc };
+    global_definitions[REG_FCR0] = { ir_make_i32(), "fcr0", &R4300::state.cp1reg.fcr0 };
+    global_definitions[REG_FCR31] = { ir_make_i32(), "fcr31", &R4300::state.cp1reg.fcr31 };
+    global_definitions[REG_CYCLES] = { ir_make_i64(), "cycles", &R4300::state.cycles };
+    global_definitions[REG_DELAY_SLOT] = { ir_make_i8(), "delay_slot", &R4300::state.cpu.delaySlot };
+
     for (unsigned i = 1; i < 32; i++) {
-        ir_bind_register_u64(backend, i, n64::assembly::cpu::RegisterNames[i],
-            &R4300::state.reg.gpr[i]);
+        global_definitions[i] = {
+            ir_make_i64(), n64::assembly::cpu::RegisterNames[i],
+            &R4300::state.reg.gpr[i],
+        };
     }
 
-    ir_bind_register_u64(backend, REG_PC,       "pc", &R4300::state.reg.pc);
-    ir_bind_register_u64(backend, REG_MULTHI,   "multhi", &R4300::state.reg.multHi);
-    ir_bind_register_u64(backend, REG_MULTLO,   "multlo", &R4300::state.reg.multLo);
-    ir_bind_register_u32(backend, REG_INDEX,    "index", &R4300::state.cp0reg.index);
-    ir_bind_register_u32(backend, REG_RANDOM,   "random", &R4300::state.cp0reg.random);
-    ir_bind_register_u64(backend, REG_ENTRYLO0, "entrylo0", &R4300::state.cp0reg.entrylo0);
-    ir_bind_register_u64(backend, REG_ENTRYLO1, "entrylo1", &R4300::state.cp0reg.entrylo1);
-    ir_bind_register_u64(backend, REG_CONTEXT,  "context", &R4300::state.cp0reg.context);
-    ir_bind_register_u32(backend, REG_PAGEMASK, "pagemask", &R4300::state.cp0reg.pagemask);
-    ir_bind_register_u32(backend, REG_WIRED,    "wired", &R4300::state.cp0reg.wired);
-    ir_bind_register_u64(backend, REG_BADVADDR, "badvaddr", &R4300::state.cp0reg.badvaddr);
-    ir_bind_register_u32(backend, REG_COUNT,    "count", &R4300::state.cp0reg.count);
-    ir_bind_register_u64(backend, REG_ENTRYHI,  "entryhi", &R4300::state.cp0reg.entryhi);
-    ir_bind_register_u32(backend, REG_COMPARE,  "compare", &R4300::state.cp0reg.compare);
-    ir_bind_register_u32(backend, REG_SR,       "sr", &R4300::state.cp0reg.sr);
-    ir_bind_register_u32(backend, REG_CAUSE,    "cause", &R4300::state.cp0reg.cause);
-    ir_bind_register_u64(backend, REG_EPC,      "epc", &R4300::state.cp0reg.epc);
-    ir_bind_register_u32(backend, REG_PRID,     "prid", &R4300::state.cp0reg.prid);
-    ir_bind_register_u32(backend, REG_CONFIG,   "config", &R4300::state.cp0reg.config);
-    ir_bind_register_u32(backend, REG_LLADDR,   "lladdr", &R4300::state.cp0reg.lladdr);
-    ir_bind_register_u32(backend, REG_WATCHLO,  "watchlo", &R4300::state.cp0reg.watchlo);
-    ir_bind_register_u32(backend, REG_WATCHHI,  "watchhi", &R4300::state.cp0reg.watchhi);
-    ir_bind_register_u64(backend, REG_XCONTEXT, "xcontext", &R4300::state.cp0reg.xcontext);
-    ir_bind_register_u32(backend, REG_PERR,     "perr", &R4300::state.cp0reg.perr);
-    ir_bind_register_u32(backend, REG_CACHEERR, "cacheerr", &R4300::state.cp0reg.cacheerr);
-    ir_bind_register_u32(backend, REG_TAGLO,    "taglo", &R4300::state.cp0reg.taglo);
-    ir_bind_register_u32(backend, REG_TAGHI,    "taghi", &R4300::state.cp0reg.taghi);
-    ir_bind_register_u64(backend, REG_ERROREPC, "errorepc", &R4300::state.cp0reg.errorepc);
-
-    ir_bind_register_u32(backend, REG_FCR0,     "fcr0", &R4300::state.cp1reg.fcr0);
-    ir_bind_register_u32(backend, REG_FCR31,    "fcr31", &R4300::state.cp1reg.fcr31);
-
-    ir_bind_register_u64(backend, REG_CYCLES,   "cycles", &R4300::state.cycles);
-    ir_bind_register(backend, REG_DELAY_SLOT, ir_make_iN(8),
-        "delay_slot", &R4300::state.cpu.delaySlot);
-    return backend;
+    return create_recompiler_backend(global_definitions, REG_MAX,
+                                     RECOMPILER_BLOCK_MAX,
+                                     RECOMPILER_INSTR_MAX,
+                                     RECOMPILER_PARAM_MAX);
 }
 
 ir_graph_t *ir_mips_disassemble(recompiler_backend_t *backend,

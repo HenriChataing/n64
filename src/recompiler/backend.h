@@ -15,14 +15,18 @@
 extern "C" {
 #endif /* __cplusplus */
 
-/** Saves information about a machine register : bit width and host memory
- * location. If `type` is i0, or `ptr` is NULL the register is considered
- * not implemented, and compiled as a zero value. */
-typedef struct ir_register_backend {
+/**
+ * @brief Global variable definition.
+ * Saves information about pre-allocated global variables:
+ * bit width and host memory location. If `type` is i0, or `ptr` is NULL the
+ * global is considered not implemented, and load/store accesses will raise
+ * an error.
+ */
+typedef struct ir_global_definition {
     ir_type_t           type;
     char const         *name;
     void               *ptr;
-} ir_register_backend_t;
+} ir_global_definition_t;
 
 /**
  * @brief Recompiler error.
@@ -39,15 +43,14 @@ typedef struct recompiler_error {
 
 /**
  * @brief Recompiler backend.
- * Saves information about the machine memory and registers,
- * as well as interrnal data structures.
+ * Contains pre-allocated data structures for code generation:
+ * instructions, blocks etc., as well as other internal information
+ * for error tracking.
  */
 typedef struct recompiler_backend {
-    /* Machine abstraction. */
-    ir_register_backend_t  *registers;
-    unsigned                nr_registers;
-
     /* Resources. */
+    ir_global_definition_t *globals;
+    unsigned                nr_globals;
     ir_graph_t              graph;
     ir_block_t             *blocks;
     unsigned                nr_blocks;
@@ -68,35 +71,12 @@ typedef struct recompiler_backend {
     jmp_buf                 jmp_buf;
 } recompiler_backend_t;
 
-/** Type alias for instruction code continuation. Contains the emplacement
- * where to write the pointer to the next generated instruction. */
-typedef struct ir_instr_cont {
-    recompiler_backend_t   *backend;
-    ir_block_t             *block;
-    ir_instr_t            **next;
-} ir_instr_cont_t;
-
-/** Allocate a recompiler backend. */
 recompiler_backend_t *
-create_recompiler_backend(unsigned nr_registers,
+create_recompiler_backend(ir_global_definition_t const *globals,
+                          unsigned nr_globals,
                           unsigned nr_blocks,
                           unsigned nr_instrs,
                           unsigned nr_params);
-
-/** Bind a register to a physical memory location. */
-void ir_bind_register(recompiler_backend_t *backend,
-                      ir_register_t register_,
-                      ir_type_t type,
-                      char const *name,
-                      void *ptr);
-void ir_bind_register_u32(recompiler_backend_t *backend,
-                          ir_register_t register_,
-                          char const *name,
-                          uint32_t *ptr);
-void ir_bind_register_u64(recompiler_backend_t *backend,
-                          ir_register_t register_,
-                          char const *name,
-                          uint64_t *ptr);
 
 /**
  * Initialize the backend context. The function is used as exception
@@ -115,6 +95,14 @@ bool has_recompiler_error(recompiler_backend_t *backend);
 bool next_recompiler_error(recompiler_backend_t *backend,
                            char const **module,
                            char message[RECOMPILER_ERROR_MAX_LEN]);
+
+/** Type alias for instruction code continuation. Contains the emplacement
+ * where to write the pointer to the next generated instruction. */
+typedef struct ir_instr_cont {
+    recompiler_backend_t   *backend;
+    ir_block_t             *block;
+    ir_instr_t            **next;
+} ir_instr_cont_t;
 
 ir_var_t    ir_alloc_var(ir_instr_cont_t *cont);
 ir_instr_t *ir_alloc_instr(recompiler_backend_t *backend);
@@ -153,10 +141,10 @@ void       ir_append_store(ir_instr_cont_t *cont,
                            ir_value_t value);
 ir_value_t ir_append_read(ir_instr_cont_t *cont,
                           ir_type_t type,
-                          ir_register_t register_);
+                          ir_global_t global);
 void       ir_append_write(ir_instr_cont_t *cont,
                            ir_type_t type,
-                           ir_register_t register_,
+                           ir_global_t global,
                            ir_value_t value);
 ir_value_t ir_append_cvt(ir_instr_cont_t *cont,
                          ir_type_t type,
@@ -189,8 +177,8 @@ _define_append_store_iN(64);
 #define _define_append_read_iN(N) \
 static inline \
 ir_value_t ir_append_read_i##N(ir_instr_cont_t *cont, \
-                               ir_register_t register_) { \
-    return ir_append_read(cont, ir_make_iN(N), register_); \
+                               ir_global_t global) { \
+    return ir_append_read(cont, ir_make_iN(N), global); \
 }
 
 _define_append_read_iN(8);
@@ -200,9 +188,9 @@ _define_append_read_iN(64);
 
 #define _define_append_write_iN(N) \
 static inline \
-void ir_append_write_i##N(ir_instr_cont_t *cont, ir_register_t register_, \
+void ir_append_write_i##N(ir_instr_cont_t *cont, ir_global_t global, \
                           ir_value_t value) { \
-    ir_append_write(cont, ir_make_iN(N), register_, value); \
+    ir_append_write(cont, ir_make_iN(N), global, value); \
 }
 
 _define_append_write_iN(8);

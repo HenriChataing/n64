@@ -281,9 +281,9 @@ static bool run_store(recompiler_backend_t *backend,
 
 static bool run_read(recompiler_backend_t *backend,
                      ir_instr_t const *instr) {
-    ir_register_t register_ = instr->read.register_;
-    void *ptr = backend->registers[register_].ptr;
-    ir_type_t type = backend->registers[register_].type;
+    ir_global_t global = instr->read.global;
+    void *ptr = backend->globals[global].ptr;
+    ir_type_t type = backend->globals[global].type;
     uintmax_t *value_ptr = &ir_var_values[instr->res].int_;
 
     switch (type.width) {
@@ -293,7 +293,7 @@ static bool run_read(recompiler_backend_t *backend,
     case 64: *value_ptr = *(uint64_t *)ptr; break;
     default:
         raise_recompiler_error(backend, "run",
-            "unsupported register bit width %u\n"
+            "unsupported global variable bit width %u\n"
             "in block .L%u, instruction:\n    %s",
             type.width, cur_block->label, print_instr(instr));
         return false;
@@ -303,9 +303,9 @@ static bool run_read(recompiler_backend_t *backend,
 
 static bool run_write(recompiler_backend_t *backend,
                       ir_instr_t const *instr) {
-    ir_register_t register_ = instr->write.register_;
-    void *ptr = backend->registers[register_].ptr;
-    ir_type_t type = backend->registers[register_].type;
+    ir_global_t global = instr->write.global;
+    void *ptr = backend->globals[global].ptr;
+    ir_type_t type = backend->globals[global].type;
     uintmax_t value = eval_value(instr->write.value).int_;
 
     switch (type.width) {
@@ -315,7 +315,7 @@ static bool run_write(recompiler_backend_t *backend,
     case 64: *(uint64_t *)ptr = value; break;
     default:
         raise_recompiler_error(backend, "run",
-            "unsupported register bit width %u\n"
+            "unsupported global variable bit width %u\n"
             "in block .L%u, instruction:\n    %s",
             type.width, cur_block->label, print_instr(instr));
         return false;

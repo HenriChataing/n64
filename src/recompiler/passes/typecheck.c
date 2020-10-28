@@ -206,21 +206,21 @@ static bool typecheck_store(recompiler_backend_t *backend,
 
 static bool typecheck_read(recompiler_backend_t *backend,
                            ir_instr_t const *instr) {
-    unsigned register_ = instr->read.register_;
-    if (register_ >= backend->nr_registers ||
-        backend->registers[register_].ptr == NULL) {
+    unsigned global = instr->read.global;
+    if (global >= backend->nr_globals ||
+        backend->globals[global].ptr == NULL) {
         raise_recompiler_error(backend, "typecheck",
-            "read access to undefined register $%u\n"
+            "read access to undefined global variable $%u\n"
             "in block .L%u, instruction:\n    %s",
-            register_, cur_block->label, print_instr(instr));
+            global, cur_block->label, print_instr(instr));
         return false;
     }
-    if (!ir_type_equals(backend->registers[register_].type, instr->type)) {
+    if (!ir_type_equals(backend->globals[global].type, instr->type)) {
         raise_recompiler_error(backend, "typecheck",
-            "read access to register $%u is expected to have type i%u,"
+            "read access to global variable $%u is expected to have type i%u,"
             " but has type i%u\n"
             "in block .L%u, instruction:\n    %s",
-            register_, backend->registers[register_].type.width,
+            global, backend->globals[global].type.width,
             instr->type.width, cur_block->label, print_instr(instr));
         return false;
     }
@@ -229,21 +229,21 @@ static bool typecheck_read(recompiler_backend_t *backend,
 
 static bool typecheck_write(recompiler_backend_t *backend,
                             ir_instr_t const *instr) {
-    unsigned register_ = instr->write.register_;
-    if (register_ >= backend->nr_registers ||
-        backend->registers[register_].ptr == NULL) {
+    unsigned global = instr->write.global;
+    if (global >= backend->nr_globals ||
+        backend->globals[global].ptr == NULL) {
         raise_recompiler_error(backend, "typecheck",
-            "write access to undefined register $%u\n"
+            "write access to undefined global variable $%u\n"
             "in block .L%u, instruction:\n    %s",
             cur_block->label, print_instr(instr));
         return false;
     }
-    if (!ir_type_equals(backend->registers[register_].type, instr->type)) {
+    if (!ir_type_equals(backend->globals[global].type, instr->type)) {
         raise_recompiler_error(backend, "typecheck",
-            "write access to register $%u is expected to have type i%u,"
+            "write access to global variable $%u is expected to have type i%u,"
             " but has type i%u\n"
             "in block .L%u, instruction:\n    %s",
-            register_, backend->registers[register_].type.width,
+            global, backend->globals[global].type.width,
             instr->type.width, cur_block->label, print_instr(instr));
         return false;
     }

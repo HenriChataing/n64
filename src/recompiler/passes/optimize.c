@@ -11,14 +11,14 @@ typedef struct ir_var_context {
     ir_value_t value;
 } ir_var_context_t;
 
-typedef struct ir_register_context {
+typedef struct ir_global_context {
     ir_value_t value;
     bool set;
-} ir_register_context_t;
+} ir_global_context_t;
 
 static ir_var_context_t      ir_var_context[RECOMPILER_VAR_MAX];
 static unsigned              ir_cur_var;
-static ir_register_context_t ir_register_context[RECOMPILER_GLOBAL_MAX];
+static ir_global_context_t   ir_global_context[RECOMPILER_GLOBAL_MAX];
 
 static inline uintmax_t make_mask(unsigned width) {
     return width >= CHAR_BIT * sizeof(uintmax_t) ?
@@ -75,7 +75,7 @@ static bool optimize_call(recompiler_backend_t *backend,
         remap_res(instr);
     }
     // TODO depends on call flags.
-    memset(ir_register_context, 0, sizeof(ir_register_context));
+    memset(ir_global_context, 0, sizeof(ir_global_context));
     return false;
 }
 
@@ -275,13 +275,13 @@ static bool optimize_store(recompiler_backend_t *backend,
 
 static bool optimize_read(recompiler_backend_t *backend,
                           ir_instr_t *instr) {
-    if (ir_register_context[instr->read.register_].set) {
-        const_res(instr, ir_register_context[instr->read.register_].value);
+    if (ir_global_context[instr->read.global].set) {
+        const_res(instr, ir_global_context[instr->read.global].value);
         return true;
     } else {
         remap_res(instr);
-        ir_register_context[instr->read.register_].set = true;
-        ir_register_context[instr->read.register_].value =
+        ir_global_context[instr->read.global].set = true;
+        ir_global_context[instr->read.global].value =
             ir_make_var(instr->res, instr->type);
         return false;
     }
@@ -289,12 +289,12 @@ static bool optimize_read(recompiler_backend_t *backend,
 
 static bool optimize_write(recompiler_backend_t *backend,
                            ir_instr_t *instr) {
-    // TODO only the last write to a register should be kept,
-    // (except when register values must be committed,
+    // TODO only the last write to a global should be kept,
+    // (except when global values must be committed,
     // e.g. before a function call).
     instr->write.value = convert_value(instr->write.value);
-    ir_register_context[instr->write.register_].set = true;
-    ir_register_context[instr->write.register_].value = instr->write.value;
+    ir_global_context[instr->write.global].set = true;
+    ir_global_context[instr->write.global].value = instr->write.value;
     return false;
 }
 
@@ -394,7 +394,7 @@ static void optimize_block(recompiler_backend_t *backend,
     ir_instr_t *next_instr;
     ir_instr_t **prev_instr = &block->instrs;
 
-    memset(ir_register_context, 0, sizeof(ir_register_context));
+    memset(ir_global_context, 0, sizeof(ir_global_context));
 
     for (; instr != NULL; instr = next_instr) {
         next_instr = instr->next;

@@ -451,15 +451,15 @@ static void assemble_store(recompiler_backend_t const *backend,
 static void assemble_read(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
-    ir_register_t register_ = instr->read.register_;
-    if (register_ > backend->nr_registers ||
-        backend->registers[register_].ptr == NULL) {
+    ir_global_t global = instr->read.global;
+    if (global > backend->nr_globals ||
+        backend->globals[global].ptr == NULL) {
         fail_code_buffer(emitter);
         return;
     }
 
-    void *ptr = backend->registers[register_].ptr;
-    ir_type_t type = backend->registers[register_].type;
+    void *ptr = backend->globals[global].ptr;
+    ir_type_t type = backend->globals[global].type;
 
     emit_mov_r64_imm64(emitter, RAX, (intptr_t)ptr);
     emit_mov_rN_mN(emitter, type.width, RAX, mem_indirect(RAX));
@@ -470,15 +470,15 @@ static void assemble_write(recompiler_backend_t const *backend,
                            code_buffer_t *emitter,
                            ir_instr_t const *instr) {
 
-    ir_register_t register_ = instr->write.register_;
-    if (register_ > backend->nr_registers ||
-        backend->registers[register_].ptr == NULL) {
+    ir_global_t global = instr->write.global;
+    if (global > backend->nr_globals ||
+        backend->globals[global].ptr == NULL) {
         fail_code_buffer(emitter);
         return;
     }
 
-    void *ptr = backend->registers[register_].ptr;
-    ir_type_t type = backend->registers[register_].type;
+    void *ptr = backend->globals[global].ptr;
+    ir_type_t type = backend->globals[global].type;
 
     emit_mov_r64_imm64(emitter, RAX, (intptr_t)ptr);
     load_value(emitter, instr->write.value, RCX);

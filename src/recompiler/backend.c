@@ -6,8 +6,20 @@
 
 #include <recompiler/backend.h>
 
+/**
+ * @brief Allocate a recompiler backend.
+ * @param globals
+ *      Array of global variable definitions. The array is copied
+ *      to the newly allocated structure.
+ * @param nr_globals    Number of allocated global variables.
+ * @param nr_blocks     Number of pre-allocated instruction blocks.
+ * @param nr_instrs     Number of pre-allocated instructions.
+ * @param nr_params     Number of pre-allocated function parameters.
+ * @return              The allocated backend, or NULL on failure.
+ */
 recompiler_backend_t *
-create_recompiler_backend(unsigned nr_registers,
+create_recompiler_backend(ir_global_definition_t const *globals,
+                          unsigned nr_globals,
                           unsigned nr_blocks,
                           unsigned nr_instrs,
                           unsigned nr_params) {
@@ -15,14 +27,14 @@ create_recompiler_backend(unsigned nr_registers,
     if (backend == NULL) {
         return NULL;
     }
-    backend->registers = NULL;
+    backend->globals = NULL;
     backend->blocks = NULL;
     backend->instrs = NULL;
     backend->params = NULL;
 
-    backend->nr_registers = nr_registers;
-    backend->registers = malloc(nr_registers * sizeof(recompiler_backend_t));
-    if (backend->registers == NULL) {
+    backend->nr_globals = nr_globals;
+    backend->globals = malloc(nr_globals * sizeof(ir_global_definition_t));
+    if (backend->globals == NULL) {
         goto failure;
     }
     backend->nr_blocks = nr_blocks;
@@ -41,6 +53,8 @@ create_recompiler_backend(unsigned nr_registers,
         goto failure;
     }
 
+    memcpy(backend->globals, globals,
+        nr_globals * sizeof(ir_global_definition_t));
     backend->cur_block = 0;
     backend->cur_instr = 0;
     backend->cur_param = 0;
@@ -49,7 +63,7 @@ create_recompiler_backend(unsigned nr_registers,
     return backend;
 
 failure:
-    free(backend->registers);
+    free(backend->globals);
     free(backend->blocks);
     free(backend->instrs);
     free(backend->params);
@@ -155,30 +169,6 @@ bool next_recompiler_error(recompiler_backend_t *backend,
     memcpy(message, error->message, sizeof(error->message));
     free(error);
     return true;
-}
-
-void ir_bind_register(recompiler_backend_t *backend,
-                      ir_register_t register_,
-                      ir_type_t type,
-                      char const *name,
-                      void *ptr) {
-    if (backend == NULL || register_ >= backend->nr_registers)
-        return;
-    backend->registers[register_] =
-        (ir_register_backend_t){ type, name, ptr };
-}
-
-void ir_bind_register_u32(recompiler_backend_t *backend,
-                          ir_register_t register_,
-                          char const *name,
-                          uint32_t *ptr) {
-    ir_bind_register(backend, register_, ir_make_iN(32), name, ptr);
-}
-void ir_bind_register_u64(recompiler_backend_t *backend,
-                          ir_register_t register_,
-                          char const *name,
-                          uint64_t *ptr) {
-    ir_bind_register(backend, register_, ir_make_iN(64), name, ptr);
 }
 
 ir_var_t ir_alloc_var(ir_instr_cont_t *cont) {
@@ -335,17 +325,17 @@ void ir_append_store(ir_instr_cont_t *cont,
 
 ir_value_t ir_append_read(ir_instr_cont_t *cont,
                           ir_type_t type,
-                          ir_register_t register_) {
+                          ir_global_t global) {
     ir_var_t res = ir_alloc_var(cont);
-    ir_append_instr(cont, ir_make_read(res, type, register_));
+    ir_append_instr(cont, ir_make_read(res, type, global));
     return ir_make_var(res, type);
 }
 
 void ir_append_write(ir_instr_cont_t *cont,
                      ir_type_t type,
-                     ir_register_t register_,
+                     ir_global_t global,
                      ir_value_t value) {
-    ir_append_instr(cont, ir_make_write(type, register_, value));
+    ir_append_instr(cont, ir_make_write(type, global, value));
 }
 
 ir_value_t ir_append_cvt(ir_instr_cont_t *cont,
