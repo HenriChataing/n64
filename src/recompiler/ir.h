@@ -125,6 +125,7 @@ typedef struct ir_block {
 typedef enum ir_instr_kind {
     /* Control flow. */
     IR_EXIT,
+    IR_ASSERT,
     IR_BR,
     IR_CALL,
     /* Variable allocation. */
@@ -180,6 +181,10 @@ typedef enum ir_call_flag {
     IR_READ_MEMORY    = 1<<2,
     IR_WRITE_MEMORY   = 1<<3,
 } ir_call_flag_t;
+
+typedef struct ir_assert {
+    ir_value_t          cond;
+} ir_assert_t;
 
 typedef struct ir_br {
     ir_block_t         *target[2];
@@ -246,6 +251,7 @@ typedef struct ir_instr {
     ir_type_t           type;
     ir_var_t            res;
     union {
+    ir_assert_t         assert_;
     ir_br_t             br;
     ir_call_t           call;
     ir_alloc_t          alloc;
@@ -265,6 +271,11 @@ typedef struct ir_instr {
 static inline
 ir_instr_t ir_make_exit(void) {
     return (ir_instr_t){ .kind = IR_EXIT, };
+}
+
+static inline
+ir_instr_t ir_make_assert(ir_value_t cond) {
+    return (ir_instr_t){ .kind = IR_ASSERT, .assert_ = { .cond = cond } };
 }
 
 static inline

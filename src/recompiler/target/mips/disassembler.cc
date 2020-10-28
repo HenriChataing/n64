@@ -153,7 +153,7 @@ ir_value_t ir_mips_append_load(ir_instr_cont_t *c, unsigned width,
     ir_value_t value_ptr = ir_append_alloc(c, ir_make_iN(width));
     ir_value_t exn = ir_append_call(c, ir_make_iN(1),
         load_func, 2, addr, value_ptr);
-    ir_append_br(c, exn, NULL, c);
+    ir_append_assert(c, exn);
     return ir_append_load(c, ir_make_iN(width), value_ptr);
 }
 
@@ -183,7 +183,7 @@ void ir_mips_append_store(ir_instr_cont_t *c, unsigned width,
                           ir_value_t value) {
     ir_value_t exn = ir_append_call(c, ir_make_iN(1),
         store_func, 2, addr, value);
-    ir_append_br(c, exn, NULL, c);
+    ir_append_assert(c, exn);
 }
 
 static inline

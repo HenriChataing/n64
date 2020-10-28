@@ -58,6 +58,20 @@ static bool optimize_exit(recompiler_backend_t *backend,
     return false;
 }
 
+static bool optimize_assert(recompiler_backend_t *backend,
+                            ir_instr_t *instr) {
+    ir_value_t cond = convert_value(instr->assert_.cond);
+    if (cond.kind == IR_CONST && cond.const_.int_ == 0) {
+        *instr = ir_make_exit();
+        return false;
+    }
+    if (cond.kind == IR_CONST && cond.const_.int_ != 0) {
+        return true;
+    }
+    instr->assert_.cond = cond;
+    return false;
+}
+
 static bool optimize_br(recompiler_backend_t *backend,
                         ir_instr_t *instr) {
     // TODO the br instruction should be replaced by a jmp when the
@@ -345,33 +359,37 @@ static bool optimize_zext(recompiler_backend_t *backend,
  * Return true iff the instruction is optimized away, false otherwise. */
 static const bool (*optimize_callbacks[])(recompiler_backend_t *backend,
                                           ir_instr_t *instr) = {
-    [IR_EXIT]  = optimize_exit,
-    [IR_BR]    = optimize_br,
-    [IR_CALL]  = optimize_call,
-    [IR_ALLOC] = optimize_alloc,
-    [IR_NOT]   = optimize_not,
-    [IR_ADD]   = optimize_binop,
-    [IR_SUB]   = optimize_binop,
-    [IR_MUL]   = optimize_binop,
-    [IR_UDIV]  = optimize_binop,
-    [IR_SDIV]  = optimize_binop_signed,
-    [IR_UREM]  = optimize_binop,
-    [IR_SREM]  = optimize_binop_signed,
-    [IR_SLL]   = optimize_binop,
-    [IR_SRL]   = optimize_binop,
-    [IR_SRA]   = optimize_binop,
-    [IR_AND]   = optimize_binop,
-    [IR_OR]    = optimize_binop,
-    [IR_XOR]   = optimize_binop,
-    [IR_ICMP]  = optimize_icmp,
-    [IR_LOAD]  = optimize_load,
-    [IR_STORE] = optimize_store,
-    [IR_READ]  = optimize_read,
-    [IR_WRITE] = optimize_write,
-    [IR_TRUNC] = optimize_trunc,
-    [IR_SEXT]  = optimize_sext,
-    [IR_ZEXT]  = optimize_zext,
+    [IR_EXIT]   = optimize_exit,
+    [IR_ASSERT] = optimize_assert,
+    [IR_BR]     = optimize_br,
+    [IR_CALL]   = optimize_call,
+    [IR_ALLOC]  = optimize_alloc,
+    [IR_NOT]    = optimize_not,
+    [IR_ADD]    = optimize_binop,
+    [IR_SUB]    = optimize_binop,
+    [IR_MUL]    = optimize_binop,
+    [IR_UDIV]   = optimize_binop,
+    [IR_SDIV]   = optimize_binop_signed,
+    [IR_UREM]   = optimize_binop,
+    [IR_SREM]   = optimize_binop_signed,
+    [IR_SLL]    = optimize_binop,
+    [IR_SRL]    = optimize_binop,
+    [IR_SRA]    = optimize_binop,
+    [IR_AND]    = optimize_binop,
+    [IR_OR]     = optimize_binop,
+    [IR_XOR]    = optimize_binop,
+    [IR_ICMP]   = optimize_icmp,
+    [IR_LOAD]   = optimize_load,
+    [IR_STORE]  = optimize_store,
+    [IR_READ]   = optimize_read,
+    [IR_WRITE]  = optimize_write,
+    [IR_TRUNC]  = optimize_trunc,
+    [IR_SEXT]   = optimize_sext,
+    [IR_ZEXT]   = optimize_zext,
 };
+
+_Static_assert(IR_ZEXT == 26,
+    "IR instruction set changed, code may need to be updated");
 
 /**
  * Optimize an instruction block.

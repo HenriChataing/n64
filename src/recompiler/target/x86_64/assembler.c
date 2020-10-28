@@ -94,57 +94,34 @@ static void assemble_exit(recompiler_backend_t const *backend,
     ir_exit_queue_len++;
 }
 
+static void assemble_assert(recompiler_backend_t const *backend,
+                            code_buffer_t *emitter,
+                            ir_instr_t const *instr) {
+    // The assert jumps to the exit label if the condition is false,
+    // otherwise continues with normal instruction flow.
+    load_value(emitter, instr->assert_.cond, AL);
+    emit_test_al_imm8(emitter, 1);
+    ir_exit_queue[ir_exit_queue_len].rel32 = emit_je_rel32(emitter);
+    ir_exit_queue_len++;
+}
+
 static void assemble_br(recompiler_backend_t const *backend,
                         code_buffer_t *emitter,
                         ir_instr_t const *instr) {
     unsigned char *rel32;
     load_value(emitter, instr->br.cond, AL);
-    emit_test_al_imm8(emitter, 1);
+     emit_test_al_imm8(emitter, 1);
 
-    if (instr->br.target[0] && instr->br.target[1]) {
-        // True branching instruction, the branch targets are two
-        // distinct blocks.
-        rel32 = emit_jne_rel32(emitter);
-        ir_br_queue[ir_br_queue_len].rel32 = rel32;
-        ir_br_queue[ir_br_queue_len].block = instr->br.target[1];
-        ir_br_queue_len++;
-        // The false branch is assembled directly after the current block
-        // (the branch instruction is final). No additional branch
-        // instruction required.
-        ir_br_queue[ir_br_queue_len].rel32 = NULL;
-        ir_br_queue[ir_br_queue_len].block = instr->br.target[0];
-        ir_br_queue_len++;
-    }
-    else if (instr->br.target[0]) {
-        // True condition is an exit condition.
-        rel32 = emit_jne_rel32(emitter);
-        ir_exit_queue[ir_exit_queue_len].rel32 = rel32;
-        ir_exit_queue_len++;
-        // The false branch is assembled directly after the current block
-        // (the branch instruction is final). No additional branch
-        // instruction required.
-        ir_br_queue[ir_br_queue_len].rel32 = NULL;
-        ir_br_queue[ir_br_queue_len].block = instr->br.target[0];
-        ir_br_queue_len++;
-    }
-    else if (instr->br.target[1]) {
-        // False condition is an exit condition.
-        rel32 = emit_je_rel32(emitter);
-        ir_exit_queue[ir_exit_queue_len].rel32 = rel32;
-        ir_exit_queue_len++;
-        // The false branch is assembled directly after the current block
-        // (the branch instruction is final). No additional branch
-        // instruction required.
-        ir_br_queue[ir_br_queue_len].rel32 = NULL;
-        ir_br_queue[ir_br_queue_len].block = instr->br.target[1];
-        ir_br_queue_len++;
-    }
-    else {
-        // Both conditions lead to the exit, an inconditional jump is generated.
-        // Should not happen in pratice.
-        ir_exit_queue[ir_exit_queue_len].rel32 = emit_jmp_rel32(emitter);
-        ir_exit_queue_len++;
-    }
+    rel32 = emit_jne_rel32(emitter);
+    ir_br_queue[ir_br_queue_len].rel32 = rel32;
+    ir_br_queue[ir_br_queue_len].block = instr->br.target[1];
+    ir_br_queue_len++;
+    // The false branch is assembled directly after the current block
+    // (the branch instruction is final). No additional branch
+    // instruction required.
+    ir_br_queue[ir_br_queue_len].rel32 = NULL;
+    ir_br_queue[ir_br_queue_len].block = instr->br.target[0];
+    ir_br_queue_len++;
 }
 
 static void assemble_call(recompiler_backend_t const *backend,
@@ -524,33 +501,37 @@ static void assemble_zext(recompiler_backend_t const *backend,
 static const void (*assemble_callbacks[])(recompiler_backend_t const *backend,
                                           code_buffer_t *emitter,
                                           ir_instr_t const *instr) = {
-    [IR_EXIT]  = assemble_exit,
-    [IR_BR]    = assemble_br,
-    [IR_CALL]  = assemble_call,
-    [IR_ALLOC] = assemble_alloc,
-    [IR_NOT]   = assemble_not,
-    [IR_ADD]   = assemble_add,
-    [IR_SUB]   = assemble_sub,
-    [IR_MUL]   = assemble_mul,
-    [IR_UDIV]  = assemble_udiv,
-    [IR_SDIV]  = assemble_sdiv,
-    [IR_UREM]  = assemble_urem,
-    [IR_SREM]  = assemble_srem,
-    [IR_SLL]   = assemble_sll,
-    [IR_SRL]   = assemble_srl,
-    [IR_SRA]   = assemble_sra,
-    [IR_AND]   = assemble_and,
-    [IR_OR]    = assemble_or,
-    [IR_XOR]   = assemble_xor,
-    [IR_ICMP]  = assemble_icmp,
-    [IR_LOAD]  = assemble_load,
-    [IR_STORE] = assemble_store,
-    [IR_READ]  = assemble_read,
-    [IR_WRITE] = assemble_write,
-    [IR_TRUNC] = assemble_trunc,
-    [IR_SEXT]  = assemble_sext,
-    [IR_ZEXT]  = assemble_zext,
+    [IR_EXIT]   = assemble_exit,
+    [IR_ASSERT] = assemble_assert,
+    [IR_BR]     = assemble_br,
+    [IR_CALL]   = assemble_call,
+    [IR_ALLOC]  = assemble_alloc,
+    [IR_NOT]    = assemble_not,
+    [IR_ADD]    = assemble_add,
+    [IR_SUB]    = assemble_sub,
+    [IR_MUL]    = assemble_mul,
+    [IR_UDIV]   = assemble_udiv,
+    [IR_SDIV]   = assemble_sdiv,
+    [IR_UREM]   = assemble_urem,
+    [IR_SREM]   = assemble_srem,
+    [IR_SLL]    = assemble_sll,
+    [IR_SRL]    = assemble_srl,
+    [IR_SRA]    = assemble_sra,
+    [IR_AND]    = assemble_and,
+    [IR_OR]     = assemble_or,
+    [IR_XOR]    = assemble_xor,
+    [IR_ICMP]   = assemble_icmp,
+    [IR_LOAD]   = assemble_load,
+    [IR_STORE]  = assemble_store,
+    [IR_READ]   = assemble_read,
+    [IR_WRITE]  = assemble_write,
+    [IR_TRUNC]  = assemble_trunc,
+    [IR_SEXT]   = assemble_sext,
+    [IR_ZEXT]   = assemble_zext,
 };
+
+_Static_assert(IR_ZEXT == 26,
+    "IR instruction set changed, code may need to be updated");
 
 static void assemble_instr(recompiler_backend_t const *backend,
                            code_buffer_t *emitter,

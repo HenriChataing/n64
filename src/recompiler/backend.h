@@ -110,6 +110,8 @@ ir_block_t *ir_alloc_block(recompiler_backend_t *backend);
 ir_graph_t *ir_make_graph(recompiler_backend_t *backend);
 
 void       ir_append_exit(ir_instr_cont_t *cont);
+void       ir_append_assert(ir_instr_cont_t *cont,
+                            ir_value_t cond);
 void       ir_append_br(ir_instr_cont_t *cont,
                         ir_value_t cond,
                         ir_instr_cont_t *target_false,

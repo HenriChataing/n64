@@ -94,6 +94,11 @@ static bool typecheck_exit(recompiler_backend_t *backend,
     return true;
 }
 
+static bool typecheck_assert(recompiler_backend_t *backend,
+                             ir_instr_t const *instr) {
+    return typecheck_value(backend, &instr->assert_.cond, ir_make_iN(1));
+}
+
 static bool typecheck_br(recompiler_backend_t *backend,
                          ir_instr_t const *instr) {
     return typecheck_value(backend, &instr->br.cond, ir_make_iN(1));
@@ -262,33 +267,37 @@ static bool typecheck_cvt(recompiler_backend_t *backend,
  */
 static const bool (*typecheck_callbacks[])(recompiler_backend_t *backend,
                                            ir_instr_t const *instr) = {
-    [IR_EXIT]  = typecheck_exit,
-    [IR_BR]    = typecheck_br,
-    [IR_CALL]  = typecheck_call,
-    [IR_ALLOC] = typecheck_alloc,
-    [IR_NOT]   = typecheck_unop,
-    [IR_ADD]   = typecheck_binop,
-    [IR_SUB]   = typecheck_binop,
-    [IR_MUL]   = typecheck_binop,
-    [IR_UDIV]  = typecheck_binop,
-    [IR_SDIV]  = typecheck_binop,
-    [IR_UREM]  = typecheck_binop,
-    [IR_SREM]  = typecheck_binop,
-    [IR_SLL]   = typecheck_binop,
-    [IR_SRL]   = typecheck_binop,
-    [IR_SRA]   = typecheck_binop,
-    [IR_AND]   = typecheck_binop,
-    [IR_OR]    = typecheck_binop,
-    [IR_XOR]   = typecheck_binop,
-    [IR_ICMP]  = typecheck_icmp,
-    [IR_LOAD]  = typecheck_load,
-    [IR_STORE] = typecheck_store,
-    [IR_READ]  = typecheck_read,
-    [IR_WRITE] = typecheck_write,
-    [IR_TRUNC] = typecheck_cvt,
-    [IR_SEXT]  = typecheck_cvt,
-    [IR_ZEXT]  = typecheck_cvt,
+    [IR_EXIT]   = typecheck_exit,
+    [IR_ASSERT] = typecheck_assert,
+    [IR_BR]     = typecheck_br,
+    [IR_CALL]   = typecheck_call,
+    [IR_ALLOC]  = typecheck_alloc,
+    [IR_NOT]    = typecheck_unop,
+    [IR_ADD]    = typecheck_binop,
+    [IR_SUB]    = typecheck_binop,
+    [IR_MUL]    = typecheck_binop,
+    [IR_UDIV]   = typecheck_binop,
+    [IR_SDIV]   = typecheck_binop,
+    [IR_UREM]   = typecheck_binop,
+    [IR_SREM]   = typecheck_binop,
+    [IR_SLL]    = typecheck_binop,
+    [IR_SRL]    = typecheck_binop,
+    [IR_SRA]    = typecheck_binop,
+    [IR_AND]    = typecheck_binop,
+    [IR_OR]     = typecheck_binop,
+    [IR_XOR]    = typecheck_binop,
+    [IR_ICMP]   = typecheck_icmp,
+    [IR_LOAD]   = typecheck_load,
+    [IR_STORE]  = typecheck_store,
+    [IR_READ]   = typecheck_read,
+    [IR_WRITE]  = typecheck_write,
+    [IR_TRUNC]  = typecheck_cvt,
+    [IR_SEXT]   = typecheck_cvt,
+    [IR_ZEXT]   = typecheck_cvt,
 };
+
+_Static_assert(IR_ZEXT == 26,
+    "IR instruction set changed, code may need to be updated");
 
 static bool typecheck_instr(recompiler_backend_t *backend,
                             ir_instr_t const *instr) {

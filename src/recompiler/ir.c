@@ -6,8 +6,11 @@
 #include <recompiler/ir.h>
 
 bool ir_is_void_instr(ir_instr_t const *instr) {
+    _Static_assert(IR_ZEXT == 26,
+        "IR instruction set changed, code may need to be updated");
     return (instr->kind == IR_CALL && instr->type.width == 0) ||
            instr->kind == IR_EXIT ||
+           instr->kind == IR_ASSERT ||
            instr->kind == IR_BR ||
            instr->kind == IR_STORE ||
            instr->kind == IR_WRITE;
@@ -25,18 +28,20 @@ int ir_print_value(char *buf, size_t len, ir_value_t const *value) {
     return 0;
 }
 
+static int ir_print_assert(char *buf, size_t len, ir_instr_t const *instr) {
+    int written;
+    written  = snprintf(buf, len, "assert ");
+    written += ir_print_value(buf+written, len-written, &instr->assert_.cond);
+    return written;
+}
+
 static int ir_print_br(char *buf, size_t len, ir_instr_t const *instr) {
     int written;
     written  = snprintf(buf, len, "br ");
     written += ir_print_value(buf+written, len-written, &instr->br.cond);
-    written += instr->br.target[0] == NULL ?
-        snprintf(buf+written, len-written, ", exit") :
-        snprintf(buf+written, len-written, ", .L%u",
-            instr->br.target[0]->label);
-    written += instr->br.target[1] == NULL ?
-        snprintf(buf+written, len-written, ", exit") :
-        snprintf(buf+written, len-written, ", .L%u",
-            instr->br.target[1]->label);
+    written += snprintf(buf+written, len-written, ", .L%u, .L%u",
+        instr->br.target[0]->label,
+        instr->br.target[1]->label);
     return written;
 }
 
@@ -192,6 +197,8 @@ int ir_print_instr(char *buf, size_t len, ir_instr_t const *instr) {
     switch (instr->kind) {
     case IR_EXIT:
         return snprintf(buf, len, "exit");
+    case IR_ASSERT:
+        return ir_print_assert(buf, len, instr);
     case IR_BR:
         return ir_print_br(buf, len, instr);
     case IR_CALL:

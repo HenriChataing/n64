@@ -45,6 +45,13 @@ static bool run_exit(recompiler_backend_t *backend,
     return true;
 }
 
+static bool run_assert(recompiler_backend_t *backend,
+                       ir_instr_t const *instr) {
+    ir_const_t value = eval_value(instr->assert_.cond);
+    next_instr = value.int_ != 0 ? instr->next : NULL;
+    return true;
+}
+
 static bool run_br(recompiler_backend_t *backend,
                    ir_instr_t const *instr) {
     ir_const_t value = eval_value(instr->br.cond);
@@ -356,33 +363,37 @@ static bool run_zext(recompiler_backend_t *backend,
  */
 static const bool (*run_callbacks[])(recompiler_backend_t *backend,
                                      ir_instr_t const *instr) = {
-    [IR_EXIT]  = run_exit,
-    [IR_BR]    = run_br,
-    [IR_CALL]  = run_call,
-    [IR_ALLOC] = run_alloc,
-    [IR_NOT]   = run_not,
-    [IR_ADD]   = run_binop,
-    [IR_SUB]   = run_binop,
-    [IR_MUL]   = run_binop,
-    [IR_UDIV]  = run_binop,
-    [IR_SDIV]  = run_binop,
-    [IR_UREM]  = run_binop,
-    [IR_SREM]  = run_binop,
-    [IR_SLL]   = run_binop,
-    [IR_SRL]   = run_binop,
-    [IR_SRA]   = run_binop,
-    [IR_AND]   = run_binop,
-    [IR_OR]    = run_binop,
-    [IR_XOR]   = run_binop,
-    [IR_ICMP]  = run_icmp,
-    [IR_LOAD]  = run_load,
-    [IR_STORE] = run_store,
-    [IR_READ]  = run_read,
-    [IR_WRITE] = run_write,
-    [IR_TRUNC] = run_trunc,
-    [IR_SEXT]  = run_sext,
-    [IR_ZEXT]  = run_zext,
+    [IR_EXIT]   = run_exit,
+    [IR_ASSERT] = run_assert,
+    [IR_BR]     = run_br,
+    [IR_CALL]   = run_call,
+    [IR_ALLOC]  = run_alloc,
+    [IR_NOT]    = run_not,
+    [IR_ADD]    = run_binop,
+    [IR_SUB]    = run_binop,
+    [IR_MUL]    = run_binop,
+    [IR_UDIV]   = run_binop,
+    [IR_SDIV]   = run_binop,
+    [IR_UREM]   = run_binop,
+    [IR_SREM]   = run_binop,
+    [IR_SLL]    = run_binop,
+    [IR_SRL]    = run_binop,
+    [IR_SRA]    = run_binop,
+    [IR_AND]    = run_binop,
+    [IR_OR]     = run_binop,
+    [IR_XOR]    = run_binop,
+    [IR_ICMP]   = run_icmp,
+    [IR_LOAD]   = run_load,
+    [IR_STORE]  = run_store,
+    [IR_READ]   = run_read,
+    [IR_WRITE]  = run_write,
+    [IR_TRUNC]  = run_trunc,
+    [IR_SEXT]   = run_sext,
+    [IR_ZEXT]   = run_zext,
 };
+
+_Static_assert(IR_ZEXT == 26,
+    "IR instruction set changed, code may need to be updated");
 
 static bool run_instr(recompiler_backend_t *backend,
                       ir_instr_t const *instr) {

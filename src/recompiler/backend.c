@@ -217,34 +217,34 @@ void ir_append_exit(ir_instr_cont_t *cont) {
     ir_append_instr(cont, ir_make_exit());
 }
 
+void ir_append_assert(ir_instr_cont_t *cont,
+                      ir_value_t cond) {
+    ir_append_instr(cont, ir_make_assert(cond));
+}
+
 void ir_append_br(ir_instr_cont_t *cont,
                   ir_value_t cond,
                   ir_instr_cont_t *target_false,
                   ir_instr_cont_t *target_true) {
     if (target_true == NULL && target_false == NULL) {
-        ir_append_exit(cont);
-        return;
+        raise_recompiler_error(cont->backend,
+            "backend", "null branch target");
+        fail_recompiler_backend(cont->backend);
     }
 
-    ir_block_t *block_false =
-        target_false ? ir_alloc_block(cont->backend) : NULL;
-    ir_block_t *block_true =
-        target_true ? ir_alloc_block(cont->backend) : NULL;
+    ir_block_t *block_false = ir_alloc_block(cont->backend);
+    ir_block_t *block_true = ir_alloc_block(cont->backend);
 
     ir_append_instr(cont,
         ir_make_br(cond, block_false, block_true));
 
-    if (target_false) {
-        target_false->backend = cont->backend;
-        target_false->block = block_false;
-        target_false->next = &block_false->instrs;
-    }
+    target_false->backend = cont->backend;
+    target_false->block = block_false;
+    target_false->next = &block_false->instrs;
 
-    if (target_true) {
-        target_true->backend = cont->backend;
-        target_true->block = block_true;
-        target_true->next = &block_true->instrs;
-    }
+    target_true->backend = cont->backend;
+    target_true->block = block_true;
+    target_true->next = &block_true->instrs;
 }
 
 ir_value_t ir_append_call(ir_instr_cont_t *cont,
