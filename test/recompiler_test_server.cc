@@ -547,8 +547,29 @@ int run_recompiler_test(recompiler_backend_t *backend,
     }
 #endif
 
+    R4300::state.cpu.delaySlot = false;
+    R4300::state.cpu.nextAction = R4300::State::Continue;
+
     // Run generated assembly.
     binary();
+
+    // Post-binary state rectification.
+    // The nextPc, nextAction need to be corrected after exiting from an
+    // exception or interrupt to correctly follow up with interpreter execution.
+    if (R4300::state.cpu.nextAction != R4300::State::Jump) {
+        R4300::state.cpu.nextAction = R4300::State::Jump;
+        R4300::state.cpu.nextPc = R4300::state.reg.pc;
+    }
+
+    // Check for interrupts.
+    // Counter interrupts will be caught at the end of the block.
+    // The ERET instruction can also activate pending interrupts.
+    R4300::checkInterrupt();
+
+    // The next action is always Jump at this point, execute it.
+    R4300::state.cpu.nextAction = R4300::State::Continue;
+    R4300::state.reg.pc = R4300::state.cpu.nextPc;
+    R4300::state.cpu.delaySlot = false;
 
     // Finally, compare the registers values on exiting the recompiler,
     // with the recorded values. Make sure the whole memory trace was executed.

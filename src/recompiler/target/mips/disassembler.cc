@@ -74,7 +74,7 @@ extern "C" bool virt_load_u##N(uint64_t virt_addr, uint##N##_t *value) { \
         exn = R4300::BusError; \
         goto take_exception; \
     } \
-    return true; \
+    return R4300::state.cpu.nextAction != R4300::State::Jump; \
 take_exception: \
     R4300::takeException(exn, virt_addr, false, true); \
     return false; \
@@ -102,7 +102,7 @@ extern "C" bool virt_store_u##N(uint64_t virt_addr, uint##N##_t value) { \
         exn = R4300::BusError; \
         goto take_exception; \
     } \
-    return true; \
+    return R4300::state.cpu.nextAction != R4300::State::Jump; \
 take_exception: \
     R4300::takeException(exn, virt_addr, false, false); \
     return false; \
@@ -370,8 +370,13 @@ static void generate_cop1_guard(ir_instr_cont_t *c, uint64_t address) {
     unsigned cycles = ir_disas_cycles;
     ir_append_write_i64(&br_true, REG_PC,
         ir_make_const_u64(address));
-    ir_append_write_i8(&br_true, REG_DELAY_SLOT,
-        ir_make_const_u8(ir_disas_delay_slot));
+    if (ir_disas_delay_slot) {
+        // The value of the elay slot always defaults to 0.
+        // The recompiled code execution stops after any branching
+        // instruction so the value never needs to be rewritten to 0.
+        ir_append_write_i8(&br_true, REG_DELAY_SLOT,
+            ir_make_const_u8(ir_disas_delay_slot));
+    }
     ir_mips_commit_cycles(&br_true);
     ir_append_call(&br_true, ir_make_iN(0), take_cop1_unusable_exception, 0);
     ir_append_exit(&br_true);

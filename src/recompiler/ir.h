@@ -11,8 +11,8 @@
 extern "C" {
 #endif /* __cplusplus */
 
-/* Defines the intermediate representation used to handle disassebmled
- * MIPS bytecode before instruction emission. */
+/* Defines the intermediate representation used to handle disassembled
+ * bytecode before instruction emission. */
 
 /** List input value types. */
 typedef enum ir_value_kind {
