@@ -267,7 +267,6 @@ void exec_interpreter(struct recompiler_request_queue *queue,
         }
 
         // Run the interpreter until the next branching instruction.
-        block_start = 0;
         (void)exec_cpu_interpreter(1);
     }
     // The recompiler cache did contain the entry point.
@@ -277,7 +276,6 @@ void exec_interpreter(struct recompiler_request_queue *queue,
         state.cpu.delaySlot = false;
         state.cpu.nextAction = State::Continue;
         state.cpu.nextPc = 0;
-        block_start = virt_address;
 
         // Run generated assembly.
         binary();
@@ -355,7 +353,7 @@ void interpreter_routine(void) {
         fmt::print(fmt::fg(fmt::color::dark_orange),
             "interpreter thread resuming\n");
 
-        lock.release();
+        lock.unlock();
 
         unsigned long cycles = state.cycles;
         exec_cpu_interpreter(0);
@@ -370,6 +368,9 @@ void interpreter_routine(void) {
                 recompiler_backend, recompiler_cache);
             exec_rsp_interpreter(state.cycles - cycles);
         }
+
+        fmt::print(fmt::fg(fmt::color::dark_orange),
+            "interpreter thread halting\n");
     }
 }
 

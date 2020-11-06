@@ -33,6 +33,7 @@ enum {
     /* State globals. */
     REG_CYCLES,
     REG_DELAY_SLOT,
+    REG_PC_NEXT,
     REG_MAX,
 };
 
@@ -61,6 +62,7 @@ extern "C" void take_cop3_unusable_exception(void) {
 extern "C" bool virt_load_u##N(uint64_t virt_addr, uint##N##_t *value) { \
     uint64_t phys_addr; \
     uint64_t align_mask = N / 8 - 1; \
+    uint64_t next_pc; \
     R4300::Exception exn; \
     if ((virt_addr & align_mask) != 0) { \
         exn = R4300::AddressError; \
@@ -70,11 +72,15 @@ extern "C" bool virt_load_u##N(uint64_t virt_addr, uint##N##_t *value) { \
     if (exn != R4300::Exception::None) { \
         goto take_exception; \
     } \
+    R4300::state.cpu.nextAction = R4300::state.cpu.delaySlot ? \
+        R4300::State::Jump : R4300::State::Continue; \
+    next_pc = R4300::state.cpu.nextPc; \
     if (!R4300::state.bus->load_u##N(phys_addr, value)) { \
         exn = R4300::BusError; \
         goto take_exception; \
     } \
-    return R4300::state.cpu.nextAction != R4300::State::Jump; \
+    return R4300::state.cpu.nextAction != R4300::State::Jump || \
+           R4300::state.cpu.nextPc == next_pc; \
 take_exception: \
     R4300::takeException(exn, virt_addr, false, true); \
     return false; \
@@ -89,6 +95,7 @@ _define_virt_load_uN(64);
 extern "C" bool virt_store_u##N(uint64_t virt_addr, uint##N##_t value) { \
     uint64_t phys_addr; \
     uint64_t align_mask = N / 8 - 1; \
+    uint64_t next_pc; \
     R4300::Exception exn; \
     if ((virt_addr & align_mask) != 0) { \
         exn = R4300::AddressError; \
@@ -98,11 +105,15 @@ extern "C" bool virt_store_u##N(uint64_t virt_addr, uint##N##_t value) { \
     if (exn != R4300::Exception::None) { \
         goto take_exception; \
     } \
+    R4300::state.cpu.nextAction = R4300::state.cpu.delaySlot ? \
+        R4300::State::Jump : R4300::State::Continue; \
+    next_pc = R4300::state.cpu.nextPc; \
     if (!R4300::state.bus->store_u##N(phys_addr, value)) { \
         exn = R4300::BusError; \
         goto take_exception; \
     } \
-    return R4300::state.cpu.nextAction != R4300::State::Jump; \
+    return R4300::state.cpu.nextAction != R4300::State::Jump || \
+           R4300::state.cpu.nextPc == next_pc; \
 take_exception: \
     R4300::takeException(exn, virt_addr, false, false); \
     return false; \
@@ -228,6 +239,11 @@ static inline void ir_mips_append_write(ir_instr_cont_t *c,
 
 /** Number of cycle increments applied so far. */
 static unsigned ir_disas_cycles;
+/** Whether the current instruction is in a delay slot. */
+static bool ir_disas_delay_slot;
+/** Program address of last branch target. The valid
+ * is valid uniquely when ir_disas_delay_slot is set. */
+static ir_value_t ir_disas_branch_target;
 /** Whether the COP1 coprocessor guard was generated or not. */
 static bool ir_cop1_guard_generated;
 
@@ -244,11 +260,22 @@ static inline void ir_mips_commit_cycles(ir_instr_cont_t *c) {
     }
 }
 
+static inline void ir_mips_commit_state(ir_instr_cont_t *c, uint64_t address) {
+    if (ir_disas_delay_slot) {
+        // The value of the elay slot always defaults to 0.
+        // The recompiled code execution stops after any branching
+        // instruction so the value never needs to be rewritten to 0.
+        ir_append_write_i8(c, REG_DELAY_SLOT, ir_make_const_u8(1));
+        ir_append_write_i64(c, REG_PC_NEXT, ir_disas_branch_target);
+    }
+    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
+    ir_mips_commit_cycles(c);
+}
+
 static inline void ir_mips_append_interpreter(ir_instr_cont_t *c,
                                               uint64_t address,
                                               uint32_t instr) {
-    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
-    ir_mips_commit_cycles(c);
+    ir_mips_commit_state(c, address);
     ir_append_call(c, ir_make_iN(0), (ir_callback_t)interpret,
                    1, ir_make_const_u32(instr));
 }
@@ -276,9 +303,6 @@ static struct {
     ir_instr_t     *map[RECOMPILER_INSTR_MAX];
     unsigned        base;
 } ir_disas_map;
-
-/** Whether the current instruction is in a delay slot. */
-static bool ir_disas_delay_slot;
 
 static ir_instr_t *disas_instr(ir_instr_cont_t *c, uint64_t address,
                                uint32_t instr, bool delay_slot);
@@ -328,8 +352,7 @@ static bool disas_guard_branch_delay(ir_instr_cont_t *c, uint64_t address) {
     } else {
         /* The address is outside the specified region,
          * emit a emulation exit to return to the interpreter. */
-        ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
-        ir_mips_commit_cycles(c);
+        ir_mips_commit_state(c, address);
         ir_append_exit(c);
         return false;
     }
@@ -368,16 +391,7 @@ static void generate_cop1_guard(ir_instr_cont_t *c, uint64_t address) {
     // the count is incremented to account for the yet to be disassembed
     // instruction.
     unsigned cycles = ir_disas_cycles;
-    ir_append_write_i64(&br_true, REG_PC,
-        ir_make_const_u64(address));
-    if (ir_disas_delay_slot) {
-        // The value of the elay slot always defaults to 0.
-        // The recompiled code execution stops after any branching
-        // instruction so the value never needs to be rewritten to 0.
-        ir_append_write_i8(&br_true, REG_DELAY_SLOT,
-            ir_make_const_u8(ir_disas_delay_slot));
-    }
-    ir_mips_commit_cycles(&br_true);
+    ir_mips_commit_state(&br_true, address);
     ir_append_call(&br_true, ir_make_iN(0), take_cop1_unusable_exception, 0);
     ir_append_exit(&br_true);
     ir_cop1_guard_generated = true;
@@ -394,6 +408,7 @@ static uint32_t disas_read_instr(uint64_t address) {
            ((uint32_t)ptr[3] << 0);
 }
 
+#if 0
 /** Generates the IR bytecode for a branch instruction.
  * The generated graph has the following shape :
  *
@@ -405,25 +420,60 @@ static void disas_branch(ir_instr_cont_t *c, ir_value_t cond, uint64_t address,
                          uint32_t instr) {
 
     ir_instr_cont_t br_false, br_true;
-    uint32_t delay_instr = disas_read_instr(address + 4);
     uint64_t imm = mips_get_imm_u64(instr);
-    append_delay_instr(c, address + 4, delay_instr);
+    uint64_t target = address + 4 + (imm << 2);
+
+    ir_disas_branch_target = ir_make_const_u64(target);
+
+    append_delay_instr(c, address + 4, disas_read_instr(address + 4));
     ir_mips_commit_cycles(c);
     ir_append_br(c, cond, &br_false, &br_true);
 
 #if RECOMPILER_DISAS_BRANCH_ENABLE
-    disas_push(address + 4 + (imm << 2), br_true);
+    disas_push(target, br_true);
     disas_push(address + 8, br_false);
 #else
-    ir_append_write_i64(&br_false, REG_PC,
-        ir_make_const_u64(address + 8));
+    ir_append_write_i64(&br_false, REG_PC, ir_make_const_u64(address + 8));
     ir_append_exit(&br_false);
 
-    ir_append_write_i64(&br_true, REG_PC,
-        ir_make_const_u64(address + 4 + (imm << 2)));
+    ir_append_write_i64(&br_true, REG_PC, ir_make_const_u64(target));
     ir_append_exit(&br_true);
 #endif /* DISAS_BRANCH_ENABLE */
 }
+#else
+/** Generates the IR bytecode for a branch instruction.
+ * The generated graph has the following shape :
+ *
+ *  cond = .. --> br cond --{true}--> [delay] --> target
+ *                    |
+ *                    `-----{false}--> [delay] --> next
+ */
+static void disas_branch(ir_instr_cont_t *c, ir_value_t cond, uint64_t address,
+                         uint32_t instr) {
+
+    ir_instr_cont_t br_false, br_true;
+    uint64_t imm = mips_get_imm_u64(instr);
+    uint64_t target = address + 4 + (imm << 2);
+    unsigned long cycles = ir_disas_cycles;
+    uint32_t delay_instr = disas_read_instr(address + 4);
+
+    ir_append_br(c, cond, &br_false, &br_true);
+
+    ir_disas_cycles = cycles;
+    ir_disas_branch_target = ir_make_const_u64(address + 8);
+    append_delay_instr(&br_false, address + 4, delay_instr);
+    ir_append_write_i64(&br_false, REG_PC, ir_make_const_u64(address + 8));
+    ir_mips_commit_cycles(&br_false);
+    ir_append_exit(&br_false);
+
+    ir_disas_cycles = cycles;
+    ir_disas_branch_target = ir_make_const_u64(target);
+    append_delay_instr(&br_true, address + 4, delay_instr);
+    ir_append_write_i64(&br_true, REG_PC, ir_make_const_u64(target));
+    ir_mips_commit_cycles(&br_true);
+    ir_append_exit(&br_true);
+}
+#endif
 
 /** Generates the IR bytecode for a branch _likely_ instruction.
  * The generated graph has the following shape :
@@ -434,22 +484,24 @@ static void disas_branch(ir_instr_cont_t *c, ir_value_t cond, uint64_t address,
  */
 static void disas_branch_likely(ir_instr_cont_t *c, ir_value_t cond,
                                 uint64_t address, uint32_t instr) {
-    uint64_t imm = mips_get_imm_u64(instr);
     ir_instr_cont_t br_false, br_true;
+    uint64_t imm = mips_get_imm_u64(instr);
+    uint64_t target = address + 4 + (imm << 2);
+
+    ir_disas_branch_target = ir_make_const_u64(target);
+
     ir_mips_commit_cycles(c);
     ir_append_br(c, cond, &br_false, &br_true);
     append_delay_instr(&br_true, address + 4, disas_read_instr(address + 4));
 
 #if RECOMPILER_DISAS_BRANCH_ENABLE
-    disas_push(address + 4 + (imm << 2), br_true);
+    disas_push(target, br_true);
     disas_push(address + 8, br_false);
 #else
-    ir_append_write_i64(&br_false, REG_PC,
-        ir_make_const_u64(address + 8));
+    ir_append_write_i64(&br_false, REG_PC, ir_make_const_u64(address + 8));
     ir_append_exit(&br_false);
 
-    ir_append_write_i64(&br_true, REG_PC,
-        ir_make_const_u64(address + 4 + (imm << 2)));
+    ir_append_write_i64(&br_true, REG_PC, ir_make_const_u64(target));
     ir_mips_commit_cycles(&br_true);
     ir_append_exit(&br_true);
 #endif /* DISAS_BRANCH_ENABLE */
@@ -687,6 +739,7 @@ static void disas_JALR(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
         return;
     ir_value_t vs;
     vs = ir_mips_append_read(c, mips_get_rs(instr));
+    ir_disas_branch_target = vs;
     ir_mips_append_write(c, mips_get_rd(instr), ir_make_const_u64(address + 8));
     append_delay_instr(c, address + 4, disas_read_instr(address + 4));
     ir_mips_append_write(c, REG_PC, vs);
@@ -699,6 +752,7 @@ static void disas_JR(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
         return;
     ir_value_t vs;
     vs = ir_mips_append_read(c, mips_get_rs(instr));
+    ir_disas_branch_target = vs;
     append_delay_instr(c, address + 4, disas_read_instr(address + 4));
     ir_mips_append_write(c, REG_PC, vs);
     ir_mips_commit_cycles(c);
@@ -723,14 +777,14 @@ static void disas_MOVN(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_mips_append_interpreter(c, address, instr);
     disas_push(address + 4, *c);
     // RType(instr);
-    // debugger::halt("MOVN");
+    // core::halt("MOVN");
 }
 
 static void disas_MOVZ(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_mips_append_interpreter(c, address, instr);
     disas_push(address + 4, *c);
     // RType(instr);
-    // debugger::halt("MOVZ");
+    // core::halt("MOVZ");
 }
 
 static void disas_MTHI(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
@@ -1293,7 +1347,7 @@ static void disas_MTC0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
         case Index:     state.cp0reg.index = val & UINT32_C(0x3f); break;
         case Random:
             state.cp0reg.random = val;
-            debugger::halt("MTC0 random");
+            core::halt("MTC0 random");
             break;
         case EntryLo0:  state.cp0reg.entrylo0 = sign_extend<u64, u32>(val); break;
         case EntryLo1:  state.cp0reg.entrylo1 = sign_extend<u64, u32>(val); break;
@@ -1304,7 +1358,7 @@ static void disas_MTC0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
         case Wired:
             state.cp0reg.wired = val & UINT32_C(0x3f);
             if (state.cp0reg.wired >= tlbEntryCount)
-                debugger::halt("COP0::wired invalid value");
+                core::halt("COP0::wired invalid value");
             state.cp0reg.random = tlbEntryCount - 1;
             break;
         case BadVAddr:  state.cp0reg.badvaddr = sign_extend<u64, u32>(val); break;
@@ -1324,7 +1378,7 @@ static void disas_MTC0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
                 state.cp1reg.setFprAliases((val & STATUS_FR) != 0);
             }
             if (val & STATUS_RE) {
-                debugger::halt("COP0::sr RE bit set");
+                core::halt("COP0::sr RE bit set");
             }
             // TODO check all config bits
             state.cp0reg.sr = val;
@@ -1343,42 +1397,42 @@ static void disas_MTC0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
         case EPC:       state.cp0reg.epc = sign_extend<u64, u32>(val); break;
         case PrId:
             state.cp0reg.prid = val;
-            debugger::halt("MTC0 prid");
+            core::halt("MTC0 prid");
             break;
         case Config:
             state.cp0reg.config = val;
-            debugger::halt("MTC0 config");
+            core::halt("MTC0 config");
             break;
         case LLAddr:
             state.cp0reg.lladdr = val;
-            debugger::halt("MTC0 lladdr");
+            core::halt("MTC0 lladdr");
             break;
         case WatchLo:
             state.cp0reg.watchlo = val;
-            debugger::halt("MTC0 watchlo");
+            core::halt("MTC0 watchlo");
             break;
         case WatchHi:
             state.cp0reg.watchhi = val;
-            debugger::halt("MTC0 watchhi");
+            core::halt("MTC0 watchhi");
             break;
         case XContext:
             state.cp0reg.xcontext = sign_extend<u64, u32>(val);
-            debugger::halt("MTC0 xcontext");
+            core::halt("MTC0 xcontext");
             break;
         case PErr:
             state.cp0reg.perr = val;
-            debugger::halt("MTC0 perr");
+            core::halt("MTC0 perr");
             break;
         case CacheErr:
             state.cp0reg.cacheerr = val;
-            debugger::halt("MTC0 cacheerr");
+            core::halt("MTC0 cacheerr");
             break;
         case TagLo:     state.cp0reg.taglo = val; break;
         case TagHi:     state.cp0reg.taghi = val; break;
         case ErrorEPC:  state.cp0reg.errorepc = sign_extend<u64, u32>(val); break;
         default:
             std::string reason = "MTC0 ";
-            debugger::halt(reason + Cop0RegisterNames[rd]);
+            core::halt(reason + Cop0RegisterNames[rd]);
             break;
     }
 }
@@ -1395,19 +1449,19 @@ static void disas_DMTC0(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
         case EntryLo1:  state.cp0reg.entrylo1 = val; break;
         case Context:
             state.cp0reg.context = val;
-            debugger::halt("DMTC0 context");
+            core::halt("DMTC0 context");
             break;
         case BadVAddr:  state.cp0reg.badvaddr = val; break;
         case EntryHi:   state.cp0reg.entryhi = val; break;
         case EPC:       state.cp0reg.epc = val; break;
         case XContext:
             state.cp0reg.xcontext = val;
-            debugger::halt("DMTC0 xcontext");
+            core::halt("DMTC0 xcontext");
             break;
         case ErrorEPC:  state.cp0reg.errorepc = val; break;
         default:
             std::string reason = "DMTC0 ";
-            debugger::halt(reason + Cop0RegisterNames[rd] + " (undefined)");
+            core::halt(reason + Cop0RegisterNames[rd] + " (undefined)");
             break;
     }
 }
@@ -1429,7 +1483,7 @@ static void disas_TLBR(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     (void)instr;
     unsigned index = state.cp0reg.index & UINT32_C(0x3f);
     if (index >= tlbEntryCount) {
-        debugger::halt("TLBR bad index");
+        core::halt("TLBR bad index");
         return;
     }
     state.cp0reg.pagemask = state.tlb[index].pageMask & UINT32_C(0x01ffe000);
@@ -1445,7 +1499,7 @@ static void disas_TLBW(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     if (funct == Mips::Cop0::TLBWI) {
         index = state.cp0reg.index & UINT32_C(0x3f);
         if (index >= tlbEntryCount) {
-            debugger::halt("TLBWI bad index");
+            core::halt("TLBWI bad index");
             return;
         }
     } else {
@@ -1614,17 +1668,13 @@ static void disas_COP1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
 }
 
 static void disas_COP2(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    ir_mips_append_write(c, REG_PC, ir_make_const_u64(address));
-    ir_mips_append_write(c, REG_DELAY_SLOT, ir_make_const_u8(0)); // TODO
-    ir_mips_commit_cycles(c);
+    ir_mips_commit_state(c, address);
     ir_append_call(c, ir_make_iN(0), take_cop2_unusable_exception, 0);
     ir_append_exit(c);
 }
 
 static void disas_COP3(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
-    ir_mips_append_write(c, REG_PC, ir_make_const_u64(address));
-    ir_mips_append_write(c, REG_DELAY_SLOT, ir_make_const_u8(0)); // TODO
-    ir_mips_commit_cycles(c);
+    ir_mips_commit_state(c, address);
     ir_append_call(c, ir_make_iN(0), take_cop3_unusable_exception, 0);
     ir_append_exit(c);
 }
@@ -1647,6 +1697,7 @@ static void disas_J(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     uint32_t delay_instr = disas_read_instr(address + 4);
     uint64_t target = mips_get_target(instr);
     target = (address & 0xfffffffff0000000llu) | (target << 2);
+    ir_disas_branch_target = ir_make_const_u64(target);
     append_delay_instr(c, address + 4, delay_instr);
     ir_mips_append_write(c, REG_PC, ir_make_const_u64(target));
     ir_mips_commit_cycles(c);
@@ -1657,6 +1708,7 @@ static void disas_JAL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     uint32_t delay_instr = disas_read_instr(address + 4);
     uint64_t target = mips_get_target(instr);
     target = (address & 0xfffffffff0000000llu) | (target << 2);
+    ir_disas_branch_target = ir_make_const_u64(target);
     ir_mips_append_write(c, REG_RA, ir_make_const_u64(address + 8));
     append_delay_instr(c, address + 4, delay_instr);
     ir_mips_append_write(c, REG_PC, ir_make_const_u64(target));
@@ -1669,8 +1721,7 @@ static void disas_LB(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
-    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
-    ir_mips_commit_cycles(c);
+    ir_mips_commit_state(c, address);
     vt = ir_mips_append_load_i8(c, vs);
     vt = ir_append_sext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
@@ -1682,8 +1733,7 @@ static void disas_LBU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
-    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
-    ir_mips_commit_cycles(c);
+    ir_mips_commit_state(c, address);
     vt = ir_mips_append_load_i8(c, vs);
     vt = ir_append_zext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
@@ -1695,8 +1745,7 @@ static void disas_LD(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
-    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
-    ir_mips_commit_cycles(c);
+    ir_mips_commit_state(c, address);
     vt = ir_mips_append_load_i64(c, vs);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
     disas_push(address + 4, *c);
@@ -1727,7 +1776,7 @@ static void disas_LDC2(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_mips_append_interpreter(c, address, instr);
     disas_push(address + 4, *c);
     // takeR4300::Exception(CoprocessorUnusable, 0, false, true, 2);
-    // debugger::halt("LDC2");
+    // core::halt("LDC2");
 }
 
 static void disas_LDL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
@@ -1802,8 +1851,7 @@ static void disas_LH(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
-    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
-    ir_mips_commit_cycles(c);
+    ir_mips_commit_state(c, address);
     vt = ir_mips_append_load_i16(c, vs);
     vt = ir_append_sext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
@@ -1815,8 +1863,7 @@ static void disas_LHU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
-    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
-    ir_mips_commit_cycles(c);
+    ir_mips_commit_state(c, address);
     vt = ir_mips_append_load_i16(c, vs);
     vt = ir_append_zext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
@@ -1827,14 +1874,14 @@ static void disas_LL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_mips_append_interpreter(c, address, instr);
     disas_push(address + 4, *c);
     // IType(instr, sign_extend);
-    // debugger::halt("LL");
+    // core::halt("LL");
 }
 
 static void disas_LLD(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_mips_append_interpreter(c, address, instr);
     disas_push(address + 4, *c);
     // IType(instr, sign_extend);
-    // debugger::halt("LLD");
+    // core::halt("LLD");
 }
 
 static void disas_LUI(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
@@ -1849,8 +1896,7 @@ static void disas_LW(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
-    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
-    ir_mips_commit_cycles(c);
+    ir_mips_commit_state(c, address);
     vt = ir_mips_append_load_i32(c, vs);
     vt = ir_append_sext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
@@ -1883,14 +1929,14 @@ static void disas_LWC2(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_mips_append_interpreter(c, address, instr);
     disas_push(address + 4, *c);
     // takeR4300::Exception(CoprocessorUnusable, 0, false, true, 2);
-    // debugger::halt("LWC2");
+    // core::halt("LWC2");
 }
 
 static void disas_LWC3(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_mips_append_interpreter(c, address, instr);
     disas_push(address + 4, *c);
     // takeR4300::Exception(CoprocessorUnusable, 0, false, true, 3);
-    // debugger::halt("LWC3");
+    // core::halt("LWC3");
 }
 
 static void disas_LWL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
@@ -1965,8 +2011,7 @@ static void disas_LWU(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_mips_append_read(c, mips_get_rs(instr));
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
-    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
-    ir_mips_commit_cycles(c);
+    ir_mips_commit_state(c, address);
     vt = ir_mips_append_load_i32(c, vs);
     vt = ir_append_zext_i64(c, vt);
     ir_mips_append_write(c, mips_get_rt(instr), vt);
@@ -1989,8 +2034,7 @@ static void disas_SB(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_append_binop(c, IR_ADD, vs, imm);
     vt = ir_mips_append_read(c, mips_get_rt(instr));
     vt = ir_append_trunc_i8(c, vt);
-    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
-    ir_mips_commit_cycles(c);
+    ir_mips_commit_state(c, address);
     ir_mips_append_store_i8(c, vs, vt);
     disas_push(address + 4, *c);
 }
@@ -1999,14 +2043,14 @@ static void disas_SC(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_mips_append_interpreter(c, address, instr);
     disas_push(address + 4, *c);
     // IType(instr, sign_extend);
-    // debugger::halt("SC");
+    // core::halt("SC");
 }
 
 static void disas_SCD(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_mips_append_interpreter(c, address, instr);
     disas_push(address + 4, *c);
     // IType(instr, sign_extend);
-    // debugger::halt("SCD");
+    // core::halt("SCD");
 }
 
 static void disas_SD(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
@@ -2015,8 +2059,7 @@ static void disas_SD(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     imm = ir_make_const_u64(mips_get_imm_u64(instr));
     vs = ir_append_binop(c, IR_ADD, vs, imm);
     vt = ir_mips_append_read(c, mips_get_rt(instr));
-    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
-    ir_mips_commit_cycles(c);
+    ir_mips_commit_state(c, address);
     ir_mips_append_store_i64(c, vs, vt);
     disas_push(address + 4, *c);
 }
@@ -2044,7 +2087,7 @@ static void disas_SDC2(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_mips_append_interpreter(c, address, instr);
     disas_push(address + 4, *c);
     // takeR4300::Exception(CoprocessorUnusable, 0, false, true, 2);
-    // debugger::halt("SDC2");
+    // core::halt("SDC2");
 }
 
 static void disas_SDL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
@@ -2108,8 +2151,7 @@ static void disas_SH(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_append_binop(c, IR_ADD, vs, imm);
     vt = ir_mips_append_read(c, mips_get_rt(instr));
     vt = ir_append_trunc_i16(c, vt);
-    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
-    ir_mips_commit_cycles(c);
+    ir_mips_commit_state(c, address);
     ir_mips_append_store_i16(c, vs, vt);
     disas_push(address + 4, *c);
 }
@@ -2141,8 +2183,7 @@ static void disas_SW(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     vs = ir_append_binop(c, IR_ADD, vs, imm);
     vt = ir_mips_append_read(c, mips_get_rt(instr));
     vt = ir_append_trunc_i32(c, vt);
-    ir_append_write_i64(c, REG_PC, ir_make_const_u64(address));
-    ir_mips_commit_cycles(c);
+    ir_mips_commit_state(c, address);
     ir_mips_append_store_i32(c, vs, vt);
     disas_push(address + 4, *c);
 }
@@ -2170,21 +2211,21 @@ static void disas_SWC2(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_mips_append_interpreter(c, address, instr);
     disas_push(address + 4, *c);
     // takeR4300::Exception(CoprocessorUnusable, 0, false, false, 2);
-    // debugger::halt("SWC2");
+    // core::halt("SWC2");
 }
 
 static void disas_SWC3(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_mips_append_interpreter(c, address, instr);
     disas_push(address + 4, *c);
     // takeR4300::Exception(CoprocessorUnusable, 0, false, false, 2);
-    // debugger::halt("SWC3");
+    // core::halt("SWC3");
 }
 
 static void disas_SWL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_mips_append_interpreter(c, address, instr);
     disas_push(address + 4, *c);
     // IType(instr, sign_extend);
-    // // debugger::halt("SWL instruction");
+    // // core::halt("SWL instruction");
     // // @todo only BigEndianMem & !ReverseEndian for now
     // uint64_t vAddr = state.reg.gpr[rs] + imm;
     // uint64_t pAddr;
@@ -2211,7 +2252,7 @@ static void disas_SWR(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     ir_mips_append_interpreter(c, address, instr);
     disas_push(address + 4, *c);
     // IType(instr, sign_extend);
-    // // debugger::halt("SWR instruction");
+    // // core::halt("SWR instruction");
     // // @todo only BigEndianMem & !ReverseEndian for now
     // uint64_t vAddr = state.reg.gpr[rs] + imm;
     // uint64_t pAddr;
@@ -2360,6 +2401,7 @@ recompiler_backend_t *ir_mips_recompiler_backend(void) {
     global_definitions[REG_FCR31] = { ir_make_i32(), "fcr31", &R4300::state.cp1reg.fcr31 };
     global_definitions[REG_CYCLES] = { ir_make_i64(), "cycles", &R4300::state.cycles };
     global_definitions[REG_DELAY_SLOT] = { ir_make_i8(), "delay_slot", &R4300::state.cpu.delaySlot };
+    global_definitions[REG_PC_NEXT] = { ir_make_i64(), "next_pc", &R4300::state.cpu.nextPc };
 
     for (unsigned i = 1; i < 32; i++) {
         global_definitions[i] = {
