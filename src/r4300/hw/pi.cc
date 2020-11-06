@@ -7,6 +7,7 @@
 #include <r4300/hw.h>
 #include <r4300/state.h>
 
+#include <core.h>
 #include <debugger.h>
 
 namespace R4300 {
@@ -126,6 +127,7 @@ static void write_PI_WR_LEN_REG(u32 value) {
 
     // Perform the actual copy.
     memcpy(&state.dram[dst], &state.rom[src - 0x10000000llu], len);
+    core::invalidate_recompiler_cache(dst, dst + len);
     state.hwreg.PI_STATUS_REG = 0;
     set_MI_INTR_REG(MI_INTR_PI);
 }
@@ -204,7 +206,7 @@ bool read_PI_REG(uint bytes, u64 addr, u64 *value)
     default:
         debugger::warn(Debugger::PI,
             "Read of unknown PI register: {:08x}", addr);
-        debugger::halt("PI read unknown");
+        core::halt("PI read unknown");
         break;
     }
     *value = 0;
@@ -238,7 +240,7 @@ bool write_PI_REG(uint bytes, u64 addr, u64 value)
         state.hwreg.PI_STATUS_REG = 0;
         if (value & PI_STATUS_RESET) {
             // Expected behaviour not clearly known.
-            debugger::halt("PI_STATUS_RESET");
+            core::halt("PI_STATUS_RESET");
         }
         if (value & PI_STATUS_CLR_INTR) {
             clear_MI_INTR_REG(MI_INTR_PI);
@@ -280,7 +282,7 @@ bool write_PI_REG(uint bytes, u64 addr, u64 value)
         debugger::warn(Debugger::PI,
             "Write of unknown PI register: {:08x} <- {:08x}",
             addr, value);
-        debugger::halt("PI write unknown");
+        core::halt("PI write unknown");
         break;
     }
     return true;

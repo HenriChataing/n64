@@ -7,6 +7,7 @@
 #include <r4300/hw.h>
 #include <r4300/state.h>
 
+#include <core.h>
 #include <graphics.h>
 #include <debugger.h>
 
@@ -300,7 +301,7 @@ bool read_VI_REG(uint bytes, u64 addr, u64 *value)
     default:
         debugger::warn(Debugger::VI,
             "Read of unknown VI register: {:08x}", addr);
-        debugger::halt("VI read unknown");
+        core::halt("VI read unknown");
         break;
     }
     *value = 0;
@@ -378,7 +379,7 @@ bool write_VI_REG(uint bytes, u64 addr, u64 value)
         debugger::warn(Debugger::VI,
             "Write of unknown VI register: {:08x} <- {:08x}",
             addr, value);
-        debugger::halt("VI write unknown");
+        core::halt("VI write unknown");
         break;
     }
     return true;

@@ -7,6 +7,7 @@
 #include <r4300/hw.h>
 #include <r4300/state.h>
 
+#include <core.h>
 #include <debugger.h>
 
 namespace R4300 {
@@ -218,6 +219,7 @@ static void write_SI_PIF_ADDR_RD64B_REG(u32 value)
 
     // Copy the result to the designated DRAM address.
     memcpy(state.dram + dst, state.pifram, 64);
+    core::invalidate_recompiler_cache(dst, dst + 64);
     state.hwreg.SI_STATUS_REG = SI_STATUS_INTR;
     set_MI_INTR_REG(MI_INTR_SI);
 
@@ -294,7 +296,7 @@ bool read_SI_REG(uint bytes, u64 addr, u64 *value)
     default:
         debugger::warn(Debugger::SI,
             "Read of unknown SI register: {:08x}", addr);
-        debugger::halt("SI read unknown");
+        core::halt("SI read unknown");
         break;
     }
     *value = 0;
@@ -329,7 +331,7 @@ bool write_SI_REG(uint bytes, u64 addr, u64 value)
         debugger::warn(Debugger::SI,
             "Write of unknown SI register: {:08x} <- {:08x}",
             addr, value);
-        debugger::halt("SI write unknown");
+        core::halt("SI write unknown");
         break;
     }
     return true;

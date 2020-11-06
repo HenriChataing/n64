@@ -87,7 +87,7 @@ void stop_capture(u64 finalAddress) {
 
     if (ofs.bad() || prefs.bad() || postfs.bad()) {
         debugger::error(Debugger::CPU, "cannot open capture files\n");
-        debugger::halt("failed to open capture files");
+        core::halt("failed to open capture files");
         return;
     }
 
@@ -118,7 +118,7 @@ void stop_capture(u64 finalAddress) {
             debugger::warn(Debugger::CPU,
                 "incomplete memory trace: missing instruction fetches {}/{}/{}",
                 count, bus->log.size(), state.reg.pc - captureStart + 4);
-            debugger::halt(
+            core::halt(
                 "incomplete memory trace: missing instruction fetches");
         }
         if (finalAddress == (state.reg.pc + 8)) {

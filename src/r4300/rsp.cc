@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <iostream>
 
+#include <core.h>
 #include <circular_buffer.h>
 #include <assembly/disassembler.h>
 #include <assembly/opcodes.h>
@@ -37,7 +38,7 @@ static inline bool checkAddressAlignment(u64 addr, u64 bytes) {
             "detected unaligned DMEM/IMEM access of {} bytes"
             " from address {:08x}, at pc {:08x}",
             bytes, addr, state.rspreg.pc);
-        debugger::halt("RSP invalid address alignment");
+        core::halt("RSP invalid address alignment");
         return false;
     } else {
         return true;
@@ -233,7 +234,7 @@ static void eval_LFV(u32 instr) {
     if (element != 0)
         debugger::undefined("LFV with non-zero element");
 
-    debugger::halt("LFV TODO");
+    core::halt("LFV TODO");
 
     // Compose base address with offset. The bytes are loaded
     // from the 16byte window starting at the base address
@@ -289,7 +290,7 @@ static void eval_LWC2(u32 instr) {
         case UINT32_C(0xa): eval_LWV(instr); break;
         case UINT32_C(0xb): eval_LTV(instr); break;
         default:
-            debugger::halt("RSP::LWC2 invalid operation");
+            core::halt("RSP::LWC2 invalid operation");
             break;
     }
 }
@@ -416,7 +417,7 @@ static void eval_SFV(u32 instr) {
     if (element != 0)
         debugger::undefined("SFV with non-zero element");
 
-    debugger::halt("SFV TODO");
+    core::halt("SFV TODO");
 
     // Compose base address with offset. The bytes are stored
     // into the 16byte window starting at the base address aligned
@@ -530,7 +531,7 @@ static void eval_SWC2(u32 instr) {
         case UINT32_C(0xa): eval_SWV(instr); break;
         case UINT32_C(0xb): eval_STV(instr); break;
         default:
-            debugger::halt("RSP::SWC2 invalid operation");
+            core::halt("RSP::SWC2 invalid operation");
             break;
     }
 }
@@ -566,7 +567,7 @@ static inline unsigned selectElementIndex(unsigned i, u32 e) {
 }
 
 static void eval_Reserved(u32 instr) {
-    debugger::halt("RSP reserved instruction");
+    core::halt("RSP reserved instruction");
 }
 
 static void eval_VABS(u32 instr) {
@@ -921,7 +922,7 @@ static void eval_VMACF(u32 instr) {
 }
 
 static void eval_VMACQ(u32 instr) {
-    debugger::halt("VMACQ unsupported");
+    core::halt("VMACQ unsupported");
 }
 
 static void eval_VMACU(u32 instr) {
@@ -1157,7 +1158,7 @@ static void eval_VMULF(u32 instr) {
 }
 
 static void eval_VMULQ(u32 instr) {
-    debugger::halt("RSP::VMULQ unsupported");
+    core::halt("RSP::VMULQ unsupported");
 }
 
 static void eval_VMULU(u32 instr) {
@@ -1373,7 +1374,7 @@ static void eval_VRCPL(u32 instr) {
         state.rspreg.divin &= ~UINT32_C(0xffff);
         state.rspreg.divin |= state.rspreg.vr[vt].h[e];
     } else {
-        // debugger::halt("RCPL divin not loaded");
+        // core::halt("RCPL divin not loaded");
         state.rspreg.divin = sign_extend<u32, u16>(state.rspreg.vr[vt].h[e]);
     }
 
@@ -1397,11 +1398,11 @@ static void eval_VRCPL(u32 instr) {
 }
 
 static void eval_VRNDN(u32 instr) {
-    debugger::halt("RSP::VRNDN unsupported");
+    core::halt("RSP::VRNDN unsupported");
 }
 
 static void eval_VRNDP(u32 instr) {
-    debugger::halt("RSP::VRNDP unsupported");
+    core::halt("RSP::VRNDP unsupported");
 }
 
 static inline u32 load_RSQ_ROM(u32 divin) {
@@ -1646,12 +1647,12 @@ void eval_JR(u32 instr) {
 
 void eval_MOVN(u32 instr) {
     RType(instr);
-    debugger::halt("MOVN");
+    core::halt("MOVN");
 }
 
 void eval_MOVZ(u32 instr) {
     RType(instr);
-    debugger::halt("MOVZ");
+    core::halt("MOVZ");
 }
 
 void eval_NOR(u32 instr) {
@@ -1850,26 +1851,26 @@ void eval_MFC0(u32 instr) {
     case 10:    val = state.hwreg.DPC_CURRENT_REG; break;
     case 11:    val = state.hwreg.DPC_STATUS_REG; break;
     case 12:
-        debugger::halt("DPC_CLOCK_REG read access");
+        core::halt("DPC_CLOCK_REG read access");
         val = state.hwreg.DPC_CLOCK_REG;
         break;
     case 13:
-        debugger::halt("DPC_BUF_BUSY_REG read access");
+        core::halt("DPC_BUF_BUSY_REG read access");
         val = state.hwreg.DPC_BUF_BUSY_REG;
         break;
     case 14:
-        debugger::halt("DPC_PIPE_BUSY_REG read access");
+        core::halt("DPC_PIPE_BUSY_REG read access");
         val = state.hwreg.DPC_PIPE_BUSY_REG;
         break;
     case 15:
-        debugger::halt("DPC_TMEM_REG read access");
+        core::halt("DPC_TMEM_REG read access");
         val = state.hwreg.DPC_TMEM_REG;
         break;
     default:
         /* unknown register access */
         val = 0;
         std::string reason = "MFC0 ";
-        debugger::halt(reason + assembly::rsp::Cop0RegisterNames[rd]);
+        core::halt(reason + assembly::rsp::Cop0RegisterNames[rd]);
         break;
     }
 
@@ -1898,24 +1899,24 @@ void eval_MTC0(u32 instr) {
     case 8:     write_DPC_START_REG(val); break;
     case 9:     write_DPC_END_REG(val); break;
     case 10:
-        debugger::halt("RSP::RDP_command_current");
+        core::halt("RSP::RDP_command_current");
         break;
     case 11:    write_DPC_STATUS_REG(val); break;
     case 12:
-        debugger::halt("RSP::RDP_clock_counter");
+        core::halt("RSP::RDP_clock_counter");
         break;
     case 13:
-        debugger::halt("RSP::RDP_command_busy");
+        core::halt("RSP::RDP_command_busy");
         break;
     case 14:
-        debugger::halt("RSP::RDP_pipe_busy_counter");
+        core::halt("RSP::RDP_pipe_busy_counter");
         break;
     case 15:
-        debugger::halt("RSP::RDP_TMEM_load_counter");
+        core::halt("RSP::RDP_TMEM_load_counter");
         break;
     default:
         std::string reason = "MTC0 ";
-        debugger::halt(reason + assembly::rsp::Cop0RegisterNames[rd]);
+        core::halt(reason + assembly::rsp::Cop0RegisterNames[rd]);
         break;
     }
 }
@@ -1925,7 +1926,7 @@ void eval_COP0(u32 instr) {
     case assembly::MFCz: eval_MFC0(instr); break;
     case assembly::MTCz: eval_MTC0(instr); break;
     default:
-        debugger::halt("invalid RSP::COP0 instruction");
+        core::halt("invalid RSP::COP0 instruction");
         break;
     }
 }
@@ -2135,7 +2136,7 @@ void eval_COP2(u32 instr) {
     case assembly::CTCz: eval_CTC2(instr); break;
     default:
         if ((instr & (1lu << 25)) == 0) {
-            debugger::halt("RSP::COP2 invalid operation");
+            core::halt("RSP::COP2 invalid operation");
         } else {
             COP2_callbacks[instr & UINT32_C(0x3f)](instr);
         }

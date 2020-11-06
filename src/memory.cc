@@ -3,6 +3,7 @@
 #include <iostream>
 #include <iomanip>
 
+#include "core.h"
 #include "debugger.h"
 #include "memory.h"
 
@@ -53,7 +54,7 @@ bool Region::load(uint bytes, u64 addr, u64 *value)
     }
 
     debugger::warn(Debugger::CPU, "load at invalid memory address {:08x}", addr);
-    debugger::halt("Load at invalid address");
+    core::halt("Load at invalid address");
     return false;
 }
 
@@ -72,7 +73,7 @@ bool Region::store(uint bytes, u64 addr, u64 value)
 
     debugger::warn(Debugger::CPU,
         "store at invalid memory address: {:08x} <- {:x}", addr, value);
-    debugger::halt("Store at invalid address");
+    core::halt("Store at invalid address");
     return false;
 }
 

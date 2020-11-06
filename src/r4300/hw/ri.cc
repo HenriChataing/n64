@@ -7,6 +7,7 @@
 #include <r4300/hw.h>
 #include <r4300/state.h>
 
+#include <core.h>
 #include <debugger.h>
 
 namespace R4300 {
@@ -110,7 +111,7 @@ bool read_RDRAM_REG(uint bytes, u64 addr, u64 *value)
     default:
         debugger::warn(Debugger::RdRam,
             "Read of unknown RdRam register: {:08x}", addr);
-        debugger::halt("RdRam read unknown");
+        core::halt("RdRam read unknown");
         break;
     }
     return true;
@@ -175,7 +176,7 @@ bool write_RDRAM_REG(uint bytes, u64 addr, u64 value)
         debugger::warn(Debugger::RdRam,
             "Write of unknown RdRam register: {:08x} <- {:08x}",
             addr, value);
-        debugger::halt("RdRam write unknown");
+        core::halt("RdRam write unknown");
         break;
     }
     return true;
@@ -253,7 +254,7 @@ bool read_RI_REG(uint bytes, u64 addr, u64 *value)
     default:
         debugger::warn(Debugger::RI,
             "Read of unknown RI register: {:08x}", addr);
-        debugger::halt("RI read unknown");
+        core::halt("RI read unknown");
         break;
     }
     *value = 0;
@@ -301,7 +302,7 @@ bool write_RI_REG(uint bytes, u64 addr, u64 value)
         debugger::warn(Debugger::RI,
             "Write of unknown RI register: {:08x} <- {:08x}",
             addr, value);
-        debugger::halt("RI write unknown");
+        core::halt("RI write unknown");
         break;
     }
     return true;

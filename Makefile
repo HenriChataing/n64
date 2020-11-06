@@ -52,10 +52,20 @@ OBJS      := \
     src/main.o \
     src/memory.o \
     src/debugger.o \
-    src/interpreter.o \
+    src/core.o \
+    src/trace.o \
     src/interpreter/cpu.o \
     src/interpreter/cop0.o \
     src/interpreter/cop1.o \
+    src/recompiler/ir.o \
+    src/recompiler/backend.o \
+    src/recompiler/cache.o \
+    src/recompiler/code_buffer.o \
+    src/recompiler/passes/run.o \
+    src/recompiler/passes/optimize.o \
+    src/recompiler/target/mips/disassembler.o \
+    src/recompiler/target/x86_64/assembler.o \
+    src/recompiler/target/x86_64/emitter.o \
     src/assembly/disassembler.o \
     src/r4300/cpu.o \
     src/r4300/state.o \

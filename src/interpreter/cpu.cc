@@ -6,6 +6,7 @@
 #include <r4300/cpu.h>
 #include <r4300/hw.h>
 #include <r4300/state.h>
+#include <core.h>
 #include <debugger.h>
 #include <interpreter.h>
 
@@ -79,7 +80,7 @@ namespace interpreter::cpu {
 
 
 void eval_Reserved(u32 instr) {
-    debugger::halt("CPU reserved instruction");
+    core::halt("CPU reserved instruction");
 }
 
 /* SPECIAL opcodes */
@@ -90,7 +91,7 @@ void eval_ADD(u32 instr) {
     i32 a = (i32)(u32)state.reg.gpr[rs];
     i32 b = (i32)(u32)state.reg.gpr[rt];
     if (__builtin_add_overflow(a, b, &res)) {
-        debugger::halt("ADD IntegerOverflow");
+        core::halt("ADD IntegerOverflow");
     }
     state.reg.gpr[rd] = sign_extend<u64, u32>((u32)res);
 }
@@ -108,7 +109,7 @@ void eval_AND(u32 instr) {
 
 void eval_BREAK(u32 instr) {
     RType(instr);
-    debugger::halt("BREAK");
+    core::halt("BREAK");
 }
 
 void eval_DADD(u32 instr) {
@@ -117,7 +118,7 @@ void eval_DADD(u32 instr) {
     i64 a = (i64)state.reg.gpr[rs];
     i64 b = (i64)state.reg.gpr[rt];
     if (__builtin_add_overflow(a, b, &res)) {
-        debugger::halt("DADD IntegerOverflow");
+        core::halt("DADD IntegerOverflow");
     }
     state.reg.gpr[rd] = (u64)res;
 }
@@ -280,7 +281,7 @@ void eval_DSRLV(u32 instr) {
 
 void eval_DSUB(u32 instr) {
     RType(instr);
-    debugger::halt("DSUB");
+    core::halt("DSUB");
 }
 
 void eval_DSUBU(u32 instr) {
@@ -320,12 +321,12 @@ void eval_MFLO(u32 instr) {
 
 void eval_MOVN(u32 instr) {
     RType(instr);
-    debugger::halt("MOVN");
+    core::halt("MOVN");
 }
 
 void eval_MOVZ(u32 instr) {
     RType(instr);
-    debugger::halt("MOVZ");
+    core::halt("MOVZ");
 }
 
 void eval_MTHI(u32 instr) {
@@ -431,7 +432,7 @@ void eval_SUB(u32 instr) {
     int32_t a = (int32_t)(uint32_t)state.reg.gpr[rs];
     int32_t b = (int32_t)(uint32_t)state.reg.gpr[rt];
     if (__builtin_sub_overflow(a, b, &res)) {
-        debugger::halt("SUB IntegerOverflow");
+        core::halt("SUB IntegerOverflow");
     }
     state.reg.gpr[rd] = sign_extend<u64, u32>((uint32_t)res);
 }
@@ -453,32 +454,32 @@ void eval_SYSCALL(u32 instr) {
 
 void eval_TEQ(u32 instr) {
     RType(instr);
-    debugger::halt("TEQ");
+    core::halt("TEQ");
 }
 
 void eval_TGE(u32 instr) {
     RType(instr);
-    debugger::halt("TGE");
+    core::halt("TGE");
 }
 
 void eval_TGEU(u32 instr) {
     RType(instr);
-    debugger::halt("TGEU");
+    core::halt("TGEU");
 }
 
 void eval_TLT(u32 instr) {
     RType(instr);
-    debugger::halt("TLT");
+    core::halt("TLT");
 }
 
 void eval_TLTU(u32 instr) {
     RType(instr);
-    debugger::halt("TLTU");
+    core::halt("TLTU");
 }
 
 void eval_TNE(u32 instr) {
     RType(instr);
-    debugger::halt("TNE");
+    core::halt("TNE");
 }
 
 void eval_XOR(u32 instr) {
@@ -554,32 +555,32 @@ void eval_BLTZALL(u32 instr) {
 
 void eval_TEQI(u32 instr) {
     IType(instr, sign_extend);
-    debugger::halt("TEQI");
+    core::halt("TEQI");
 }
 
 void eval_TGEI(u32 instr) {
     IType(instr, sign_extend);
-    debugger::halt("TGEI");
+    core::halt("TGEI");
 }
 
 void eval_TGEIU(u32 instr) {
     IType(instr, sign_extend);
-    debugger::halt("TGEIU");
+    core::halt("TGEIU");
 }
 
 void eval_TLTI(u32 instr) {
     IType(instr, sign_extend);
-    debugger::halt("TLTI");
+    core::halt("TLTI");
 }
 
 void eval_TLTIU(u32 instr) {
     IType(instr, sign_extend);
-    debugger::halt("TLTIU");
+    core::halt("TLTIU");
 }
 
 void eval_TNEI(u32 instr) {
     IType(instr, sign_extend);
-    debugger::halt("TNEI");
+    core::halt("TNEI");
 }
 
 /* Other opcodes */
@@ -590,7 +591,7 @@ void eval_ADDI(u32 instr) {
     i32 a = (i32)(u32)state.reg.gpr[rs];
     i32 b = (i32)(u32)imm;
     if (__builtin_add_overflow(a, b, &res)) {
-        debugger::halt("ADDI IntegerOverflow");
+        core::halt("ADDI IntegerOverflow");
     }
     state.reg.gpr[rt] = sign_extend<u64, u32>((u32)res);
 }
@@ -675,7 +676,7 @@ void eval_COP3(u32 instr) {
 
 void eval_DADDI(u32 instr) {
     IType(instr, sign_extend);
-    debugger::halt("DADDI");
+    core::halt("DADDI");
 }
 
 void eval_DADDIU(u32 instr) {
@@ -769,7 +770,7 @@ void eval_LDC1(u32 instr) {
 
 void eval_LDC2(u32 instr) {
     takeException(CoprocessorUnusable, 0, false, true, 2);
-    debugger::halt("LDC2");
+    core::halt("LDC2");
 }
 
 void eval_LDL(u32 instr) {
@@ -873,12 +874,12 @@ void eval_LHU(u32 instr) {
 
 void eval_LL(u32 instr) {
     IType(instr, sign_extend);
-    debugger::halt("LL");
+    core::halt("LL");
 }
 
 void eval_LLD(u32 instr) {
     IType(instr, sign_extend);
-    debugger::halt("LLD");
+    core::halt("LLD");
 }
 
 void eval_LUI(u32 instr) {
@@ -925,12 +926,12 @@ void eval_LWC1(u32 instr) {
 
 void eval_LWC2(u32 instr) {
     takeException(CoprocessorUnusable, 0, false, true, 2);
-    debugger::halt("LWC2");
+    core::halt("LWC2");
 }
 
 void eval_LWC3(u32 instr) {
     takeException(CoprocessorUnusable, 0, false, true, 3);
-    debugger::halt("LWC3");
+    core::halt("LWC3");
 }
 
 void eval_LWL(u32 instr) {
@@ -1035,12 +1036,12 @@ void eval_SB(u32 instr) {
 
 void eval_SC(u32 instr) {
     IType(instr, sign_extend);
-    debugger::halt("SC");
+    core::halt("SC");
 }
 
 void eval_SCD(u32 instr) {
     IType(instr, sign_extend);
-    debugger::halt("SCD");
+    core::halt("SCD");
 }
 
 void eval_SD(u32 instr) {
@@ -1076,7 +1077,7 @@ void eval_SDC1(u32 instr) {
 
 void eval_SDC2(u32 instr) {
     takeException(CoprocessorUnusable, 0, false, true, 2);
-    debugger::halt("SDC2");
+    core::halt("SDC2");
 }
 
 void eval_SDL(u32 instr) {
@@ -1187,17 +1188,17 @@ void eval_SWC1(u32 instr) {
 
 void eval_SWC2(u32 instr) {
     takeException(CoprocessorUnusable, 0, false, false, 2);
-    debugger::halt("SWC2");
+    core::halt("SWC2");
 }
 
 void eval_SWC3(u32 instr) {
     takeException(CoprocessorUnusable, 0, false, false, 2);
-    debugger::halt("SWC3");
+    core::halt("SWC3");
 }
 
 void eval_SWL(u32 instr) {
     IType(instr, sign_extend);
-    // debugger::halt("SWL instruction");
+    // core::halt("SWL instruction");
     // @todo only BigEndianMem & !ReverseEndian for now
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
@@ -1222,7 +1223,7 @@ void eval_SWL(u32 instr) {
 
 void eval_SWR(u32 instr) {
     IType(instr, sign_extend);
-    // debugger::halt("SWR instruction");
+    // core::halt("SWR instruction");
     // @todo only BigEndianMem & !ReverseEndian for now
     u64 vAddr = state.reg.gpr[rs] + imm;
     u64 pAddr;
@@ -1331,7 +1332,7 @@ void eval(void) {
 
     debugger::debugger.cpuTrace.put(Debugger::TraceEntry(vaddr, instr));
     if (debugger::debugger.checkBreakpoint(paddr))
-        debugger::halt("Breakpoint");
+        core::halt("Breakpoint");
 
     eval_Instr(instr);
 }

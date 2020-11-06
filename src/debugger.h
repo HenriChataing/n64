@@ -23,27 +23,6 @@ public:
     Debugger();
     ~Debugger();
 
-    /* Stop condition */
-    std::atomic_bool halted;
-    std::string haltedReason;
-
-    /* Halt the machine execution, with the proivded reason. */
-    void halt(std::string reason);
-
-    /* When the debugger is halted, advance the interpreter one step,
-     * or resume execution. */
-    void step();
-    void resume();
-
-    /* Start the interpreter in a separate thread.
-     * Destroy the interpreter thread. */
-    void startInterpreter();
-    void stopInterpreter();
-
-    /* Called for undefined behaviour, can be configured to hard fail the
-     * emulation. */
-    void undefined(std::string cause) {}
-
     enum Verbosity {
         None,
         Error,
@@ -101,12 +80,6 @@ public:
     std::map<u64, std::unique_ptr<Debugger::Breakpoint>>::const_iterator breakpointsEnd();
 
 private:
-    std::thread *           _interpreterThread;
-    std::condition_variable _interpreterCondition;
-    std::mutex              _interpreterMutex;
-    std::atomic_bool        _interpreterStopped;
-    void interpreterRoutine();
-
     std::map<u64, std::unique_ptr<Breakpoint>> _breakpoints;
 };
 
@@ -145,22 +118,8 @@ static void error(Debugger::Label label, const char* format, const Args & ... ar
     vlog<Debugger::Verbosity::Error>(label, format, fmt::make_format_args(args...));
 }
 
-static void reset() {
-    R4300::state.reset();
-}
-
-static void halt(std::string reason) {
-    debugger.halt(reason);
-}
-
-static void resume() {
-    debugger.resume();
-}
-
-static void step() {
-    debugger.step();
-}
-
+/* Called for undefined behaviour, can be configured to hard fail the
+ * emulation. */
 static void undefined(std::string reason) {
 }
 

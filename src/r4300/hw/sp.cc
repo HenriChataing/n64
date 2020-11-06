@@ -7,6 +7,7 @@
 #include <r4300/hw.h>
 #include <r4300/state.h>
 
+#include <core.h>
 #include <debugger.h>
 
 namespace R4300 {
@@ -164,6 +165,7 @@ void write_SP_WR_LEN_REG(u32 value) {
         }
         // Perform the slice copy.
         memcpy(&state.dram[dst], &src_ptr[src], len);
+        core::invalidate_recompiler_cache(dst, dst + len);
     }
 }
 
@@ -188,7 +190,7 @@ void write_SP_STATUS_REG(u32 value) {
     }
     if (value & SP_STATUS_SET_INTR) {
         // Expected behaviour not clearly known.
-        debugger::halt("SP_STATUS_SET_INTR");
+        core::halt("SP_STATUS_SET_INTR");
     }
     if (value & SP_STATUS_CLR_SSTEP) {
         state.hwreg.SP_STATUS_REG &= ~SP_STATUS_SSTEP;
@@ -318,7 +320,7 @@ bool read_SP_REG(uint bytes, u64 addr, u64 *value)
     default:
         debugger::warn(Debugger::SP,
             "Read of unknown SP register: {:08x}", addr);
-        debugger::halt("SP read unknown");
+        core::halt("SP read unknown");
         break;
     }
     *value = 0;
@@ -346,7 +348,7 @@ bool write_SP_REG(uint bytes, u64 addr, u64 value)
     case SP_WR_LEN_REG:
         debugger::info(Debugger::SP, "SP_WR_LEN_REG <- {:08x}", value);
         state.hwreg.SP_WR_LEN_REG = value;
-        debugger::halt("Write of SP_WR_LEN_LEG");
+        core::halt("Write of SP_WR_LEN_LEG");
         return true;
     case SP_STATUS_REG:
         write_SP_STATUS_REG(value);
@@ -378,7 +380,7 @@ bool write_SP_REG(uint bytes, u64 addr, u64 value)
         debugger::warn(Debugger::SP,
             "Write of unknown SP register: {:08x} <- {:08x}",
             addr, value);
-        debugger::halt("SP write unknown");
+        core::halt("SP write unknown");
         break;
     }
     return true;

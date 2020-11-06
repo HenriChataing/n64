@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cstring>
 
+#include <core.h>
 #include <memory.h>
 #include <r4300/hw.h>
 #include <r4300/state.h>
@@ -18,14 +19,14 @@ State state;
 static bool RAZ(unsigned bytes, u64 addr, u64 *val) {
     (void)bytes; (void)addr;
     *val = 0;
-    debugger::halt("RAZ");
+    core::halt("RAZ");
     return true;
 }
 
 /* Write-Ignored */
 static bool WI(unsigned bytes, u64 addr, u64 val) {
     (void)bytes; (void)addr; (void)val;
-    // debugger::halt("WI");
+    // core::halt("WI");
     return true;
 }
 

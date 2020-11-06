@@ -1,4 +1,5 @@
 
+#include <core.h>
 #include <assembly/disassembler.h>
 #include <interpreter/interpreter.h>
 #include <r4300/cpu.h>
@@ -39,7 +40,7 @@ void handleCounterEvent() {
         state.cp0reg.cause |= CAUSE_IP7;
         checkInterrupt();
     } else {
-        debugger::halt("Spurious counter event");
+        core::halt("Spurious counter event");
     }
 
     state.cp0reg.count = (u32)((ulong)state.cp0reg.count + diff);
@@ -189,7 +190,7 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
             debugger::info(Debugger::CPU,
                 "exception AddressError({:08x},{})",
                 vAddr, load);
-            debugger::halt("AddressError");
+            core::halt("AddressError");
             break;
         // TLB Refill occurs when there is no TLB entry that matches an
         // attempted reference to a mapped address space.
@@ -220,7 +221,7 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
             state.cp0reg.badvaddr = vAddr;
             debugger::info(Debugger::CPU,
                 "exception TLBModified({:08x},{})", vAddr);
-            debugger::halt("TLBModified");
+            core::halt("TLBModified");
             // TODO : Context, XContext, EntryHi
             break;
         // The Cache Error exception occurs when either a secondary cache ECC
@@ -229,7 +230,7 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
         case CacheError:
             // vector = 0x100llu;
             debugger::info(Debugger::CPU, "exception CacheError");
-            debugger::halt("CacheError");
+            core::halt("CacheError");
             break;
         // A Virtual Coherency exception occurs when all of the following
         // conditions are true:
@@ -245,7 +246,7 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
             debugger::info(Debugger::CPU,
                 "exception VirtualCoherency({:08x},{})",
                 vAddr, instr);
-            debugger::halt("VirtualCoherency");
+            core::halt("VirtualCoherency");
             break;
         // A Bus Error exception is raised by board-level circuitry for events
         // such as bus time-out, backplane bus parity errors, and invalid
@@ -253,14 +254,14 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
         case BusError:
             exccode = instr ? 6 : 7; // IBE : DBE
             debugger::info(Debugger::CPU, "exception BusError({})", instr);
-            debugger::halt("BusError");
+            core::halt("BusError");
             break;
         // An Integer Overflow exception occurs when an ADD, ADDI, SUB, DADD,
         // DADDI or DSUB instruction results in a 2’s complement overflow
         case IntegerOverflow:
             exccode = 12; // Ov
             debugger::info(Debugger::CPU, "exception IntegerOverflow");
-            debugger::halt("IntegerOverflow");
+            core::halt("IntegerOverflow");
             break;
         // The Trap exception occurs when a TGE, TGEU, TLT, TLTU, TEQ, TNE,
         // TGEI, TGEUI, TLTI, TLTUI, TEQI, or TNEI instruction results in a TRUE
@@ -268,7 +269,7 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
         case Trap:
             exccode = 13; // Tr
             debugger::info(Debugger::CPU, "exception Trap");
-            debugger::halt("Trap");
+            core::halt("Trap");
             break;
         // A System Call exception occurs during an attempt to execute the
         // SYSCALL instruction.
@@ -281,7 +282,7 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
         case Breakpoint:
             exccode = 9; // Bp
             debugger::info(Debugger::CPU, "exception Breakpoint");
-            debugger::halt("Breakpoint");
+            core::halt("Breakpoint");
             break;
         // The Reserved Instruction exception occurs when one of the following
         // conditions occurs:
@@ -296,7 +297,7 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
         case ReservedInstruction:
             exccode = 10; // RI
             debugger::info(Debugger::CPU, "exception ReservedInstruction");
-            debugger::halt("ReservedInstruction");
+            core::halt("ReservedInstruction");
             break;
         // The Coprocessor Unusable exception occurs when an attempt is made to
         // execute a coprocessor instruction for either:
@@ -313,7 +314,7 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
         case FloatingPoint:
             exccode = 15; // FPEEXL
             debugger::info(Debugger::CPU, "exception FloatingPoint");
-            debugger::halt("FloatingPoint");
+            core::halt("FloatingPoint");
             // TODO: Set FP Control Status Register
             break;
         // A Watch exception occurs when a load or store instruction references
@@ -323,7 +324,7 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
         case Watch:
             exccode = 23; // WATCH
             debugger::info(Debugger::CPU, "exception Watch");
-            debugger::halt("Watch");
+            core::halt("Watch");
             // TODO: Set Watch register
             break;
         // The Interrupt exception occurs when one of the eight interrupt conditions
@@ -333,7 +334,7 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
             debugger::info(Debugger::CPU, "exception Interrupt");
             break;
         default:
-            debugger::halt("UndefinedException");
+            core::halt("UndefinedException");
             break;
     }
 

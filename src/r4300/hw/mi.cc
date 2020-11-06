@@ -7,6 +7,7 @@
 #include <r4300/hw.h>
 #include <r4300/state.h>
 
+#include <core.h>
 #include <debugger.h>
 
 namespace R4300 {
@@ -169,7 +170,7 @@ bool read_MI_REG(uint bytes, u64 addr, u64 *value)
     default:
         debugger::warn(Debugger::MI,
             "Read of unknown MI register: {:08x}", addr);
-        debugger::halt("MI read unknown");
+        core::halt("MI read unknown");
         break;
     }
     *value = 0;
@@ -198,7 +199,7 @@ bool write_MI_REG(uint bytes, u64 addr, u64 value)
         debugger::warn(Debugger::MI,
             "Write of unknown MI register: {:08x} <- {:08x}",
             addr, value);
-        debugger::halt("MI write unknown");
+        core::halt("MI write unknown");
         break;
     }
     return true;

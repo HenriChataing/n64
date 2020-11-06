@@ -12,6 +12,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#include <core.h>
 #include <assembly/registers.h>
 #include <debugger.h>
 #include <r4300/state.h>
@@ -814,7 +815,7 @@ static void ShowTrace(bool *show_trace) {
     }
     if (ImGui::BeginTabBar("Trace", 0)) {
         if (ImGui::BeginTabItem("Cpu")) {
-            if (debugger::debugger.halted) {
+            if (core::halted()) {
                 cpuTrace.DrawContents("cpu", assembly::cpu::disassemble);
             } else {
                 ImGui::Text("Cpu is running...");
@@ -822,7 +823,7 @@ static void ShowTrace(bool *show_trace) {
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Rsp")) {
-            if (debugger::debugger.halted) {
+            if (core::halted()) {
                 rspTrace.DrawContents("rsp", assembly::rsp::disassemble);
             } else {
                 ImGui::Text("Rsp is running...");
@@ -934,17 +935,17 @@ static void ShowDebuggerWindow(void) {
             startCycles = updateCycles;
         }
 
-        if (debugger::debugger.halted) {
+        if (core::halted()) {
             ImGui::Text("Machine halt reason: '%s'\n",
-                debugger::debugger.haltedReason.c_str());
-            if (ImGui::Button("Reset")) { debugger::reset(); }
+                core::halted_reason().c_str());
+            if (ImGui::Button("Reset")) { core::reset(); }
             ImGui::SameLine();
-            if (ImGui::Button("Continue")) { debugger::resume(); }
+            if (ImGui::Button("Continue")) { core::resume(); }
             ImGui::SameLine();
-            if (ImGui::Button("Step")) { debugger::step(); }
+            if (ImGui::Button("Step")) { core::step(); }
         } else {
             if (ImGui::Button("Halt")) {
-                debugger::halt("Interrupted by user");
+                core::halt("Interrupted by user");
             }
         }
 
@@ -1029,10 +1030,11 @@ int startGui()
 {
     // Initialize the machine state.
     R4300::state.reset();
-    // Start interpreter thread.
     startTime = clock();
     startCycles = 0;
-    debugger::debugger.startInterpreter();
+
+    // Start interpreter thread.
+    core::start();
 
     // Setup window
     glfwSetErrorCallback(glfwErrorCallback);
@@ -1137,6 +1139,6 @@ int startGui()
     glfwDestroyWindow(window);
     glfwTerminate();
 
-    debugger::debugger.stopInterpreter();
+    core::stop();
     return 0;
 }

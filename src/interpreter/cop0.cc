@@ -11,6 +11,7 @@
 #include <assembly/registers.h>
 #include <interpreter.h>
 
+#include <core.h>
 #include <memory.h>
 #include <debugger.h>
 
@@ -169,35 +170,35 @@ void eval_MFC0(u32 instr) {
         case EPC:       val = state.cp0reg.epc; break;
         case PrId:
             val = state.cp0reg.prid;
-            debugger::halt("MFC0 prid");
+            core::halt("MFC0 prid");
             break;
         case Config:
             val = state.cp0reg.config;
-            debugger::halt("MFC0 config");
+            core::halt("MFC0 config");
             break;
         case LLAddr:
             val = state.cp0reg.lladdr;
-            debugger::halt("MFC0 lladdr");
+            core::halt("MFC0 lladdr");
             break;
         case WatchLo:
             val = state.cp0reg.watchlo;
-            debugger::halt("MFC0 watchlo");
+            core::halt("MFC0 watchlo");
             break;
         case WatchHi:
             val = state.cp0reg.watchhi;
-            debugger::halt("MFC0 watchhi");
+            core::halt("MFC0 watchhi");
             break;
         case XContext:
             val = state.cp0reg.xcontext;
-            debugger::halt("MFC0 xcontext");
+            core::halt("MFC0 xcontext");
             break;
         case PErr:
             val = state.cp0reg.perr;
-            debugger::halt("MFC0 perr");
+            core::halt("MFC0 perr");
             break;
         case CacheErr:
             val = state.cp0reg.cacheerr;
-            debugger::halt("MFC0 cacheerr");
+            core::halt("MFC0 cacheerr");
             break;
         case TagLo:     val = state.cp0reg.taglo; break;
         case TagHi:     val = state.cp0reg.taghi; break;
@@ -205,7 +206,7 @@ void eval_MFC0(u32 instr) {
         default:
             val = 0;
             std::string reason = "MFC0 ";
-            debugger::halt(reason + assembly::cpu::Cop0RegisterNames[rd]);
+            core::halt(reason + assembly::cpu::Cop0RegisterNames[rd]);
             break;
     }
 
@@ -227,14 +228,14 @@ void eval_DMFC0(u32 instr) {
         case EntryLo1:  val = state.cp0reg.entrylo1; break;
         case Context:
             val = state.cp0reg.context;
-            debugger::halt("DMFC0 context");
+            core::halt("DMFC0 context");
             break;
         case BadVAddr:  val = state.cp0reg.badvaddr; break;
         case EntryHi:   val = state.cp0reg.entryhi; break;
         case EPC:       val = state.cp0reg.epc; break;
         case XContext:
             val = state.cp0reg.xcontext;
-            debugger::halt("DMFC0 xcontext");
+            core::halt("DMFC0 xcontext");
             break;
         case ErrorEPC:  val = state.cp0reg.errorepc; break;
         /* 32bit registers */
@@ -246,7 +247,7 @@ void eval_DMFC0(u32 instr) {
         default:
             val = 0;
             std::string reason = "DMFC0 ";
-            debugger::halt(reason + assembly::cpu::Cop0RegisterNames[rd] +
+            core::halt(reason + assembly::cpu::Cop0RegisterNames[rd] +
                 " (undefined)");
             break;
     }
@@ -270,7 +271,7 @@ void eval_MTC0(u32 instr) {
         case Index:     state.cp0reg.index = val & UINT32_C(0x3f); break;
         case Random:
             state.cp0reg.random = val;
-            debugger::halt("MTC0 random");
+            core::halt("MTC0 random");
             break;
         case EntryLo0:  state.cp0reg.entrylo0 = sign_extend<u64, u32>(val); break;
         case EntryLo1:  state.cp0reg.entrylo1 = sign_extend<u64, u32>(val); break;
@@ -281,7 +282,7 @@ void eval_MTC0(u32 instr) {
         case Wired:
             state.cp0reg.wired = val & UINT32_C(0x3f);
             if (state.cp0reg.wired >= tlbEntryCount)
-                debugger::halt("COP0::wired invalid value");
+                core::halt("COP0::wired invalid value");
             state.cp0reg.random = tlbEntryCount - 1;
             break;
         case BadVAddr:  state.cp0reg.badvaddr = sign_extend<u64, u32>(val); break;
@@ -301,7 +302,7 @@ void eval_MTC0(u32 instr) {
                 state.cp1reg.setFprAliases((val & STATUS_FR) != 0);
             }
             if (val & STATUS_RE) {
-                debugger::halt("COP0::sr RE bit set");
+                core::halt("COP0::sr RE bit set");
             }
             // TODO check all config bits
             state.cp0reg.sr = val;
@@ -320,42 +321,42 @@ void eval_MTC0(u32 instr) {
         case EPC:       state.cp0reg.epc = sign_extend<u64, u32>(val); break;
         case PrId:
             state.cp0reg.prid = val;
-            debugger::halt("MTC0 prid");
+            core::halt("MTC0 prid");
             break;
         case Config:
             state.cp0reg.config = val;
-            debugger::halt("MTC0 config");
+            core::halt("MTC0 config");
             break;
         case LLAddr:
             state.cp0reg.lladdr = val;
-            debugger::halt("MTC0 lladdr");
+            core::halt("MTC0 lladdr");
             break;
         case WatchLo:
             state.cp0reg.watchlo = val;
-            debugger::halt("MTC0 watchlo");
+            core::halt("MTC0 watchlo");
             break;
         case WatchHi:
             state.cp0reg.watchhi = val;
-            debugger::halt("MTC0 watchhi");
+            core::halt("MTC0 watchhi");
             break;
         case XContext:
             state.cp0reg.xcontext = sign_extend<u64, u32>(val);
-            debugger::halt("MTC0 xcontext");
+            core::halt("MTC0 xcontext");
             break;
         case PErr:
             state.cp0reg.perr = val;
-            debugger::halt("MTC0 perr");
+            core::halt("MTC0 perr");
             break;
         case CacheErr:
             state.cp0reg.cacheerr = val;
-            debugger::halt("MTC0 cacheerr");
+            core::halt("MTC0 cacheerr");
             break;
         case TagLo:     state.cp0reg.taglo = val; break;
         case TagHi:     state.cp0reg.taghi = val; break;
         case ErrorEPC:  state.cp0reg.errorepc = sign_extend<u64, u32>(val); break;
         default:
             std::string reason = "MTC0 ";
-            debugger::halt(reason + assembly::cpu::Cop0RegisterNames[rd]);
+            core::halt(reason + assembly::cpu::Cop0RegisterNames[rd]);
             break;
     }
 }
@@ -375,19 +376,19 @@ void eval_DMTC0(u32 instr) {
         case EntryLo1:  state.cp0reg.entrylo1 = val; break;
         case Context:
             state.cp0reg.context = val;
-            debugger::halt("DMTC0 context");
+            core::halt("DMTC0 context");
             break;
         case BadVAddr:  state.cp0reg.badvaddr = val; break;
         case EntryHi:   state.cp0reg.entryhi = val; break;
         case EPC:       state.cp0reg.epc = val; break;
         case XContext:
             state.cp0reg.xcontext = val;
-            debugger::halt("DMTC0 xcontext");
+            core::halt("DMTC0 xcontext");
             break;
         case ErrorEPC:  state.cp0reg.errorepc = val; break;
         default:
             std::string reason = "DMTC0 ";
-            debugger::halt(reason + assembly::cpu::Cop0RegisterNames[rd] +
+            core::halt(reason + assembly::cpu::Cop0RegisterNames[rd] +
                 " (undefined)");
             break;
     }
@@ -396,13 +397,13 @@ void eval_DMTC0(u32 instr) {
 /** @brief Interpret a CFC0 instruction. */
 void eval_CFC0(u32 instr) {
     (void)instr;
-    debugger::halt("CFC0");
+    core::halt("CFC0");
 }
 
 /** @brief Interpret a CTC0 instruction. */
 void eval_CTC0(u32 instr) {
     (void)instr;
-    debugger::halt("CTC0");
+    core::halt("CTC0");
 }
 
 /** @brief Interpret the TLBR instruction. */
@@ -410,7 +411,7 @@ void eval_TLBR(u32 instr) {
     (void)instr;
     unsigned index = state.cp0reg.index & UINT32_C(0x3f);
     if (index >= tlbEntryCount) {
-        debugger::halt("TLBR bad index");
+        core::halt("TLBR bad index");
         return;
     }
     state.cp0reg.pagemask = state.tlb[index].pageMask & UINT32_C(0x01ffe000);
@@ -427,7 +428,7 @@ void eval_TLBW(u32 instr) {
     if (funct == assembly::TLBWI) {
         index = state.cp0reg.index & UINT32_C(0x3f);
         if (index >= tlbEntryCount) {
-            debugger::halt("TLBWI bad index");
+            core::halt("TLBWI bad index");
             return;
         }
     } else {
@@ -490,12 +491,12 @@ void eval_COP0(u32 instr)
                 case assembly::TLBP:  eval_TLBP(instr); break;
                 case assembly::ERET:  eval_ERET(instr); break;
                 default:
-                    debugger::halt("COP0 unsupported COFUN instruction");
+                    core::halt("COP0 unsupported COFUN instruction");
                     break;
             }
             break;
         default:
-            debugger::halt("COP0 unsupported instruction");
+            core::halt("COP0 unsupported instruction");
             break;
     }
 }

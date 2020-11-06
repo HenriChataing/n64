@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cfenv>
 
+#include <core.h>
 #include <debugger.h>
 #include <memory.h>
 #include <r4300/hw.h>
@@ -60,7 +61,7 @@ void eval_DMFC1(u32 instr) {
     // returns the value as if read from the register rd - 1.
     // See \ref cp1reg::setFprAliases for details.
     state.reg.gpr[rt] = state.cp1reg.fpr_d[rd]->l;
-    debugger::halt("DMFC1 instruction");
+    core::halt("DMFC1 instruction");
 }
 
 void eval_CFC1(u32 instr) {
@@ -69,7 +70,7 @@ void eval_CFC1(u32 instr) {
         case 0:  state.reg.gpr[rt] = state.cp1reg.fcr0; break;
         case 31: state.reg.gpr[rt] = state.cp1reg.fcr31; break;
         default:
-            debugger::halt("COP1::CF Unimplemented control register");
+            core::halt("COP1::CF Unimplemented control register");
     }
 }
 
@@ -93,7 +94,7 @@ void eval_CTC1(u32 instr) {
         case 0:  state.cp1reg.fcr0  = state.reg.gpr[rt]; break;
         case 31: state.cp1reg.fcr31 = state.reg.gpr[rt]; break;
         default:
-            debugger::halt("COP1::CT Unimplemented control register");
+            core::halt("COP1::CT Unimplemented control register");
     }
 }
 
@@ -119,7 +120,7 @@ void eval_BC1(u32 instr) {
         likely = true;
         break;
     default:
-        debugger::halt("COP1::BC::* invalid instruction");
+        core::halt("COP1::BC::* invalid instruction");
         break;
     }
 
@@ -187,7 +188,7 @@ void eval_NEG_S(u32 instr) {
     FRType(instr);
     if (std::isnan(state.cp1reg.fpr_s[fs]->s)) {
         // TODO invalid operation exception is NaN
-        debugger::halt("COP1::S::NEG invalid operation");
+        core::halt("COP1::S::NEG invalid operation");
     }
     state.cp1reg.fpr_s[fd]->s = -state.cp1reg.fpr_s[fs]->s;
 }
@@ -202,7 +203,7 @@ void eval_ROUND_L_S(u32 instr) {
     int64_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT64_MAX || in < INT64_MIN) {
-        debugger::halt("COP1::S::ROUNDL invalid operation");
+        core::halt("COP1::S::ROUNDL invalid operation");
         out = INT64_MIN;
     } else {
         out = in;
@@ -217,7 +218,7 @@ void eval_TRUNC_L_S(u32 instr) {
     int64_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT64_MAX || in < INT64_MIN) {
-        debugger::halt("COP1::S::TRUNCL invalid operation");
+        core::halt("COP1::S::TRUNCL invalid operation");
         out = INT64_MIN;
     } else {
         out = in;
@@ -232,7 +233,7 @@ void eval_CEIL_L_S(u32 instr) {
     int64_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT64_MAX || in < INT64_MIN) {
-        debugger::halt("COP1::S::CEILL invalid operation");
+        core::halt("COP1::S::CEILL invalid operation");
         out = INT64_MIN;
     } else {
         out = in;
@@ -247,7 +248,7 @@ void eval_FLOOR_L_S(u32 instr) {
     int64_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT64_MAX || in < INT64_MIN) {
-        debugger::halt("COP1::S::FLOORL invalid operation");
+        core::halt("COP1::S::FLOORL invalid operation");
         out = INT64_MIN;
     } else {
         out = in;
@@ -265,7 +266,7 @@ void eval_ROUND_W_S(u32 instr) {
     int32_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT32_MAX || in < INT32_MIN) {
-        debugger::halt("COP1::S::ROUNDW invalid operation");
+        core::halt("COP1::S::ROUNDW invalid operation");
         out = INT32_MIN;
     } else {
         out = in;
@@ -280,7 +281,7 @@ void eval_TRUNC_W_S(u32 instr) {
     int32_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT32_MAX || in < INT32_MIN) {
-        debugger::halt("COP1::S::TRUNCW invalid operation");
+        core::halt("COP1::S::TRUNCW invalid operation");
         out = INT32_MIN;
     } else {
         out = in;
@@ -295,7 +296,7 @@ void eval_CEIL_W_S(u32 instr) {
     int32_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT32_MAX || in < INT32_MIN) {
-        debugger::halt("COP1::S::CEILW invalid operation");
+        core::halt("COP1::S::CEILW invalid operation");
         out = INT32_MIN;
     } else {
         out = in;
@@ -310,7 +311,7 @@ void eval_FLOOR_W_S(u32 instr) {
     int32_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT32_MAX || in < INT32_MIN) {
-        debugger::halt("COP1::S::FLOORW invalid operation");
+        core::halt("COP1::S::FLOORW invalid operation");
         out = INT32_MIN;
     } else {
         out = in;
@@ -348,7 +349,7 @@ void eval_CMP_S(u32 instr) {
         equal = false;
         unordered = true;
         if (funct & 0x8lu) {
-            debugger::halt("COP1::S::COMP invalid operation");
+            core::halt("COP1::S::COMP invalid operation");
         }
     } else {
         less = s < t;
@@ -422,7 +423,7 @@ void eval_NEG_D(u32 instr) {
     FRType(instr);
     if (std::isnan(state.cp1reg.fpr_d[fs]->d)) {
         // TODO invalid operation exception is NaN
-        debugger::halt("COP1::D::NEG invalid operation");
+        core::halt("COP1::D::NEG invalid operation");
     }
     state.cp1reg.fpr_d[fd]->d = -state.cp1reg.fpr_d[fs]->d;
 }
@@ -437,7 +438,7 @@ void eval_ROUND_L_D(u32 instr) {
     int64_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT64_MAX || in < INT64_MIN) {
-        debugger::halt("COP1::D::ROUNDL invalid operation");
+        core::halt("COP1::D::ROUNDL invalid operation");
         out = INT64_MIN;
     } else {
         out = in;
@@ -452,7 +453,7 @@ void eval_TRUNC_L_D(u32 instr) {
     int64_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT64_MAX || in < INT64_MIN) {
-        debugger::halt("COP1::D::TRUNCL invalid operation");
+        core::halt("COP1::D::TRUNCL invalid operation");
         out = INT64_MIN;
     } else {
         out = in;
@@ -467,7 +468,7 @@ void eval_CEIL_L_D(u32 instr) {
     int64_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT64_MAX || in < INT64_MIN) {
-        debugger::halt("COP1::D::CEILL invalid operation");
+        core::halt("COP1::D::CEILL invalid operation");
         out = INT64_MIN;
     } else {
         out = in;
@@ -482,7 +483,7 @@ void eval_FLOOR_L_D(u32 instr) {
     int64_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT64_MAX || in < INT64_MIN) {
-        debugger::halt("COP1::D::FLOORL invalid operation");
+        core::halt("COP1::D::FLOORL invalid operation");
         out = INT64_MIN;
     } else {
         out = in;
@@ -500,7 +501,7 @@ void eval_ROUND_W_D(u32 instr) {
     int32_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT32_MAX || in < INT32_MIN) {
-        debugger::halt("COP1::D::ROUNDW invalid operation");
+        core::halt("COP1::D::ROUNDW invalid operation");
         out = INT32_MIN;
     } else {
         out = in;
@@ -516,7 +517,7 @@ void eval_TRUNC_W_D(u32 instr) {
     if (std::isnan(in) || std::isinf(in) ||
         in > INT32_MAX || in < INT32_MIN) {
         // TODO invalid operation exception if enabled
-        debugger::halt("COP1::D::TRUNCW invalid operation");
+        core::halt("COP1::D::TRUNCW invalid operation");
         out = INT32_MIN;
     } else {
         out = in;
@@ -531,7 +532,7 @@ void eval_CEIL_W_D(u32 instr) {
     int32_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT32_MAX || in < INT32_MIN) {
-        debugger::halt("COP1::D::CEILW invalid operation");
+        core::halt("COP1::D::CEILW invalid operation");
         out = INT32_MIN;
     } else {
         out = in;
@@ -546,7 +547,7 @@ void eval_FLOOR_W_D(u32 instr) {
     int32_t out;
     if (std::isnan(in) || std::isinf(in) ||
         in > INT32_MAX || in < INT32_MIN) {
-        debugger::halt("COP1::D::FLOORW invalid operation");
+        core::halt("COP1::D::FLOORW invalid operation");
         out = INT32_MIN;
     } else {
         out = in;
@@ -587,7 +588,7 @@ void eval_CMP_D(u32 instr) {
         equal = false;
         unordered = true;
         if (funct & 0x8lu) {
-            debugger::halt("COP1::D::COMP invalid operation");
+            core::halt("COP1::D::COMP invalid operation");
         }
     } else {
         less = s < t;

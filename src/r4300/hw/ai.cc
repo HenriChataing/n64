@@ -7,6 +7,7 @@
 #include <r4300/hw.h>
 #include <r4300/state.h>
 
+#include <core.h>
 #include <debugger.h>
 
 namespace R4300 {
@@ -91,7 +92,7 @@ bool read_AI_REG(uint bytes, u64 addr, u64 *value)
     default:
         debugger::warn(Debugger::AI,
             "Read of unknown AI register: {:08x}", addr);
-        debugger::halt("AI read unknown");
+        core::halt("AI read unknown");
         break;
     }
     *value = 0;
@@ -131,7 +132,7 @@ bool write_AI_REG(uint bytes, u64 addr, u64 value)
         debugger::warn(Debugger::AI,
             "Write of unknown AI register: {:08x} <- {:08x}",
             addr, value);
-        debugger::halt("AI write unknown");
+        core::halt("AI write unknown");
         break;
     }
     return true;

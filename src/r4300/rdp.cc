@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <iostream>
 
+#include <core.h>
 #include <debugger.h>
 #include <r4300/rdp.h>
 #include <r4300/hw.h>
@@ -452,7 +453,7 @@ static void pipeline_tx_load(struct tile const *tile, unsigned s, unsigned t, co
         break;
     }
     case IMAGE_DATA_FORMAT_YUV_16:
-        debugger::halt("pipeline_tx_load: unsupported image data type YUV_16");
+        core::halt("pipeline_tx_load: unsupported image data type YUV_16");
         break;
     /* R[31:24],G[23:16],G[15:8],A[7:0] =>
      * R [31:24]
@@ -471,7 +472,7 @@ static void pipeline_tx_load(struct tile const *tile, unsigned s, unsigned t, co
     default:
         debugger::warn(Debugger::RDP,
             "pipeline_tx_load: unexpected image data type {}", tile->type);
-        debugger::halt("pipeline_tx_load: unexpected image data type");
+        core::halt("pipeline_tx_load: unexpected image data type");
         break;
     }
 }
@@ -697,7 +698,7 @@ static void pipeline_mi_load(pixel_t *px) {
     u8 *addr = &state.dram[px->mem_color_addr];
     switch (rdp.color_image.type) {
     case IMAGE_DATA_FORMAT_I_8:
-        debugger::halt("pipeline_mi_load: unsupported image data type I_8");
+        core::halt("pipeline_mi_load: unsupported image data type I_8");
         break;
     /* R[15:11],G[10:6],G[5:1],A[0] =>
      * R {[15:11],[15:13]}
@@ -729,7 +730,7 @@ static void pipeline_mi_load(pixel_t *px) {
         break;
     }
     default:
-        debugger::halt("pipeline_mi_store: unexpected image data type");
+        core::halt("pipeline_mi_store: unexpected image data type");
         break;
     }
 }
@@ -777,7 +778,7 @@ static void pipeline_mi_store(unsigned mem_color_addr, color_t color) {
     u8 *addr = &state.dram[mem_color_addr];
     switch (rdp.color_image.type) {
     case IMAGE_DATA_FORMAT_I_8:
-        debugger::halt("pipeline_mi_store: unsupported image data type I_8");
+        core::halt("pipeline_mi_store: unsupported image data type I_8");
         break;
     case IMAGE_DATA_FORMAT_RGBA_5_5_5_1: {
         u16 r = color.r >> 3;
@@ -798,7 +799,7 @@ static void pipeline_mi_store(unsigned mem_color_addr, color_t color) {
         break;
     }
     default:
-        debugger::halt("pipeline_mi_store: unexpected image data type");
+        core::halt("pipeline_mi_store: unexpected image data type");
         break;
     }
 }
@@ -974,7 +975,7 @@ static void render_span(i32 y, i32 xs, i32 xe) {
         debugger::warn(Debugger::RDP,
             "(fill) render_span out-of-bounds, start:{}, length:{}",
             offset, length);
-        debugger::halt("FillMode::render_span out-of-bounds");
+        core::halt("FillMode::render_span out-of-bounds");
         return;
     }
 
@@ -1003,7 +1004,7 @@ static void render_span(i32 y, i32 xs, i32 xe) {
         }
     }
     else {
-        debugger::halt("FillMode::render_span unsupported image data format");
+        core::halt("FillMode::render_span unsupported image data format");
     }
 }
 
@@ -1048,14 +1049,14 @@ static void render_span(i32 y, i32 xs, i32 xe,
         debugger::warn(Debugger::RDP,
             "(copy) render_span out-of-bounds, start:{:x}, length:{}",
             offset, length);
-        debugger::halt("(copy) render_span out-of-bounds");
+        core::halt("(copy) render_span out-of-bounds");
         return;
     }
     if (tile->type == IMAGE_DATA_FORMAT_RGBA_8_8_8_8 ||
         tile->type == IMAGE_DATA_FORMAT_YUV_16) {
         debugger::warn(Debugger::RDP,
             "(copy) render_span invalid tile data format");
-        debugger::halt("(copy) render_span invalid tile data format");
+        core::halt("(copy) render_span invalid tile data format");
         return;
     }
 
@@ -1157,7 +1158,7 @@ static void render_span(bool left, i32 y, i32 x[8],
         debugger::warn(Debugger::RDP,
             "(cycle1) render_span out-of-bounds, base:{}, end:{}",
             mem_color_base, mem_color_end);
-        debugger::halt("Cycle1Mode::render_span out-of-bounds");
+        core::halt("Cycle1Mode::render_span out-of-bounds");
         return;
     }
 
@@ -1194,7 +1195,7 @@ static void render_span(bool left, i32 y, i32 x[8],
             debugger::warn(Debugger::RDP,
                 "(cycle1) render_span zbuffer out-of-bounds, base:{}, end:{}",
                 mem_z_base, mem_z_end);
-            debugger::halt("Cycle1Mode::render_span zbuffer out-of-bounds");
+            core::halt("Cycle1Mode::render_span zbuffer out-of-bounds");
             return;
         }
 
@@ -1441,7 +1442,7 @@ static void render_triangle(u64 command, u64 const *params,
     debugger::debug(Debugger::RDP, "  tile: {}", tile);
 
     if (rdp.other_modes.cycle_type != CYCLE_TYPE_1CYCLE)
-        debugger::halt("render_triangle: unsupported cycle type");
+        core::halt("render_triangle: unsupported cycle type");
 
     read_edge_coefs(command, params, &edge);
     print_edge_coefs(&edge);
@@ -1705,15 +1706,15 @@ void syncFull(u64 command, u64 const *params) {
 }
 
 void setKeyGB(u64 command, u64 const *params) {
-    debugger::halt("set_key_gb");
+    core::halt("set_key_gb");
 }
 
 void setKeyR(u64 command, u64 const *params) {
-    debugger::halt("set_key_r");
+    core::halt("set_key_r");
 }
 
 void setConvert(u64 command, u64 const *params) {
-    debugger::halt("set_convert");
+    core::halt("set_convert");
 }
 
 void setScissor(u64 command, u64 const *params) {
@@ -1736,7 +1737,7 @@ void setScissor(u64 command, u64 const *params) {
     if (rdp.scissor.xh > rdp.scissor.xl ||
         rdp.scissor.yh > rdp.scissor.yl) {
         debugger::warn(Debugger::RDP, "invalid scissor coordinates");
-        debugger::halt("set_scissor: invalid coordinates");
+        core::halt("set_scissor: invalid coordinates");
     }
 }
 
@@ -1829,7 +1830,7 @@ void setOtherModes(u64 command, u64 const *params) {
         rdp.other_modes.sample_type = SAMPLE_TYPE_4X1;
 
     if (rdp.other_modes.cycle_type == CYCLE_TYPE_2CYCLE)
-        debugger::halt("unsupported cycle type 2CYCLE");
+        core::halt("unsupported cycle type 2CYCLE");
 }
 
 void loadTlut(u64 command, u64 const *params) {
@@ -1851,7 +1852,7 @@ void loadTlut(u64 command, u64 const *params) {
     debugger::debug(Debugger::RDP, "  th: {}", (float)rdp.tiles[tile].th / 4.);
 
     if (rdp.texture_image.size != PIXEL_SIZE_16B) {
-        debugger::halt("load_tlut: invalid pixel size");
+        core::halt("load_tlut: invalid pixel size");
         return;
     }
 
@@ -1860,7 +1861,7 @@ void loadTlut(u64 command, u64 const *params) {
     sh >>= 2;
 
     if (sl >= 256 || sh >= 256 || sl > sh) {
-        debugger::halt("load_tlut: out-of-bounds palette index");
+        core::halt("load_tlut: out-of-bounds palette index");
         return;
     }
 
@@ -1916,7 +1917,7 @@ void loadBlock(u64 command, u64 const *params) {
 
     unsigned src_size = rdp.texture_image.size;
     if (src_size == PIXEL_SIZE_4B) {
-        debugger::halt("Invalid texture format for loadBlock");
+        core::halt("Invalid texture format for loadBlock");
     }
 
     unsigned src_size_shift = src_size - 1;
@@ -1965,11 +1966,11 @@ void loadTile(u64 command, u64 const *params) {
     unsigned dst_fmt = rdp.tiles[tile].format;
 
     if (src_size != dst_size) {
-        debugger::halt("Incompatible texture formats");
+        core::halt("Incompatible texture formats");
         return;
     }
     if (src_size == PIXEL_SIZE_4B) {
-        debugger::halt("Invalid texture format for loadTile");
+        core::halt("Invalid texture format for loadTile");
         return;
     }
     if (src_fmt != dst_fmt) {
@@ -1991,12 +1992,12 @@ void loadTile(u64 command, u64 const *params) {
 
     switch (rdp.texture_image.type) {
     case IMAGE_DATA_FORMAT_YUV_16:
-        debugger::halt("Unsupported texture image data format YUV");
+        core::halt("Unsupported texture image data format YUV");
         break;
     /* Texels are split RG + BA between low and high texture memory addresses */
     case IMAGE_DATA_FORMAT_RGBA_8_8_8_8:
         if (rdp.tiles[tile].tmem_addr >= HIGH_TMEM_ADDR) {
-            debugger::halt("load_tile: RGBA_8_8_8_8 in high mem");
+            core::halt("load_tile: RGBA_8_8_8_8 in high mem");
             return;
         }
         for (unsigned y = tl; y < th; y++) {
@@ -2070,7 +2071,7 @@ void fillRectangle(u64 command, u64 const *params) {
 
     if (xh > xl || yh > yl) {
         debugger::warn(Debugger::RDP, "invalid fill_rcetangle coordinates");
-        debugger::halt("fill_rectangle: invalid coordinates");
+        core::halt("fill_rectangle: invalid coordinates");
         return;
     }
 
@@ -2201,7 +2202,7 @@ void setTextureImage(u64 command, u64 const *params) {
 
     if ((rdp.texture_image.addr % 8u) != 0) {
         debugger::warn(Debugger::RDP, "set_texture_image: misaligned data address");
-        debugger::halt("set_texture_image: invalid address");
+        core::halt("set_texture_image: invalid address");
         return;
     }
 
@@ -2216,7 +2217,7 @@ void setZImage(u64 command, u64 const *params) {
 
     if ((rdp.z_image.addr % 8u) != 0) {
         debugger::warn(Debugger::RDP, "set_z_image: misaligned data address");
-        debugger::halt("set_z_image: invalid address");
+        core::halt("set_z_image: invalid address");
         return;
     }
 }
@@ -2234,7 +2235,7 @@ void setColorImage(u64 command, u64 const *params) {
 
     if ((rdp.color_image.addr % 8u) != 0) {
         debugger::warn(Debugger::RDP, "set_color_image: misaligned data address");
-        debugger::halt("set_color_image: invalid address");
+        core::halt("set_color_image: invalid address");
         return;
     }
 
@@ -2245,7 +2246,7 @@ void setColorImage(u64 command, u64 const *params) {
         debugger::warn(Debugger::RDP,
             "set_color_image: invalid image data format: {},{}",
             rdp.color_image.format, rdp.color_image.size);
-        debugger::halt("set_color_image: invalid format");
+        core::halt("set_color_image: invalid format");
         return;
     }
 }
@@ -2405,7 +2406,7 @@ struct {
  */
 void write_DPC_END_REG(u32 value) {
     state.hwreg.DPC_END_REG = value & 0xfffffflu;
-    while (DPC_hasNext(1) && !debugger::debugger.halted) {
+    while (DPC_hasNext(1) && !core::halted()) {
         u64 command = 0;
         DPC_read(&command, 1);
         u64 opcode = (command >> 56) & 0x3flu;
@@ -2413,7 +2414,7 @@ void write_DPC_END_REG(u32 value) {
         if (RDPCommands[opcode].command == NULL) {
             debugger::warn(Debugger::RDP, "unknown command {:02x} [{:016x}]",
                 opcode, command);
-            debugger::halt("DPC unknown command");
+            core::halt("DPC unknown command");
             break;
         }
 

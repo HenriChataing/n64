@@ -39,10 +39,8 @@ fmt::text_style debugger::VerbosityStyle[] = {
 /* Class */
 
 Debugger::Debugger()
-    : halted(true), haltedReason("Reset"),
-      cpuTrace(0x10000), rspTrace(0x10000)
+    : cpuTrace(0x10000), rspTrace(0x10000)
 {
-    _interpreterStopped = false;
     for (int label = 0; label < Debugger::LabelCount; label++) {
         verbosity[label] = Debugger::Warn;
     }
@@ -68,13 +66,6 @@ Debugger::Debugger()
 }
 
 Debugger::~Debugger() {
-}
-
-void Debugger::halt(std::string reason) {
-    if (!halted) {
-        haltedReason = reason;
-        halted = true;
-    }
 }
 
 /* Breakpoints */

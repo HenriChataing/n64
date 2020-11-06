@@ -7,6 +7,7 @@
 #include <r4300/hw.h>
 #include <r4300/state.h>
 
+#include <core.h>
 #include <debugger.h>
 
 namespace R4300 {
@@ -58,7 +59,7 @@ bool read_DPC_REG(uint bytes, u64 addr, u64 *value)
     default:
         debugger::warn(Debugger::DPCommand,
             "Read of unknown DPCommand register: {:08x}", addr);
-        debugger::halt("DPCommand read unknown");
+        core::halt("DPCommand read unknown");
         return false;
     }
     return true;
@@ -83,7 +84,7 @@ bool write_DPC_REG(uint bytes, u64 addr, u64 value)
         debugger::warn(Debugger::DPCommand,
             "Write of unknown DPCommand register: {:08x} <- {:08x}",
             addr, value);
-        debugger::halt("DPCommand write unknown");
+        core::halt("DPCommand write unknown");
         return false;
     }
     return true;
@@ -112,7 +113,7 @@ const u32 DPS_BUFTEST_DATA_REG = UINT32_C(0x042000c);
 bool read_DPS_REG(uint bytes, u64 addr, u64 *value)
 {
     debugger::warn(Debugger::DPSpan, "Read of DPSpan register: {:08x}", addr);
-    debugger::halt("DPSpan unsupported");
+    core::halt("DPSpan unsupported");
     *value = 0;
     return true;
 }
@@ -121,7 +122,7 @@ bool write_DPS_REG(uint bytes, u64 addr, u64 value)
 {
     debugger::warn(Debugger::DPSpan,
         "Write of DPSpan register: {:08x} <- {:08x}", addr, value);
-    debugger::halt("DPSpan unsupported");
+    core::halt("DPSpan unsupported");
     return true;
 }
 
