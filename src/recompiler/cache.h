@@ -40,6 +40,11 @@ recompiler_cache_t *alloc_recompiler_cache(size_t page_size,
 void free_recompiler_cache(recompiler_cache_t *cache);
 
 /**
+ * @brief Return the cache page size.
+ */
+size_t get_recompiler_cache_page_size(recompiler_cache_t const *cache);
+
+/**
  * @brief Push code to the code cache.
  * @param cache         Code cache
  * @param address       Address of the newly compiled code block

@@ -1,13 +1,17 @@
 
+#include <inttypes.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <recompiler/cache.h>
+#include <recompiler/config.h>
 
 typedef struct address_map {
     uint64_t address;
     code_entry_t binary;
-    size_t binary_len;
+    uint16_t binary_len;
+    uint16_t hits;
 } address_map_t;
 
 struct recompiler_cache {
@@ -101,6 +105,13 @@ void free_recompiler_cache(recompiler_cache_t *cache) {
 }
 
 /**
+ * @brief Return the cache page size.
+ */
+size_t get_recompiler_cache_page_size(recompiler_cache_t const *cache) {
+    return cache->page_size;
+}
+
+/**
  * @brief Push code to the code cache.
  * @param cache         Code cache
  * @param address       Address of the newly compiled code block
@@ -147,6 +158,9 @@ void invalidate_recompiler_cache(recompiler_cache_t *cache,
     uint64_t end_page =
         (end_address + cache->page_size - 1) >> cache->page_shift;
 
+    if (start_page >= cache->page_count) {
+        return;
+    }
     if (end_page >= cache->page_count) {
         end_page = cache->page_count;
     }
@@ -183,18 +197,30 @@ code_entry_t query_recompiler_cache(recompiler_cache_t *cache,
 
     address_map_t *map = cache->address_maps + page_nr * cache->map_size;
     unsigned hash = (address >> 2) % cache->map_size;
-    *emitter = cache->code_buffers + page_nr;
     for (unsigned nr = 0; nr < cache->map_size; nr++) {
         unsigned index = (nr + hash) % cache->map_size;
-        if (map[index].binary == NULL) {
-            return NULL;
-        }
-        if (map[index].address == address) {
-            if (binary_len) *binary_len = map[index].binary_len;
+
+        if (map[index].address == 0 ||
+            map[index].address == address) {
+
+            map[index].address = address;
+            *emitter = NULL;
+
+            if (binary_len) {
+                *binary_len = map[index].binary_len;
+            }
+
+            if (map[index].binary == NULL &&
+                ++map[index].hits == RECOMPILER_CACHE_THRESHOLD) {
+                *emitter = cache->code_buffers + page_nr;
+                map[index].hits = RECOMPILER_CACHE_THRESHOLD + 1;
+            }
+
             return map[index].binary;
         }
     }
 
     /* Map is full, but the address is not present. */
+    *emitter = NULL;
     return NULL;
 }

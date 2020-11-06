@@ -23,4 +23,8 @@
 /** Defines whether the disassembly stops at branch instructions or not. */
 #define RECOMPILER_DISAS_BRANCH_ENABLE  0
 
+/** Defines the number of times a branch needs to be taken before
+ * requesting recompilation. */
+#define RECOMPILER_CACHE_THRESHOLD      1
+
 #endif /* _RECOMPILER_CONFIG_H_INCLUDED_ */
