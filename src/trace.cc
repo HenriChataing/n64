@@ -32,7 +32,7 @@ bool RecordBus::load(unsigned bytes, u64 address, u64 *value) {
     uint64_t cycles = R4300::state.cycles;
     bool res = root.load(bytes, address, value);
 
-    unsigned char buf[34];
+    unsigned char buf[35];
     buf[0] = 0;
     buf[1] = bytes;
     buf[2] = res;
@@ -56,7 +56,7 @@ bool RecordBus::store(unsigned bytes, u64 address, u64 value) {
     uint64_t cycles = R4300::state.cycles;
     bool res = root.store(bytes, address, value);
 
-    unsigned char buf[34];
+    unsigned char buf[35];
     buf[0] = 1;
     buf[1] = bytes;
     buf[2] = res;
@@ -98,7 +98,7 @@ bool ReplayBus::load(unsigned bytes, u64 address, u64 *value) {
     uint64_t cycles = R4300::state.cycles;
     bool res = root.load(bytes, address, value);
 
-    unsigned char buf[34];
+    unsigned char buf[35];
     _is->read((char *)buf, sizeof(buf));
     if (_is->gcount() != sizeof(buf)) {
         fmt::print(fmt::fg(fmt::color::tomato),
@@ -127,16 +127,19 @@ bool ReplayBus::load(unsigned bytes, u64 address, u64 *value) {
             "    played:  load_u{}(0x{:x}) -> {}, 0x{:x} @ 0x{:x}, {}\n",
             bytes * 8, address, res, *value, pc, cycles);
 
-        if (buf[0]) {
+        if (buf[0] == 0) {
+            fmt::print(fmt::emphasis::italic,
+                "    expected: load_u{}(0x{:x}) -> {}, 0x{:x} @ 0x{:x}, {}\n",
+                buf[1] * 8, recorded_address, (bool)buf[2], recorded_value,
+                recorded_pc, recorded_cycles);
+        } else if (buf[0] == 1) {
             fmt::print(fmt::emphasis::italic,
                 "    expected: store_u{}(0x{:x}, 0x{:x}) -> {} @ 0x{:x}, {}\n",
                 buf[1] * 8, recorded_address, recorded_value,
                 (bool)buf[2], recorded_pc, recorded_cycles);
         } else {
             fmt::print(fmt::emphasis::italic,
-                "    expected: load_u{}(0x{:x}) -> {}, 0x{:x} @ 0x{:x}, {}\n",
-                buf[1] * 8, recorded_address, (bool)buf[2], recorded_value,
-                recorded_pc, recorded_cycles);
+                "    expected: unrelated event {}\n", buf[0]);
         }
         core::halt("unexpected load access");
     }
@@ -149,7 +152,7 @@ bool ReplayBus::store(unsigned bytes, u64 address, u64 value) {
     uint64_t cycles = R4300::state.cycles;
     bool res = root.store(bytes, address, value);
 
-    unsigned char buf[34];
+    unsigned char buf[35];
     _is->read((char *)buf, sizeof(buf));
     if (_is->gcount() != sizeof(buf)) {
         fmt::print(fmt::fg(fmt::color::tomato),
@@ -164,7 +167,7 @@ bool ReplayBus::store(unsigned bytes, u64 address, u64 value) {
     uint64_t recorded_pc = deserialize(buf + 19);
     uint64_t recorded_cycles = deserialize(buf + 27);
 
-    if (buf[0] != 0 ||
+    if (buf[0] != 1 ||
         buf[1] != bytes ||
         buf[2] != res ||
         recorded_address != address ||
@@ -178,16 +181,19 @@ bool ReplayBus::store(unsigned bytes, u64 address, u64 value) {
             "    played:  store_u{}(0x{:x}, 0x{:x}) -> {} @ 0x{:x}, {}\n",
             bytes * 8, address, value, res, pc, cycles);
 
-        if (buf[0]) {
+        if (buf[0] == 0) {
+            fmt::print(fmt::emphasis::italic,
+                "    expected: load_u{}(0x{:x}) -> {}, 0x{:x} @ 0x{:x}, {}\n",
+                buf[1] * 8, recorded_address, (bool)buf[2], recorded_value,
+                recorded_pc, recorded_cycles);
+        } else if (buf[0] == 1) {
             fmt::print(fmt::emphasis::italic,
                 "    expected: store_u{}(0x{:x}, 0x{:x}) -> {} @ 0x{:x}, {}\n",
                 buf[1] * 8, recorded_address, recorded_value,
                 (bool)buf[2], recorded_pc, recorded_cycles);
         } else {
             fmt::print(fmt::emphasis::italic,
-                "    expected: load_u{}(0x{:x}) -> {}, 0x{:x} @ 0x{:x}, {}\n",
-                buf[1] * 8, recorded_address, (bool)buf[2], recorded_value,
-                recorded_pc, recorded_cycles);
+                "    expected: unrelated event {}\n", buf[0]);
         }
         core::halt("unexpected store access");
     }

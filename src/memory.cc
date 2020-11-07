@@ -195,6 +195,7 @@ bool RamRegion::store(uint bytes, u64 addr, u64 value)
             *(u64 *)(&block[offset]) = value;
             break;
     }
+    core::invalidate_recompiler_cache(addr, addr + bytes);
     return true;
 }
 
