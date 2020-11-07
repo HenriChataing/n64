@@ -18,6 +18,7 @@
 
 #include "core.h"
 #include "debugger.h"
+#include "trace.h"
 
 #define RECOMPILER_REQUEST_QUEUE_LEN 128
 
@@ -255,6 +256,8 @@ void exec_interpreter(struct recompiler_request_queue *queue,
 #else
     code_entry_t binary = NULL;
 #endif
+
+    trace_point(virt_address, state.cycles);
 
     // The recompiler cache did not contain the requested entry point,
     // run the recompiler until the next branching instruction.

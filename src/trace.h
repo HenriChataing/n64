@@ -6,6 +6,14 @@
 #include "memory.h"
 
 /**
+ * @brief Set a trace point.
+ * The trace point records the current program counter and cycles.
+ * Depending the the current bus implementation (RecordBus or ReplayBus),
+ * the trace point will be added to, or matched against, the memory trace.
+ */
+void trace_point(uint64_t pc, uint64_t cycles);
+
+/**
  * @brief Special bus implementation which serializes a trace of the memory
  * accesses to a defined destination. The recorded traces can be replayed
  * for regression checks using the ReplayBus class.
@@ -17,8 +25,7 @@ public:
     virtual bool load(unsigned bytes, u64 address, u64 *value);
     virtual bool store(unsigned bytes, u64 address, u64 value);
 
-private:
-    std::ostream *_os;
+    std::ostream *os;
 };
 
 /**
@@ -33,8 +40,7 @@ public:
     virtual bool load(unsigned bytes, u64 address, u64 *value);
     virtual bool store(unsigned bytes, u64 address, u64 value);
 
-private:
-    std::istream *_is;
+    std::istream *is;
 };
 
 #endif /* _TRACE_H_INCLUDED_ */
