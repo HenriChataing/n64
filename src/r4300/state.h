@@ -16,7 +16,7 @@ public:
     State();
     ~State();
 
-    int load(std::string file);
+    int load(std::istream &rom_contents);
     void reset();
 
     struct cpureg reg;          /**< CPU registers */

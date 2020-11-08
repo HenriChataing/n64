@@ -21,7 +21,7 @@ OPTIMISE  ?= 2
 ENABLE_CAPTURE := 0
 
 INCLUDE   := $(SRCDIR) $(SRCDIR)/lib $(SRCDIR)/gui $(SRCDIR)/interpreter
-INCLUDE   += $(EXTDIR)/fmt/include $(EXTDIR)/imgui
+INCLUDE   += $(EXTDIR)/fmt/include $(EXTDIR)/imgui $(EXTDIR)/cxxopts/include
 DEFINE    := TARGET_BIGENDIAN
 
 CFLAGS    := -Wall -Wno-unused-function -std=gnu11 -g
