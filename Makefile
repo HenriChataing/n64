@@ -16,13 +16,16 @@ PROFILE   ?= 0
 # Select optimisation level.
 OPTIMISE  ?= 2
 
+# Enable recompiler.
+ENABLE_RECOMPILER ?= 1
+
 # Enable trace capture. Traces are saved to test/recompiler to be
 # used as recompiler test inputs.
 ENABLE_CAPTURE := 0
 
 INCLUDE   := $(SRCDIR) $(SRCDIR)/lib $(SRCDIR)/gui $(SRCDIR)/interpreter
 INCLUDE   += $(EXTDIR)/fmt/include $(EXTDIR)/imgui $(EXTDIR)/cxxopts/include
-DEFINE    := TARGET_BIGENDIAN
+DEFINE    := TARGET_BIGENDIAN ENABLE_RECOMPILER=$(ENABLE_RECOMPILER)
 
 CFLAGS    := -Wall -Wno-unused-function -std=gnu11 -g
 CFLAGS    += -O$(OPTIMISE) $(addprefix -I,$(INCLUDE)) $(addprefix -D,$(DEFINE))

@@ -250,9 +250,6 @@ void exec_interpreter(struct recompiler_request_queue *queue,
     unsigned long cycles = state.cycles;
     code_buffer_t *emitter = NULL;
 
-    // Increment block count.
-    instruction_blocks++;
-
     // First translate the virtual address.
     // The next action must be jump, the recompilation is triggered
     // at block starts only.
@@ -260,14 +257,8 @@ void exec_interpreter(struct recompiler_request_queue *queue,
         state.cpu.nextPc, &phys_address, false);
 
     // Query the recompiler cache.
-#if 1
     code_entry_t binary = exn != Exception::None || phys_address == 0 ? NULL :
         query_recompiler_cache(cache, phys_address, &emitter, NULL);
-#else
-    code_entry_t binary = NULL;
-#endif
-
-    trace_point(virt_address, state.cycles);
 
     // The recompiler cache did not contain the requested entry point,
     // run the recompiler until the next branching instruction.
@@ -315,15 +306,22 @@ void exec_interpreter(struct recompiler_request_queue *queue,
 /** Invalidate the recompiler cache for the provided address range. */
 void invalidate_recompiler_cache(uint64_t start_phys_address,
                                  uint64_t end_phys_address) {
+#if ENABLE_RECOMPILER
     invalidate_recompiler_cache(recompiler_cache,
         start_phys_address, end_phys_address);
+#endif /* ENABLE_RECOMPILER */
 }
 
 /** Return the cache usage statistics. */
 void get_recompiler_cache_stats(float *cache_usage,
                                 float *buffer_usage) {
+#if ENABLE_RECOMPILER
     get_recompiler_cache_stats(recompiler_cache,
         cache_usage, buffer_usage);
+#else
+    *cache_usage = 0;
+    *buffer_usage = 0;
+#endif /* ENABLE_RECOMPILER */
 }
 
 /**
@@ -387,8 +385,14 @@ void interpreter_routine(void) {
             // at the start of the loop contents.
             cycles = state.cycles;
             check_cpu_events();
+            instruction_blocks++;
+            trace_point(state.cpu.nextPc, state.cycles);
+#if ENABLE_RECOMPILER
             exec_interpreter(&recompiler_request_queue,
                 recompiler_backend, recompiler_cache);
+#else
+            exec_cpu_interpreter(1);
+#endif /* ENABLE_RECOMPILER */
             exec_rsp_interpreter(state.cycles - cycles);
         }
 
@@ -398,6 +402,7 @@ void interpreter_routine(void) {
 }
 
 void start(void) {
+#if ENABLE_RECOMPILER
     if (recompiler_backend == NULL) {
         recompiler_backend = ir_mips_recompiler_backend();
     }
@@ -405,11 +410,14 @@ void start(void) {
         recompiler_cache =
             alloc_recompiler_cache(0x4000, 0x100, 0x20000, 0x2000);
     }
+    if (recompiler_thread == NULL) {
+        recompiler_thread = new std::thread(recompiler_routine);
+    }
+#endif /* ENABLE_RECOMPILER */
     if (interpreter_thread == NULL) {
         interpreter_halted = true;
         interpreter_halted_reason = "reset";
         interpreter_thread = new std::thread(interpreter_routine);
-        recompiler_thread = new std::thread(recompiler_routine);
     }
 }
 
