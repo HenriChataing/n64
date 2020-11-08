@@ -7,6 +7,7 @@
 
 #include <r4300/state.h>
 #include <memory.h>
+#include <trace.h>
 
 void startGui();
 
@@ -41,6 +42,36 @@ int main(int argc, char *argv[])
         std::cout << "ROM file '" << rom_file << "' not found" << std::endl;
         std::cout << options.help() << std::endl;
         exit(1);
+    }
+
+    if (result.count("record") && result.count("replay")) {
+        std::cout << "The options --record and --replay can not be set together" << std::endl;
+        std::cout << options.help() << std::endl;
+        exit(1);
+    }
+    if (result.count("record")) {
+        std::string trace_file = result["record"].as<std::string>();
+        std::ofstream *ostream = new std::ofstream(
+            trace_file, std::ios::binary);
+        if (!ostream->good()) {
+            std::cout << "Failed to create trace file '";
+            std::cout << trace_file << "'" << std::endl;
+            std::cout << options.help() << std::endl;
+            exit(1);
+        }
+        R4300::state.swapMemoryBus(new RecordBus(32, ostream));
+    }
+    if (result.count("replay")) {
+        std::string trace_file = result["replay"].as<std::string>();
+        std::ifstream *istream = new std::ifstream(
+            trace_file, std::ios::binary);
+        if (!istream->good()) {
+            std::cout << "Trace file '" << trace_file;
+            std::cout << "' not found" << std::endl;
+            std::cout << options.help() << std::endl;
+            exit(1);
+        }
+        R4300::state.swapMemoryBus(new ReplayBus(32, istream));
     }
 
     R4300::state.load(rom_contents);

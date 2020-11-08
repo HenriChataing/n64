@@ -60,6 +60,7 @@ public:
         Event  *eventQueue;
     } cpu, rsp;
 
+    void swapMemoryBus(Memory::Bus *bus);
     void scheduleEvent(ulong timeout, void (*callback)());
     void cancelEvent(void (*callback)());
     void cancelAllEvents();

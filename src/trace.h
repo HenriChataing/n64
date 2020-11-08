@@ -22,6 +22,7 @@ class RecordBus: public Memory::Bus
 {
 public:
     RecordBus(unsigned bits, std::ostream *os);
+    ~RecordBus();
     virtual bool load(unsigned bytes, u64 address, u64 *value);
     virtual bool store(unsigned bytes, u64 address, u64 value);
 
@@ -37,6 +38,7 @@ class ReplayBus: public Memory::Bus
 {
 public:
     ReplayBus(unsigned bits, std::istream *is);
+    ~ReplayBus();
     virtual bool load(unsigned bytes, u64 address, u64 *value);
     virtual bool store(unsigned bytes, u64 address, u64 value);
 

@@ -99,6 +99,10 @@ void trace_point(uint64_t pc, uint64_t cycles) {
 RecordBus::RecordBus(unsigned bits, std::ostream *os)
     : Memory::Bus(bits), os(os) {}
 
+RecordBus::~RecordBus() {
+    delete os;
+}
+
 bool RecordBus::load(unsigned bytes, u64 address, u64 *value) {
     uint64_t pc = R4300::state.reg.pc;
     uint64_t cycles = R4300::state.cycles;
@@ -153,6 +157,10 @@ bool RecordBus::store(unsigned bytes, u64 address, u64 value) {
  */
 ReplayBus::ReplayBus(unsigned bits, std::istream *is)
     : Memory::Bus(bits), is(is) {}
+
+ReplayBus::~ReplayBus() {
+    delete is;
+}
 
 bool ReplayBus::load(unsigned bytes, u64 address, u64 *value) {
     uint64_t pc = R4300::state.reg.pc;

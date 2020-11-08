@@ -32,11 +32,24 @@ static bool WI(unsigned bytes, u64 addr, u64 val) {
     return true;
 }
 
-State::State() {
+State::State() : bus(NULL) {
     // Create the physical memory address space for this machine
     // importing the rom bytes for the select file.
-    bus = new Memory::Bus(32);
+    swapMemoryBus(new Memory::Bus(32));
+}
 
+State::~State() {
+    delete bus;
+}
+
+int State::load(std::istream &rom_contents) {
+    // Clear the ROM memory and copy the file.
+    memset(rom, 0, sizeof(rom));
+    rom_contents.read((char *)rom, sizeof(rom));
+    return rom_contents.gcount() > 0 ? 0 : -1;
+}
+
+void State::swapMemoryBus(Memory::Bus *bus) {
     bus->root.insertRam(  0x00000000llu, 0x400000, dram);   /* RDRAM ranges 0, 1 */
     bus->root.insertIOmem(0x00400000llu, 0x400000, RAZ, WI);/* RDRAM ranges 2, 3 (extended) */
     bus->root.insertIOmem(0x03f00000llu, 0x100000, read_RDRAM_REG, write_RDRAM_REG);
@@ -57,17 +70,8 @@ State::State() {
     bus->root.insertRom(  0x10000000llu, 0xfc00000,  rom); /* Cartridge Domain 1 Address 2 */
     bus->root.insertIOmem(0x1fc00000llu, 0x100000,   read_PIF_RAM,  write_PIF_RAM);
     bus->root.insertIOmem(0x1fd00000llu, 0x60300000lu, read_CART_1_3, write_CART_1_3);
-}
-
-State::~State() {
-    delete bus;
-}
-
-int State::load(std::istream &rom_contents) {
-    // Clear the ROM memory and copy the file.
-    memset(rom, 0, sizeof(rom));
-    rom_contents.read((char *)rom, sizeof(rom));
-    return rom_contents.gcount() > 0 ? 0 : -1;
+    if (this->bus) delete this->bus;
+    this->bus = bus;
 }
 
 void State::reset() {
