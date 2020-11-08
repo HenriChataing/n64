@@ -27,10 +27,85 @@ static Disassembler romDisassembler(12);
 static Trace cpuTrace(&debugger::debugger.cpuTrace);
 static Trace rspTrace(&debugger::debugger.rspTrace);
 static clock_t startTime;
+
 static unsigned long startCycles;
+static unsigned long startRecompilerCycles;
+static unsigned long startRecompilerRequests;
+static unsigned long startInstructionBlocks;
 
 static void glfwErrorCallback(int error, const char* description) {
     fprintf(stderr, "Glfw Error %d: %s\n", error, description);
+}
+
+static void ShowAnalytics(void) {
+    // CPU freq is 93.75 MHz
+    static float timeRatio[5 * 60] = { 0 };
+    static float recompilerUsage[5 * 60] = { 0 };
+    static float recompilerRequests[5 * 60] = { 0 };
+    static float recompilerCache[5 * 60] = { 0 };
+    static float recompilerBuffer[5 * 60] = { 0 };
+    static float instructionBlockLength[5 * 60] = { 0 };
+    static unsigned plotOffset = 0;
+    unsigned plotLength = 5 * 60;
+    unsigned plotUpdateInterval = 200;
+    float plotWidth = ImGui::GetContentRegionAvail().x;
+    float plotHeight = 40.0f;
+    ImVec2 plotDimensions = ImVec2(plotWidth, plotHeight);
+
+    clock_t updateTime = clock();
+    unsigned long updateCycles = R4300::state.cycles;
+    unsigned long updateRecompilerCycles = core::recompiler_cycles;
+    unsigned long updateRecompilerRequests = core::recompiler_requests;
+    unsigned long updateInstructionBlocks = core::instruction_blocks;
+
+    float elapsedMilliseconds = (updateTime - startTime) * 1000.0 / CLOCKS_PER_SEC;
+    float machineMilliseconds = (updateCycles - startCycles) / 93750.0;
+
+    if (elapsedMilliseconds >= plotUpdateInterval) {
+        timeRatio[plotOffset] =
+            machineMilliseconds * 100.0 / elapsedMilliseconds;
+
+        recompilerUsage[plotOffset] =
+            (updateCycles == startCycles) ? 0 :
+                (updateRecompilerCycles - startRecompilerCycles) * 100.0 /
+                (updateCycles - startCycles);
+
+        recompilerRequests[plotOffset] =
+            updateRecompilerRequests - startRecompilerRequests;
+
+        core::get_recompiler_cache_stats(
+            recompilerCache + plotOffset,
+            recompilerBuffer + plotOffset);
+
+        recompilerCache[plotOffset] *= 100.0;
+        recompilerBuffer[plotOffset] *= 100.0;
+
+        instructionBlockLength[plotOffset] =
+            (updateInstructionBlocks == startInstructionBlocks) ?
+                (float)(updateCycles - startCycles) :
+                (float)(updateCycles - startCycles) /
+                (updateInstructionBlocks - startInstructionBlocks);
+
+        plotOffset = (plotOffset + 1) % plotLength;
+        startTime = updateTime;
+        startCycles = updateCycles;
+        startRecompilerCycles = updateRecompilerCycles;
+        startRecompilerRequests = updateRecompilerRequests;
+        startInstructionBlocks = updateInstructionBlocks;
+    }
+
+    ImGui::PlotLines("", timeRatio, plotLength, plotOffset,
+        "time ratio", 0.0f, 100.0f, plotDimensions);
+    ImGui::PlotLines("", recompilerUsage, plotLength, plotOffset,
+        "recompiler usage", 0.0f, 100.0f, plotDimensions);
+    ImGui::PlotLines("", recompilerRequests, plotLength, plotOffset,
+        "recompiler requests", 0.0f, 500.0f, plotDimensions);
+    ImGui::PlotLines("", recompilerCache, plotLength, plotOffset,
+        "recompiler cache", 0.0f, 100.0f, plotDimensions);
+    ImGui::PlotLines("", recompilerBuffer, plotLength, plotOffset,
+        "recompiler buffer", 0.0f, 100.0f, plotDimensions);
+    ImGui::PlotLines("", instructionBlockLength, plotLength, plotOffset,
+        "avg instruction block length", 0.0f, 10.0f, plotDimensions);
 }
 
 static void ShowCpuRegisters(void) {
@@ -704,11 +779,12 @@ static void ShowCartInformation(void) {
 
 struct Module {
     char const *Name;
-    Debugger::Label Label;
+    int Label;
     void (*ShowInformation)();
 };
 
 static Module Modules[] = {
+    { "Analytics",      -1,                     ShowAnalytics },
     { "CPU",            Debugger::CPU,          ShowCpuRegisters },
     { "CPU::COP0",      Debugger::COP0,         ShowCpuCop0Registers },
     { "CPU::COP1",      Debugger::COP1,         ShowCpuCop1Registers },
@@ -920,20 +996,8 @@ static void ShowDebuggerWindow(void) {
             ImGui::EndMenuBar();
         }
 
-        // CPU freq is 93.75 MHz
-        clock_t updateTime = clock();
-        unsigned long updateCycles = R4300::state.cycles;
-        float elapsedMilliseconds = (updateTime - startTime) * 1000.0 / CLOCKS_PER_SEC;
-        float machineMilliseconds = (updateCycles - startCycles) / 93750.0;
-        float timeRatio = machineMilliseconds * 100.0 / elapsedMilliseconds;
-
-        ImGui::Text("Real time: %lums (%lu) %.2f%%\n",
-            updateCycles / 93750lu, updateCycles, timeRatio);
-
-        if (elapsedMilliseconds > 1000) {
-            startTime = updateTime;
-            startCycles = updateCycles;
-        }
+        ImGui::Text("Real time: %lums (%lu)\n",
+            R4300::state.cycles / 93750lu, R4300::state.cycles);
 
         if (core::halted()) {
             ImGui::Text("Machine halt reason: '%s'\n",
@@ -960,12 +1024,12 @@ static void ShowDebuggerWindow(void) {
         ImGui::EndChild();
         ImGui::SameLine();
 
-        // Right
         ImGui::BeginChild("module view",
             ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
         ImGui::Text("%s", Modules[selected].Name);
-        if (Modules[selected].Label < Debugger::LabelCount) {
-            Debugger::Label label = Modules[selected].Label;
+        if (Modules[selected].Label < Debugger::LabelCount &&
+            Modules[selected].Label >= 0) {
+            Debugger::Label label = (Debugger::Label)Modules[selected].Label;
             int verb = debugger::debugger.verbosity[label];
             float col[3] = {
                 (float)debugger::debugger.color[label].r / 256.f,
@@ -1032,6 +1096,9 @@ int startGui()
     R4300::state.reset();
     startTime = clock();
     startCycles = 0;
+    startRecompilerCycles = 0;
+    startRecompilerRequests = 0;
+    startInstructionBlocks = 0;
 
     // Start interpreter thread.
     core::start();

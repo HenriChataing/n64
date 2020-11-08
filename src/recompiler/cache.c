@@ -112,6 +112,29 @@ size_t get_recompiler_cache_page_size(recompiler_cache_t const *cache) {
 }
 
 /**
+ * @brief Return the cache usage statistics.
+ */
+void get_recompiler_cache_stats(recompiler_cache_t const *cache,
+                                float *map_usage,
+                                float *buffer_usage) {
+    size_t map_taken = 0;
+    size_t address_maps_size = cache->page_count * cache->map_size;
+    for (size_t nr = 0; nr < address_maps_size; nr++) {
+        map_taken += (cache->address_maps[nr].address != 0);
+    }
+
+    size_t buffer_taken = 0;
+    size_t buffer_capacity = 0;
+    for (size_t nr = 0; nr < cache->page_count; nr++) {
+        buffer_taken += cache->code_buffers[nr].length;
+        buffer_capacity += cache->code_buffers[nr].capacity;
+    }
+
+    *map_usage = (float)map_taken / address_maps_size;
+    *buffer_usage = (float)buffer_taken / buffer_capacity;
+}
+
+/**
  * @brief Push code to the code cache.
  * @param cache         Code cache
  * @param address       Address of the newly compiled code block

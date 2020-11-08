@@ -7,6 +7,13 @@
 
 namespace core {
 
+/** Number of cycles executed through recompiled code. */
+extern unsigned long recompiler_cycles;
+/** Number of handlded recompiler requests (successful or not). */
+extern unsigned long recompiler_requests;
+/** Number of instruction blocks executed (until a branching instruction). */
+extern unsigned long instruction_blocks;
+
 /**
  * @brief Start the interpreter and recompiler in separate threads.
  * The interpreter is initially halted and shoulf be kicked off with
@@ -38,6 +45,10 @@ void resume(void);
 /** Invalidate the recompiler cache for the provided address range. */
 void invalidate_recompiler_cache(uint64_t start_phys_address,
                                  uint64_t end_phys_address);
+
+/** Return the cache usage statistics. */
+void get_recompiler_cache_stats(float *cache_usage,
+                                float *buffer_usage);
 
 }; /* namespace core */
 

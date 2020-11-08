@@ -103,6 +103,10 @@ void recompiler_request_queue::dequeue(struct recompiler_request &request) {
 
 namespace core {
 
+unsigned long recompiler_cycles;
+unsigned long recompiler_requests;
+unsigned long instruction_blocks;
+
 static struct recompiler_request_queue recompiler_request_queue(
     RECOMPILER_REQUEST_QUEUE_LEN);
 static recompiler_backend_t   *recompiler_backend;
@@ -124,6 +128,8 @@ void exec_recompiler_request(struct recompiler_backend *backend,
         "recompiler request: {:x} {:x}\n",
         request->phys_address, request->virt_address);
 #endif
+    // Update request count.
+    recompiler_requests++;
 
     // Get the pointer to the buffer containing the MIPS assembly to
     // recompiler. The length is computed so as to not cross a cache page
@@ -241,7 +247,11 @@ void exec_interpreter(struct recompiler_request_queue *queue,
                       struct recompiler_cache *cache) {
     uint64_t virt_address = state.cpu.nextPc;
     uint64_t phys_address;
+    unsigned long cycles = state.cycles;
     code_buffer_t *emitter = NULL;
+
+    // Increment block count.
+    instruction_blocks++;
 
     // First translate the virtual address.
     // The next action must be jump, the recompilation is triggered
@@ -296,6 +306,9 @@ void exec_interpreter(struct recompiler_request_queue *queue,
         // Counter interrupts will be caught at the end of the block.
         // The ERET instruction can also activate pending interrupts.
         checkInterrupt();
+
+        // Update analytics.
+        recompiler_cycles += state.cycles - cycles;
     }
 }
 
@@ -304,6 +317,13 @@ void invalidate_recompiler_cache(uint64_t start_phys_address,
                                  uint64_t end_phys_address) {
     invalidate_recompiler_cache(recompiler_cache,
         start_phys_address, end_phys_address);
+}
+
+/** Return the cache usage statistics. */
+void get_recompiler_cache_stats(float *cache_usage,
+                                float *buffer_usage) {
+    get_recompiler_cache_stats(recompiler_cache,
+        cache_usage, buffer_usage);
 }
 
 /**
@@ -406,6 +426,7 @@ void stop(void) {
 
 void reset(void) {
     R4300::state.reset();
+    recompiler_cycles = 0;
 }
 
 void halt(std::string reason) {

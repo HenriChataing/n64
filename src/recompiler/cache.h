@@ -45,6 +45,13 @@ void free_recompiler_cache(recompiler_cache_t *cache);
 size_t get_recompiler_cache_page_size(recompiler_cache_t const *cache);
 
 /**
+ * @brief Return the cache usage statistics.
+ */
+void get_recompiler_cache_stats(recompiler_cache_t const *cache,
+                                float *map_usage,
+                                float *buffer_usage);
+
+/**
  * @brief Push code to the code cache.
  * @param cache         Code cache
  * @param address       Address of the newly compiled code block
