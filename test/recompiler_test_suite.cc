@@ -239,23 +239,18 @@ State::~State() {
 }
 
 void set_MI_INTR_REG(u32 bits) {
-    debugger::halt("MI_INTR_REG unimplemented for recompiler tests");
 }
 
 void clear_MI_INTR_REG(u32 bits) {
-    debugger::halt("MI_INTR_REG unimplemented for recompiler tests");
 }
 
 void write_DPC_STATUS_REG(u32 value) {
-    debugger::halt("DPC_STATUS_REG unimplemented for recompiler tests");
 }
 
 void write_DPC_START_REG(u32 value) {
-    debugger::halt("DPC_START_REG unimplemented for recompiler tests");
 }
 
 void write_DPC_END_REG(u32 value) {
-    debugger::halt("DPC_END_REG unimplemented for recompiler tests");
 }
 
 void State::scheduleEvent(ulong timeout, void (*callback)()) {
@@ -271,6 +266,17 @@ void State::handleEvent(void) {
 }
 
 }; /* namespace R4300 */
+
+namespace core {
+
+void halt(std::string reason) {
+}
+
+void invalidate_recompiler_cache(uint64_t start_phys_address,
+                                 uint64_t end_phys_address) {
+}
+
+}; /* namespace core */
 
 struct test_header {
     std::string test_name;

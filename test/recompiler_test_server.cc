@@ -19,6 +19,7 @@
 #include <recompiler/target/mips.h>
 #include <recompiler/target/x86_64.h>
 #include <r4300/state.h>
+#include <core.h>
 #include <debugger.h>
 
 using namespace Memory;
@@ -443,7 +444,7 @@ void stop_capture(u64 address) {
     }
 
     if (trace_sync->status != 0)
-        debugger::halt("Recompiler test fail");
+        core::halt("Recompiler test fail");
 
 clear_capture:
     bus->capture(false);
