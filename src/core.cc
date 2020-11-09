@@ -148,6 +148,11 @@ void exec_recompiler_request(struct recompiler_backend *backend,
     graph = ir_mips_disassemble(
         backend, request->virt_address, phys_ptr, phys_len);
 
+    if (graph == NULL) {
+        return;
+    }
+
+
 #if 0
     // Preliminary sanity checks on the generated intermediate
     // representation. Really should not fail here.
