@@ -9,7 +9,6 @@
 #include <interpreter.h>
 #include <recompiler/ir.h>
 #include <recompiler/backend.h>
-#include <recompiler/cache.h>
 #include <recompiler/code_buffer.h>
 #include <recompiler/passes.h>
 #include <recompiler/target/mips.h>
@@ -21,21 +20,20 @@
 #include "trace.h"
 
 #define RECOMPILER_REQUEST_QUEUE_LEN 128
+#define CACHE_PAGE_SHIFT  (14)
+#define CACHE_PAGE_SIZE   (UINT32_C(1) << CACHE_PAGE_SHIFT)
+#define CACHE_PAGE_MASK   (CACHE_PAGE_SIZE - 1)
+#define CACHE_PAGE_COUNT  (0x100)
 
 using namespace R4300;
 
 struct recompiler_request {
     uint64_t virt_address;
     uint64_t phys_address;
-    code_buffer_t *emitter;
 
-    recompiler_request() :
-        virt_address(0), phys_address(0),
-        emitter(NULL) {}
-    recompiler_request(uint64_t virt_address, uint64_t phys_address,
-                       code_buffer_t *emitter) :
-        virt_address(virt_address), phys_address(phys_address),
-        emitter(emitter) {}
+    recompiler_request() : virt_address(0), phys_address(0) {}
+    recompiler_request(uint64_t virt_address, uint64_t phys_address) :
+        virt_address(virt_address), phys_address(phys_address) {}
 };
 
 struct recompiler_request_queue {
@@ -61,6 +59,7 @@ struct recompiler_request_queue {
     bool is_empty(void);
     bool enqueue(struct recompiler_request const &request);
     void dequeue(struct recompiler_request &request);
+    void flush(void);
 };
 
 bool recompiler_request_queue::is_full(void) {
@@ -90,16 +89,63 @@ bool recompiler_request_queue::enqueue(struct recompiler_request const &request)
 void recompiler_request_queue::dequeue(struct recompiler_request &request) {
     while (is_empty()) {
         std::unique_lock<std::mutex> lock(mutex);
-        semaphore.wait(lock, [this] {
-            return this->notified.load(std::memory_order_acquire);
-        });
         notified.store(false, std::memory_order_release);
+        semaphore.wait(lock, [this] { return true; });
     }
 
     uint32_t tail = this->tail.load(std::memory_order_acquire);
     request = buffer[tail % capacity];
     this->tail.store(tail + 1, std::memory_order_relaxed);
 }
+
+void recompiler_request_queue::flush(void) {
+    uint32_t head = this->head.load(std::memory_order_acquire);
+    this->tail.store(head, std::memory_order_release);
+    notified = false;
+}
+
+/**
+ * The n64 dram is small enough (4MB) that a direct mapping can be used to
+ * associate addresses to recompiled binary code.
+ * Each cache entry has the following format:
+ *
+ *   31             2 1 0
+ *  +----------------+-+-+
+ *  |    offset      |P|V|
+ *  +----------------+-+-+
+ *
+ * + *offset*: offset from the code buffer start to the
+ *   binary code entrypoint.
+ * + *P* pending bit, set when a cache query misses, and a
+ *   recompiler request is emitted.
+ * + *V* valid bit, set if the entry contains a valid offset.
+ *
+ * The status bits are updated according to the following table.
+ * `upd offset P V` here means to update the cache entry.
+ * The compare and swap may need to be atomic depending on the
+ * circumstances.
+ *
+ *
+ *  P V | Query               | Update               | Invalidate
+ *  ----+---------------------+----------------------+-----------
+ *  0 0 | send request        | NA                   | nop
+ *      | upd 0 1 1           |                      |
+ *      | miss                |                      |
+ *  0 1 | hit ptr             | NA                   | upd 0 0
+ *      |                     |                      |
+ *  1 0 | miss                | upd 0 0 0            | nop
+ *      |                     |                      |
+ *  1 1 | miss                | upd ptr 0 1          | upd 0 1 0
+ *
+ * The cache is further organized in pages. The code recompiled from addresses
+ * in the same page is stored in a common code buffer, all entries in the page
+ * are invalidated when memory needs to be reclaimed.
+ */
+
+struct recompiler_cache {
+    std::atomic_uint32_t map[0x100000];
+    code_buffer_t *buffers;
+};
 
 namespace core {
 
@@ -110,7 +156,7 @@ unsigned long instruction_blocks;
 static struct recompiler_request_queue recompiler_request_queue(
     RECOMPILER_REQUEST_QUEUE_LEN);
 static recompiler_backend_t   *recompiler_backend;
-static recompiler_cache_t     *recompiler_cache;
+static struct recompiler_cache recompiler_cache;
 static std::thread            *recompiler_thread;
 static std::thread            *interpreter_thread;
 static std::mutex              interpreter_mutex;
@@ -119,27 +165,66 @@ static std::atomic_bool        interpreter_halted;
 static std::atomic_bool        interpreter_stopped;
 static std::string             interpreter_halted_reason;
 
+/**
+ * @brief Invalidate the recompiler cache entry for the provided address range.
+ *  Called from the interpreter thread only.
+ * @param start_phys_address    Start address of the range to invalidate.
+ * @param end_phys_address      Exclusive end address of the range to invalidate.
+ */
+void invalidate_recompiler_cache(uint64_t start_phys_address,
+                                 uint64_t end_phys_address) {
+#if ENABLE_RECOMPILER
+    if (start_phys_address > 0x400000) {
+        return;
+    }
+    if (end_phys_address > 0x400000) {
+        end_phys_address = 0x400000;
+    }
+
+    start_phys_address = start_phys_address >> 2;
+    end_phys_address = (end_phys_address + 3) >> 2;
+
+    for (uint32_t index = start_phys_address; index < end_phys_address; index++) {
+        // Not setting P,V = 0,0 because P needs to remain up
+        // to prevent concurrency issues with the recompiler thread.
+        recompiler_cache.map[index].fetch_and(UINT32_C(0xfffffffe));
+    }
+#endif /* ENABLE_RECOMPILER */
+}
+
+/**
+ * @brief Clear a full recompiler cache page.
+ *  All cache entries are invalidated, the code buffer is emptied.
+ *  Called from the recompiled thread only.
+ * @param phys_address          Any physical address inside the page to clear.
+ */
+static inline
+void clear_recompiler_cache_page(uint32_t phys_address) {
+    uint32_t page_nr = phys_address >> CACHE_PAGE_SHIFT;
+    uint32_t page_start = page_nr << CACHE_PAGE_SHIFT;
+
+    recompiler_cache.buffers[page_nr].length = 0;
+    for (uint32_t index = 0; index < CACHE_PAGE_SIZE; index+=4) {
+        recompiler_cache.map[(page_start + index) >> 2] = 0x0;
+    }
+}
+
 static
 void exec_recompiler_request(struct recompiler_backend *backend,
-                             struct recompiler_cache *cache,
                              struct recompiler_request *request) {
-#if 0
-    fmt::print(fmt::fg(fmt::color::chartreuse),
-        "recompiler request: {:x} {:x}\n",
-        request->phys_address, request->virt_address);
-#endif
     // Update request count.
     recompiler_requests++;
 
     // Get the pointer to the buffer containing the MIPS assembly to
     // recompiler. The length is computed so as to not cross a cache page
     // boundary: the code must fit inside a cache range.
-    uint64_t page_size = get_recompiler_cache_page_size(cache);
-    uint64_t page_mask = ~(page_size - 1);
     uint64_t phys_address = request->phys_address;
-    uint64_t phys_address_end = (phys_address + page_size) & page_mask;
+    uint64_t phys_address_end =
+        (phys_address + CACHE_PAGE_SIZE) & ~CACHE_PAGE_MASK;
     uint64_t phys_len = phys_address_end - phys_address;
     uint8_t *phys_ptr = state.dram + phys_address;
+    uint32_t buffer_index = phys_address >> CACHE_PAGE_SHIFT;
+    code_buffer_t *buffer = recompiler_cache.buffers + buffer_index;
     ir_graph_t *graph;
     code_entry_t binary;
     size_t binary_len;
@@ -152,41 +237,38 @@ void exec_recompiler_request(struct recompiler_backend *backend,
         return;
     }
 
-
-#if 0
-    // Preliminary sanity checks on the generated intermediate
-    // representation. Really should not fail here.
-    if (!ir_typecheck(backend, graph)) {
-        return;
-    }
-#endif
-
     // Optimize generated graph.
     ir_optimize(backend, graph);
 
 #if 0
-    // Sanity checks on the optimized intermediate
-    // representation. Really should not fail here.
+    // Sanity checks on the optimized intermediate representation.
     if (!ir_typecheck(backend, graph)) {
         return;
     }
 #endif
 
     // Re-compile to x86_64.
-    binary = ir_x86_64_assemble(backend, request->emitter, graph, &binary_len);
+    binary = ir_x86_64_assemble(backend, buffer, graph, &binary_len);
     if (binary == NULL) {
-        invalidate_recompiler_cache(cache, phys_address, phys_address + 1);
+        clear_recompiler_cache_page(phys_address);
+        recompiler_request_queue.flush();
         return;
     }
 
-    // TODO synchronize with interpreter thread
-    // to check if the address range was invalidated while
-    // the code was being recompiled.
-
     // Update the recompiler cache.
-    if (update_recompiler_cache(cache, phys_address, binary, binary_len) < 0) {
-        invalidate_recompiler_cache(cache, phys_address, phys_address + 1);
-        return;
+    // Check that the entry was not invalidated while the recompiler
+    // was busy completing the request. The recompiled binary is dropped
+    // in this case, and the code buffer rolled back.
+    // TODO only checking the first address at the moment.
+    uint32_t index = phys_address >> 2;
+    uint32_t offset = (unsigned char *)binary - buffer->ptr;
+    uint32_t entry = (offset << 2) | 0x1;
+    uint32_t entry_expected = 0x3;
+
+    if (!recompiler_cache.map[index].compare_exchange_weak(
+            entry_expected, entry, std::memory_order_release)) {
+        buffer->length -= binary_len;
+        recompiler_cache.map[index] = 0x0;
     }
 }
 
@@ -248,12 +330,10 @@ bool exec_cpu_interpreter(int nr_jumps) {
 
 static
 void exec_interpreter(struct recompiler_request_queue *queue,
-                      struct recompiler_backend *backend,
-                      struct recompiler_cache *cache) {
+                      struct recompiler_backend *backend) {
     uint64_t virt_address = state.cpu.nextPc;
     uint64_t phys_address;
     unsigned long cycles = state.cycles;
-    code_buffer_t *emitter = NULL;
 
     // First translate the virtual address.
     // The next action must be jump, the recompilation is triggered
@@ -262,19 +342,31 @@ void exec_interpreter(struct recompiler_request_queue *queue,
         state.cpu.nextPc, &phys_address, false);
 
     // Query the recompiler cache.
-    code_entry_t binary = exn != Exception::None || phys_address == 0 ? NULL :
-        query_recompiler_cache(cache, phys_address, &emitter, NULL);
+    code_entry_t binary = NULL;
+    uint32_t entry;
+
+    if (exn == Exception::None && phys_address < 0x400000) {
+        uint32_t index = phys_address >> 2;
+        uint32_t buffer_index = phys_address >> CACHE_PAGE_SHIFT;
+        entry = recompiler_cache.map[index];
+        switch (entry & 0x3) {
+        case 0x0:
+            recompiler_cache.map[index] = 0x3;
+            queue->enqueue(recompiler_request(virt_address, phys_address));
+            break;
+        case 0x1:
+            binary = (code_entry_t)(
+                recompiler_cache.buffers[buffer_index].ptr + (entry >> 2));
+            break;
+        case 0x2:
+        case 0x3:
+            break;
+        }
+    }
 
     // The recompiler cache did not contain the requested entry point,
     // run the recompiler until the next branching instruction.
     if (binary == NULL) {
-        // Send a recompiler request if the conditions are met.
-        // The request is dropped if the queue is full.
-        if (emitter != NULL) {
-            queue->enqueue(recompiler_request(
-                virt_address, phys_address, emitter));
-        }
-
         // Run the interpreter until the next branching instruction.
         (void)exec_cpu_interpreter(1);
     }
@@ -308,21 +400,24 @@ void exec_interpreter(struct recompiler_request_queue *queue,
     }
 }
 
-/** Invalidate the recompiler cache for the provided address range. */
-void invalidate_recompiler_cache(uint64_t start_phys_address,
-                                 uint64_t end_phys_address) {
-#if ENABLE_RECOMPILER
-    invalidate_recompiler_cache(recompiler_cache,
-        start_phys_address, end_phys_address);
-#endif /* ENABLE_RECOMPILER */
-}
-
 /** Return the cache usage statistics. */
 void get_recompiler_cache_stats(float *cache_usage,
                                 float *buffer_usage) {
 #if ENABLE_RECOMPILER
-    get_recompiler_cache_stats(recompiler_cache,
-        cache_usage, buffer_usage);
+    size_t map_taken = 0;
+    for (size_t nr = 0; nr < 0x100000; nr++) {
+        map_taken += (recompiler_cache.map[nr] & 1);
+    }
+
+    size_t buffer_taken = 0;
+    size_t buffer_capacity = 0;
+    for (size_t nr = 0; nr < CACHE_PAGE_COUNT; nr++) {
+        buffer_taken += recompiler_cache.buffers[nr].length;
+        buffer_capacity += recompiler_cache.buffers[nr].capacity;
+    }
+
+    *cache_usage = (float)map_taken / 0x100000;
+    *buffer_usage = (float)buffer_taken / buffer_capacity;
 #else
     *cache_usage = 0;
     *buffer_usage = 0;
@@ -343,7 +438,7 @@ void recompiler_routine(void) {
         struct recompiler_request request;
         recompiler_request_queue.dequeue(request);
         exec_recompiler_request(
-            recompiler_backend, recompiler_cache, &request);
+            recompiler_backend, &request);
     }
 }
 
@@ -391,10 +486,9 @@ void interpreter_routine(void) {
             cycles = state.cycles;
             check_cpu_events();
             instruction_blocks++;
-            trace_point(state.cpu.nextPc, state.cycles);
+            // trace_point(state.cpu.nextPc, state.cycles);
 #if ENABLE_RECOMPILER
-            exec_interpreter(&recompiler_request_queue,
-                recompiler_backend, recompiler_cache);
+            exec_interpreter(&recompiler_request_queue, recompiler_backend);
 #else
             exec_cpu_interpreter(1);
 #endif /* ENABLE_RECOMPILER */
@@ -411,9 +505,9 @@ void start(void) {
     if (recompiler_backend == NULL) {
         recompiler_backend = ir_mips_recompiler_backend();
     }
-    if (recompiler_cache == NULL) {
-        recompiler_cache =
-            alloc_recompiler_cache(0x4000, 0x100, 0x20000, 0x2000);
+    if (recompiler_cache.buffers == NULL) {
+        recompiler_cache.buffers =
+            alloc_code_buffer_array(CACHE_PAGE_COUNT, 0x20000);
     }
     if (recompiler_thread == NULL) {
         recompiler_thread = new std::thread(recompiler_routine);

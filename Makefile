@@ -62,7 +62,6 @@ OBJS      := \
     src/interpreter/cop1.o \
     src/recompiler/ir.o \
     src/recompiler/backend.o \
-    src/recompiler/cache.o \
     src/recompiler/code_buffer.o \
     src/recompiler/passes/run.o \
     src/recompiler/passes/optimize.o \
