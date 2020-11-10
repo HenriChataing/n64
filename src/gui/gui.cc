@@ -1,4 +1,5 @@
 
+#include <chrono>
 #include <cinttypes>
 #include <cstdio>
 #include <ctime>
@@ -26,8 +27,8 @@ static Disassembler dramDisassembler(22);
 static Disassembler romDisassembler(12);
 static Trace cpuTrace(&debugger::debugger.cpuTrace);
 static Trace rspTrace(&debugger::debugger.rspTrace);
-static clock_t startTime;
 
+static std::chrono::time_point<std::chrono::steady_clock> startTime;
 static unsigned long startCycles;
 static unsigned long startRecompilerCycles;
 static unsigned long startRecompilerRequests;
@@ -52,13 +53,14 @@ static void ShowAnalytics(void) {
     float plotHeight = 40.0f;
     ImVec2 plotDimensions = ImVec2(plotWidth, plotHeight);
 
-    clock_t updateTime = clock();
+    auto updateTime = std::chrono::steady_clock::now();;
+    std::chrono::duration<double> diffTime = updateTime - startTime;
     unsigned long updateCycles = R4300::state.cycles;
     unsigned long updateRecompilerCycles = core::recompiler_cycles;
     unsigned long updateRecompilerRequests = core::recompiler_requests;
     unsigned long updateInstructionBlocks = core::instruction_blocks;
 
-    float elapsedMilliseconds = (updateTime - startTime) * 1000.0 / CLOCKS_PER_SEC;
+    float elapsedMilliseconds = diffTime.count() * 1000.0;
     float machineMilliseconds = (updateCycles - startCycles) / 93750.0;
 
     if (elapsedMilliseconds >= plotUpdateInterval) {
@@ -1094,7 +1096,7 @@ int startGui()
 {
     // Initialize the machine state.
     R4300::state.reset();
-    startTime = clock();
+    startTime = std::chrono::steady_clock::now();
     startCycles = 0;
     startRecompilerCycles = 0;
     startRecompilerRequests = 0;
