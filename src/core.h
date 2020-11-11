@@ -9,10 +9,10 @@ namespace core {
 
 /** Number of cycles executed through recompiled code. */
 extern unsigned long recompiler_cycles;
+/** Number of recompiler cache clears. */
+extern unsigned long recompiler_clears;
 /** Number of handlded recompiler requests (successful or not). */
 extern unsigned long recompiler_requests;
-/** Number of instruction blocks executed (until a branching instruction). */
-extern unsigned long instruction_blocks;
 
 /**
  * @brief Start the interpreter and recompiler in separate threads.

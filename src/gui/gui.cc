@@ -32,7 +32,7 @@ static std::chrono::time_point<std::chrono::steady_clock> startTime;
 static unsigned long startCycles;
 static unsigned long startRecompilerCycles;
 static unsigned long startRecompilerRequests;
-static unsigned long startInstructionBlocks;
+static unsigned long startRecompilerCacheClears;
 
 static void glfwErrorCallback(int error, const char* description) {
     fprintf(stderr, "Glfw Error %d: %s\n", error, description);
@@ -43,9 +43,9 @@ static void ShowAnalytics(void) {
     static float timeRatio[5 * 60] = { 0 };
     static float recompilerUsage[5 * 60] = { 0 };
     static float recompilerRequests[5 * 60] = { 0 };
+    static float recompilerCacheClears[5 * 60] = { 0 };
     static float recompilerCache[5 * 60] = { 0 };
     static float recompilerBuffer[5 * 60] = { 0 };
-    static float instructionBlockLength[5 * 60] = { 0 };
     static unsigned plotOffset = 0;
     unsigned plotLength = 5 * 60;
     unsigned plotUpdateInterval = 200;
@@ -58,7 +58,7 @@ static void ShowAnalytics(void) {
     unsigned long updateCycles = R4300::state.cycles;
     unsigned long updateRecompilerCycles = core::recompiler_cycles;
     unsigned long updateRecompilerRequests = core::recompiler_requests;
-    unsigned long updateInstructionBlocks = core::instruction_blocks;
+    unsigned long updateRecompilerCacheClears = core::recompiler_clears;
 
     float elapsedMilliseconds = diffTime.count() * 1000.0;
     float machineMilliseconds = (updateCycles - startCycles) / 93750.0;
@@ -75,6 +75,9 @@ static void ShowAnalytics(void) {
         recompilerRequests[plotOffset] =
             updateRecompilerRequests - startRecompilerRequests;
 
+        recompilerCacheClears[plotOffset] =
+            updateRecompilerCacheClears - startRecompilerCacheClears;
+
         core::get_recompiler_cache_stats(
             recompilerCache + plotOffset,
             recompilerBuffer + plotOffset);
@@ -82,18 +85,12 @@ static void ShowAnalytics(void) {
         recompilerCache[plotOffset] *= 100.0;
         recompilerBuffer[plotOffset] *= 100.0;
 
-        instructionBlockLength[plotOffset] =
-            (updateInstructionBlocks == startInstructionBlocks) ?
-                (float)(updateCycles - startCycles) :
-                (float)(updateCycles - startCycles) /
-                (updateInstructionBlocks - startInstructionBlocks);
-
         plotOffset = (plotOffset + 1) % plotLength;
         startTime = updateTime;
         startCycles = updateCycles;
         startRecompilerCycles = updateRecompilerCycles;
         startRecompilerRequests = updateRecompilerRequests;
-        startInstructionBlocks = updateInstructionBlocks;
+        startRecompilerCacheClears = updateRecompilerCacheClears;
     }
 
     ImGui::PlotLines("", timeRatio, plotLength, plotOffset,
@@ -102,12 +99,12 @@ static void ShowAnalytics(void) {
         "recompiler usage", 0.0f, 100.0f, plotDimensions);
     ImGui::PlotLines("", recompilerRequests, plotLength, plotOffset,
         "recompiler requests", 0.0f, 500.0f, plotDimensions);
+    ImGui::PlotLines("", recompilerCacheClears, plotLength, plotOffset,
+        "recompiler cache clears", 0.0f, 500.0f, plotDimensions);
     ImGui::PlotLines("", recompilerCache, plotLength, plotOffset,
         "recompiler cache", 0.0f, 100.0f, plotDimensions);
     ImGui::PlotLines("", recompilerBuffer, plotLength, plotOffset,
         "recompiler buffer", 0.0f, 100.0f, plotDimensions);
-    ImGui::PlotLines("", instructionBlockLength, plotLength, plotOffset,
-        "avg instruction block length", 0.0f, 10.0f, plotDimensions);
 }
 
 static void ShowCpuRegisters(void) {
@@ -1100,7 +1097,7 @@ int startGui()
     startCycles = 0;
     startRecompilerCycles = 0;
     startRecompilerRequests = 0;
-    startInstructionBlocks = 0;
+    startRecompilerCacheClears = 0;
 
     // Start interpreter thread.
     core::start();

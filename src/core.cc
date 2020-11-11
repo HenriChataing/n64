@@ -150,8 +150,8 @@ struct recompiler_cache {
 namespace core {
 
 unsigned long recompiler_cycles;
+unsigned long recompiler_clears;
 unsigned long recompiler_requests;
-unsigned long instruction_blocks;
 
 static struct recompiler_request_queue recompiler_request_queue(
     RECOMPILER_REQUEST_QUEUE_LEN);
@@ -200,9 +200,11 @@ void invalidate_recompiler_cache(uint64_t start_phys_address,
  */
 static inline
 void clear_recompiler_cache_page(uint32_t phys_address) {
+    // Update clear count.
+    recompiler_clears++;
+
     uint32_t page_nr = phys_address >> CACHE_PAGE_SHIFT;
     uint32_t page_start = page_nr << CACHE_PAGE_SHIFT;
-
     recompiler_cache.buffers[page_nr].length = 0;
     for (uint32_t index = 0; index < CACHE_PAGE_SIZE; index+=4) {
         recompiler_cache.map[(page_start + index) >> 2] = 0x0;
@@ -485,7 +487,6 @@ void interpreter_routine(void) {
             // at the start of the loop contents.
             cycles = state.cycles;
             check_cpu_events();
-            instruction_blocks++;
             // trace_point(state.cpu.nextPc, state.cycles);
 #if ENABLE_RECOMPILER
             exec_interpreter(&recompiler_request_queue, recompiler_backend);
@@ -507,7 +508,7 @@ void start(void) {
     }
     if (recompiler_cache.buffers == NULL) {
         recompiler_cache.buffers =
-            alloc_code_buffer_array(CACHE_PAGE_COUNT, 0x20000);
+            alloc_code_buffer_array(CACHE_PAGE_COUNT, 0x40000);
     }
     if (recompiler_thread == NULL) {
         recompiler_thread = new std::thread(recompiler_routine);
