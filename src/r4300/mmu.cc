@@ -5,16 +5,23 @@
 #include <debugger.h>
 #include <memory.h>
 
-#define CKSEG3  UINT64_C(0xffffffffe0000000)
-#define CKSSEG  UINT64_C(0xffffffffc0000000)
-#define CKSEG1  UINT64_C(0xffffffffa0000000)
-#define CKSEG0  UINT64_C(0xffffffff80000000)
-#define XKSEG   UINT64_C(0xc000000000000000)
-#define XKPHYS  UINT64_C(0x8000000000000000)
-#define XKSSEG  UINT64_C(0x4000000000000000)
-#define XKUSEG  UINT64_C(0x0000000000000000)
-#define USEG    UINT64_C(0x0000000080000000)
-#define XUSEG   UINT64_C(0x0000010000000000)
+#define CKSEG3      UINT64_C(0xffffffffe0000000)
+#define CKSSEG      UINT64_C(0xffffffffc0000000)
+#define CKSEG1      UINT64_C(0xffffffffa0000000)
+#define CKSEG0      UINT64_C(0xffffffff80000000)
+/* Address error */
+#define XKSEG_END   UINT64_C(0xc00000ff80000000)
+#define XKSEG       UINT64_C(0xc000000000000000)
+#define XKPHYS      UINT64_C(0x8000000000000000)
+/* Address error */
+#define XKSSEG_END  UINT64_C(0x4000010000000000)
+#define XKSSEG      UINT64_C(0x4000000000000000)
+/* Address error */
+#define XKUSEG_END  UINT64_C(0x0000010000000000)
+#define XKUSEG      UINT64_C(0x0000000000000000)
+
+#define USEG        UINT64_C(0x0000000080000000)
+#define XUSEG       UINT64_C(0x0000010000000000)
 
 namespace R4300 {
 
@@ -29,10 +36,6 @@ R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
         R4300::state.cp0reg.EXL()) {
         // Kernel mode
         // also entered when ERL=1 || EXL=1
-        if (R4300::state.cp0reg.KX()) {
-            extendedAddressing = true;
-            throw "ExtendedAddressingUnsupported";
-        }
         if (vAddr >= CKSEG0 && vAddr < CKSEG1) {
             *pAddr = vAddr - CKSEG0; // Unmapped access, cached.
             return R4300::None;
@@ -40,6 +43,22 @@ R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
         if (vAddr >= CKSEG1 && vAddr < CKSSEG) {
             *pAddr = vAddr - CKSEG1; // Unmapped access, non cached.
             return R4300::None;
+        }
+        if (R4300::state.cp0reg.KX()) {
+            extendedAddressing = true;
+            if (vAddr >= XKSEG_END && vAddr < CKSEG0) {
+                return R4300::AddressError;
+            }
+            if (vAddr >= XKPHYS && vAddr < XKSEG) {
+                *pAddr = vAddr - XKPHYS; // Unmapped access.
+                return R4300::None;
+            }
+            if (vAddr >= XKSSEG_END && vAddr < XKPHYS) {
+                return R4300::AddressError;
+            }
+            if (vAddr >= XKUSEG_END && vAddr < XKSSEG) {
+                return R4300::AddressError;
+            }
         }
     }
     else if (ksu == 0x1) {

@@ -245,7 +245,7 @@ static void eval_LFV(u32 instr) {
 
     for (unsigned i = 0; i < 4; i++) {
         unsigned le = __BYTE_ORDER__ == __LITTLE_ENDIAN;
-        unsigned slice = (addr_offset + 4 * i) % 16;
+        unsigned slice = (addr_offset + 4 * i - element) % 16;
         unsigned index_hi = (element + 2 * i) % 16;
         unsigned index_lo = (element + 2 * i + 1) % 16;
 
