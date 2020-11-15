@@ -113,6 +113,7 @@ static inline void write_pifram_byte(size_t index, uint8_t val) {
 static void eval_PIF_controller_command(size_t index, uint8_t t, uint8_t r) {
     switch (state.pifram[index + 2]) {
     case JOYBUS_INFO:
+    case JOYBUS_RESET:
         if (t != 1 || r != 3) {
             debugger::warn(Debugger::SI,
                 "JOYBUS_INFO invalid t/r {}/{}", t, r);
