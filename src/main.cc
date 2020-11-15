@@ -18,6 +18,7 @@ int main(int argc, char *argv[])
         ("record",      "Record execution trace", cxxopts::value<std::string>())
         ("replay",      "Replay execution trace", cxxopts::value<std::string>())
         ("recompiler",  "Enable recompiler", cxxopts::value<bool>()->default_value("false"))
+        ("b,bios",      "Select PIF boot rom", cxxopts::value<std::string>())
         ("rom",         "ROM file", cxxopts::value<std::string>())
         ("h,help",      "Print usage");
     options.parse_positional("rom");
@@ -42,6 +43,17 @@ int main(int argc, char *argv[])
         std::cout << "ROM file '" << rom_file << "' not found" << std::endl;
         std::cout << options.help() << std::endl;
         exit(1);
+    }
+
+    if (result.count("bios") > 0) {
+        std::string bios_file = result["bios"].as<std::string>();
+        std::ifstream bios_contents(bios_file);
+        if (!bios_contents.good()) {
+            std::cout << "BIOS file '" << bios_file << "' not found" << std::endl;
+            std::cout << options.help() << std::endl;
+            exit(1);
+        }
+        R4300::state.loadBios(bios_contents);
     }
 
     if (result.count("record") && result.count("replay")) {

@@ -16,6 +16,7 @@ public:
     State();
     ~State();
 
+    int loadBios(std::istream &bios_contents);
     int load(std::istream &rom_contents);
     void reset();
 
@@ -32,6 +33,7 @@ public:
     alignas(u64) u8 imem[0x1000];
     alignas(u64) u8 tmem[0x1000];
     alignas(u64) u8 pifram[0x40];
+    alignas(u64) u8 pifrom[0x7c0];
     alignas(u64) u8 rom[0xfc00000];
 
     Memory::Bus *bus;
