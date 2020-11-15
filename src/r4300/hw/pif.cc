@@ -35,160 +35,180 @@ const u32 SI_STATUS_REG = UINT32_C(0x04800018);
  *
  * | Command |       Description        |t |r |
  * +---------+--------------------------+-----+
- * |   00    |   request info (status)  |01|03|
+ * |   00    |   request info           |01|03|
  * |   01    |   read button values     |01|04|
  * |   02    |   read from mempack slot |03|21|
  * |   03    |   write to mempack slot  |23|01|
  * |   04    |   read eeprom            |02|08|
  * |   05    |   write eeprom           |10|01|
- * |   ff    |   reset                  |01|03|
+ * |   ff    |   reset + request info   |01|03|
  *      NOTE: values are in hex
  *
  * Error bits (written to r byte)
  *    0x00 - no error, operation successful.
  *    0x80 - error, device not present for specified command.
  *    0x40 - error, unable to send/recieve the number bytes for command type.
- *
- * Button bits:
- *    unsigned A : 1;
- *    unsigned B : 1;
- *    unsigned Z : 1;
- *    unsigned start : 1;
- *    unsigned up : 1;
- *    unsigned down : 1;
- *    unsigned left : 1;
- *    unsigned right : 1;
- *    unsigned : 2;
- *    unsigned L : 1;
- *    unsigned R : 1;
- *    unsigned C_up : 1;
- *    unsigned C_down : 1;
- *    unsigned C_left : 1;
- *    unsigned C_right : 1;
- *    signed x : 8;
- *    signed y : 8;
  */
 
+enum JoybusCommand {
+    /*
+     * Receive:
+     * - Device identifier (2B)
+     *    + 0x0000 Unknown
+     *    + 0x0500 Controller
+     *    + 0x0001 Voice Recognition Unit
+     * - Device status (1B)
+     *    + Controller
+     *        + 0x1 Something plugged into the port
+     *        + 0x2 Nothing plugged into the port
+     *        + 0x4 Controller Read/Write CRC had an error
+     *    + Voice Recognition Unit
+     *        + 0x0 Uninitialized
+     *        + 0x1 Initialized and ready for voice recognition
+     */
+    JOYBUS_INFO = 0x00,
+    /*
+     * Receive:
+     * - Button Status (4B)
+     *    + [31] A
+     *    + [30] B
+     *    + [29] Z
+     *    + [28] Start
+     *    + [27] dU
+     *    + [26] dD
+     *    + [25] dL
+     *    + [24] dR
+     *    + [23] Rst (LT + RT + Start together)
+     *    + [22] Reserved
+     *    + [21] LT
+     *    + [20] RT
+     *    + [19] cU
+     *    + [18] cD
+     *    + [17] cL
+     *    + [16] cR
+     *    + [15:8] X (two's complement, signed)
+     *    + [7:0] Y (two's complement, signed)
+     */
+    JOYBUS_CONTROLLER_STATUS = 0x01,
+    JOYBUS_MEMPACK_READ = 0x02,
+    JOYBUS_MEMPACK_WRITE = 0x03,
+    JOYBUS_EEPROM_READ = 0x04,
+    JOYBUS_EEPROM_WRITE = 0x05,
+    JOYBUS_RESET = 0xff,
+};
+
+/**
+ * Write the value \p val to the PIF ram index \p index.
+ */
+static inline void write_pifram_byte(size_t index, uint8_t val) {
+    state.pifram[index] = val;
+}
+
+/**
+ * Evaluate a controller command.
+ * The behavior implemented is described here:
+ * https://raw.githubusercontent.com/mikeryan/n64dev/master/docs/n64dox.txt
+ * https://sites.google.com/site/consoleprotocols/home/nintendo-joy-bus-documentation
+ */
+static void eval_PIF_controller_command(size_t index, uint8_t t, uint8_t r) {
+    switch (state.pifram[index + 2]) {
+    case JOYBUS_INFO:
+        if (t != 1 || r != 3) {
+            debugger::warn(Debugger::SI,
+                "JOYBUS_INFO invalid t/r {}/{}", t, r);
+            state.pifram[index + 1] |= 0x40;
+            return;
+        }
+        write_pifram_byte(index + 3, 0x00);
+        write_pifram_byte(index + 4, 0x00);
+        write_pifram_byte(index + 5, 0x1);
+        break;
+
+    case JOYBUS_CONTROLLER_STATUS:
+        if (t != 1 || r != 4) {
+            debugger::warn(Debugger::SI,
+                "JOYBUS_CONTROLLER_STATUS invalid t/r {}/{}", t, r);
+            state.pifram[index + 1] |= 0x40;
+            return;
+        }
+        write_pifram_byte(index + 3,
+            (state.hwreg.buttons.A << 7) |
+            (state.hwreg.buttons.B << 6) |
+            (state.hwreg.buttons.Z << 5) |
+            (state.hwreg.buttons.start << 4) |
+            (state.hwreg.buttons.up << 3) |
+            (state.hwreg.buttons.down << 2) |
+            (state.hwreg.buttons.left << 1) |
+            (state.hwreg.buttons.right << 0));
+        write_pifram_byte(index + 4,
+            (state.hwreg.buttons.L << 5) |
+            (state.hwreg.buttons.R << 4) |
+            (state.hwreg.buttons.C_up << 3) |
+            (state.hwreg.buttons.C_down << 2) |
+            (state.hwreg.buttons.C_left << 1) |
+            (state.hwreg.buttons.C_right << 0));
+        write_pifram_byte(index + 5, (unsigned)state.hwreg.buttons.x);
+        write_pifram_byte(index + 6, (unsigned)state.hwreg.buttons.y);
+        break;
+
+    default:
+        debugger::warn(Debugger::SI,
+            "unknown JOYBUS command {:x}", state.pifram[index + 2]);
+        state.pifram[index + 1] |= 0x80;
+        break;
+    }
+}
+
+/**
+ * Evaluate the commands stored in the PIF RAM.
+ * The behavior implemented is described here:
+ * https://raw.githubusercontent.com/mikeryan/n64dev/master/docs/n64dox.txt
+ */
 static void eval_PIF_commands()
 {
-    size_t i = 0;
+    size_t index = 0;
     size_t channel = 0;
 
-    while (i < 0x3e)
-    {
-        uint8_t t = state.pifram[i];
-        size_t ir = i + 1;
+    while (index < 0x3e) {
+        size_t t = state.pifram[index];
+        size_t r = state.pifram[index + 1];
 
-        if (t == 0xfeu) {
-            break; /* Break command */
+        if (t == 0xfe) {
+            /* Break command */
+            break;
         }
-        if (t & 0x80u) {
-            /* Negative length, discard transmit byte and retry */
-            i = ir;
+        if (t & 0x80) {
+            /* Negative length, discard transmit byte. */
+            index++;
             continue;
         }
         if (t == 0) {
-            /* Null command, increment the channel and retry */
-            i = ir;
+            /* Null command, increment the channel. */
+            index++;
             channel++;
             continue;
         }
 
-        uint8_t r = state.pifram[ir];
-        size_t itbuf = ir + 1;
-        size_t irbuf = itbuf + t;
-
-        if (irbuf >= 0x40u) {
-            state.pifram[ir] |= 0x40u;
-            break; /* Transmit overflow */
+        if ((index + 2 + t) >= 0x3f ||
+            (index + 2 + r) >= 0x3f) {
+            /* Out of bound access. */
+            state.pifram[index + 1] |= 0x40;
+            break;
         }
 
-#define write_pifram_byte(nr, val) \
-    ({  if ((nr) < r && (irbuf + (nr)) < 0x3fu) \
-            state.pifram[irbuf + (nr)] = (val); \
-        else \
-            state.pifram[ir] |= 0x40u; \
-    })
-
-        /* Interpret command byte. */
-        if (channel < 4) {
-            switch (state.pifram[itbuf]) {
-                case 0x0: /* Request info */
-                    if (t != 0x1) {
-                        state.pifram[ir] |= 0x40u;
-                    }
-                    if (r != 0x3) {
-                        state.pifram[ir] |= 0x40u;
-                    }
-                    write_pifram_byte(0, 0x00); /* Model byte 0 */
-                    write_pifram_byte(1, 0x00); /* Model byte 1 */
-                    /* Status: 1= something plugged,
-                     *         2= nothing plugged,
-                     *         4= pad address CRC (mempack) */
-                    write_pifram_byte(2, channel == 0 ? 0x1 : 0x2);
-                    break;
-
-                case 0x1: /* Read button values */
-                    if (t != 0x1) {
-                        state.pifram[ir] |= 0x40u;
-                    }
-                    if (r != 0x4) {
-                        state.pifram[ir] |= 0x40u;
-                    }
-                    if (channel != 0) {
-                        state.pifram[ir] |= 0x80u;
-                        break;
-                    }
-
-                    write_pifram_byte(0,
-                        (state.hwreg.buttons.A << 7) |
-                        (state.hwreg.buttons.B << 6) |
-                        (state.hwreg.buttons.Z << 5) |
-                        (state.hwreg.buttons.start << 4) |
-                        (state.hwreg.buttons.up << 3) |
-                        (state.hwreg.buttons.down << 2) |
-                        (state.hwreg.buttons.left << 1) |
-                        (state.hwreg.buttons.right << 0));
-                    write_pifram_byte(1,
-                        (state.hwreg.buttons.L << 5) |
-                        (state.hwreg.buttons.R << 4) |
-                        (state.hwreg.buttons.C_up << 3) |
-                        (state.hwreg.buttons.C_down << 2) |
-                        (state.hwreg.buttons.C_left << 1) |
-                        (state.hwreg.buttons.C_right << 0));
-                    write_pifram_byte(2, (unsigned)state.hwreg.buttons.x);
-                    write_pifram_byte(3, (unsigned)state.hwreg.buttons.y);
-                    break;
-
-                default:
-                    state.pifram[ir] |= 0x80u;
-                    break;
-            }
-        } else {
-            switch (state.pifram[itbuf]) {
-                case 0x0: /* Request info */
-                    if (t != 0x1) {
-                        state.pifram[ir] |= 0x40u;
-                    }
-                    if (r != 0x3) {
-                        state.pifram[ir] |= 0x40u;
-                    }
-                    write_pifram_byte(0, 0x00); /* Model byte 0 */
-                    write_pifram_byte(1, 0x00); /* Model byte 1 */
-                    /* Status: 1= something plugged,
-                     *         2= nothing plugged,
-                     *         4= pad address CRC (mempack) */
-                    write_pifram_byte(2, 0x2); // channel == 4 ? 0x1 : 0x2);
-                    break;
-
-                default:
-                    state.pifram[ir] |= 0x80u;
-                    break;
-            }
+        /* Call the command handle corresponding to the channel. */
+        switch (channel) {
+        case 0x0: eval_PIF_controller_command(index, t, r); break;
+        // case 0x1: eval_PIF_controller_command(index, t, r); break;
+        // case 0x2: eval_PIF_controller_command(index, t, r); break;
+        // case 0x3: eval_PIF_controller_command(index, t, r); break;
+        // case 0x4: eval_PIF_eeprom_command(index, t, r); break;
+        // case 0x5: eval_PIF_eeprom_command(index, t, r); break;
+        default: state.pifram[index + 1] |= 0x80;
         }
 
         channel++;
-        i = irbuf + r;
+        index += t + r + 1;
     }
 
     state.pifram[0x3f] = 0;

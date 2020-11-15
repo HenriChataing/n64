@@ -771,6 +771,65 @@ static void ShowSIRegisters(void) {
 }
 
 static void ShowPIFInformation(void) {
+    for (size_t index = 0; index < 64; index += 8) {
+        ImGui::Text("%02zx: "
+            " %02" PRIx8 " %02" PRIx8 " %02" PRIx8 " %02" PRIx8
+            " %02" PRIx8 " %02" PRIx8 " %02" PRIx8 " %02" PRIx8 "\n",
+            index,
+            R4300::state.pifram[index + 0], R4300::state.pifram[index + 1],
+            R4300::state.pifram[index + 2], R4300::state.pifram[index + 3],
+            R4300::state.pifram[index + 4], R4300::state.pifram[index + 5],
+            R4300::state.pifram[index + 6], R4300::state.pifram[index + 7]);
+    }
+
+    ImGui::Separator();
+    ImGui::Button("A");
+    R4300::state.hwreg.buttons.A = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("B");
+    R4300::state.hwreg.buttons.B = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("Z");
+    R4300::state.hwreg.buttons.Z = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("Start");
+    R4300::state.hwreg.buttons.start = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("L");
+    R4300::state.hwreg.buttons.L = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("R");
+    R4300::state.hwreg.buttons.R = ImGui::IsItemActive();
+    ImGui::Text("Direction:");
+    ImGui::PushID("joycon.direction");
+    ImGui::SameLine();
+    ImGui::Button("Up");
+    R4300::state.hwreg.buttons.up = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("Down");
+    R4300::state.hwreg.buttons.down = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("Left");
+    R4300::state.hwreg.buttons.left = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("Right");
+    R4300::state.hwreg.buttons.right = ImGui::IsItemActive();
+    ImGui::PopID();
+    ImGui::Text("Camera:   ");
+    ImGui::PushID("joycon.camera");
+    ImGui::SameLine();
+    ImGui::Button("Up");
+    R4300::state.hwreg.buttons.C_up = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("Down");
+    R4300::state.hwreg.buttons.C_down = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("Left");
+    R4300::state.hwreg.buttons.C_left = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("Right");
+    R4300::state.hwreg.buttons.C_right = ImGui::IsItemActive();
+    ImGui::PopID();
 }
 
 static void ShowCartInformation(void) {
@@ -1078,10 +1137,10 @@ void joyKeyCallback(GLFWwindow* window, int key, int scancode, int action, int m
     case GLFW_KEY_RIGHT: R4300::state.hwreg.buttons.right   = keyval; break;
     case GLFW_KEY_L:     R4300::state.hwreg.buttons.L       = keyval; break;
     case GLFW_KEY_R:     R4300::state.hwreg.buttons.R       = keyval; break;
-    // case : R4300::state.hwreg.buttons.C_up    = keyval; break;
-    // case : R4300::state.hwreg.buttons.C_down  = keyval; break;
-    // case : R4300::state.hwreg.buttons.C_left  = keyval; break;
-    // case : R4300::state.hwreg.buttons.C_right = keyval; break;
+    case GLFW_KEY_U:     R4300::state.hwreg.buttons.C_up    = keyval; break;
+    case GLFW_KEY_J:     R4300::state.hwreg.buttons.C_down  = keyval; break;
+    case GLFW_KEY_H:     R4300::state.hwreg.buttons.C_left  = keyval; break;
+    case GLFW_KEY_K:     R4300::state.hwreg.buttons.C_right = keyval; break;
     default: break;
     }
 
