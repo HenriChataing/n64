@@ -109,6 +109,22 @@ void emit_u64_le(code_buffer_t *emitter, uint64_t q) {
     emitter->ptr[emitter->length++] = q >> 56;
 }
 
+void emit_i8(code_buffer_t *emitter, int8_t b) {
+    emit_u8(emitter, (uint8_t)b);
+}
+
+void emit_i16_le(code_buffer_t *emitter, int16_t w) {
+    emit_u16_le(emitter, (uint16_t)w);
+}
+
+void emit_i32_le(code_buffer_t *emitter, int32_t d) {
+    emit_u32_le(emitter, (uint32_t)d);
+}
+
+void emit_i64_le(code_buffer_t *emitter, int64_t q) {
+    emit_u64_le(emitter, (uint64_t)q);
+}
+
 void dump_code_buffer(FILE *fd, const code_buffer_t *emitter) {
     fprintf(fd, "   ");
     for (unsigned i = 0; i < emitter->length; i++) {

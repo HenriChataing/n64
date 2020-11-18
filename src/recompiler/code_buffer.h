@@ -59,6 +59,10 @@ void emit_u8(code_buffer_t *emitter, uint8_t b);
 void emit_u16_le(code_buffer_t *emitter, uint16_t w);
 void emit_u32_le(code_buffer_t *emitter, uint32_t d);
 void emit_u64_le(code_buffer_t *emitter, uint64_t q);
+void emit_i8(code_buffer_t *emitter, int8_t b);
+void emit_i16_le(code_buffer_t *emitter, int16_t w);
+void emit_i32_le(code_buffer_t *emitter, int32_t d);
+void emit_i64_le(code_buffer_t *emitter, int64_t q);
 
 /**
  * Print the contents of the code buffer in hexadecimal format.

@@ -57,8 +57,8 @@ static void load_value(code_buffer_t *emitter, ir_value_t value, unsigned r) {
         default: fail_code_buffer(emitter);
         }
     } else if (ir_var_context[value.var].allocated) {
-        emit_mov_r64_r64(emitter, r, RBP);
-        emit_add_r64_imm32(emitter, r, ir_var_context[value.var].stack_offset);
+        emit_lea_r64_m(emitter, r,
+            mem_indirect_disp(RBP, ir_var_context[value.var].stack_offset));
     } else {
         x86_64_mem_t mN = mem_indirect_disp(RBP,
             ir_var_context[value.var].stack_offset);
@@ -90,7 +90,7 @@ static void store_value(code_buffer_t *emitter, ir_type_t type,
 static void assemble_exit(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
-    ir_exit_queue[ir_exit_queue_len].rel32 = emit_jmp_rel32(emitter);
+    ir_exit_queue[ir_exit_queue_len].rel32 = emit_jmp_rel32(emitter, 0);
     ir_exit_queue_len++;
 }
 
@@ -101,7 +101,7 @@ static void assemble_assert(recompiler_backend_t const *backend,
     // otherwise continues with normal instruction flow.
     load_value(emitter, instr->assert_.cond, AL);
     emit_test_al_imm8(emitter, 1);
-    ir_exit_queue[ir_exit_queue_len].rel32 = emit_je_rel32(emitter);
+    ir_exit_queue[ir_exit_queue_len].rel32 = emit_je_rel32(emitter, 0);
     ir_exit_queue_len++;
 }
 
@@ -112,7 +112,7 @@ static void assemble_br(recompiler_backend_t const *backend,
     load_value(emitter, instr->br.cond, AL);
      emit_test_al_imm8(emitter, 1);
 
-    rel32 = emit_jne_rel32(emitter);
+    rel32 = emit_jne_rel32(emitter, 0);
     ir_br_queue[ir_br_queue_len].rel32 = rel32;
     ir_br_queue[ir_br_queue_len].block = instr->br.target[1];
     ir_br_queue_len++;
