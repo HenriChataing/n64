@@ -74,12 +74,6 @@ typedef struct x86_64_mem {
     int32_t disp;
 } x86_64_mem_t;
 
-typedef enum x86_64_operand_kind {
-    MEMORY,
-    REGISTER,
-    IMMEDIATE,
-} x86_64_operand_kind_t;
-
 static inline x86_64_mem_t mem_direct(unsigned reg) {
     return (x86_64_mem_t) { .mode = DIRECT, .rm = reg, };
 }
@@ -138,7 +132,6 @@ void emit_add_r32_m32(code_buffer_t *emitter, unsigned r32, x86_64_mem_t m32);
 void emit_add_r64_r64(code_buffer_t *emitter, unsigned dr64, unsigned sr64);
 void emit_add_m64_r64(code_buffer_t *emitter, x86_64_mem_t m64, unsigned r64);
 void emit_add_r64_m64(code_buffer_t *emitter, unsigned r64, x86_64_mem_t m64);
-void emit_add_rN_rN(code_buffer_t *emitter, unsigned width, unsigned drN, unsigned srN);
 
 void emit_and_r64_r64(code_buffer_t *emitter, unsigned dr64, unsigned sr64);
 
@@ -169,7 +162,6 @@ void emit_cmp_r32_m32(code_buffer_t *emitter, unsigned r32, x86_64_mem_t m32);
 void emit_cmp_r64_r64(code_buffer_t *emitter, unsigned dr64, unsigned sr64);
 void emit_cmp_m64_r64(code_buffer_t *emitter, x86_64_mem_t m64, unsigned r64);
 void emit_cmp_r64_m64(code_buffer_t *emitter, unsigned r64, x86_64_mem_t m64);
-void emit_cmp_rN_rN(code_buffer_t *emitter, unsigned width, unsigned drN, unsigned srN);
 
 void emit_cbw(code_buffer_t *emitter);
 void emit_cwd(code_buffer_t *emitter);
@@ -312,12 +304,260 @@ void emit_sub_r32_m32(code_buffer_t *emitter, unsigned r32, x86_64_mem_t m32);
 void emit_sub_r64_r64(code_buffer_t *emitter, unsigned dr64, unsigned sr64);
 void emit_sub_m64_r64(code_buffer_t *emitter, x86_64_mem_t m64, unsigned r64);
 void emit_sub_r64_m64(code_buffer_t *emitter, unsigned r64, x86_64_mem_t m64);
-void emit_sub_rN_rN(code_buffer_t *emitter, unsigned width, unsigned drN, unsigned srN);
 
 void emit_test_al_imm8(code_buffer_t *emitter, int8_t imm8);
 void emit_test_r8_r8(code_buffer_t *emitter, unsigned dr8, unsigned sr8);
 void emit_test_m8_r8(code_buffer_t *emitter, x86_64_mem_t m8, unsigned r8);
 
 void emit_xor_r64_r64(code_buffer_t *emitter, unsigned dr64, unsigned sr64);
+
+
+typedef enum x86_64_operand_kind {
+    MEMORY,
+    REGISTER,
+    IMMEDIATE,
+} x86_64_operand_kind_t;
+
+typedef struct x86_64_operand {
+    x86_64_operand_kind_t kind;
+    unsigned size;
+    union {
+        x86_64_mem_t mem;
+        unsigned reg;
+        int64_t imm;
+    };
+} x86_64_operand_t;
+
+static inline x86_64_operand_t op_mem_indirect(unsigned size, unsigned base) {
+    return (x86_64_operand_t) {
+        .mem = mem_indirect(base), .kind = MEMORY, .size = size, };
+}
+
+static inline x86_64_operand_t op_mem_indirect_disp(
+    unsigned size, unsigned base, int32_t disp) {
+    return (x86_64_operand_t) {
+        .mem = mem_indirect_disp(base, disp), .kind = MEMORY,
+        .size = size, };
+}
+
+static inline x86_64_operand_t op_mem_indirect_scaled(
+    unsigned size, unsigned base, unsigned index, unsigned scale) {
+    return (x86_64_operand_t) {
+        .mem = mem_indirect_scaled(base, index, scale),
+        .kind = MEMORY, .size = size, };
+}
+
+static inline x86_64_operand_t op_mem_indirect_scaled_disp(
+    unsigned size, unsigned base, unsigned index, unsigned scale, int32_t disp) {
+    return (x86_64_operand_t) {
+        .mem = mem_indirect_scaled_disp(base, index, scale, disp),
+        .kind = MEMORY, .size = size, };
+}
+
+static inline x86_64_operand_t op_reg(unsigned size, unsigned reg) {
+    return (x86_64_operand_t) {
+        .reg = reg, .kind = REGISTER, .size = size, };
+}
+
+static inline x86_64_operand_t op_imm(unsigned size, int64_t imm) {
+    return (x86_64_operand_t) {
+        .imm = imm, .kind = IMMEDIATE, .size = size, };
+}
+
+/**
+ * Binary instruction group, strict implementation.
+ * The operands op0 and op1 must have the same operand size.
+ * The operands op0 and op1 must not be both memory operands.
+ * The operand op0 must not be an immediate operand.
+ * If the operand op1 is a 64 bit immediate operand, it must not be larger
+ * than a signed 32 bit value.
+ */
+
+void emit_add_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_adc_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_and_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_xor_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_or_op0_op1(code_buffer_t *emitter,
+                     x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_sbb_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_sub_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_cmp_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+
+/**
+ * Unary instruction group, strict implementation.
+ * The operand op0 must not be an immediate operand.
+ */
+
+void emit_not_op0(code_buffer_t *emitter, x86_64_operand_t *op0);
+void emit_neg_op0(code_buffer_t *emitter, x86_64_operand_t *op0);
+
+/**
+ * Shift instruction group, strict implementation.
+ * The operand op1 must have operand size 8.
+ * The operand op1 must be either an immediate or the register CL.
+ * The operand op0 must not be an immediate operand.
+ */
+
+void emit_rol_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_ror_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_rcl_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_rcr_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_shl_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_shr_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_sra_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+
+/**
+ * Misc instruction group, strict implementation.
+ */
+void emit_mov_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+
+/**
+ * Binary instruction group, generalized implementation.
+ * The operands dst, op0 and op1 must have the same operand size.
+ * The operands op0 and op1 may be both memory operands.
+ * The operand dst must not be an immediate operand.
+ * If the operand op1 is a 64 bit immediate operand, it may be larger
+ * than a signed 32 bit value.
+ *
+ * The following table describes the generated code depending on the
+ * operand types. The operand type combinations not listed here are
+ * considered invalid. The 'result' column has one mode for the case where
+ * \ref dst and \ref op0 are different, and one case where they are identical.
+ *
+ *  - MODE_0: binop op0,op1
+ *  - MODE_1: mov dst,op0 / binop dst,op1
+ *  - MODE_2: mov r,op0 / binop r,op1 / mov dst,r
+ *  - MODE_3: mov r0,op0 / mov r1,op1 / binop r0,r1 / mov dst,r0
+ *
+ *  +-----+-----+-----+-----------------+
+ *  | dst | op0 | op1 | result          |
+ *  +-----+-----+-----+-----------------+
+ *  | mem | mem | mem | MODE_2 / MODE_2 |
+ *  | mem | mem | reg | MODE_2 / MODE_0 |
+ *  | mem | mem | imm | MODE_2 / MODE_0 |
+ *  | mem | reg | mem | MODE_2 / NA     |
+ *  | mem | reg | reg | MODE_1 / NA     |
+ *  | mem | reg | imm | MODE_1 / NA     |
+ *  | reg | mem | mem | MODE_1 / NA     |
+ *  | reg | mem | reg | MODE_1 / NA     |
+ *  | reg | mem | imm | MODE_1 / NA     |
+ *  | reg | reg | mem | MODE_1 / MODE_0 |
+ *  | reg | reg | reg | MODE_1 / MODE_0 |
+ *  | reg | reg | imm | MODE_1 / MODE_0 |
+ *  +-----+-----+-----+-----------------+
+ */
+
+void emit_add_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                          x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_adc_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                          x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_and_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                          x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_xor_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                          x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_or_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                         x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_sbb_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                         x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_sub_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                          x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_cmp_dst_op0_op1(code_buffer_t *emitter,
+                          x86_64_operand_t *op0, x86_64_operand_t *op1);
+
+
+/**
+ * Unary instruction group, generalized implementation.
+ * The operands dst, op0 must have the same operand size.
+ * The operand dst must not be an immediate operand.
+ * The operand op0 must not be an immediate operand.
+ *
+ * The following table describes the generated code depending on the
+ * operand types. The operand type combinations not listed here are
+ * considered invalid. The 'result' column has one mode for the case where
+ * \ref dst and \ref op0 are different, and one case where they are identical.
+ *
+ *  - MODE_0: unop op0
+ *  - MODE_1: mov dst,op0 / unop dst
+ *  - MODE_2: mov r,op0 / unop r / mov dst,r
+ *
+ *  +-----+-----+-----------------+
+ *  | dst | op0 | result          |
+ *  +-----+-----+-----------------+
+ *  | mem | mem | MODE_2 / MODE_0 |
+ *  | mem | reg | MODE_1 / NA     |
+ *  | reg | mem | MODE_1 / NA     |
+ *  | reg | reg | MODE_1 / MODE_0 |
+ *  +-----+-----+-----------------+
+ */
+
+void emit_not_dst_op0(code_buffer_t *emitter, x86_64_operand_t *dst,
+                      x86_64_operand_t *op0);
+void emit_neg_dst_op0(code_buffer_t *emitter, x86_64_operand_t *dst,
+                      x86_64_operand_t *op0);
+
+/**
+ * Shift instruction group, generalized implementation.
+ * The operands dst, op0 must have the same operand size.
+ * The operand op1 must have operand size 8.
+ *
+ * The following table describes the generated code depending on the
+ * operand types. The operand type combinations not listed here are
+ * considered invalid. The 'result' column has one mode for the case where
+ * \ref dst and \ref op0 are different, and one case where they are identical.
+ *
+ *  - MODE_0: shift op0,op1
+ *  - MODE_1: mov CL,op1 / shift op0,CL
+ *  - MODE_2: mov dst,op0 / shift dst,op1
+ *  - MODE_3: mov dst,op0 / mov CL,op1 / shift dst,CL
+ *  - MODE_4: mov r,op0 / shift r,op1 / mov dst,r
+ *  - MODE_3: mov r0,op0 / mov r1,op1 / binop r0,r1 / mov dst,r0
+ *
+ *  +-----+-----+-----+-----------------+
+ *  | dst | op0 | op1 | result          |
+ *  +-----+-----+-----+-----------------+
+ *  | mem | mem | mem | MODE_2 / MODE_2 |
+ *  | mem | mem | reg | MODE_2 / MODE_0 |
+ *  | mem | mem | imm | MODE_2 / MODE_0 |
+ *  | mem | reg | mem | MODE_2 / NA     |
+ *  | mem | reg | reg | MODE_1 / NA     |
+ *  | mem | reg | imm | MODE_1 / NA     |
+ *  | reg | mem | mem | MODE_1 / NA     |
+ *  | reg | mem | reg | MODE_1 / NA     |
+ *  | reg | mem | imm | MODE_1 / NA     |
+ *  | reg | reg | mem | MODE_1 / MODE_0 |
+ *  | reg | reg | reg | MODE_1 / MODE_0 |
+ *  | reg | reg | imm | MODE_1 / MODE_0 |
+ *  +-----+-----+-----+-----------------+
+ */
+
+void emit_rol_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_ror_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_rcl_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_rcr_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_shl_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_shr_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_sra_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1);
 
 #endif /* _RECOMPILER_TARGET_X86_64_EMITTER_H_INCLUDED_ */

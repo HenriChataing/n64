@@ -72,6 +72,18 @@ static void load_value(code_buffer_t *emitter, ir_value_t value, unsigned r) {
     }
 }
 
+/** Load a value into the selected register. */
+static x86_64_operand_t value_operand(ir_value_t value) {
+    if (value.kind == IR_CONST) {
+        return op_imm(value.type.width, value.const_.int_);
+    } else if (ir_var_context[value.var].allocated) {
+        return op_imm(value.type.width, 0); // XXX
+    } else {
+        return op_mem_indirect_disp(value.type.width, RBP,
+            ir_var_context[value.var].stack_offset);
+    }
+}
+
 /** Load a value to the selected pseudo register. */
 static void store_value(code_buffer_t *emitter, ir_type_t type,
                         ir_var_t var, unsigned r) {
@@ -196,28 +208,37 @@ static void assemble_alloc(recompiler_backend_t const *backend,
 static void assemble_not(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
-    load_value(emitter, instr->unop.value, RAX);
-    emit_not_r64(emitter, RAX);
-    store_value(emitter, instr->type, instr->res, RAX);
+
+    x86_64_operand_t dst = op_mem_indirect_disp(instr->type.width, RBP,
+        ir_var_context[instr->res].stack_offset);
+    x86_64_operand_t op0 = value_operand(instr->unop.value);
+
+    emit_not_dst_op0(emitter, &dst, &op0);
 }
 
 static void assemble_add(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
-    load_value(emitter, instr->binop.left, RAX);
-    load_value(emitter, instr->binop.right, RCX);
-    emit_add_rN_rN(emitter, instr->type.width, RAX, RCX);
-    store_value(emitter, instr->type, instr->res, RAX);
+
+    x86_64_operand_t dst = op_mem_indirect_disp(instr->type.width, RBP,
+        ir_var_context[instr->res].stack_offset);
+    x86_64_operand_t op0 = value_operand(instr->binop.left);
+    x86_64_operand_t op1 = value_operand(instr->binop.right);
+
+    emit_add_dst_op0_op1(emitter, &dst, &op0, &op1);
 }
 
 
 static void assemble_sub(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
-    load_value(emitter, instr->binop.left, RAX);
-    load_value(emitter, instr->binop.right, RCX);
-    emit_sub_rN_rN(emitter, instr->type.width, RAX, RCX);
-    store_value(emitter, instr->type, instr->res, RAX);
+
+    x86_64_operand_t dst = op_mem_indirect_disp(instr->type.width, RBP,
+        ir_var_context[instr->res].stack_offset);
+    x86_64_operand_t op0 = value_operand(instr->binop.left);
+    x86_64_operand_t op1 = value_operand(instr->binop.right);
+
+    emit_sub_dst_op0_op1(emitter, &dst, &op0, &op1);
 }
 
 static void assemble_mul(recompiler_backend_t const *backend,
@@ -314,28 +335,37 @@ static void assemble_srem(recompiler_backend_t const *backend,
 static void assemble_and(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
-    load_value(emitter, instr->binop.left, RAX);
-    load_value(emitter, instr->binop.right, RCX);
-    emit_and_r64_r64(emitter, RAX, RCX);
-    store_value(emitter, instr->type, instr->res, RAX);
+
+    x86_64_operand_t dst = op_mem_indirect_disp(instr->type.width, RBP,
+        ir_var_context[instr->res].stack_offset);
+    x86_64_operand_t op0 = value_operand(instr->binop.left);
+    x86_64_operand_t op1 = value_operand(instr->binop.right);
+
+    emit_and_dst_op0_op1(emitter, &dst, &op0, &op1);
 }
 
 static void assemble_or(recompiler_backend_t const *backend,
                         code_buffer_t *emitter,
                         ir_instr_t const *instr) {
-    load_value(emitter, instr->binop.left, RAX);
-    load_value(emitter, instr->binop.right, RCX);
-    emit_or_r64_r64(emitter, RAX, RCX);
-    store_value(emitter, instr->type, instr->res, RAX);
+
+    x86_64_operand_t dst = op_mem_indirect_disp(instr->type.width, RBP,
+        ir_var_context[instr->res].stack_offset);
+    x86_64_operand_t op0 = value_operand(instr->binop.left);
+    x86_64_operand_t op1 = value_operand(instr->binop.right);
+
+    emit_or_dst_op0_op1(emitter, &dst, &op0, &op1);
 }
 
 static void assemble_xor(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
-    load_value(emitter, instr->binop.left, RAX);
-    load_value(emitter, instr->binop.right, RCX);
-    emit_xor_r64_r64(emitter, RAX, RCX);
-    store_value(emitter, instr->type, instr->res, RAX);
+
+    x86_64_operand_t dst = op_mem_indirect_disp(instr->type.width, RBP,
+        ir_var_context[instr->res].stack_offset);
+    x86_64_operand_t op0 = value_operand(instr->binop.left);
+    x86_64_operand_t op1 = value_operand(instr->binop.right);
+
+    emit_xor_dst_op0_op1(emitter, &dst, &op0, &op1);
 }
 
 static void assemble_sll(recompiler_backend_t const *backend,
@@ -368,24 +398,25 @@ static void assemble_sra(recompiler_backend_t const *backend,
 static void assemble_icmp(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
-    load_value(emitter, instr->icmp.left, RAX);
-    load_value(emitter, instr->icmp.right, RCX);
-    emit_cmp_rN_rN(emitter, instr->icmp.left.type.width, RAX, RCX);
 
-    x86_64_mem_t m8 = mem_indirect_disp(RBP,
+    x86_64_mem_t dst = mem_indirect_disp(RBP,
         ir_var_context[instr->res].stack_offset);
+    x86_64_operand_t op0 = value_operand(instr->icmp.left);
+    x86_64_operand_t op1 = value_operand(instr->icmp.right);
+
+    emit_cmp_dst_op0_op1(emitter, &op0, &op1);
 
     switch (instr->icmp.op) {
-    case IR_EQ:  emit_sete_m8(emitter, m8); break;
-    case IR_NE:  emit_setne_m8(emitter, m8); break;
-    case IR_UGT: emit_seta_m8(emitter, m8); break;
-    case IR_UGE: emit_setae_m8(emitter, m8); break;
-    case IR_ULT: emit_setb_m8(emitter, m8); break;
-    case IR_ULE: emit_setbe_m8(emitter, m8); break;
-    case IR_SGT: emit_setg_m8(emitter, m8); break;
-    case IR_SGE: emit_setge_m8(emitter, m8); break;
-    case IR_SLT: emit_setl_m8(emitter, m8); break;
-    case IR_SLE: emit_setle_m8(emitter, m8); break;
+    case IR_EQ:  emit_sete_m8(emitter, dst); break;
+    case IR_NE:  emit_setne_m8(emitter, dst); break;
+    case IR_UGT: emit_seta_m8(emitter, dst); break;
+    case IR_UGE: emit_setae_m8(emitter, dst); break;
+    case IR_ULT: emit_setb_m8(emitter, dst); break;
+    case IR_ULE: emit_setbe_m8(emitter, dst); break;
+    case IR_SGT: emit_setg_m8(emitter, dst); break;
+    case IR_SGE: emit_setge_m8(emitter, dst); break;
+    case IR_SLT: emit_setl_m8(emitter, dst); break;
+    case IR_SLE: emit_setle_m8(emitter, dst); break;
     default:     fail_code_buffer(emitter);
     }
 }
@@ -395,6 +426,7 @@ static void assemble_load(recompiler_backend_t const *backend,
                           ir_instr_t const *instr) {
     x86_64_mem_t dst = mem_indirect_disp(RBP,
         ir_var_context[instr->res].stack_offset);
+
 
     load_value(emitter, instr->load.address, RAX);
     emit_mov_rN_mN(emitter, instr->type.width, RCX, mem_indirect(RAX));
@@ -456,10 +488,13 @@ static void assemble_write(recompiler_backend_t const *backend,
 
     void *ptr = backend->globals[global].ptr;
     ir_type_t type = backend->globals[global].type;
+    x86_64_operand_t dst = op_mem_indirect(type.width, RAX);
+    x86_64_operand_t tmp = op_reg(type.width, RCX);
+    x86_64_operand_t src = value_operand(instr->write.value);
 
     emit_mov_r64_imm64(emitter, RAX, (intptr_t)ptr);
-    load_value(emitter, instr->write.value, RCX);
-    emit_mov_mN_rN(emitter, type.width, mem_indirect(RAX), RCX);
+    emit_mov_op0_op1(emitter, &tmp, &src);
+    emit_mov_op0_op1(emitter, &dst, &tmp);
 }
 
 static void assemble_trunc(recompiler_backend_t const *backend,
