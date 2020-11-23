@@ -213,7 +213,7 @@ static void assemble_not(recompiler_backend_t const *backend,
         ir_var_context[instr->res].stack_offset);
     x86_64_operand_t op0 = value_operand(instr->unop.value);
 
-    emit_not_dst_op0(emitter, &dst, &op0);
+    emit_not_dst_src0(emitter, &dst, &op0);
 }
 
 static void assemble_add(recompiler_backend_t const *backend,
@@ -225,7 +225,7 @@ static void assemble_add(recompiler_backend_t const *backend,
     x86_64_operand_t op0 = value_operand(instr->binop.left);
     x86_64_operand_t op1 = value_operand(instr->binop.right);
 
-    emit_add_dst_op0_op1(emitter, &dst, &op0, &op1);
+    emit_add_dst_src0_src1(emitter, &dst, &op0, &op1);
 }
 
 
@@ -238,7 +238,7 @@ static void assemble_sub(recompiler_backend_t const *backend,
     x86_64_operand_t op0 = value_operand(instr->binop.left);
     x86_64_operand_t op1 = value_operand(instr->binop.right);
 
-    emit_sub_dst_op0_op1(emitter, &dst, &op0, &op1);
+    emit_sub_dst_src0_src1(emitter, &dst, &op0, &op1);
 }
 
 static void assemble_mul(recompiler_backend_t const *backend,
@@ -341,7 +341,7 @@ static void assemble_and(recompiler_backend_t const *backend,
     x86_64_operand_t op0 = value_operand(instr->binop.left);
     x86_64_operand_t op1 = value_operand(instr->binop.right);
 
-    emit_and_dst_op0_op1(emitter, &dst, &op0, &op1);
+    emit_and_dst_src0_src1(emitter, &dst, &op0, &op1);
 }
 
 static void assemble_or(recompiler_backend_t const *backend,
@@ -353,7 +353,7 @@ static void assemble_or(recompiler_backend_t const *backend,
     x86_64_operand_t op0 = value_operand(instr->binop.left);
     x86_64_operand_t op1 = value_operand(instr->binop.right);
 
-    emit_or_dst_op0_op1(emitter, &dst, &op0, &op1);
+    emit_or_dst_src0_src1(emitter, &dst, &op0, &op1);
 }
 
 static void assemble_xor(recompiler_backend_t const *backend,
@@ -365,7 +365,7 @@ static void assemble_xor(recompiler_backend_t const *backend,
     x86_64_operand_t op0 = value_operand(instr->binop.left);
     x86_64_operand_t op1 = value_operand(instr->binop.right);
 
-    emit_xor_dst_op0_op1(emitter, &dst, &op0, &op1);
+    emit_xor_dst_src0_src1(emitter, &dst, &op0, &op1);
 }
 
 static void assemble_sll(recompiler_backend_t const *backend,
@@ -404,7 +404,7 @@ static void assemble_icmp(recompiler_backend_t const *backend,
     x86_64_operand_t op0 = value_operand(instr->icmp.left);
     x86_64_operand_t op1 = value_operand(instr->icmp.right);
 
-    emit_cmp_dst_op0_op1(emitter, &op0, &op1);
+    emit_cmp_src0_src1(emitter, &op0, &op1);
 
     switch (instr->icmp.op) {
     case IR_EQ:  emit_sete_m8(emitter, dst); break;
@@ -493,8 +493,8 @@ static void assemble_write(recompiler_backend_t const *backend,
     x86_64_operand_t src = value_operand(instr->write.value);
 
     emit_mov_r64_imm64(emitter, RAX, (intptr_t)ptr);
-    emit_mov_op0_op1(emitter, &tmp, &src);
-    emit_mov_op0_op1(emitter, &dst, &tmp);
+    emit_mov_dst_src0(emitter, &tmp, &src);
+    emit_mov_dst_src0(emitter, &dst, &tmp);
 }
 
 static void assemble_trunc(recompiler_backend_t const *backend,

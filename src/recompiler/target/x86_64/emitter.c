@@ -2,6 +2,14 @@
 #include <stdbool.h>
 #include "emitter.h"
 
+static inline bool is_int8(int64_t v) {
+    return v >= INT8_MIN && v <= INT8_MAX;
+}
+
+static inline bool is_int32(int64_t v) {
+    return v >= INT32_MIN && v <= INT32_MAX;
+}
+
 static inline uint8_t modrm(uint8_t mod, uint8_t reg, uint8_t rm) {
     return ((mod & 0x3) << 6) | ((reg & 0x7) << 3) | (rm & 0x7);
 }
@@ -108,7 +116,10 @@ void emit_instruction_1_AL_Ib(code_buffer_t *emitter, uint8_t opcode,
 static
 void emit_instruction_1_Kb_Ib(code_buffer_t *emitter, uint8_t opcode,
                               unsigned reg, int8_t imm) {
-    emit_instruction_1_AL_Ib(emitter, opcode | reg, imm);
+    x86_64_mem_t m = mem_direct(reg);
+    emit_rex_reg_modrm(emitter, 0, 0, &m);
+    emit_u8(emitter, opcode | reg);
+    emit_i8(emitter, imm);
 }
 
 static
@@ -204,7 +215,8 @@ static
 void emit_instruction_1_Kv(code_buffer_t *emitter, unsigned size,
                            uint8_t opcode, unsigned reg) {
     if (size == 16) emit_u8(emitter, 0x66);
-    if (size == 64) emit_u8(emitter, rex(1, 0, 0, reg >> 3));
+    x86_64_mem_t m = mem_direct(reg);
+    emit_rex_reg_modrm(emitter, size == 64, 0, &m);
     emit_u8(emitter, opcode | (reg & 7));
 }
 
@@ -295,7 +307,7 @@ void patch_jmp_rel32(code_buffer_t *emitter,
     // contains the address of the instruction immediately following,
     // the relative offset size need to be deducted.
     ptrdiff_t rel = target - rel32 - 4;
-    if (rel < INT32_MIN || rel > INT32_MAX) {
+    if (!is_int32(rel)) {
         fail_code_buffer(emitter);
     }
 
@@ -435,7 +447,7 @@ void emit_call(code_buffer_t *emitter, void *ptr, unsigned r64) {
     // otherwise generate call with absolute 64bit address.
     ptrdiff_t rel = (unsigned char *)ptr -
         (emitter->ptr + emitter->length + 1) - 4;
-    if (rel >= INT32_MIN && rel <= INT32_MAX) {
+    if (is_int32(rel)) {
         emit_call_rel32(emitter, rel);
     } else {
         emit_mov_r64_imm64(emitter, r64, (int64_t)(uint64_t)(uintptr_t)ptr);
@@ -1205,7 +1217,7 @@ x86_64_operand_pair_kind_t op_pair_kind(x86_64_operand_t *op0,
 }
 
 /**
- * Generate an binary instruction.
+ * Generate a binary instruction.
  * @param emitter       Selected code emitter.
  * @param opcode        Opcode for the Eb,Gb addressing mode.
  * @param opcode_ext    Opcode extension.
@@ -1236,7 +1248,7 @@ static void emit_binop_op0_op1(code_buffer_t *emitter,
             emit_instruction_1_Eb_Ib(emitter,
                 0x80, opcode_ext, &op0->mem, op1->imm);
         }
-        else if (op1->imm >= INT8_MIN && op1->imm <= INT8_MAX) {
+        else if (is_int8(op1->imm)) {
             emit_instruction_1_Ev_Ib(emitter, size,
                 0x83, opcode_ext, &op0->mem, op1->imm);
         }
@@ -1283,7 +1295,7 @@ static void emit_binop_op0_op1(code_buffer_t *emitter,
             emit_instruction_1_Eb_Ib(emitter,
                 0x80, opcode_ext, &m, op1->imm);
         }
-        else if (op1->imm >= INT8_MIN && op1->imm <= INT8_MAX) {
+        else if (is_int8(op1->imm)) {
             emit_instruction_1_Ev_Ib(emitter, size,
                 0x83, opcode_ext, &m, op1->imm);
         }
@@ -1480,31 +1492,38 @@ static void emit_shift_op0_op1(code_buffer_t *emitter,
     }
 }
 
-void emit_rol(code_buffer_t *emitter, x86_64_operand_t *op0, x86_64_operand_t *op1) {
+void emit_rol_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1) {
     emit_shift_op0_op1(emitter, 0x00, op0, op1);
 }
 
-void emit_ror(code_buffer_t *emitter, x86_64_operand_t *op0, x86_64_operand_t *op1) {
+void emit_ror_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1) {
     emit_shift_op0_op1(emitter, 0x01, op0, op1);
 }
 
-void emit_rcl(code_buffer_t *emitter, x86_64_operand_t *op0, x86_64_operand_t *op1) {
+void emit_rcl_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1) {
     emit_shift_op0_op1(emitter, 0x02, op0, op1);
 }
 
-void emit_rcr(code_buffer_t *emitter, x86_64_operand_t *op0, x86_64_operand_t *op1) {
+void emit_rcr_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1) {
     emit_shift_op0_op1(emitter, 0x03, op0, op1);
 }
 
-void emit_shl(code_buffer_t *emitter, x86_64_operand_t *op0, x86_64_operand_t *op1) {
+void emit_shl_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1) {
     emit_shift_op0_op1(emitter, 0x04, op0, op1);
 }
 
-void emit_shr(code_buffer_t *emitter, x86_64_operand_t *op0, x86_64_operand_t *op1) {
+void emit_shr_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1) {
     emit_shift_op0_op1(emitter, 0x05, op0, op1);
 }
 
-void emit_sra(code_buffer_t *emitter, x86_64_operand_t *op0, x86_64_operand_t *op1) {
+void emit_sra_op0_op1(code_buffer_t *emitter,
+                      x86_64_operand_t *op0, x86_64_operand_t *op1) {
     emit_shift_op0_op1(emitter, 0x07, op0, op1);
 }
 
@@ -1584,34 +1603,31 @@ void emit_mov_op0_op1(code_buffer_t *emitter,
 }
 
 /**
- * Convert an binary instruction with separate destination operand into
+ * Convert a binary instruction with separate destination operand into
  * a simple instruction operating on the left operand. Namely insert
  * a move from the left operand to the destination if necessary.
  * @param emitter       Selected code emitter.
  * @param opcode        Opcode for the Eb,Gb addressing mode.
  * @param opcode_ext    Opcode extension.
  * @param dst           Destination operand. Must not be an immediate operand.
- * @param op0           First source operand.
- * @param op1           Second source operand.
+ * @param src0          First source operand.
+ * @param src1          Second source operand.
  */
-static void emit_binop_dst_op0_op1(
-    code_buffer_t *emitter,
-    uint8_t opcode,
-    uint8_t opcode_ext,
-    x86_64_operand_t *dst,
-    x86_64_operand_t *op0,
-    x86_64_operand_t *op1) {
-
-    if (dst->size != op0->size ||
-        dst->size != op1->size) {
+static void emit_binop_dst_src0_src1(code_buffer_t *emitter,
+                                     uint8_t opcode, uint8_t opcode_ext,
+                                     x86_64_operand_t *dst,
+                                     x86_64_operand_t *src0,
+                                     x86_64_operand_t *src1) {
+    if (dst->size != src0->size ||
+        dst->size != src1->size) {
         // raise_recompiler_error(emitter->error_handler,
         //     "emit_add: operands have differing widths");
         fail_code_buffer(emitter);
         return;
     }
 
-#define mode_index(dst, op0, op1, eq) \
-    (18 * (dst) + 6 * (op0) + 2 * (op1) + (eq))
+#define mode_index(dst, src0, src1, eq) \
+    (18 * (dst) + 6 * (src0) + 2 * (src1) + (eq))
 
     enum { MODE_INVAL = 0, MODE_0, MODE_1, MODE_2, MODE_3, };
     static unsigned char modes[54] = {
@@ -1635,43 +1651,41 @@ static void emit_binop_dst_op0_op1(
         [mode_index(REGISTER, REGISTER, IMMEDIATE, 1)] = MODE_0,
     };
 
-    bool index = mode_index(dst->kind, op0->kind, op1->kind, op_equals(dst, op0));
+    bool index = mode_index(dst->kind, src0->kind, src1->kind, op_equals(dst, src0));
     unsigned char mode = modes[index];
 
 #undef mode_index
 
     // XXX TODO temporary register must be configurable.
-    x86_64_operand_t tmp0 = op_reg(op0->size, RAX);
-    x86_64_operand_t tmp1 = op_reg(op0->size, RCX);
+    x86_64_operand_t tmp0 = op_reg(src0->size, RAX);
+    x86_64_operand_t tmp1 = op_reg(src0->size, RCX);
 
     // If either source operand is a 64 bit immediate value that is larger
     // than the 32 bit range, the mode is automatically promoted to
     // mode 2 or 3.
-    if (op0->kind == IMMEDIATE && op0->size == 64 &&
-        (op0->imm < INT32_MIN || op0->imm > INT32_MAX)) {
+    if (src0->kind == IMMEDIATE && src0->size == 64 && !is_int32(src0->imm)) {
         mode = MODE_3;
     }
-    if (op1->kind == IMMEDIATE && op1->size == 64 &&
-        (op1->imm < INT32_MIN || op1->imm > INT32_MAX)) {
+    if (src1->kind == IMMEDIATE && src1->size == 64 && !is_int32(src1->imm)) {
         mode = MODE_2;
     }
 
     switch (mode) {
     case MODE_0:
-        emit_binop_op0_op1(emitter, opcode, opcode_ext, op0, op1);
+        emit_binop_op0_op1(emitter, opcode, opcode_ext, src0, src1);
         break;
     case MODE_1:
-        emit_mov_op0_op1(emitter, dst, op0);
-        emit_binop_op0_op1(emitter, opcode, opcode_ext, dst, op1);
+        emit_mov_op0_op1(emitter, dst, src0);
+        emit_binop_op0_op1(emitter, opcode, opcode_ext, dst, src1);
         break;
     case MODE_2:
-        emit_mov_op0_op1(emitter, &tmp0, op0);
-        emit_binop_op0_op1(emitter, opcode, opcode_ext, &tmp0, op1);
+        emit_mov_op0_op1(emitter, &tmp0, src0);
+        emit_binop_op0_op1(emitter, opcode, opcode_ext, &tmp0, src1);
         emit_mov_op0_op1(emitter, dst, &tmp0);
         break;
     case MODE_3:
-        emit_mov_op0_op1(emitter, &tmp0, op0);
-        emit_mov_op0_op1(emitter, &tmp1, op1);
+        emit_mov_op0_op1(emitter, &tmp0, src0);
+        emit_mov_op0_op1(emitter, &tmp1, src1);
         emit_binop_op0_op1(emitter, opcode, opcode_ext, &tmp0, &tmp1);
         emit_mov_op0_op1(emitter, dst, &tmp0);
         break;
@@ -1684,50 +1698,50 @@ static void emit_binop_dst_op0_op1(
     }
 }
 
-void emit_add_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
-                          x86_64_operand_t *op0, x86_64_operand_t *op1) {
-    emit_binop_dst_op0_op1(emitter, 0x00, 0x00, dst, op0, op1);
+void emit_add_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1) {
+    emit_binop_dst_src0_src1(emitter, 0x00, 0x00, dst, src0, src1);
 }
 
-void emit_adc_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
-                          x86_64_operand_t *op0, x86_64_operand_t *op1) {
-    emit_binop_dst_op0_op1(emitter, 0x10, 0x02, dst, op0, op1);
+void emit_adc_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1) {
+    emit_binop_dst_src0_src1(emitter, 0x10, 0x02, dst, src0, src1);
 }
 
-void emit_and_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
-                          x86_64_operand_t *op0, x86_64_operand_t *op1) {
-    emit_binop_dst_op0_op1(emitter, 0x20, 0x04, dst, op0, op1);
+void emit_and_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1) {
+    emit_binop_dst_src0_src1(emitter, 0x20, 0x04, dst, src0, src1);
 }
 
-void emit_xor_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
-                          x86_64_operand_t *op0, x86_64_operand_t *op1) {
-    emit_binop_dst_op0_op1(emitter, 0x30, 0x06, dst, op0, op1);
+void emit_xor_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1) {
+    emit_binop_dst_src0_src1(emitter, 0x30, 0x06, dst, src0, src1);
 }
 
-void emit_or_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
-                         x86_64_operand_t *op0, x86_64_operand_t *op1) {
-    emit_binop_dst_op0_op1(emitter, 0x08, 0x01, dst, op0, op1);
+void emit_or_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                           x86_64_operand_t *src0, x86_64_operand_t *src1) {
+    emit_binop_dst_src0_src1(emitter, 0x08, 0x01, dst, src0, src1);
 }
 
-void emit_sbb_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
-                         x86_64_operand_t *op0, x86_64_operand_t *op1) {
-    emit_binop_dst_op0_op1(emitter, 0x18, 0x03, dst, op0, op1);
+void emit_sbb_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1) {
+    emit_binop_dst_src0_src1(emitter, 0x18, 0x03, dst, src0, src1);
 }
 
-void emit_sub_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
-                          x86_64_operand_t *op0, x86_64_operand_t *op1) {
-    emit_binop_dst_op0_op1(emitter, 0x28, 0x05, dst, op0, op1);
+void emit_sub_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1) {
+    emit_binop_dst_src0_src1(emitter, 0x28, 0x05, dst, src0, src1);
 }
 
-void emit_cmp_dst_op0_op1(code_buffer_t *emitter,
-                          x86_64_operand_t *op0, x86_64_operand_t *op1) {
-    if ((op0->kind == MEMORY && op1->kind == MEMORY) ||
-        op0->kind == IMMEDIATE) {
-        x86_64_operand_t tmp = op_reg(op0->size, RAX); // XXX
-        emit_mov_op0_op1(emitter, &tmp, op0);
-        emit_cmp_op0_op1(emitter, &tmp, op1);
+void emit_cmp_src0_src1(code_buffer_t *emitter,
+                        x86_64_operand_t *src0, x86_64_operand_t *src1) {
+    if ((src0->kind == MEMORY && src1->kind == MEMORY) ||
+        src0->kind == IMMEDIATE) {
+        x86_64_operand_t tmp = op_reg(src0->size, RAX); // XXX
+        emit_mov_op0_op1(emitter, &tmp, src0);
+        emit_cmp_op0_op1(emitter, &tmp, src1);
     } else {
-        emit_cmp_op0_op1(emitter, op0, op1);
+        emit_cmp_op0_op1(emitter, src0, src1);
     }
 }
 
@@ -1738,20 +1752,20 @@ void emit_cmp_dst_op0_op1(code_buffer_t *emitter,
  * @param emitter       Selected code emitter.
  * @param opcode_ext    Opcode extension.
  * @param dst           Destination operand. Must not be an immediate operand.
- * @param op0           Source operand.
+ * @param src0          Source operand.
  */
-static void emit_unop_dst_op0(code_buffer_t *emitter, uint8_t opcode_ext,
-                              x86_64_operand_t *dst, x86_64_operand_t *op0) {
-
-    if (dst->size != op0->size) {
+static void emit_unop_dst_src0(code_buffer_t *emitter, uint8_t opcode_ext,
+                               x86_64_operand_t *dst,
+                               x86_64_operand_t *src0) {
+    if (dst->size != src0->size) {
         // raise_recompiler_error(emitter->error_handler,
         //     "emit_add: operands have differing widths");
         fail_code_buffer(emitter);
         return;
     }
 
-#define mode_index(dst, op0, eq) \
-    (6 * (dst) + 2 * (op0) + (eq))
+#define mode_index(dst, src0, eq) \
+    (6 * (dst) + 2 * (src0) + (eq))
 
     enum { MODE_INVAL = 0, MODE_0, MODE_1, MODE_2, };
     static unsigned char modes[18] = {
@@ -1763,24 +1777,24 @@ static void emit_unop_dst_op0(code_buffer_t *emitter, uint8_t opcode_ext,
         [mode_index(REGISTER, REGISTER, 1)] = MODE_0,
     };
 
-    bool index = mode_index(dst->kind, op0->kind, op_equals(dst, op0));
+    bool index = mode_index(dst->kind, src0->kind, op_equals(dst, src0));
     unsigned char mode = modes[index];
 
 #undef mode_index
 
     // XXX TODO temporary register must be configurable.
-    x86_64_operand_t tmp = op_reg(op0->size, RAX);
+    x86_64_operand_t tmp = op_reg(src0->size, RAX);
 
     switch (mode) {
     case MODE_0:
-        emit_unop_op0(emitter, opcode_ext, op0);
+        emit_unop_op0(emitter, opcode_ext, src0);
         break;
     case MODE_1:
-        emit_mov_op0_op1(emitter, dst, op0);
-        emit_unop_op0(emitter, opcode_ext, op0);
+        emit_mov_op0_op1(emitter, dst, src0);
+        emit_unop_op0(emitter, opcode_ext, src0);
         break;
     case MODE_2:
-        emit_mov_op0_op1(emitter, &tmp, op0);
+        emit_mov_op0_op1(emitter, &tmp, src0);
         emit_unop_op0(emitter, opcode_ext, &tmp);
         emit_mov_op0_op1(emitter, dst, &tmp);
         break;
@@ -1793,12 +1807,109 @@ static void emit_unop_dst_op0(code_buffer_t *emitter, uint8_t opcode_ext,
     }
 }
 
-void emit_not_dst_op0(code_buffer_t *emitter, x86_64_operand_t *dst,
-                      x86_64_operand_t *op0) {
-    emit_unop_dst_op0(emitter, 0x02, dst, op0);
+void emit_not_dst_src0(code_buffer_t *emitter, x86_64_operand_t *dst,
+                       x86_64_operand_t *src0) {
+    emit_unop_dst_src0(emitter, 0x02, dst, src0);
 }
 
-void emit_neg_dst_op0(code_buffer_t *emitter, x86_64_operand_t *dst,
-                      x86_64_operand_t *op0) {
-    emit_unop_dst_op0(emitter, 0x03, dst, op0);
+void emit_neg_dst_src0(code_buffer_t *emitter, x86_64_operand_t *dst,
+                       x86_64_operand_t *src0) {
+    emit_unop_dst_src0(emitter, 0x03, dst, src0);
+}
+
+/**
+ * Convert a shift instruction with separate destination operand into
+ * a simple instruction operating on the left operand. Namely insert
+ * a move from the left operand to the destination if necessary.
+ * @param emitter       Selected code emitter.
+ * @param opcode_ext    Opcode extension.
+ * @param dst           Destination operand. Must not be an immediate operand.
+ * @param src0          First source operand.
+ * @param src1          Second source operand.
+ */
+static void emit_shift_dst_src0_src1(code_buffer_t *emitter,
+                                     uint8_t opcode_ext,
+                                     x86_64_operand_t *dst,
+                                     x86_64_operand_t *src0,
+                                     x86_64_operand_t *src1) {
+    if (dst->size != src0->size || src1->size != 8) {
+        // raise_recompiler_error(emitter->error_handler,
+        //     "emit_add: operands have differing widths");
+        fail_code_buffer(emitter);
+        return;
+    }
+
+    // XXX TODO temporary register must be configurable.
+    x86_64_operand_t cl = op_reg(8, CL);
+    x86_64_operand_t tmp = op_reg(src0->size, RAX);
+
+    if (src1->kind != IMMEDIATE &&
+        !(src1->kind == REGISTER && src1->reg == CL)) {
+        emit_mov_op0_op1(emitter, &cl, src1);
+        src1 = &cl;
+    }
+
+    if (op_equals(dst, src0)) {
+        /* MODE_0 */
+        emit_shift_op0_op1(emitter, opcode_ext, dst, src1);
+    }
+    else if ((dst->kind == MEMORY && src0->kind == MEMORY) ||
+             (src0->kind == IMMEDIATE && !is_int32(src0->imm))) {
+        /* MODE_2 */
+        emit_mov_op0_op1(emitter, &tmp, src0);
+        emit_shift_op0_op1(emitter, opcode_ext, &tmp, src1);
+        emit_mov_op0_op1(emitter, dst, &tmp);
+    }
+    else {
+        /* MODE_1 */
+        emit_mov_op0_op1(emitter, dst, src0);
+        emit_shift_op0_op1(emitter, opcode_ext, dst, src1);
+    }
+}
+
+void emit_rol_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1) {
+    emit_shift_dst_src0_src1(emitter, 0x00, dst, src0, src1);
+}
+
+void emit_ror_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1) {
+    emit_shift_dst_src0_src1(emitter, 0x01, dst, src0, src1);
+}
+
+void emit_rcl_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1) {
+    emit_shift_dst_src0_src1(emitter, 0x02, dst, src0, src1);
+}
+
+void emit_rcr_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1) {
+    emit_shift_dst_src0_src1(emitter, 0x03, dst, src0, src1);
+}
+
+void emit_shl_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1) {
+    emit_shift_dst_src0_src1(emitter, 0x04, dst, src0, src1);
+}
+
+void emit_shr_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1) {
+    emit_shift_dst_src0_src1(emitter, 0x05, dst, src0, src1);
+}
+
+void emit_sra_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1) {
+    emit_shift_dst_src0_src1(emitter, 0x07, dst, src0, src1);
+}
+
+
+void emit_mov_dst_src0(code_buffer_t *emitter,
+                       x86_64_operand_t *dst, x86_64_operand_t *src0) {
+    if (dst->kind == MEMORY && src0->kind == MEMORY) {
+        x86_64_operand_t tmp = op_reg(src0->size, RAX);
+        emit_mov_op0_op1(emitter, &tmp, src0);
+        emit_mov_op0_op1(emitter, dst, &tmp);
+    } else {
+        emit_mov_op0_op1(emitter, dst, src0);
+    }
 }

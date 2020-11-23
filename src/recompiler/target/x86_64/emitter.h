@@ -10,52 +10,28 @@
 
 enum x86_64_register {
     /* 8bit registers */
-    AL = 0,
-    CL = 1,
-    DL = 2,
-    BL = 3,
-    AH = 4,
-    CH = 5,
-    DH = 6,
-    BH = 7,
+    AL = 0,     CL = 1,     DL = 2,     BL = 3,
+    AH = 4,     CH = 5,     DH = 6,     BH = 7,
+    R8b = 8,    R9b = 9,    R10b = 10,  R11b = 11,
+    R12b = 12,  R13b = 13,  R14b = 14,  R15b = 15,
 
     /* 16bit registers */
-    AX = 0,
-    CX = 1,
-    DX = 2,
-    BX = 3,
-    SP = 4,
-    BP = 5,
-    SI = 6,
-    DI = 7,
+    AX = 0,     CX = 1,     DX = 2,     BX = 3,
+    SP = 4,     BP = 5,     SI = 6,     DI = 7,
+    R8w = 8,    R9w = 9,    R10w = 10,  R11w = 11,
+    R12w = 12,  R13w = 13,  R14w = 14,  R15w = 15,
 
     /* 32bit registers */
-    EAX = 0,
-    ECX = 1,
-    EDX = 2,
-    EBX = 3,
-    ESP = 4,
-    EBP = 5,
-    ESI = 6,
-    EDI = 7,
+    EAX = 0,    ECX = 1,    EDX = 2,    EBX = 3,
+    ESP = 4,    EBP = 5,    ESI = 6,    EDI = 7,
+    R8d = 8,    R9d = 9,    R10d = 10,  R11d = 11,
+    R12d = 12,  R13d = 13,  R14d = 14,  R15d = 15,
 
     /* 64bit registers */
-    RAX = 0,
-    RCX = 1,
-    RDX = 2,
-    RBX = 3,
-    RSP = 4,
-    RBP = 5,
-    RSI = 6,
-    RDI = 7,
-    R8  = 8,
-    R9  = 9,
-    R10 = 10,
-    R11 = 11,
-    R12 = 12,
-    R13 = 13,
-    R14 = 14,
-    R15 = 15,
+    RAX = 0,    RCX = 1,    RDX = 2,    RBX = 3,
+    RSP = 4,    RBP = 5,    RSI = 6,    RDI = 7,
+    R8 = 8,     R9 = 9,     R10 = 10,   R11 = 11,
+    R12 = 12,   R13 = 13,   R14 = 14,   R15 = 15,
 };
 
 typedef enum x86_64_mode {
@@ -105,7 +81,8 @@ static inline x86_64_mem_t mem_indirect_scaled_disp(
 
 /** Patch a previously generated jump relative offset to point to the correct
  * address. The call fails if the target cannot be reached. */
-void patch_jmp_rel32(code_buffer_t *emitter, unsigned char *rel32, unsigned char *target);
+void patch_jmp_rel32(code_buffer_t *emitter, unsigned char *rel32,
+                     unsigned char *target);
 
 void emit_add_al_imm8(code_buffer_t *emitter, int8_t imm8);
 void emit_add_eax_imm32(code_buffer_t *emitter, int32_t imm32);
@@ -425,6 +402,28 @@ void emit_sra_op0_op1(code_buffer_t *emitter,
  */
 void emit_mov_op0_op1(code_buffer_t *emitter,
                       x86_64_operand_t *op0, x86_64_operand_t *op1);
+// void emit_test_op0_op1(code_buffer_t *emitter,
+//                        x86_64_operand_t *op0, x86_64_operand_t *op1);
+// void emit_sete_op0(code_buffer_t *emitter,
+//                    x86_64_operand_t *op0);
+// void emit_setne_op0(code_buffer_t *emitter,
+//                     x86_64_operand_t *op0);
+// void emit_seta_op0(code_buffer_t *emitter,
+//                    x86_64_operand_t *op0);
+// void emit_setae_op0(code_buffer_t *emitter,
+//                     x86_64_operand_t *op0);
+// void emit_setb_op0(code_buffer_t *emitter,
+//                    x86_64_operand_t *op0);
+// void emit_setbe_op0(code_buffer_t *emitter,
+//                     x86_64_operand_t *op0);
+// void emit_setg_op0(code_buffer_t *emitter,
+//                    x86_64_operand_t *op0);
+// void emit_setge_op0(code_buffer_t *emitter,
+//                     x86_64_operand_t *op0);
+// void emit_setl_op0(code_buffer_t *emitter,
+//                    x86_64_operand_t *op0);
+// void emit_setle_op0(code_buffer_t *emitter,
+//                     x86_64_operand_t *op0);
 
 /**
  * Binary instruction group, generalized implementation.
@@ -462,23 +461,22 @@ void emit_mov_op0_op1(code_buffer_t *emitter,
  *  +-----+-----+-----+-----------------+
  */
 
-void emit_add_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
-                          x86_64_operand_t *op0, x86_64_operand_t *op1);
-void emit_adc_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
-                          x86_64_operand_t *op0, x86_64_operand_t *op1);
-void emit_and_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
-                          x86_64_operand_t *op0, x86_64_operand_t *op1);
-void emit_xor_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
-                          x86_64_operand_t *op0, x86_64_operand_t *op1);
-void emit_or_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
-                         x86_64_operand_t *op0, x86_64_operand_t *op1);
-void emit_sbb_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
-                         x86_64_operand_t *op0, x86_64_operand_t *op1);
-void emit_sub_dst_op0_op1(code_buffer_t *emitter, x86_64_operand_t *dst,
-                          x86_64_operand_t *op0, x86_64_operand_t *op1);
-void emit_cmp_dst_op0_op1(code_buffer_t *emitter,
-                          x86_64_operand_t *op0, x86_64_operand_t *op1);
-
+void emit_add_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1);
+void emit_adc_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1);
+void emit_and_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1);
+void emit_xor_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1);
+void emit_or_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                           x86_64_operand_t *src0, x86_64_operand_t *src1);
+void emit_sbb_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1);
+void emit_sub_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1);
+void emit_cmp_src0_src1(code_buffer_t *emitter,
+                        x86_64_operand_t *src0, x86_64_operand_t *src1);
 
 /**
  * Unary instruction group, generalized implementation.
@@ -505,59 +503,56 @@ void emit_cmp_dst_op0_op1(code_buffer_t *emitter,
  *  +-----+-----+-----------------+
  */
 
-void emit_not_dst_op0(code_buffer_t *emitter, x86_64_operand_t *dst,
-                      x86_64_operand_t *op0);
-void emit_neg_dst_op0(code_buffer_t *emitter, x86_64_operand_t *dst,
-                      x86_64_operand_t *op0);
+void emit_not_dst_src0(code_buffer_t *emitter, x86_64_operand_t *dst,
+                       x86_64_operand_t *src0);
+void emit_neg_dst_src0(code_buffer_t *emitter, x86_64_operand_t *dst,
+                       x86_64_operand_t *src0);
 
 /**
  * Shift instruction group, generalized implementation.
  * The operands dst, op0 must have the same operand size.
  * The operand op1 must have operand size 8.
+ * The operands dst, op0 must not use the register rCX.
  *
  * The following table describes the generated code depending on the
  * operand types. The operand type combinations not listed here are
  * considered invalid. The 'result' column has one mode for the case where
  * \ref dst and \ref op0 are different, and one case where they are identical.
  *
- *  - MODE_0: shift op0,op1
- *  - MODE_1: mov CL,op1 / shift op0,CL
- *  - MODE_2: mov dst,op0 / shift dst,op1
- *  - MODE_3: mov dst,op0 / mov CL,op1 / shift dst,CL
- *  - MODE_4: mov r,op0 / shift r,op1 / mov dst,r
- *  - MODE_3: mov r0,op0 / mov r1,op1 / binop r0,r1 / mov dst,r0
+ *  + op1 is an immediate or the register CL:
+ *    - MODE_0: shift op0,op1
+ *    - MODE_1: mov dst,op0 / shift dst,op1
+ *    - MODE_2: mov r,op0 / shift r,op1 / mov dst,r
  *
- *  +-----+-----+-----+-----------------+
- *  | dst | op0 | op1 | result          |
- *  +-----+-----+-----+-----------------+
- *  | mem | mem | mem | MODE_2 / MODE_2 |
- *  | mem | mem | reg | MODE_2 / MODE_0 |
- *  | mem | mem | imm | MODE_2 / MODE_0 |
- *  | mem | reg | mem | MODE_2 / NA     |
- *  | mem | reg | reg | MODE_1 / NA     |
- *  | mem | reg | imm | MODE_1 / NA     |
- *  | reg | mem | mem | MODE_1 / NA     |
- *  | reg | mem | reg | MODE_1 / NA     |
- *  | reg | mem | imm | MODE_1 / NA     |
- *  | reg | reg | mem | MODE_1 / MODE_0 |
- *  | reg | reg | reg | MODE_1 / MODE_0 |
- *  | reg | reg | imm | MODE_1 / MODE_0 |
- *  +-----+-----+-----+-----------------+
+ *  + op1 is neither an immediate nor the register CL:
+ *    - MODE_0: mov CL,op1 / shift op0,CL
+ *    - MODE_1: mov CL,op1 / mov dst,op0 / shift dst,CL
+ *    - MODE_2: mov CL,op1 / mov r,op0 / shift r,CL / mov dst,r
  */
 
-void emit_rol_op0_op1(code_buffer_t *emitter,
-                      x86_64_operand_t *op0, x86_64_operand_t *op1);
-void emit_ror_op0_op1(code_buffer_t *emitter,
-                      x86_64_operand_t *op0, x86_64_operand_t *op1);
-void emit_rcl_op0_op1(code_buffer_t *emitter,
-                      x86_64_operand_t *op0, x86_64_operand_t *op1);
-void emit_rcr_op0_op1(code_buffer_t *emitter,
-                      x86_64_operand_t *op0, x86_64_operand_t *op1);
-void emit_shl_op0_op1(code_buffer_t *emitter,
-                      x86_64_operand_t *op0, x86_64_operand_t *op1);
-void emit_shr_op0_op1(code_buffer_t *emitter,
-                      x86_64_operand_t *op0, x86_64_operand_t *op1);
-void emit_sra_op0_op1(code_buffer_t *emitter,
-                      x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_rol_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1);
+void emit_ror_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1);
+void emit_rcl_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1);
+void emit_rcr_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1);
+void emit_shl_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1);
+void emit_shr_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1);
+void emit_sra_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
+                            x86_64_operand_t *src0, x86_64_operand_t *src1);
+
+/**
+ * Misc instruction group, generalized implementation.
+ */
+void emit_mov_dst_src0(code_buffer_t *emitter,
+                       x86_64_operand_t *dst, x86_64_operand_t *src0);
+// void emit_test_src0_src1(code_buffer_t *emitter,
+//                          x86_64_operand_t *src0, x86_64_operand_t *src1);
+// void emit_lea_dst_m(code_buffer_t *emitter, x86_64_operand_t *op0,
+//                     x86_64_mem_t m);
 
 #endif /* _RECOMPILER_TARGET_X86_64_EMITTER_H_INCLUDED_ */
