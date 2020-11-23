@@ -171,6 +171,23 @@ static bool typecheck_binop(recompiler_backend_t *backend,
     return typecheck_res(backend, instr->res, instr->type);
 }
 
+static bool typecheck_shift(recompiler_backend_t *backend,
+                            ir_instr_t const *instr) {
+    if (!typecheck_value(backend, &instr->binop.left, instr->binop.left.type) ||
+        !typecheck_value(backend, &instr->binop.right, ir_make_iN(8))) {
+        return false;
+    }
+    if (!ir_type_equals(instr->type, instr->binop.left.type)) {
+        raise_recompiler_error(backend, "typecheck",
+            "the result type i%u is incompatible with binop parameter type i%u\n"
+            "in block .L%u, instruction:\n    %s",
+            instr->type.width, instr->binop.left.type.width,
+            cur_block->label, print_instr(instr));
+        return false;
+    }
+    return typecheck_res(backend, instr->res, instr->type);
+}
+
 static bool typecheck_icmp(recompiler_backend_t *backend,
                            ir_instr_t const *instr) {
     if (!typecheck_value(backend, &instr->icmp.left, instr->icmp.left.type) ||
@@ -280,9 +297,9 @@ static const bool (*typecheck_callbacks[])(recompiler_backend_t *backend,
     [IR_SDIV]   = typecheck_binop,
     [IR_UREM]   = typecheck_binop,
     [IR_SREM]   = typecheck_binop,
-    [IR_SLL]    = typecheck_binop,
-    [IR_SRL]    = typecheck_binop,
-    [IR_SRA]    = typecheck_binop,
+    [IR_SLL]    = typecheck_shift,
+    [IR_SRL]    = typecheck_shift,
+    [IR_SRA]    = typecheck_shift,
     [IR_AND]    = typecheck_binop,
     [IR_OR]     = typecheck_binop,
     [IR_XOR]    = typecheck_binop,
