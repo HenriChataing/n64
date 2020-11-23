@@ -1549,11 +1549,11 @@ void emit_mov_op0_op1(code_buffer_t *emitter,
     case MEMORY_IMMEDIATE:
         if (size == 8) {
             emit_instruction_1_Eb_Ib(emitter,
-                0xb0, 0x00, &op0->mem, op1->imm);
+                0xc6, 0x00, &op0->mem, op1->imm);
         }
         else {
             emit_instruction_1_Ev_Iz(emitter, size,
-                0xb8, 0x00, &op0->mem, op1->imm);
+                0xc7, 0x00, &op0->mem, op1->imm);
         }
         break;
 
