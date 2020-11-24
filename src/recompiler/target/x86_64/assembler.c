@@ -433,36 +433,46 @@ static void assemble_icmp(recompiler_backend_t const *backend,
 static void assemble_load(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
-    x86_64_mem_t dst = mem_indirect_disp(RBP,
-        ir_var_context[instr->res].stack_offset);
 
+    unsigned size = round_up_to_power2(instr->type.width);
 
-    load_value(emitter, instr->load.address, RAX);
-    emit_mov_rN_mN(emitter, instr->type.width, RCX, mem_indirect(RAX));
+    if (instr->load.address.kind == IR_VAR &&
+        ir_var_context[instr->load.address.var].allocated) {
 
-    switch (instr->type.width) {
-    case 8:  emit_mov_m8_r8(emitter, dst, CL); break;
-    case 16: emit_mov_m16_r16(emitter, dst, CX); break;
-    case 32: emit_mov_m32_r32(emitter, dst, ECX); break;
-    case 64: emit_mov_m64_r64(emitter, dst, RCX); break;
-    default: fail_code_buffer(emitter); break;
+        x86_64_operand_t src = op_mem_indirect_disp(size, RBP,
+            ir_var_context[instr->load.address.var].stack_offset);
+        x86_64_operand_t dst = value_operand(ir_make_var(instr->res, instr->type));
+        emit_mov_dst_src0(emitter, &dst, &src);
+    } else {
+        x86_64_operand_t src = value_operand(instr->load.address);
+        x86_64_operand_t dst = value_operand(ir_make_var(instr->res, instr->type));
+        x86_64_operand_t tmp = op_reg(src.size, RAX);
+        x86_64_operand_t tmp_deref = op_mem_indirect(size, RAX);
+        emit_mov_op0_op1(emitter, &tmp, &src);
+        emit_mov_dst_src0(emitter, &dst, &tmp_deref);
     }
 }
 
 static void assemble_store(recompiler_backend_t const *backend,
                            code_buffer_t *emitter,
                            ir_instr_t const *instr) {
-    x86_64_mem_t dst = mem_indirect(RAX);
 
-    load_value(emitter, instr->store.address, RAX);
-    load_value(emitter, instr->store.value, RCX);
+    unsigned size = round_up_to_power2(instr->type.width);
 
-    switch (instr->type.width) {
-    case 8:  emit_mov_m8_r8(emitter, dst, CL); break;
-    case 16: emit_mov_m16_r16(emitter, dst, CX); break;
-    case 32: emit_mov_m32_r32(emitter, dst, ECX); break;
-    case 64: emit_mov_m64_r64(emitter, dst, RCX); break;
-    default: fail_code_buffer(emitter); break;
+    if (instr->store.address.kind == IR_VAR &&
+        ir_var_context[instr->store.address.var].allocated) {
+
+        x86_64_operand_t src = value_operand(instr->store.value);
+        x86_64_operand_t dst = op_mem_indirect_disp(size, RBP,
+            ir_var_context[instr->store.address.var].stack_offset);
+        emit_mov_dst_src0(emitter, &dst, &src);
+    } else {
+        x86_64_operand_t src = value_operand(instr->store.value);
+        x86_64_operand_t dst = value_operand(ir_make_var(instr->res, instr->type));
+        x86_64_operand_t tmp = op_reg(src.size, RAX);
+        x86_64_operand_t tmp_deref = op_mem_indirect(size, RAX);
+        emit_mov_op0_op1(emitter, &tmp, &dst);
+        emit_mov_dst_src0(emitter, &tmp_deref, &src);
     }
 }
 
@@ -477,11 +487,11 @@ static void assemble_read(recompiler_backend_t const *backend,
     }
 
     void *ptr = backend->globals[global].ptr;
-    ir_type_t type = backend->globals[global].type;
+    x86_64_operand_t dst = value_operand(ir_make_var(instr->res, instr->type));
+    x86_64_operand_t src = op_mem_indirect(dst.size, RCX);
 
-    emit_mov_r64_imm64(emitter, RAX, (intptr_t)ptr);
-    emit_mov_rN_mN(emitter, type.width, RAX, mem_indirect(RAX));
-    store_value(emitter, type, instr->res, RAX);
+    emit_mov_r64_imm64(emitter, RCX, (intptr_t)ptr);
+    emit_mov_dst_src0(emitter, &dst, &src);
 }
 
 static void assemble_write(recompiler_backend_t const *backend,
@@ -496,14 +506,11 @@ static void assemble_write(recompiler_backend_t const *backend,
     }
 
     void *ptr = backend->globals[global].ptr;
-    ir_type_t type = backend->globals[global].type;
-    x86_64_operand_t dst = op_mem_indirect(type.width, RAX);
-    x86_64_operand_t tmp = op_reg(type.width, RCX);
     x86_64_operand_t src = value_operand(instr->write.value);
+    x86_64_operand_t dst = op_mem_indirect(src.size, RCX);
 
-    emit_mov_r64_imm64(emitter, RAX, (intptr_t)ptr);
-    emit_mov_dst_src0(emitter, &tmp, &src);
-    emit_mov_dst_src0(emitter, &dst, &tmp);
+    emit_mov_r64_imm64(emitter, RCX, (intptr_t)ptr);
+    emit_mov_dst_src0(emitter, &dst, &src);
 }
 
 static void assemble_trunc(recompiler_backend_t const *backend,
