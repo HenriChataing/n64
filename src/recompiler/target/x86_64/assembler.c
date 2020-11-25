@@ -171,8 +171,10 @@ static void assemble_assert(recompiler_backend_t const *backend,
                             ir_instr_t const *instr) {
     // The assert jumps to the exit label if the condition is false,
     // otherwise continues with normal instruction flow.
-    load_value(emitter, instr->assert_.cond, AL);
-    emit_test_al_imm8(emitter, 1);
+    x86_64_operand_t src0 = op_value(&instr->assert_.cond);
+    x86_64_operand_t src1 = op_imm(8, 1);
+
+    emit_test_src0_src1(emitter, &src0, &src1);
     ir_exit_queue[ir_exit_queue_len].rel32 = emit_je_rel32(emitter, 0);
     ir_exit_queue_len++;
 }
@@ -180,10 +182,11 @@ static void assemble_assert(recompiler_backend_t const *backend,
 static void assemble_br(recompiler_backend_t const *backend,
                         code_buffer_t *emitter,
                         ir_instr_t const *instr) {
+    x86_64_operand_t src0 = op_value(&instr->br.cond);
+    x86_64_operand_t src1 = op_imm(8, 1);
     unsigned char *rel32;
-    load_value(emitter, instr->br.cond, AL);
-     emit_test_al_imm8(emitter, 1);
 
+    emit_test_src0_src1(emitter, &src0, &src1);
     rel32 = emit_jne_rel32(emitter, 0);
     ir_br_queue[ir_br_queue_len].rel32 = rel32;
     ir_br_queue[ir_br_queue_len].block = instr->br.target[1];
@@ -281,8 +284,7 @@ static void assemble_not(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
 
-    x86_64_operand_t dst = op_mem_indirect_disp(instr->type.width, RBP,
-        ir_var_context[instr->res].stack_offset);
+    x86_64_operand_t dst = op_var(instr->res, instr->type);
     x86_64_operand_t src0 = op_value(&instr->unop.value);
 
     emit_not_dst_src0(emitter, &dst, &src0);
@@ -292,8 +294,7 @@ static void assemble_add(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
 
-    x86_64_operand_t dst = op_mem_indirect_disp(instr->type.width, RBP,
-        ir_var_context[instr->res].stack_offset);
+    x86_64_operand_t dst = op_var(instr->res, instr->type);
     x86_64_operand_t src0 = op_value(&instr->binop.left);
     x86_64_operand_t src1 = op_value(&instr->binop.right);
 
@@ -305,8 +306,7 @@ static void assemble_sub(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
 
-    x86_64_operand_t dst = op_mem_indirect_disp(instr->type.width, RBP,
-        ir_var_context[instr->res].stack_offset);
+    x86_64_operand_t dst = op_var(instr->res, instr->type);
     x86_64_operand_t src0 = op_value(&instr->binop.left);
     x86_64_operand_t src1 = op_value(&instr->binop.right);
 
@@ -425,8 +425,7 @@ static void assemble_and(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
 
-    x86_64_operand_t dst = op_mem_indirect_disp(instr->type.width, RBP,
-        ir_var_context[instr->res].stack_offset);
+    x86_64_operand_t dst = op_var(instr->res, instr->type);
     x86_64_operand_t src0 = op_value(&instr->binop.left);
     x86_64_operand_t src1 = op_value(&instr->binop.right);
 
@@ -437,8 +436,7 @@ static void assemble_or(recompiler_backend_t const *backend,
                         code_buffer_t *emitter,
                         ir_instr_t const *instr) {
 
-    x86_64_operand_t dst = op_mem_indirect_disp(instr->type.width, RBP,
-        ir_var_context[instr->res].stack_offset);
+    x86_64_operand_t dst = op_var(instr->res, instr->type);
     x86_64_operand_t src0 = op_value(&instr->binop.left);
     x86_64_operand_t src1 = op_value(&instr->binop.right);
 
@@ -449,8 +447,7 @@ static void assemble_xor(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
 
-    x86_64_operand_t dst = op_mem_indirect_disp(instr->type.width, RBP,
-        ir_var_context[instr->res].stack_offset);
+    x86_64_operand_t dst = op_var(instr->res, instr->type);
     x86_64_operand_t src0 = op_value(&instr->binop.left);
     x86_64_operand_t src1 = op_value(&instr->binop.right);
 
@@ -461,8 +458,7 @@ static void assemble_sll(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
 
-    x86_64_operand_t dst = op_mem_indirect_disp(instr->type.width, RBP,
-        ir_var_context[instr->res].stack_offset);
+    x86_64_operand_t dst = op_var(instr->res, instr->type);
     x86_64_operand_t src0 = op_value(&instr->binop.left);
     x86_64_operand_t src1 = op_value(&instr->binop.right);
 
@@ -473,8 +469,7 @@ static void assemble_srl(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
 
-    x86_64_operand_t dst = op_mem_indirect_disp(instr->type.width, RBP,
-        ir_var_context[instr->res].stack_offset);
+    x86_64_operand_t dst = op_var(instr->res, instr->type);
     x86_64_operand_t src0 = op_value(&instr->binop.left);
     x86_64_operand_t src1 = op_value(&instr->binop.right);
 
@@ -485,8 +480,7 @@ static void assemble_sra(recompiler_backend_t const *backend,
                          code_buffer_t *emitter,
                          ir_instr_t const *instr) {
 
-    x86_64_operand_t dst = op_mem_indirect_disp(instr->type.width, RBP,
-        ir_var_context[instr->res].stack_offset);
+    x86_64_operand_t dst = op_var(instr->res, instr->type);
     x86_64_operand_t src0 = op_value(&instr->binop.left);
     x86_64_operand_t src1 = op_value(&instr->binop.right);
 
@@ -497,24 +491,23 @@ static void assemble_icmp(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
 
-    x86_64_mem_t dst = mem_indirect_disp(RBP,
-        ir_var_context[instr->res].stack_offset);
+    x86_64_operand_t dst = op_var(instr->res, instr->type);
     x86_64_operand_t src0 = op_value(&instr->icmp.left);
     x86_64_operand_t src1 = op_value(&instr->icmp.right);
 
     emit_cmp_src0_src1(emitter, &src0, &src1);
 
     switch (instr->icmp.op) {
-    case IR_EQ:  emit_sete_m8(emitter, dst); break;
-    case IR_NE:  emit_setne_m8(emitter, dst); break;
-    case IR_UGT: emit_seta_m8(emitter, dst); break;
-    case IR_UGE: emit_setae_m8(emitter, dst); break;
-    case IR_ULT: emit_setb_m8(emitter, dst); break;
-    case IR_ULE: emit_setbe_m8(emitter, dst); break;
-    case IR_SGT: emit_setg_m8(emitter, dst); break;
-    case IR_SGE: emit_setge_m8(emitter, dst); break;
-    case IR_SLT: emit_setl_m8(emitter, dst); break;
-    case IR_SLE: emit_setle_m8(emitter, dst); break;
+    case IR_EQ:  emit_sete_op0(emitter, &dst); break;
+    case IR_NE:  emit_setne_op0(emitter, &dst); break;
+    case IR_UGT: emit_seta_op0(emitter, &dst); break;
+    case IR_UGE: emit_setae_op0(emitter, &dst); break;
+    case IR_ULT: emit_setb_op0(emitter, &dst); break;
+    case IR_ULE: emit_setbe_op0(emitter, &dst); break;
+    case IR_SGT: emit_setg_op0(emitter, &dst); break;
+    case IR_SGE: emit_setge_op0(emitter, &dst); break;
+    case IR_SLT: emit_setl_op0(emitter, &dst); break;
+    case IR_SLE: emit_setle_op0(emitter, &dst); break;
     default:     fail_code_buffer(emitter);
     }
 }

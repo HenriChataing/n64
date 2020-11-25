@@ -402,28 +402,28 @@ void emit_sra_op0_op1(code_buffer_t *emitter,
  */
 void emit_mov_op0_op1(code_buffer_t *emitter,
                       x86_64_operand_t *op0, x86_64_operand_t *op1);
-// void emit_test_op0_op1(code_buffer_t *emitter,
-//                        x86_64_operand_t *op0, x86_64_operand_t *op1);
-// void emit_sete_op0(code_buffer_t *emitter,
-//                    x86_64_operand_t *op0);
-// void emit_setne_op0(code_buffer_t *emitter,
-//                     x86_64_operand_t *op0);
-// void emit_seta_op0(code_buffer_t *emitter,
-//                    x86_64_operand_t *op0);
-// void emit_setae_op0(code_buffer_t *emitter,
-//                     x86_64_operand_t *op0);
-// void emit_setb_op0(code_buffer_t *emitter,
-//                    x86_64_operand_t *op0);
-// void emit_setbe_op0(code_buffer_t *emitter,
-//                     x86_64_operand_t *op0);
-// void emit_setg_op0(code_buffer_t *emitter,
-//                    x86_64_operand_t *op0);
-// void emit_setge_op0(code_buffer_t *emitter,
-//                     x86_64_operand_t *op0);
-// void emit_setl_op0(code_buffer_t *emitter,
-//                    x86_64_operand_t *op0);
-// void emit_setle_op0(code_buffer_t *emitter,
-//                     x86_64_operand_t *op0);
+void emit_test_op0_op1(code_buffer_t *emitter,
+                       x86_64_operand_t *op0, x86_64_operand_t *op1);
+void emit_sete_op0(code_buffer_t *emitter,
+                   x86_64_operand_t *op0);
+void emit_setne_op0(code_buffer_t *emitter,
+                    x86_64_operand_t *op0);
+void emit_seta_op0(code_buffer_t *emitter,
+                   x86_64_operand_t *op0);
+void emit_setae_op0(code_buffer_t *emitter,
+                    x86_64_operand_t *op0);
+void emit_setb_op0(code_buffer_t *emitter,
+                   x86_64_operand_t *op0);
+void emit_setbe_op0(code_buffer_t *emitter,
+                    x86_64_operand_t *op0);
+void emit_setg_op0(code_buffer_t *emitter,
+                   x86_64_operand_t *op0);
+void emit_setge_op0(code_buffer_t *emitter,
+                    x86_64_operand_t *op0);
+void emit_setl_op0(code_buffer_t *emitter,
+                   x86_64_operand_t *op0);
+void emit_setle_op0(code_buffer_t *emitter,
+                    x86_64_operand_t *op0);
 
 /**
  * Binary instruction group, generalized implementation.
@@ -550,8 +550,8 @@ void emit_sra_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
  */
 void emit_mov_dst_src0(code_buffer_t *emitter,
                        x86_64_operand_t *dst, x86_64_operand_t *src0);
-// void emit_test_src0_src1(code_buffer_t *emitter,
-//                          x86_64_operand_t *src0, x86_64_operand_t *src1);
+void emit_test_src0_src1(code_buffer_t *emitter,
+                         x86_64_operand_t *src0, x86_64_operand_t *src1);
 void emit_lea_dst_m(code_buffer_t *emitter, x86_64_operand_t *dst,
                     x86_64_mem_t m);
 
