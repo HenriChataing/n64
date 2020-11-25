@@ -211,46 +211,58 @@ static void assemble_call(recompiler_backend_t const *backend,
     static const unsigned register_parameters[6] = {
         RDI, RSI, RDX, RCX, R8, R9,
     };
-    static const bool register_parameters_u8[6] = {
-        false, false, true, true, false, false,
-    };
-    static const bool register_parameters_u16[6] = {
-        true, true, true, true, false, false,
-    };
 
+    // Load first six parameters to registers.
     for (unsigned nr = 0; nr < instr->call.nr_params && nr < 6; nr++) {
-        ir_value_t param = instr->call.params[nr];
-        if ((param.type.width <= 8  && !register_parameters_u8[nr]) ||
-            (param.type.width <= 16 && !register_parameters_u16[nr])) {
-            load_value(emitter, param, RAX);
+        ir_value_t *param = instr->call.params + nr;
+        unsigned size = round_up_to_power2(param->type.width);
+
+        if (size == 8 && nr < 3) {
+            // RDI, RSI cannot be written with byte access.
+            x86_64_operand_t tmp = op_reg(8, AL);
+            emit_mov_dst_val(emitter, &tmp, param);
             emit_mov_r64_r64(emitter, register_parameters[nr], RAX);
         } else {
-            load_value(emitter, param, register_parameters[nr]);
+            x86_64_operand_t dst = op_reg(size, register_parameters[nr]);
+            emit_mov_dst_val(emitter, &dst, param);
         }
     }
-    emit_push_r64(emitter, R12);
-    emit_push_r64(emitter, R13);
+
+    // Allocate call frame if the function has more than six parameters.
+    // RBX is used here to save the frame address.
     if (instr->call.nr_params > 6) {
+        emit_push_r64(emitter, RBX);
+        emit_push_r64(emitter, RBP);
         frame_size = 8 * (instr->call.nr_params - 6);
         frame_size = (frame_size + 15) / 16;
         frame_size = frame_size * 16;
         emit_sub_r64_imm32(emitter, RSP, frame_size);
-        emit_mov_r64_r64(emitter, R12, RSP);
+        emit_mov_r64_r64(emitter, RBX, RSP);
     }
+
+    // Load subsequent parameters to the call frame.
     for (unsigned nr = 6; nr < instr->call.nr_params; nr++) {
-        load_value(emitter, instr->call.params[nr], RAX);
-        emit_mov_m64_r64(emitter, mem_indirect_disp(R12, 8 * (nr - 6)), RAX);
+        ir_value_t *param = instr->call.params + nr;
+        unsigned size = round_up_to_power2(param->type.width);
+        x86_64_operand_t dst = op_mem_indirect_disp(size, RBX, 8 * (nr - 6));
+        emit_mov_dst_val(emitter, &dst, param);
     }
 
-    emit_call(emitter, instr->call.func, R13);
+    // Emit the function call.
+    emit_call(emitter, instr->call.func, RAX);
 
+    // Trash call frame, restored saved registers.
     if (instr->call.nr_params > 6) {
         emit_add_r64_imm32(emitter, RSP, frame_size);
+        emit_pop_r64(emitter, RBP);
+        emit_pop_r64(emitter, RBX);
     }
-    emit_pop_r64(emitter, R13);
-    emit_pop_r64(emitter, R12);
+
+    // Save the function return value.
     if (instr->type.width > 0) {
-        store_value(emitter, instr->type, instr->res, RAX);
+        unsigned size = round_up_to_power2(instr->type.width);
+        x86_64_operand_t src = op_reg(size, RAX);
+        emit_mov_val_src(emitter, instr->res, instr->type, &src);
     }
 }
 
@@ -316,8 +328,11 @@ static void assemble_mul(recompiler_backend_t const *backend,
 static void assemble_udiv(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
-    load_value(emitter, instr->binop.left, RAX);
-    load_value(emitter, instr->binop.right, RCX);
+
+    x86_64_operand_t tmp0 = op_reg(instr->type.width, RAX);
+    x86_64_operand_t tmp1 = op_reg(instr->type.width, RCX);
+    emit_mov_dst_val(emitter, &tmp0, &instr->binop.left);
+    emit_mov_dst_val(emitter, &tmp1, &instr->binop.right);
     emit_xor_r64_r64(emitter, RDX, RDX);
 
     switch (instr->type.width) {
@@ -329,14 +344,17 @@ static void assemble_udiv(recompiler_backend_t const *backend,
         break;
     }
 
-    store_value(emitter, instr->type, instr->res, RAX);
+    emit_mov_val_src(emitter, instr->res, instr->type, &tmp0);
 }
 
 static void assemble_sdiv(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
-    load_value(emitter, instr->binop.left, RAX);
-    load_value(emitter, instr->binop.right, RCX);
+
+    x86_64_operand_t tmp0 = op_reg(instr->type.width, RAX);
+    x86_64_operand_t tmp1 = op_reg(instr->type.width, RCX);
+    emit_mov_dst_val(emitter, &tmp0, &instr->binop.left);
+    emit_mov_dst_val(emitter, &tmp1, &instr->binop.right);
 
     switch (instr->type.width) {
     case 32:
@@ -351,14 +369,17 @@ static void assemble_sdiv(recompiler_backend_t const *backend,
         break;
     }
 
-    store_value(emitter, instr->type, instr->res, RAX);
+    emit_mov_val_src(emitter, instr->res, instr->type, &tmp0);
 }
 
 static void assemble_urem(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
-    load_value(emitter, instr->binop.left, RAX);
-    load_value(emitter, instr->binop.right, RCX);
+
+    x86_64_operand_t tmp0 = op_reg(instr->type.width, RAX);
+    x86_64_operand_t tmp1 = op_reg(instr->type.width, RCX);
+    emit_mov_dst_val(emitter, &tmp0, &instr->binop.left);
+    emit_mov_dst_val(emitter, &tmp1, &instr->binop.right);
     emit_xor_r64_r64(emitter, RDX, RDX);
 
     switch (instr->type.width) {
@@ -370,14 +391,18 @@ static void assemble_urem(recompiler_backend_t const *backend,
         break;
     }
 
-    store_value(emitter, instr->type, instr->res, RDX);
+    x86_64_operand_t src = op_reg(instr->type.width, RDX);
+    emit_mov_val_src(emitter, instr->res, instr->type, &src);
 }
 
 static void assemble_srem(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
-    load_value(emitter, instr->binop.left, RAX);
-    load_value(emitter, instr->binop.right, RCX);
+
+    x86_64_operand_t tmp0 = op_reg(instr->type.width, RAX);
+    x86_64_operand_t tmp1 = op_reg(instr->type.width, RCX);
+    emit_mov_dst_val(emitter, &tmp0, &instr->binop.left);
+    emit_mov_dst_val(emitter, &tmp1, &instr->binop.right);
 
     switch (instr->type.width) {
     case 32:
@@ -392,7 +417,8 @@ static void assemble_srem(recompiler_backend_t const *backend,
         break;
     }
 
-    store_value(emitter, instr->type, instr->res, RDX);
+    x86_64_operand_t src = op_reg(instr->type.width, RDX);
+    emit_mov_val_src(emitter, instr->res, instr->type, &src);
 }
 
 static void assemble_and(recompiler_backend_t const *backend,
