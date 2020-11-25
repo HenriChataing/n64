@@ -117,47 +117,6 @@ static void emit_mov_val_src(code_buffer_t *emitter,
     }
 }
 
-/** Load a value into the selected register. */
-static void load_value(code_buffer_t *emitter, ir_value_t value, unsigned r) {
-    unsigned width = round_up_to_power2(value.type.width);
-    if (value.kind == IR_CONST) {
-        switch (width) {
-        case 8:  emit_mov_r8_imm8(emitter, r, value.const_.int_);   break;
-        case 16: emit_mov_r16_imm16(emitter, r, value.const_.int_); break;
-        case 32: emit_mov_r32_imm32(emitter, r, value.const_.int_); break;
-        case 64: emit_mov_r64_imm64(emitter, r, value.const_.int_); break;
-        default: fail_code_buffer(emitter);
-        }
-    } else if (ir_var_context[value.var].allocated) {
-        emit_lea_r64_m(emitter, r,
-            mem_indirect_disp(RBP, ir_var_context[value.var].stack_offset));
-    } else {
-        x86_64_mem_t mN = mem_indirect_disp(RBP,
-            ir_var_context[value.var].stack_offset);
-        switch (width) {
-        case 8:  emit_mov_r8_m8(emitter, r, mN);   break;
-        case 16: emit_mov_r16_m16(emitter, r, mN); break;
-        case 32: emit_mov_r32_m32(emitter, r, mN); break;
-        case 64: emit_mov_r64_m64(emitter, r, mN); break;
-        default: fail_code_buffer(emitter);
-        }
-    }
-}
-
-/** Load a value to the selected pseudo register. */
-static void store_value(code_buffer_t *emitter, ir_type_t type,
-                        ir_var_t var, unsigned r) {
-    unsigned width = round_up_to_power2(type.width);
-    x86_64_mem_t mN = mem_indirect_disp(RBP,
-        ir_var_context[var].stack_offset);
-    switch (width) {
-    case 8:  emit_mov_m8_r8(emitter, mN, r);   break;
-    case 16: emit_mov_m16_r16(emitter, mN, r); break;
-    case 32: emit_mov_m32_r32(emitter, mN, r); break;
-    case 64: emit_mov_m64_r64(emitter, mN, r); break;
-    default: fail_code_buffer(emitter);
-    }
-}
 
 static void assemble_exit(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
@@ -593,37 +552,47 @@ static void assemble_write(recompiler_backend_t const *backend,
 static void assemble_trunc(recompiler_backend_t const *backend,
                            code_buffer_t *emitter,
                            ir_instr_t const *instr) {
-    load_value(emitter, instr->cvt.value, RAX);
-    store_value(emitter, instr->type, instr->res, RAX);
+
+    x86_64_operand_t src = op_value(&instr->cvt.value);
+    src.size = instr->type.width;
+    emit_mov_val_src(emitter, instr->res, instr->type, &src);
 }
 
 static void assemble_sext(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
-    unsigned from_width = instr->cvt.value.type.width;
-    unsigned to_width   = instr->type.width;
+    unsigned from_size = round_up_to_power2(instr->cvt.value.type.width);
+    unsigned to_size   = round_up_to_power2(instr->type.width);
+    x86_64_operand_t tmp0 = op_reg(from_size, RAX);
+    x86_64_operand_t tmp1 = op_reg(to_size, RAX);
 
-    load_value(emitter, instr->cvt.value, RAX);
+    emit_mov_dst_val(emitter, &tmp0, &instr->cvt.value);
 
-    if (from_width <=  8 && to_width >  8) {
+    if (from_size <=  8 && to_size >  8) {
         emit_cbw(emitter);
     }
-    if (from_width <= 16 && to_width > 16) {
+    if (from_size <= 16 && to_size > 16) {
         emit_cwde(emitter);
     }
-    if (from_width <= 32 && to_width > 32) {
+    if (from_size <= 32 && to_size > 32) {
         emit_cdqe(emitter);
     }
 
-    store_value(emitter, instr->type, instr->res, RAX);
+    emit_mov_val_src(emitter, instr->res, instr->type, &tmp1);
 }
 
 static void assemble_zext(recompiler_backend_t const *backend,
                           code_buffer_t *emitter,
                           ir_instr_t const *instr) {
+
+    unsigned from_size = round_up_to_power2(instr->cvt.value.type.width);
+    unsigned to_size   = round_up_to_power2(instr->type.width);
+    x86_64_operand_t tmp0 = op_reg(from_size, RAX);
+    x86_64_operand_t tmp1 = op_reg(to_size, RAX);
+
     emit_xor_r64_r64(emitter, RAX, RAX);
-    load_value(emitter, instr->cvt.value, RAX);
-    store_value(emitter, instr->type, instr->res, RAX);
+    emit_mov_dst_val(emitter, &tmp0, &instr->cvt.value);
+    emit_mov_val_src(emitter, instr->res, instr->type, &tmp1);
 }
 
 static const void (*assemble_callbacks[])(recompiler_backend_t const *backend,
