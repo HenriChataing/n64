@@ -1913,3 +1913,19 @@ void emit_mov_dst_src0(code_buffer_t *emitter,
         emit_mov_op0_op1(emitter, dst, src0);
     }
 }
+
+void emit_lea_dst_m(code_buffer_t *emitter, x86_64_operand_t *dst,
+                    x86_64_mem_t m) {
+
+    if (dst->size != 64 || dst->kind == IMMEDIATE) {
+        fail_code_buffer(emitter);
+    }
+
+    if (dst->kind == REGISTER) {
+        emit_instruction_1_Gv_M(emitter, 64, 0x8d, dst->reg, &m);
+    } else {
+        x86_64_operand_t tmp = op_reg(64, RAX);
+        emit_instruction_1_Gv_M(emitter, 64, 0x8d, RAX, &m); // XXX
+        emit_mov_op0_op1(emitter, dst, &tmp);
+    }
+}

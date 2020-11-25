@@ -552,7 +552,7 @@ void emit_mov_dst_src0(code_buffer_t *emitter,
                        x86_64_operand_t *dst, x86_64_operand_t *src0);
 // void emit_test_src0_src1(code_buffer_t *emitter,
 //                          x86_64_operand_t *src0, x86_64_operand_t *src1);
-// void emit_lea_dst_m(code_buffer_t *emitter, x86_64_operand_t *op0,
-//                     x86_64_mem_t m);
+void emit_lea_dst_m(code_buffer_t *emitter, x86_64_operand_t *dst,
+                    x86_64_mem_t m);
 
 #endif /* _RECOMPILER_TARGET_X86_64_EMITTER_H_INCLUDED_ */
