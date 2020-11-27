@@ -1793,7 +1793,8 @@ static void emit_binop_dst_src0_src1(code_buffer_t *emitter,
         [mode_index(REGISTER, REGISTER, IMMEDIATE, 1)] = MODE_0,
     };
 
-    bool index = mode_index(dst->kind, src0->kind, src1->kind, op_equals(dst, src0));
+    unsigned index = mode_index(dst->kind, src0->kind, src1->kind,
+        op_equals(dst, src0));
     unsigned char mode = modes[index];
 
 #undef mode_index
@@ -1805,12 +1806,15 @@ static void emit_binop_dst_src0_src1(code_buffer_t *emitter,
     // If either source operand is a 64 bit immediate value that is larger
     // than the 32 bit range, the mode is automatically promoted to
     // mode 2 or 3.
-    if (src0->kind == IMMEDIATE && src0->size == 64 && !is_int32(src0->imm)) {
-        mode = MODE_3;
-    }
-    if (src1->kind == IMMEDIATE && src1->size == 64 && !is_int32(src1->imm)) {
+    if (src0->kind == IMMEDIATE) {
         mode = MODE_2;
     }
+    if (src1->kind == IMMEDIATE && src1->size == 64 && !is_int32(src1->imm)) {
+        mode = MODE_3;
+    }
+
+    // TODO one of the modes is buggy, force to MODE_2 for now
+    mode = MODE_2;
 
     switch (mode) {
     case MODE_0:
@@ -1919,7 +1923,7 @@ static void emit_unop_dst_src0(code_buffer_t *emitter, uint8_t opcode_ext,
         [mode_index(REGISTER, REGISTER, 1)] = MODE_0,
     };
 
-    bool index = mode_index(dst->kind, src0->kind, op_equals(dst, src0));
+    unsigned index = mode_index(dst->kind, src0->kind, op_equals(dst, src0));
     unsigned char mode = modes[index];
 
 #undef mode_index
