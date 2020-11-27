@@ -378,6 +378,10 @@ int ir_print_type(char *buf, size_t len, ir_type_t const *type);
 int ir_print_value(char *buf, size_t len, ir_value_t const *value);
 int ir_print_instr(char *buf, size_t len, ir_instr_t const *instr);
 
+typedef void (*ir_value_callback_t)(ir_value_t const *value, void *param);
+
+void ir_iter_values(ir_instr_t const *instr, ir_value_callback_t iter, void *param);
+
 #ifdef __cplusplus
 }; /* extern "C" */
 #endif /* __cplusplus */

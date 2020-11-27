@@ -239,3 +239,90 @@ int ir_print_instr(char *buf, size_t len, ir_instr_t const *instr) {
 
     return 0;
 }
+
+static void iter_none(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
+    (void)instr;
+    (void)iter;
+    (void)param;
+}
+
+static void iter_assert(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
+    iter(&instr->assert_.cond, param);
+}
+
+static void iter_br(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
+    iter(&instr->br.cond, param);
+}
+
+static void iter_call(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
+    for (unsigned nr = 0; nr < instr->call.nr_params; nr++) {
+        iter(instr->call.params + nr, param);
+    }
+}
+
+static void iter_unop(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
+    iter(&instr->unop.value, param);
+}
+
+static void iter_binop(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
+    iter(&instr->binop.left, param);
+    iter(&instr->binop.right, param);
+}
+
+static void iter_icmp(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
+    iter(&instr->icmp.left, param);
+    iter(&instr->icmp.right, param);
+}
+
+static void iter_load(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
+    iter(&instr->load.address, param);
+}
+
+static void iter_store(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
+    iter(&instr->store.address, param);
+    iter(&instr->store.value, param);
+}
+
+static void iter_write(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
+    iter(&instr->write.value, param);
+}
+
+static void iter_cvt(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
+    iter(&instr->cvt.value, param);
+}
+
+static const void (*iter_callbacks[])(ir_instr_t const *instr,
+                                     ir_value_callback_t iter,
+                                     void *param) = {
+    [IR_EXIT]   = iter_none,
+    [IR_ASSERT] = iter_assert,
+    [IR_BR]     = iter_br,
+    [IR_CALL]   = iter_call,
+    [IR_ALLOC]  = iter_none,
+    [IR_NOT]    = iter_unop,
+    [IR_ADD]    = iter_binop,
+    [IR_SUB]    = iter_binop,
+    [IR_MUL]    = iter_binop,
+    [IR_UDIV]   = iter_binop,
+    [IR_SDIV]   = iter_binop,
+    [IR_UREM]   = iter_binop,
+    [IR_SREM]   = iter_binop,
+    [IR_SLL]    = iter_binop,
+    [IR_SRL]    = iter_binop,
+    [IR_SRA]    = iter_binop,
+    [IR_AND]    = iter_binop,
+    [IR_OR]     = iter_binop,
+    [IR_XOR]    = iter_binop,
+    [IR_ICMP]   = iter_icmp,
+    [IR_LOAD]   = iter_load,
+    [IR_STORE]  = iter_store,
+    [IR_READ]   = iter_none,
+    [IR_WRITE]  = iter_write,
+    [IR_TRUNC]  = iter_cvt,
+    [IR_SEXT]   = iter_cvt,
+    [IR_ZEXT]   = iter_cvt,
+};
+
+void ir_iter_values(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
+    iter_callbacks[instr->kind](instr, iter, param);
+}
