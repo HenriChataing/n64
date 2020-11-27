@@ -15,7 +15,10 @@ typedef struct ir_block_context {
 
 typedef struct ir_var_context {
     int32_t stack_offset;
+    unsigned register_;
     bool allocated;
+    bool spilled;
+    unsigned liveness_end;
 } ir_var_context_t;
 
 typedef struct ir_br_context {
@@ -56,9 +59,11 @@ static x86_64_operand_t op_var(ir_var_t var, ir_type_t type) {
     if (ir_var_context[var].allocated) {
         // The value of allocated variables cannot be taken.
         return op_imm(size, 0);
-    } else {
+    } else if (ir_var_context[var].spilled) {
         return op_mem_indirect_disp(size, RBP,
             ir_var_context[var].stack_offset);
+    } else {
+        return op_reg(size, ir_var_context[var].register_);
     }
 }
 
@@ -75,9 +80,11 @@ static x86_64_operand_t op_value(ir_value_t const *value) {
     } else if (ir_var_context[value->var].allocated) {
         // The value of allocated variables cannot be taken.
         return op_imm(size, 0);
-    } else {
+    } else if (ir_var_context[value->var].spilled) {
         return op_mem_indirect_disp(size, RBP,
             ir_var_context[value->var].stack_offset);
+    } else {
+        return op_reg(size, ir_var_context[value->var].register_);
     }
 }
 
@@ -174,6 +181,24 @@ static void assemble_call(recompiler_backend_t const *backend,
         RDI, RSI, RDX, RCX, R8, R9,
     };
 
+    // Save R8, R9 if necessary: these registers are used for pseudo
+    // variable storage.
+    if (instr->call.nr_params >= 5) {
+        emit_push_r64(emitter, R8);
+        emit_push_r64(emitter, R9);
+    }
+
+    // TODO potential issue if the a parameter is saved to R8: its value
+    // might be overwritten...
+    for (unsigned nr = 5; nr < instr->call.nr_params; nr++) {
+        if (instr->call.params[nr].kind == IR_VAR &&
+            !ir_var_context[instr->call.params[nr].var].spilled &&
+            ir_var_context[instr->call.params[nr].var].register_ == R8) {
+            printf("assemble_call: cannot assemble function call");
+            fail_code_buffer(emitter);
+        }
+    }
+
     // Load first six parameters to registers.
     for (unsigned nr = 0; nr < instr->call.nr_params && nr < 6; nr++) {
         ir_value_t *param = instr->call.params + nr;
@@ -218,6 +243,12 @@ static void assemble_call(recompiler_backend_t const *backend,
         emit_add_r64_imm32(emitter, RSP, frame_size);
         emit_pop_r64(emitter, RBP);
         emit_pop_r64(emitter, RBX);
+    }
+
+    // Restore R8, R9 if they were saved.
+    if (instr->call.nr_params >= 5) {
+        emit_pop_r64(emitter, R9);
+        emit_pop_r64(emitter, R8);
     }
 
     // Save the function return value.
@@ -645,40 +676,145 @@ static void assemble_block(recompiler_backend_t const *backend,
     }
 }
 
+static void set_liveness_end(ir_value_t const *value, void *index) {
+    if (value->kind == IR_VAR) {
+        ir_var_context[value->var].liveness_end = *(unsigned *)index;
+    }
+}
+
+/**
+ * Compute the liveness interval of each intermediate variable.
+ * The interval starts at the variable declaration (unique because variables
+ * are in SSA form) and ends with the last occurence.
+ * The blocks must have been generated following the domination graph:
+ * each block precedes all blocks inheriting its scope.
+ */
+static void compute_liveness(ir_graph_t const *graph) {
+    unsigned index = 0;
+    for (unsigned label = 0; label < graph->nr_blocks; label++) {
+        ir_block_t const *block = graph->blocks + label;
+        ir_instr_t const *instr = block->instrs;
+
+        for (; instr != NULL; instr = instr->next, index++) {
+            ir_iter_values(instr, set_liveness_end, &index);
+        }
+    }
+}
+
+struct release_register_params {
+    unsigned index;
+    unsigned register_bitmap;
+    int preferred_register;
+};
+
+/**
+ * Release the register used by a pseudo variable if the liveness
+ * interval ends on the current instruction.
+ */
+static void release_register(ir_value_t const *value, void *params_) {
+
+    struct release_register_params *params = params_;
+    if (value->kind != IR_VAR) {
+        return;
+    }
+
+    ir_var_context_t *ctx = ir_var_context + value->var;
+    if (ctx->liveness_end != params->index || ctx->spilled) {
+        return;
+    }
+
+    params->register_bitmap |= 1u << ctx->register_;
+    if (params->preferred_register < 0) {
+        params->preferred_register = ctx->register_;
+    }
+}
+
+/**
+ * Release the registers used by pseudo variables if the liveness
+ * interval ends on the current instruction.
+ */
+static int release_registers(ir_instr_t const *instr, unsigned index,
+                             unsigned *register_bitmap) {
+    struct release_register_params params = {
+        .index = index,
+        .register_bitmap = *register_bitmap,
+        .preferred_register = -1,
+    };
+
+    ir_iter_values(instr, release_register, &params);
+    *register_bitmap = params.register_bitmap;
+    return params.preferred_register;
+}
+
+/**
+ * Alloc a register from the unused bitmap.
+ * \p register_bitmap must not be zero.
+ * If \p preferred_register is strictly positive,
+ * it will be directly allocated.
+ */
+static unsigned alloc_register(unsigned *register_bitmap,
+                               int preferred_register) {
+    unsigned r = preferred_register < 0 ?
+        __builtin_ctz(*register_bitmap) : preferred_register;
+    *register_bitmap &= ~(1u << r);
+    return r;
+}
+
 /**
  * Allocate the stack frame for storing all intermediate variables.
  * The allocation spills all variables, and ignores lifetime.
  * Returns the required stack frame size.
  */
 static unsigned alloc_vars(ir_graph_t const *graph) {
-    unsigned offset = 0;
+    /* Current stack frame offset.  */
+    unsigned stack_offset = 0;
+    /* Bitmap of unused registers. */
+    unsigned register_bitmap = 0xff00;
+    /* Instruction index. */
+    unsigned index = 0;
+
+    /* Determine the liveness of each variable first. */
+    compute_liveness(graph);
+
+    /* Iterate through instructions to allocate variables.  */
     for (unsigned label = 0; label < graph->nr_blocks; label++) {
         ir_block_t const *block = graph->blocks + label;
         ir_instr_t const *instr = block->instrs;
 
-        for (; instr != NULL; instr = instr->next) {
+        for (; instr != NULL; instr = instr->next, index++) {
+            // Update register bitmap with liveness interval ends.
+            int reg = release_registers(instr, index, &register_bitmap);
+
+            // No variable to allocate.
             if (ir_is_void_instr(instr))
                 continue;
 
             // Allocated variables are phantom, only the requested memory
             // is allocated, not the variable slot.
-            unsigned width = instr->kind == IR_ALLOC ?
-                instr->alloc.type.width : instr->type.width;
+            bool alloc = instr->kind == IR_ALLOC;
 
-            // Align the offset to the return type size.
-            width = round_up_to_power2(width) / 8;
-            offset = (offset + width - 1) & ~(width - 1);
-            offset = offset + width;
-
-            // Save the offset to the var metadata, update the current
-            // stack offset.
-            ir_var_context[instr->res].stack_offset = -offset;
-            ir_var_context[instr->res].allocated = instr->kind == IR_ALLOC;
+            if (!alloc && register_bitmap != 0) {
+                // Allocate a register.
+                reg = alloc_register(&register_bitmap, reg);
+                ir_var_context[instr->res].spilled = false;
+                ir_var_context[instr->res].register_ = reg;
+                ir_var_context[instr->res].allocated = false;
+            } else {
+                // Spill the variable.
+                // Align the offset to the return type size.
+                unsigned width = alloc ? instr->alloc.type.width : instr->type.width;
+                width = round_up_to_power2(width) / 8;
+                stack_offset = (stack_offset + width - 1) & ~(width - 1);
+                stack_offset = stack_offset + width;
+                ir_var_context[instr->res].spilled = true;
+                ir_var_context[instr->res].stack_offset = -stack_offset;
+                ir_var_context[instr->res].allocated = alloc;
+            }
         }
     }
 
     // Round to 16 to preserve the stack alignment on function calls.
-    return (offset + 15) & ~15u;
+    return (stack_offset + 15) & ~15u;
 }
 
 code_entry_t ir_x86_64_assemble(recompiler_backend_t const *backend,
