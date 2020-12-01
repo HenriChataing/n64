@@ -337,17 +337,42 @@ void exec_interpreter(struct recompiler_request_queue *queue,
     uint64_t phys_address;
     unsigned long cycles = state.cycles;
 
-    // First translate the virtual address.
-    // The next action must be jump, the recompilation is triggered
-    // at block starts only.
-    Exception exn = translateAddress(
-        state.cpu.nextPc, &phys_address, false);
+    // Translate the virtual address.
+    // The region of the last successful translation is cached for quick
+    // reference in subsequent calls, and reset only when the address is
+    // outside the range.
+    static uint64_t virt_start;
+    static uint64_t virt_end;
+    static uint32_t phys_start;
+
+    if (virt_address >= virt_start && (virt_address + 3) <= virt_end) {
+        phys_address = phys_start + (virt_address - virt_start);
+    } else {
+        Exception exn = translate_address(virt_address, &phys_address, false,
+            &virt_start, &virt_end);
+
+        // When the translation fails, reset the cached region
+        // and jump immediatly to interpreter code after taking
+        // the exception.
+        if (exn != Exception::None) {
+            virt_start = 0;
+            virt_end = 0;
+            // TODO take exception here.
+            (void)exec_cpu_interpreter(1);
+            return;
+        }
+        // When the translation succeeds, update the cached region.
+        else {
+            phys_start = phys_address - (virt_address - virt_start);
+        }
+    }
 
     // Query the recompiler cache.
+    // The virtual address was successfully translated at this point.
     code_entry_t binary = NULL;
     uint32_t entry;
 
-    if (exn == Exception::None && phys_address < 0x400000) {
+    if (phys_address < 0x400000) {
         uint32_t index = phys_address >> 2;
         uint32_t buffer_index = phys_address >> CACHE_PAGE_SHIFT;
         entry = recompiler_cache.map[index];

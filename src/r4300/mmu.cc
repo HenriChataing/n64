@@ -25,100 +25,124 @@
 
 namespace R4300 {
 
-R4300::Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess)
+R4300::Exception translate_address(uint64_t virt_addr, uint64_t *phys_addr,
+   bool write_access, uint64_t *virt_start, uint64_t *virt_end)
 {
-    bool extendedAddressing = false;
+    bool extended_addressing = false;
     u8 ksu = R4300::state.cp0reg.KSU();
-    // u64 region;
+    bool erl = R4300::state.cp0reg.ERL();
+    bool exl = R4300::state.cp0reg.EXL();
 
-    // Step 1: check virtual address range.
-    if (ksu == 0x0 || R4300::state.cp0reg.ERL() ||
-        R4300::state.cp0reg.EXL()) {
-        // Kernel mode
-        // also entered when ERL=1 || EXL=1
-        if (vAddr >= CKSEG0 && vAddr < CKSEG1) {
-            *pAddr = vAddr - CKSEG0; // Unmapped access, cached.
+    // Step 1:
+    // Match the virtual address against unmapped or invalid memory regions.
+    // These regions depend on the current execution mode.
+    if (ksu == 0x0 || erl || exl) {
+        // Kernel mode. Exceptions (ERL=1 or EXL=1) are forced to
+        // kernel mode.
+        extended_addressing = R4300::state.cp0reg.KX();
+
+        if (virt_addr >= CKSEG0 && virt_addr < CKSEG1) {
+            // Unmapped access, cached.
+            *phys_addr = virt_addr - CKSEG0;
+            if (virt_start != NULL) *virt_start = CKSEG0;
+            if (virt_end != NULL)   *virt_end   = CKSEG1 - 1;
             return R4300::None;
         }
-        if (vAddr >= CKSEG1 && vAddr < CKSSEG) {
-            *pAddr = vAddr - CKSEG1; // Unmapped access, non cached.
+        if (virt_addr >= CKSEG1 && virt_addr < CKSSEG) {
+            // Unmapped access, non cached.
+            *phys_addr = virt_addr - CKSEG1;
+            if (virt_start != NULL) *virt_start = CKSEG1;
+            if (virt_end != NULL)   *virt_end   = CKSSEG - 1;
             return R4300::None;
         }
-        if (R4300::state.cp0reg.KX()) {
-            extendedAddressing = true;
-            if (vAddr >= XKSEG_END && vAddr < CKSEG0) {
+        if (extended_addressing) {
+            if (virt_addr >= XKSEG_END && virt_addr < CKSEG0) {
+                // Invalid region.
                 return R4300::AddressError;
             }
-            if (vAddr >= XKPHYS && vAddr < XKSEG) {
-                *pAddr = vAddr - XKPHYS; // Unmapped access.
+            if (virt_addr >= XKPHYS && virt_addr < XKSEG) {
+                // Unmapped access.
+                *phys_addr = virt_addr - XKPHYS;
+                if (virt_start != NULL) *virt_start = XKPHYS;
+                if (virt_end != NULL)   *virt_end   = XKSEG - 1;
                 return R4300::None;
             }
-            if (vAddr >= XKSSEG_END && vAddr < XKPHYS) {
+            if (virt_addr >= XKSSEG_END && virt_addr < XKPHYS) {
+                // Invalid region.
                 return R4300::AddressError;
             }
-            if (vAddr >= XKUSEG_END && vAddr < XKSSEG) {
+            if (virt_addr >= XKUSEG_END && virt_addr < XKSSEG) {
+                // Invalid region.
                 return R4300::AddressError;
             }
         }
     }
     else if (ksu == 0x1) {
-        // Supervisor mode
+        // Supervisor mode.
         throw "Supervisor mode not supported";
     }
     else if (ksu == 0x2) {
-        // User mode
-        if (R4300::state.cp0reg.UX()) {
-            extendedAddressing = true;
+        // User mode.
+        extended_addressing = R4300::state.cp0reg.UX();
+
+        // Check valid address.
+        // The user address space is 2GiB when UX=0, 1To when UX=1.
+        if ((virt_addr & UINT64_C(0xffffffff)) >= USEG) {
+            // Invalid region.
+            return R4300::AddressError;
+        }
+        if (extended_addressing) {
             throw "ExtendedAddressingUnsupported";
         }
-        // Check valid address. The user address space is 2GiB when UX=0,
-        // 1To when UX=1.
-        if ((vAddr & UINT64_C(0xffffffff)) >= USEG)
-            return R4300::AddressError;
     }
     else {
         throw "Undetermined execution mode";
     }
 
-    // Step 2: lookup matching TLB entry
-    uint i = 0;
-    for (i = 0; i < R4300::tlbEntryCount; i++) {
-        R4300::tlbEntry &entry = R4300::state.tlb[i];
-        // Check VPN against vAddr
-        u64 pageMask = ~entry.pageMask & 0xffffffe000llu;
-        if ((vAddr & pageMask) == (entry.entryHi & pageMask)) {
-            // Check global bit and ASID
-            if (entry.global ||
-                (entry.asid == (R4300::state.cp0reg.entryhi & 0xffllu)))
-                break;
+    // Step 2:
+    // Fallthrough to mapped memory region.
+    // Look for the first matching TLB entry.
+    unsigned index = 0;
+    unsigned asid = R4300::state.cp0reg.entryhi & UINT64_C(0xff);
+
+    for (index = 0; index < R4300::tlbEntryCount; index++) {
+        R4300::tlbEntry &entry = R4300::state.tlb[index];
+        u64 page_mask = ~entry.pageMask & UINT64_C(0xffffffe000);
+        // Check VPN against virt_addr, then check if the global bit
+        // is set or the ASID matches.
+        if ((virt_addr & page_mask) == (entry.entryHi & page_mask) &&
+            (entry.global || entry.asid == asid)) {
+            break;
         }
     }
 
     // No matching TLB entry, send for TLB refill.
-    if (i >= R4300::tlbEntryCount)  {
-        return extendedAddressing ? R4300::XTLBRefill : R4300::TLBRefill;
+    if (index >= R4300::tlbEntryCount)  {
+        return extended_addressing ? R4300::XTLBRefill : R4300::TLBRefill;
     }
 
-    R4300::tlbEntry &entry = R4300::state.tlb[i];
+    R4300::tlbEntry &entry = R4300::state.tlb[index];
 
     // Compute physical address + cache attributes.
-    u64 pageMask = entry.pageMask | 0x0000001fffllu;
-    u64 offsetMask = pageMask >> 1;
-    u64 parityMask = offsetMask + 1llu;
-    u64 offset = vAddr & offsetMask;
+    u64 page_mask = entry.pageMask | UINT64_C(0x0000001fff);
+    u64 offset_mask = page_mask >> 1;
+    u64 parity_mask = offset_mask + 1llu;
+    u64 offset = virt_addr & offset_mask;
 
-    u64 entrylo = (vAddr & parityMask) ? entry.entryLo1 : entry.entryLo0;
+    u64 entrylo = (virt_addr & parity_mask) ? entry.entryLo1 : entry.entryLo0;
 
     // Check valid bit
     if ((entrylo & 2) == 0) {
         return R4300::TLBInvalid;
     }
     // Check if trying to write dirty address.
-    if (writeAccess && (entrylo & 4) == 0) {
+    if (write_access && (entrylo & 4) == 0) {
         return R4300::TLBModified;
     }
 
-    *pAddr = offset | ((entrylo << 6) & 0xffffff000llu);
+    *phys_addr = offset | ((entrylo << 6) & UINT64_C(0xffffff000));
+    if (virt_start != NULL) *virt_start = entry.entryHi & ~page_mask;
+    if (virt_end != NULL)   *virt_end   = (entry.entryHi & ~page_mask) | page_mask;
     return R4300::None;
 }
 

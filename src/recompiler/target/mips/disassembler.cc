@@ -79,7 +79,7 @@ extern "C" bool virt_load_u##N(uint64_t virt_addr, uint##N##_t *value) { \
         exn = R4300::AddressError; \
         goto take_exception; \
     } \
-    exn = R4300::translateAddress(virt_addr, &phys_addr, false); \
+    exn = R4300::translate_address(virt_addr, &phys_addr, false); \
     if (exn != R4300::Exception::None) { \
         goto take_exception; \
     } \
@@ -112,7 +112,7 @@ extern "C" bool virt_store_u##N(uint64_t virt_addr, uint##N##_t value) { \
         exn = R4300::AddressError; \
         goto take_exception; \
     } \
-    exn = R4300::translateAddress(virt_addr, &phys_addr, false); \
+    exn = R4300::translate_address(virt_addr, &phys_addr, false); \
     if (exn != R4300::Exception::None) { \
         goto take_exception; \
     } \
@@ -1788,7 +1788,7 @@ static void disas_LDC1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     // checkCop1Usable();
     // checkAddressAlignment(vAddr, 8, false, true);
     // checkR4300::Exception(
-    //     translateAddress(vAddr, &pAddr, false),
+    //     translate_address(vAddr, &pAddr, false),
     //     vAddr, false, true, 0);
     // checkR4300::Exception(
     //     state.bus->load(8, pAddr, &val) ? None : BusError,
@@ -1816,7 +1816,7 @@ static void disas_LDL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     // // Not calling checkAddressAlignment:
     // // this instruction specifically ignores the alignment
     // checkR4300::Exception(
-    //     translateAddress(vAddr, &pAddr, true),
+    //     translate_address(vAddr, &pAddr, true),
     //     vAddr, false, false, 0);
 
     // size_t count = 8 - (pAddr % 8);
@@ -1849,7 +1849,7 @@ static void disas_LDR(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     // // Not calling checkAddressAlignment:
     // // this instruction specifically ignores the alignment
     // checkR4300::Exception(
-    //     translateAddress(vAddr, &pAddr, true),
+    //     translate_address(vAddr, &pAddr, true),
     //     vAddr, false, false, 0);
 
     // size_t count = 1 + (pAddr % 8);
@@ -1941,7 +1941,7 @@ static void disas_LWC1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     // checkCop1Usable();
     // checkAddressAlignment(vAddr, 4, false, true);
     // checkR4300::Exception(
-    //     translateAddress(vAddr, &pAddr, false),
+    //     translate_address(vAddr, &pAddr, false),
     //     vAddr, false, true, 0);
     // checkR4300::Exception(
     //     loadw(pAddr, &val),
@@ -1976,7 +1976,7 @@ static void disas_LWL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     // // Not calling checkAddressAlignment:
     // // this instruction specifically ignores the alignment
     // checkR4300::Exception(
-    //     translateAddress(vAddr, &pAddr, true),
+    //     translate_address(vAddr, &pAddr, true),
     //     vAddr, false, false, 0);
 
     // size_t count = 4 - (pAddr % 4);
@@ -2009,7 +2009,7 @@ static void disas_LWR(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     // // Not calling checkAddressAlignment:
     // // this instruction specifically ignores the alignment
     // checkR4300::Exception(
-    //     translateAddress(vAddr, &pAddr, true),
+    //     translate_address(vAddr, &pAddr, true),
     //     vAddr, false, false, 0);
 
     // size_t count = 1 + (pAddr % 4);
@@ -2101,7 +2101,7 @@ static void disas_SDC1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     // checkCop1Usable();
     // checkAddressAlignment(vAddr, 8, false, false);
     // checkR4300::Exception(
-    //     translateAddress(vAddr, &pAddr, false),
+    //     translate_address(vAddr, &pAddr, false),
     //     vAddr, false, false, 0);
     // checkR4300::Exception(
     //     state.bus->store(8, pAddr, state.cp1reg.fpr_d[rt]->l) ? None : BusError,
@@ -2127,7 +2127,7 @@ static void disas_SDL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     // // Not calling checkAddressAlignment:
     // // this instruction specifically ignores the alignment
     // checkR4300::Exception(
-    //     translateAddress(vAddr, &pAddr, false),
+    //     translate_address(vAddr, &pAddr, false),
     //     vAddr, false, false, 0);
 
     // size_t count = 8 - (pAddr % 8);
@@ -2154,7 +2154,7 @@ static void disas_SDR(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     // // Not calling checkAddressAlignment:
     // // this instruction specifically ignores the alignment
     // checkR4300::Exception(
-    //     translateAddress(vAddr, &pAddr, false),
+    //     translate_address(vAddr, &pAddr, false),
     //     vAddr, false, false, 0);
 
     // size_t count = 1 + (pAddr % 8);
@@ -2225,7 +2225,7 @@ static void disas_SWC1(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     // checkCop1Usable();
     // checkAddressAlignment(vAddr, 4, false, false);
     // checkR4300::Exception(
-    //     translateAddress(vAddr, &pAddr, false),
+    //     translate_address(vAddr, &pAddr, false),
     //     vAddr, false, false, 0);
     // checkR4300::Exception(
     //     state.bus->store(4, pAddr, state.cp1reg.fpr_s[rt]->w) ? None : BusError,
@@ -2258,7 +2258,7 @@ static void disas_SWL(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     // // Not calling checkAddressAlignment:
     // // this instruction specifically ignores the alignment
     // checkR4300::Exception(
-    //     translateAddress(vAddr, &pAddr, false),
+    //     translate_address(vAddr, &pAddr, false),
     //     vAddr, false, false, 0);
 
     // size_t count = 4 - (pAddr % 4);
@@ -2285,7 +2285,7 @@ static void disas_SWR(ir_instr_cont_t *c, uint64_t address, uint32_t instr) {
     // // Not calling checkAddressAlignment:
     // // this instruction specifically ignores the alignment
     // checkR4300::Exception(
-    //     translateAddress(vAddr, &pAddr, false),
+    //     translate_address(vAddr, &pAddr, false),
     //     vAddr, false, false, 0);
 
     // size_t count = 1 + (pAddr % 4);

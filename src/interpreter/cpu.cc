@@ -707,7 +707,7 @@ void eval_LB(u32 instr) {
     u8 val;
 
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, true, 0);
     checkException(
         state.bus->load_u8(pAddr, &val) ? None : BusError,
@@ -724,7 +724,7 @@ void eval_LBU(u32 instr) {
     u8 val;
 
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, true, 0);
     checkException(
         state.bus->load_u8(pAddr, &val) ? None : BusError,
@@ -741,7 +741,7 @@ void eval_LD(u32 instr) {
 
     checkAddressAlignment(vAddr, 8, false, true);
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, true, 0);
     checkException(
         state.bus->load_u64(pAddr, &val) ? None : BusError,
@@ -759,7 +759,7 @@ void eval_LDC1(u32 instr) {
     checkCop1Usable();
     checkAddressAlignment(vAddr, 8, false, true);
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, true, 0);
     checkException(
         state.bus->load_u64(pAddr, &val) ? None : BusError,
@@ -783,7 +783,7 @@ void eval_LDL(u32 instr) {
     // Not calling checkAddressAlignment:
     // this instruction specifically ignores the alignment
     checkException(
-        translateAddress(vAddr, &pAddr, true),
+        translate_address(vAddr, &pAddr, true),
         vAddr, false, false, 0);
 
     size_t count = 8 - (pAddr % 8);
@@ -814,7 +814,7 @@ void eval_LDR(u32 instr) {
     // Not calling checkAddressAlignment:
     // this instruction specifically ignores the alignment
     checkException(
-        translateAddress(vAddr, &pAddr, true),
+        translate_address(vAddr, &pAddr, true),
         vAddr, false, false, 0);
 
     size_t count = 1 + (pAddr % 8);
@@ -845,7 +845,7 @@ void eval_LH(u32 instr) {
 
     checkAddressAlignment(vAddr, 2, false, true);
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, true, 0);
     checkException(
         state.bus->load_u16(pAddr, &val) ? None : BusError,
@@ -863,7 +863,7 @@ void eval_LHU(u32 instr) {
 
     checkAddressAlignment(vAddr, 2, false, true);
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, true, 0);
     checkException(
         state.bus->load_u16(pAddr, &val) ? None : BusError,
@@ -896,7 +896,7 @@ void eval_LW(u32 instr) {
 
     checkAddressAlignment(vAddr, 4, false, true);
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, true, 0);
     checkException(
         state.bus->load_u32(pAddr, &val) ? None : BusError,
@@ -915,7 +915,7 @@ void eval_LWC1(u32 instr) {
     checkCop1Usable();
     checkAddressAlignment(vAddr, 4, false, true);
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, true, 0);
     checkException(
         state.bus->load_u32(pAddr, &val) ? None : BusError,
@@ -944,7 +944,7 @@ void eval_LWL(u32 instr) {
     // Not calling checkAddressAlignment:
     // this instruction specifically ignores the alignment
     checkException(
-        translateAddress(vAddr, &pAddr, true),
+        translate_address(vAddr, &pAddr, true),
         vAddr, false, false, 0);
 
     size_t count = 4 - (pAddr % 4);
@@ -975,7 +975,7 @@ void eval_LWR(u32 instr) {
     // Not calling checkAddressAlignment:
     // this instruction specifically ignores the alignment
     checkException(
-        translateAddress(vAddr, &pAddr, true),
+        translate_address(vAddr, &pAddr, true),
         vAddr, false, false, 0);
 
     size_t count = 1 + (pAddr % 4);
@@ -1006,7 +1006,7 @@ void eval_LWU(u32 instr) {
 
     checkAddressAlignment(vAddr, 4, false, true);
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, true, 0);
     checkException(
         state.bus->load_u32(pAddr, &val) ? None : BusError,
@@ -1027,7 +1027,7 @@ void eval_SB(u32 instr) {
     u64 pAddr;
 
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, false, 0);
     checkException(
         state.bus->store_u8(pAddr, state.reg.gpr[rt]) ? None : BusError,
@@ -1052,7 +1052,7 @@ void eval_SD(u32 instr) {
 
     checkAddressAlignment(vAddr, 8, false, false);
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, false, 0);
     checkException(
         state.bus->store_u64(pAddr, state.reg.gpr[rt]) ? None : BusError,
@@ -1068,7 +1068,7 @@ void eval_SDC1(u32 instr) {
     checkCop1Usable();
     checkAddressAlignment(vAddr, 8, false, false);
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, false, 0);
     checkException(
         state.bus->store_u64(pAddr, state.cp1reg.fpr_d[rt]->l) ? None : BusError,
@@ -1090,7 +1090,7 @@ void eval_SDL(u32 instr) {
     // Not calling checkAddressAlignment:
     // this instruction specifically ignores the alignment
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, false, 0);
 
     size_t count = 8 - (pAddr % 8);
@@ -1115,7 +1115,7 @@ void eval_SDR(u32 instr) {
     // Not calling checkAddressAlignment:
     // this instruction specifically ignores the alignment
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, false, 0);
 
     size_t count = 1 + (pAddr % 8);
@@ -1138,7 +1138,7 @@ void eval_SH(u32 instr) {
 
     checkAddressAlignment(vAddr, 2, false, false);
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, false, 0);
     checkException(
         state.bus->store_u16(pAddr, state.reg.gpr[rt]) ? None : BusError,
@@ -1163,7 +1163,7 @@ void eval_SW(u32 instr) {
 
     checkAddressAlignment(vAddr, 4, false, false);
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, false, 0);
     checkException(
         state.bus->store_u32(pAddr, state.reg.gpr[rt]) ? None : BusError,
@@ -1179,7 +1179,7 @@ void eval_SWC1(u32 instr) {
     checkCop1Usable();
     checkAddressAlignment(vAddr, 4, false, false);
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, false, 0);
     checkException(
         state.bus->store_u32(pAddr, state.cp1reg.fpr_s[rt]->w) ? None : BusError,
@@ -1206,7 +1206,7 @@ void eval_SWL(u32 instr) {
     // Not calling checkAddressAlignment:
     // this instruction specifically ignores the alignment
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, false, 0);
 
     size_t count = 4 - (pAddr % 4);
@@ -1231,7 +1231,7 @@ void eval_SWR(u32 instr) {
     // Not calling checkAddressAlignment:
     // this instruction specifically ignores the alignment
     checkException(
-        translateAddress(vAddr, &pAddr, false),
+        translate_address(vAddr, &pAddr, false),
         vAddr, false, false, 0);
 
     size_t count = 1 + (pAddr % 4);
@@ -1324,7 +1324,7 @@ void eval(void) {
     state.cycles++;
 
     checkException(
-        translateAddress(vaddr, &paddr, false),
+        translate_address(vaddr, &paddr, false),
         vaddr, true, true, 0);
     checkException(
         state.bus->load_u32(paddr, &instr) ? None : BusError,

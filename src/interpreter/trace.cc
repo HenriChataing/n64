@@ -126,7 +126,7 @@ void stop_capture(u64 finalAddress) {
             // of a branch likely.
             u32 instr;
             u64 phys_address;
-            translateAddress(address, &phys_address, false);
+            translate_address(address, &phys_address, false);
             bus->load_u32(phys_address, &instr);
             if ((count % 4) == 0) bin_code += "\n   ";
             bin_code += fmt::format(" 0x{:08x},", instr);

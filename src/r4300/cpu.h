@@ -171,16 +171,37 @@ enum Exception {
 };
 
 /**
- * @brief Translate a virtual memory address into a physical memory address
- *  relying on the current TLB entries.
+ * @brief Translate a virtual memory address to a physical memory address.
+ *  The boundaries of the virtual memory region \p virt_addr belong to
+ *  are returned in \p virt_start, \p virt_end.
+ *  If the function returns Exception::None, any address `v` inside this region
+ *  can safely be translated as `phys_addr + (v - virt_addr)`.
  *
- * @param vAddr         Virtual memory address
- * @param pAddr         Pointer to the physical memory address \p vAddr
- *                      is mapped to
- * @param writeAccess   Indicate if the address is written or read
- * @return translation status (0 on success)
+ * @param virt_addr     Virtual memory address.
+ * @param phys_addr
+ *      Pointer to a buffer where to write the physical address
+ *      \p virt_addr is mapped to.
+ * @param write_access
+ *      Indicate if the address is being translated for a read (false)
+ *      or write (true) access.
+ * @param virt_start
+ *      Optional pointer to a buffer where to write the start address
+ *      of the valid virtual range.
+ * @param virt_end
+ *      Optional pointer to a buffer where to write the end address
+ *      of the valid virtual range (inclusive).
+ * @return
+ *      - Exception::None on success
+ *      - Exception::AddressError if the virtual address falls inside an
+ *          invalid region
+ *      - Exception::TLBRefill, Exception::XTLBRefill if the virtual address
+ *          falls inside a mapped region, but no valid TLB entry matches
+ *      - Exception::TLBInvalid, Exception::TLBModified if the virtual address
+ *          falls inside a mapped ragion, but the first matching TLB entry is
+ *          invalid or modified (with write_access true).
  */
-Exception translateAddress(u64 vAddr, u64 *pAddr, bool writeAccess);
+Exception translate_address(uint64_t virt_addr, uint64_t *phys_addr,
+    bool write_access, uint64_t *virt_start = NULL, uint64_t *virt_end = NULL);
 
 /**
  * @brief Raise an exception and update the state of the processor.
