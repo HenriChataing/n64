@@ -16,6 +16,9 @@ PROFILE   ?= 0
 # Select optimisation level.
 OPTIMISE  ?= 2
 
+# Enable address sanitizer.
+ENABLE_SANITIZER ?= 0
+
 # Enable recompiler.
 ENABLE_RECOMPILER ?= 1
 
@@ -34,14 +37,27 @@ CXXFLAGS  := -Wall -Wno-unused-function -std=c++11 -g
 CXXFLAGS  += -O$(OPTIMISE) $(addprefix -I,$(INCLUDE)) $(addprefix -D,$(DEFINE))
 
 LDFLAGS   :=
-LIBS      := -lpthread -lpng
+
+# Enable address sanitizer.
+ifeq ($(ENABLE_SANITIZER),1)
+CFLAGS    += -fsanitize=address
+CXXFLAGS  += -fsanitize=address
+LIBS      += -lasan
+endif
 
 # Enable gprof profiling.
 # Output file gmon.out can be formatted with make gprof2dot
 ifeq ($(PROFILE),1)
+CFLAGS    += -pg
 CXXFLAGS  += -pg
 LDFLAGS   += -pg
 endif
+
+# Options for multithreading.
+LIBS      += -lpthread
+
+# Additional library dependencies.
+LIBS      += -lpng
 
 # Options for linking imgui with opengl3 and glfw3
 LIBS      += -lGL -lGLEW `pkg-config --static --libs glfw3`
