@@ -217,7 +217,7 @@ static void assemble_call(recompiler_backend_t const *backend,
 
     // Allocate call frame if the function has more than six parameters.
     // RBX is used here to save the frame address.
-    if (instr->call.nr_params > 6) {
+    if (instr->call.nr_params >= 6) {
         emit_push_r64(emitter, RBX);
         emit_push_r64(emitter, RBP);
         frame_size = 8 * (instr->call.nr_params - 6);
@@ -239,7 +239,7 @@ static void assemble_call(recompiler_backend_t const *backend,
     emit_call(emitter, instr->call.func, RAX);
 
     // Trash call frame, restored saved registers.
-    if (instr->call.nr_params > 6) {
+    if (instr->call.nr_params >= 6) {
         emit_add_r64_imm32(emitter, RSP, frame_size);
         emit_pop_r64(emitter, RBP);
         emit_pop_r64(emitter, RBX);
@@ -765,11 +765,13 @@ static unsigned alloc_register(unsigned *register_bitmap,
  * The allocation spills all variables, and ignores lifetime.
  * Returns the required stack frame size.
  */
-static unsigned alloc_vars(ir_graph_t const *graph) {
+static unsigned alloc_vars(ir_graph_t const *graph,
+                           unsigned *used_register_bitmap_ptr) {
     /* Current stack frame offset.  */
     unsigned stack_offset = 0;
     /* Bitmap of unused registers. */
     unsigned register_bitmap = 0xff00;
+    unsigned used_register_bitmap = 0x0;
     /* Instruction index. */
     unsigned index = 0;
 
@@ -799,6 +801,7 @@ static unsigned alloc_vars(ir_graph_t const *graph) {
                 ir_var_context[instr->res].spilled = false;
                 ir_var_context[instr->res].register_ = reg;
                 ir_var_context[instr->res].allocated = false;
+                used_register_bitmap |= (1u << reg);
             } else {
                 // Spill the variable.
                 // Align the offset to the return type size.
@@ -811,6 +814,11 @@ static unsigned alloc_vars(ir_graph_t const *graph) {
                 ir_var_context[instr->res].allocated = alloc;
             }
         }
+    }
+
+    // Return used registers.
+    if (used_register_bitmap_ptr) {
+        *used_register_bitmap_ptr = used_register_bitmap;
     }
 
     // Round to 16 to preserve the stack alignment on function calls.
@@ -837,8 +845,13 @@ code_entry_t ir_x86_64_assemble(recompiler_backend_t const *backend,
 
     // Generate the standard function prelude to enter into compiled code.
     void *entry = code_buffer_ptr(emitter);
-    unsigned stack_size = alloc_vars(graph);
+    unsigned used_register_bitmap = 0;
+    unsigned stack_size = alloc_vars(graph, &used_register_bitmap);
     emit_push_r64(emitter, RBP);
+    emit_push_r64(emitter, R12);
+    emit_push_r64(emitter, R13);
+    emit_push_r64(emitter, R14);
+    emit_push_r64(emitter, R15);
     emit_mov_r64_r64(emitter, RBP, RSP);
     emit_sub_r64_imm32(emitter, RSP, stack_size);
 
@@ -862,6 +875,10 @@ code_entry_t ir_x86_64_assemble(recompiler_backend_t const *backend,
     // Generate the standard function postlude.
     unsigned char *exit_label = code_buffer_ptr(emitter);
     emit_mov_r64_r64(emitter, RSP, RBP);
+    emit_pop_r64(emitter, R15);
+    emit_pop_r64(emitter, R14);
+    emit_pop_r64(emitter, R13);
+    emit_pop_r64(emitter, R12);
     emit_pop_r64(emitter, RBP);
     emit_ret(emitter);
 

@@ -36,6 +36,7 @@ code_buffer_t *alloc_code_buffer_array(size_t count, size_t capacity) {
         return NULL;
     }
 
+    /* Initialize the code buffers and return. */
     for (unsigned nr = 0; nr < count; nr++) {
         buffers[nr].ptr = ptr + (nr * capacity);
         buffers[nr].capacity = capacity;
