@@ -345,6 +345,7 @@ static void ShowRdpInformation(void) {
     /* Texture image */
     if (ImGui::TreeNode("texture_image")) {
         ImGui::Text("type: %s",
+            R4300::rdp.texture_image.type < 0 ? "inval" :
             image_data_format_names[R4300::rdp.texture_image.type]);
         ImGui::Text("width: %u", R4300::rdp.texture_image.width);
         ImGui::Text("addr: 0x%06x", R4300::rdp.texture_image.addr);
@@ -353,6 +354,7 @@ static void ShowRdpInformation(void) {
     /* Color image */
     if (ImGui::TreeNode("color_image")) {
         ImGui::Text("type: %s",
+            R4300::rdp.color_image.type < 0 ? "inval" :
             image_data_format_names[R4300::rdp.color_image.type]);
         ImGui::Text("width: %u", R4300::rdp.color_image.width);
         ImGui::Text("addr: 0x%06x", R4300::rdp.color_image.addr);
@@ -370,6 +372,7 @@ static void ShowRdpInformation(void) {
         ImGui::Separator();
         if (ImGui::TreeNode("tile", "tile[%u]", i)) {
             ImGui::Text("type: %s",
+                R4300::rdp.tiles[i].type < 0 ? "inval" :
                 image_data_format_names[R4300::rdp.tiles[i].type]);
             ImGui::Text("line: %u", R4300::rdp.tiles[i].line);
             ImGui::Text("tmem_addr: 0x%03x",
