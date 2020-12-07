@@ -1977,21 +1977,45 @@ void loadTlut(u64 command, u64 const *params) {
         return;
     }
 
-    /* sl, sh are in 10.2 fixpoint format. */
-    sl >>= 2;
-    sh >>= 2;
+    /* sl, sh are in 10.2 fixpoint format,
+    * the fractional part is ignored. */
+    sl = (sl >> 2);
+    sh = (sh >> 2);
 
-    if (sl >= 256 || sh >= 256 || sl > sh) {
-        core::halt("load_tlut: out-of-bounds palette index");
+    /* Get texture memory source and destination addresses. */
+    unsigned tmem_addr = rdp.tiles[tile].tmem_addr << 3;
+    unsigned dram_addr = rdp.texture_image.addr;
+
+    /* Sanity checks on SL, SH:
+     * - sl must be lower than sh
+     * - the range [tmem_addr, tmem_addr + 8 * (sh - sl)]
+     *   must fit in texture memory
+     * - the range [dram_addr + sl, dram_addr + sh]
+     *   must fit in dram memory
+     */
+    if (sl > sh) {
+        debugger::warn(Debugger::RDP,
+            "load_tlut: inverted palette indexes: {}, {}", sl, sh);
+        core::halt("load_tlut: inverted palette indexes");
+        return;
+    }
+    if ((tmem_addr + 8 * (sh - sl)) >= sizeof(state.tmem) ||
+        (dram_addr + 2 * sh) >= sizeof(state.dram)) {
+        debugger::warn(Debugger::RDP,
+            "load_tlut: out-of-bounds memory access: {}, {}", sl, sh);
+        core::halt("load_tlut: out-of-bounds memory access");
         return;
     }
 
+    /* Load the palette to texture memory.
+     * Each entry is quadricated into the four high banks
+     * of the texture memory. */
     unsigned start = sl << 1;
     unsigned end = sh << 1;
-    u16 *src = (u16 *)&state.dram[rdp.texture_image.addr + start];
-    u16 *dst = (u16 *)&state.tmem[rdp.tiles[tile].tmem_addr << 3];
+    u16 *src = (u16 *)&state.dram[dram_addr + start];
+    u16 *dst = (u16 *)&state.tmem[tmem_addr];
 
-    for (unsigned i = start; i < end; i++, src++, dst+=4) {
+    for (unsigned i = start; i <= end; i++, src++, dst+=4) {
         dst[0] = *src;
         dst[1] = *src;
         dst[2] = *src;
