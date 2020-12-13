@@ -25,6 +25,10 @@
  *   The banks are loaded with identical values in order to be able to perform
  *   up to 4 parallel accesses. In fine: the color palette is a quadricated
  *   array of 256 16bit color values.
+ *
+ * References:
+ * [1] Nintendo 64 Programming Manual
+ * [2] U.S. Patent 6,331,856 B1, Dec. 18,2001
  */
 
 namespace R4300 {
@@ -896,23 +900,55 @@ static void pipeline_mi_store_z(pixel_t *px) {
 /** Execute the logic to generate the color write enable, z write enable,
  * and blend enable signals. */
 static void pipeline_ctl(pixel_t *px, unsigned tx) {
+    bool alpha_color_write_en = true;
     bool compare_behind = false;
     bool compare_infront = false;
-    bool compare_alpha = false;
 
-    if (rdp.other_modes.alpha_compare_en) {
-        u8 comp_a0 = rdp.other_modes.cycle_type == CYCLE_TYPE_COPY ?
-            px->texel_colors[tx].a :
-            px->combined_color.a;
+    /* Alpha Compare in Copy Mode.
+     * Cf [1] Figure 16-8 page 316. */
+    if (rdp.other_modes.cycle_type == CYCLE_TYPE_COPY) {
 
-        if (rdp.color_image.size == PIXEL_SIZE_8B) {
-            u8 comp_a1 = rdp.other_modes.dither_alpha_en ?
+        if (rdp.other_modes.alpha_compare_en) {
+            unsigned threshold = rdp.other_modes.dither_alpha_en ?
                 rand() % 256 :
                 rdp.blend_color.a;
+            alpha_color_write_en = (rdp.color_image.size == PIXEL_SIZE_8B) ?
+                px->texel_colors[tx].a >= threshold :
+                px->texel_colors[tx].a > 0;
+        }
+    }
 
-            compare_alpha = comp_a0 >= comp_a1;
-        } else {
-            compare_alpha = comp_a0 > 0;
+    /* Alpha Compare in One / Two-Cycle Mode.
+     * This edits the pixel coverage and alpha value sent to the blender.
+     * Cf [1] Figure 16-9 page 317. */
+    if (rdp.other_modes.cycle_type == CYCLE_TYPE_1CYCLE ||
+        rdp.other_modes.cycle_type == CYCLE_TYPE_2CYCLE) {
+
+        unsigned bl_alpha = px->combined_color.a;
+        unsigned bl_coverage = px->coverage;
+
+        /* Cf [1] Figure 16-9 page 317. */
+        if (rdp.other_modes.cvg_times_alpha) {
+            bl_coverage = (px->coverage * px->combined_color.a) >> 8;
+        }
+        /* Cf [2] Figure 29 page 39. */
+        if (rdp.other_modes.key_en) {
+            core::halt("1cycle::key_en");
+        }
+        /* Cf [1] Figure 16-9 page 317. */
+        if (rdp.other_modes.alpha_cvg_select) {
+            bl_alpha = bl_coverage ? (bl_coverage << 5) - 1 : 0;
+        }
+
+        px->combined_color.a = bl_alpha;
+        px->coverage = bl_coverage;
+
+        /* Cf [1] Figure 16-9 page 317. */
+        if (rdp.other_modes.alpha_compare_en) {
+            unsigned threshold = rdp.other_modes.dither_alpha_en ?
+                rand() % 256 :
+                rdp.blend_color.a;
+            alpha_color_write_en = bl_alpha >= threshold;
         }
     }
 
@@ -939,7 +975,7 @@ static void pipeline_ctl(pixel_t *px, unsigned tx) {
     }
 
     px->color_write_en = (!rdp.other_modes.z_compare_en || !compare_behind) &&
-                         (!rdp.other_modes.alpha_compare_en || compare_alpha);
+                         alpha_color_write_en;
     px->z_write_en     =  rdp.other_modes.z_update_en  && px->color_write_en;
     px->blend_en       =  rdp.other_modes.force_blend  ||
                          (rdp.other_modes.z_compare_en &&
