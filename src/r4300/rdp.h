@@ -272,7 +272,7 @@ struct rdp {
         enum blender_src_sel b_m2a_1;
         enum blender_src_sel b_m2b_1;
         bool force_blend;
-        bool alpha_cvg_select;
+        bool alpha_cvg_sel;
         bool cvg_times_alpha;
         enum z_mode z_mode;
         enum cvg_dest cvg_dest;

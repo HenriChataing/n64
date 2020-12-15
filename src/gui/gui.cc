@@ -503,7 +503,7 @@ static void ShowRdpInformation(void) {
         static char const *z_source_sels[] = { "PIXEL", "PRIMITIVE", };
 
         ImGui::Separator();
-        ImGui::Text("alpha_cvg_select: %s", bool_to_string(R4300::rdp.other_modes.alpha_cvg_select));
+        ImGui::Text("alpha_cvg_sel: %s", bool_to_string(R4300::rdp.other_modes.alpha_cvg_sel));
         ImGui::Text("cvg_times_alpha: %s", bool_to_string(R4300::rdp.other_modes.cvg_times_alpha));
         ImGui::Text("z_mode: %s", z_modes[R4300::rdp.other_modes.z_mode]);
         ImGui::Text("cvg_dest: %s", cvg_dests[R4300::rdp.other_modes.cvg_dest]);

@@ -37,6 +37,7 @@ using namespace R4300;
 
 /* Addr in 64bit words */
 #define HIGH_TMEM_ADDR 256
+#define MAX_COVERAGE 8
 
 struct rdp rdp;
 
@@ -90,6 +91,7 @@ typedef struct pixel {
     /* BL */
     color_t                 blended_color;  /* 2-cycle mode */
     /* MI */
+    unsigned                mem_coverage;
     color_t                 mem_color;
     u32                     mem_z; /* U15.3 */
     i16                     mem_deltaz; /* S15 */
@@ -98,6 +100,7 @@ typedef struct pixel {
 
     /* Pipeline control */
     bool                    color_write_en;
+    bool                    coverage_write_en;
     bool                    z_write_en;
     bool                    blend_en;
 } pixel_t;
@@ -217,7 +220,8 @@ static void pipeline_tx_load(struct tile const *tile, unsigned s, unsigned t, co
 static void pipeline_tf(pixel_t *px);
 static void pipeline_cc(pixel_t *px);
 static void pipeline_bl(pixel_t *px);
-static void pipeline_mi_store(unsigned mem_color_addr, color_t color);
+static void pipeline_mi_store(unsigned mem_color_addr, color_t color,
+                              unsigned coverage);
 static void pipeline_mi_store(pixel_t *px);
 static void pipeline_mi_load(pixel_t *px);
 static void pipeline_ctl(pixel_t *px, unsigned tx = 0);
@@ -706,6 +710,7 @@ static void pipeline_mi_load(pixel_t *px) {
     switch (rdp.color_image.type) {
     case IMAGE_DATA_FORMAT_I_8:
         core::halt("pipeline_mi_load: unsupported image data type I_8");
+        px->mem_coverage = MAX_COVERAGE;
         break;
     /* R[15:11],G[10:6],G[5:1],A[0] =>
      * R {[15:11],[15:13]}
@@ -721,6 +726,10 @@ static void pipeline_mi_load(pixel_t *px) {
         px->mem_color.g = (g << 3) | (g >> 2);
         px->mem_color.b = (b << 3) | (b >> 2);
         px->mem_color.a = (rgba & 1u) ? 255 : 0;
+        px->mem_coverage =
+            (px->mem_color.a << 2) |
+            state.loadHiddenBits(px->mem_color_addr);
+        px->mem_coverage++;
         break;
     }
     /* R[31:24],G[23:16],G[15:8],A[7:0] =>
@@ -734,10 +743,12 @@ static void pipeline_mi_load(pixel_t *px) {
         px->mem_color.g = (rgba >> 16) & 0xffu;
         px->mem_color.b = (rgba >>  8) & 0xffu;
         px->mem_color.a = (rgba >>  0) & 0xffu;
+        px->mem_coverage = px->mem_color.a >> 5;
+        px->mem_coverage++;
         break;
     }
     default:
-        core::halt("pipeline_mi_store: unexpected image data type");
+        core::halt("pipeline_mi_load: unexpected image data type");
         break;
     }
 }
@@ -780,8 +791,11 @@ static void pipeline_mi_load_z(pixel_t *px) {
 
 /**
  * Write a colored pixel to the specified address in memory.
+ * The coverage is saved as coverage-1.
  */
-static void pipeline_mi_store(unsigned mem_color_addr, color_t color) {
+static void pipeline_mi_store(unsigned mem_color_addr, color_t color,
+                              unsigned coverage) {
+    coverage = (coverage - 1) & 0x7;
     u8 *addr = &state.dram[mem_color_addr];
     switch (rdp.color_image.type) {
     case IMAGE_DATA_FORMAT_I_8:
@@ -791,9 +805,10 @@ static void pipeline_mi_store(unsigned mem_color_addr, color_t color) {
         u16 r = color.r >> 3;
         u16 g = color.g >> 3;
         u16 b = color.b >> 3;
-        u16 a = color.a >> 7;
+        u16 a = coverage >> 2;
         u16 rgba = (r << 11) | (g << 6) | (b << 1) | a;
         *(u16 *)addr = __builtin_bswap16(rgba);
+        state.storeHiddenBits(mem_color_addr, coverage & 0x3);
         break;
     }
     case IMAGE_DATA_FORMAT_RGBA_8_8_8_8: {
@@ -801,7 +816,8 @@ static void pipeline_mi_store(unsigned mem_color_addr, color_t color) {
             ((u32)color.r << 24) |
             ((u32)color.g << 16) |
             ((u32)color.b << 8)  |
-                  color.a;
+            ((u32)coverage << 5) |
+                 (color.a & 0x1f);
         *(u32 *)addr = __builtin_bswap32(rgba);
         break;
     }
@@ -818,7 +834,8 @@ static void pipeline_mi_store(unsigned mem_color_addr, color_t color) {
  */
 static void pipeline_mi_store(pixel_t *px) {
     if (px->color_write_en)
-        pipeline_mi_store(px->mem_color_addr, px->blended_color);
+        pipeline_mi_store(px->mem_color_addr, px->blended_color,
+            px->coverage);
 }
 
 /**
@@ -901,8 +918,9 @@ static void pipeline_mi_store_z(pixel_t *px) {
  * and blend enable signals. */
 static void pipeline_ctl(pixel_t *px, unsigned tx) {
     bool alpha_color_write_en = true;
-    bool compare_behind = false;
-    bool compare_infront = false;
+    bool z_color_write_en = true;
+    bool z_coverage_write_en = false;
+    bool z_blend_en = false;
 
     /* Alpha Compare in Copy Mode.
      * Cf [1] Figure 16-8 page 316. */
@@ -936,7 +954,7 @@ static void pipeline_ctl(pixel_t *px, unsigned tx) {
             core::halt("1cycle::key_en");
         }
         /* Cf [1] Figure 16-9 page 317. */
-        if (rdp.other_modes.alpha_cvg_select) {
+        if (rdp.other_modes.alpha_cvg_sel) {
             bl_alpha = bl_coverage ? (bl_coverage << 5) - 1 : 0;
         }
 
@@ -955,31 +973,97 @@ static void pipeline_ctl(pixel_t *px, unsigned tx) {
     if (rdp.other_modes.z_compare_en) {
         pipeline_mi_load_z(px);
 
-        u32 comp_z;
-        u16 comp_deltaz;
+        u32 mem_z = px->mem_z;
+        u16 mem_deltaz = px->mem_deltaz;
+        unsigned mem_coverage = px->mem_coverage;
+        u32 pix_z;
+        u16 pix_deltaz;
+        u16 max_deltaz;
+        bool farther;
+        bool nearer;
+        bool in_front;
 
         if (rdp.other_modes.z_source_sel) {
-            comp_z = rdp.prim_z;
-            comp_deltaz = rdp.prim_deltaz;
+            pix_z = rdp.prim_z;
+            pix_deltaz = rdp.prim_deltaz;
         } else {
-            comp_z = px->zbuffer_coefs.z;
-            comp_deltaz = px->zbuffer_coefs.deltaz + rdp.prim_deltaz;
+            pix_z = px->zbuffer_coefs.z;
+            pix_deltaz = px->zbuffer_coefs.deltaz + rdp.prim_deltaz;
         }
 
-        u32 mem_z = px->mem_z;
-        u32 near = comp_z >= ((u32)comp_deltaz << 3) ?
-            comp_z - ((u32)comp_deltaz << 3) : 0;
-        u32 far = comp_z + ((u32)comp_deltaz << 3);
-        compare_behind  = mem_z < near;
-        compare_infront = mem_z > far;
+        /* Convert deltaz values in S15 to S15.3 */
+        mem_deltaz = (mem_deltaz << 3);
+        pix_deltaz = (pix_deltaz << 3);
+
+        /* Z calculations */
+        max_deltaz = std::max(pix_deltaz, mem_deltaz);
+        farther = mem_z <= (pix_z + max_deltaz);
+        nearer = pix_z < max_deltaz || mem_z >= (pix_z - max_deltaz);
+        in_front = pix_z < mem_z;
+
+        switch (rdp.other_modes.z_mode) {
+        case Z_MODE_OPAQUE:
+            /* Opaque surface rendering. Except for the aliasing of
+             * edge pixels, the blender is disabled. The algorithm
+             * differentiates between internal edge pixels, which are blended
+             * immediately; and silhouette edge pixels, which are blended
+             * in a later video filtering pass.
+             * The pixel is from an internal edge if it meets the conditions:
+             *   - partial coverage value
+             *   - z value is close to the memory z value
+             * All other pixels bypass the blender are overwrite the memory
+             * pixel. */
+            z_color_write_en = nearer;
+            z_blend_en = px->coverage < MAX_COVERAGE && farther && nearer;
+            /* An additional mechanism is added to prevent 'punch-through':
+             * when a covered polygon blends with the top polygon because
+             * the deltaz range is too wide. If the sum of the coverage values
+             * wraps then the new polygon is not considered part of the same
+             * surface and a strict compare is performed to determine
+             * the order. */
+            if (px->coverage + mem_coverage > MAX_COVERAGE) {
+                z_color_write_en = in_front;
+                z_blend_en = false;
+            }
+            break;
+
+        case Z_MODE_INTERPENETRATING:
+            /* Similar to opaque surface rendering with a special case to
+             * antialias interpenetrating polygons. The punch-through detection
+             * mechanism is disabled, which enables aliasing intersection edges
+             * at the risk of punch-through appearing. */
+            z_color_write_en = nearer;
+            z_blend_en = px->coverage < MAX_COVERAGE && farther && nearer;
+            break;
+
+        case Z_MODE_TRANSPARENT:
+            /* Transparent surface rendering.
+             * The main issue with transparent surface is the rendering
+             * of internal edge lines. Without special treatment they
+             * would be rendered twice, and would appear in the image.
+             * The special mode color_on_cvg is used to prevent writing
+             * the color unless the coverage wraps, which occurs only on
+             * the first internal edge write. */
+            z_color_write_en = in_front;
+            z_coverage_write_en = z_color_write_en;
+            z_blend_en = false;
+            if (rdp.other_modes.color_on_cvg &&
+                px->coverage + mem_coverage < MAX_COVERAGE) {
+                z_color_write_en = false;
+            }
+            break;
+
+        case Z_MODE_DECAL:
+            z_color_write_en = true;
+            z_blend_en = true;
+            break;
+        }
     }
 
-    px->color_write_en = (!rdp.other_modes.z_compare_en || !compare_behind) &&
-                         alpha_color_write_en;
-    px->z_write_en     =  rdp.other_modes.z_update_en  && px->color_write_en;
-    px->blend_en       =  rdp.other_modes.force_blend  ||
-                         (rdp.other_modes.z_compare_en &&
-                          !compare_behind && !compare_infront);
+    px->color_write_en    = px->coverage > 0 && alpha_color_write_en && z_color_write_en;
+    px->coverage_write_en = px->color_write_en || z_coverage_write_en;
+    px->z_write_en        = rdp.other_modes.z_update_en && px->color_write_en;
+    px->blend_en          = rdp.other_modes.force_blend || z_blend_en;
 }
 
 namespace FillMode {
@@ -1112,19 +1196,19 @@ static void render_span(i32 y, i32 xs, i32 xe,
         pipeline_tx(&px);
         pipeline_ctl(&px, 0);
         if (px.color_write_en)
-            pipeline_mi_store(px.mem_color_addr, px.texel_colors[0]);
+            pipeline_mi_store(px.mem_color_addr, px.texel_colors[0], MAX_COVERAGE);
         px.mem_color_addr += px_size;
         pipeline_ctl(&px, 1);
         if (px.color_write_en)
-            pipeline_mi_store(px.mem_color_addr, px.texel_colors[1]);
+            pipeline_mi_store(px.mem_color_addr, px.texel_colors[1], MAX_COVERAGE);
         px.mem_color_addr += px_size;
         pipeline_ctl(&px, 2);
         if (px.color_write_en)
-            pipeline_mi_store(px.mem_color_addr, px.texel_colors[2]);
+            pipeline_mi_store(px.mem_color_addr, px.texel_colors[2], MAX_COVERAGE);
         px.mem_color_addr += px_size;
         pipeline_ctl(&px, 3);
         if (px.color_write_en)
-            pipeline_mi_store(px.mem_color_addr, px.texel_colors[3]);
+            pipeline_mi_store(px.mem_color_addr, px.texel_colors[3], MAX_COVERAGE);
         px.mem_color_addr += px_size;
 
         px.texture_coefs.s += texture->dsdx;
@@ -1932,7 +2016,7 @@ void setOtherModes(u64 command, u64 const *params) {
     rdp.other_modes.b_m2b_0 = (enum blender_src_sel)((command >> 18) & 0x3u);
     rdp.other_modes.b_m2b_1 = (enum blender_src_sel)((command >> 16) & 0x3u);
     rdp.other_modes.force_blend = (command >> 14) & 0x1u;
-    rdp.other_modes.alpha_cvg_select = (command >> 13) & 0x1u;
+    rdp.other_modes.alpha_cvg_sel = (command >> 13) & 0x1u;
     rdp.other_modes.cvg_times_alpha = (command >> 12) & 0x1u;
     rdp.other_modes.z_mode = (enum z_mode)((command >> 10) & 0x3u);
     rdp.other_modes.cvg_dest = (enum cvg_dest)((command >> 8) & 0x3u);
@@ -1970,7 +2054,7 @@ void setOtherModes(u64 command, u64 const *params) {
     debugger::debug(Debugger::RDP, "  b_m2b_0: {}", rdp.other_modes.b_m2b_0);
     debugger::debug(Debugger::RDP, "  b_m2b_1: {}", rdp.other_modes.b_m2b_1);
     debugger::debug(Debugger::RDP, "  force_blend: {}", rdp.other_modes.force_blend);
-    debugger::debug(Debugger::RDP, "  alpha_cvg_select: {}", rdp.other_modes.alpha_cvg_select);
+    debugger::debug(Debugger::RDP, "  alpha_cvg_sel: {}", rdp.other_modes.alpha_cvg_sel);
     debugger::debug(Debugger::RDP, "  cvg_times_alpha: {}", rdp.other_modes.cvg_times_alpha);
     debugger::debug(Debugger::RDP, "  z_mode: {}", rdp.other_modes.z_mode);
     debugger::debug(Debugger::RDP, "  cvg_dest: {}", rdp.other_modes.cvg_dest);
