@@ -833,6 +833,13 @@ static void ShowPIFInformation(void) {
     ImGui::Button("Right");
     R4300::state.hwreg.buttons.C_right = ImGui::IsItemActive();
     ImGui::PopID();
+
+    int x = R4300::state.hwreg.buttons.x;
+    int y = R4300::state.hwreg.buttons.y;
+    ImGui::SliderInt("X", &x, -128, 127);
+    ImGui::SliderInt("Y", &y, -128, 127);
+    R4300::state.hwreg.buttons.x = x;
+    R4300::state.hwreg.buttons.y = y;
 }
 
 static void ShowCartInformation(void) {
@@ -876,10 +883,10 @@ static void ShowScreen(bool *show_screen) {
         ImGui::SetNextWindowSize(ImVec2(width + 15, height + 35));
         ImGui::Begin("Screen", show_screen);
         ImVec2 pos = ImGui::GetCursorScreenPos();
-            ImGui::GetWindowDrawList()->AddImage(
-                (void *)(unsigned long)texture, pos,
-                ImVec2(pos.x + width, pos.y + height),
-                ImVec2(0, 0), ImVec2(1, 1));
+        ImGui::GetWindowDrawList()->AddImage(
+            (void *)(unsigned long)texture, pos,
+            ImVec2(pos.x + width, pos.y + height),
+            ImVec2(0, 0), ImVec2(1, 1));
         ImGui::End();
     } else {
         ImGui::Begin("Screen", show_screen);
@@ -1147,8 +1154,12 @@ void joyKeyCallback(GLFWwindow* window, int key, int scancode, int action, int m
     default: break;
     }
 
-    // R4300::state.hwreg.buttons.x = 0;
-    // R4300::state.hwreg.buttons.y = 0;
+    R4300::state.hwreg.buttons.x =
+        127 * R4300::state.hwreg.buttons.right +
+        -127 * R4300::state.hwreg.buttons.left;
+    R4300::state.hwreg.buttons.y =
+        127 * R4300::state.hwreg.buttons.up +
+        -127 * R4300::state.hwreg.buttons.down;
 }
 
 int startGui()
