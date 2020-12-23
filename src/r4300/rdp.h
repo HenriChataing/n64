@@ -5,6 +5,7 @@
 #include <types.h>
 
 namespace R4300 {
+namespace rdp {
 
 /** Image data format set by the SetColorImage DPC command. */
 enum image_data_format {
@@ -289,6 +290,30 @@ struct rdp {
 
 extern struct rdp rdp;
 
+enum debug_mode {
+    DEBUG_MODE_NONE,
+    DEBUG_MODE_SHADE,
+    DEBUG_MODE_SHADE_ALPHA,
+    DEBUG_MODE_TEXTURE,
+    DEBUG_MODE_TEXTURE_ALPHA,
+    DEBUG_MODE_COMBINED,
+    DEBUG_MODE_COMBINED_ALPHA,
+    DEBUG_MODE_COVERAGE,
 };
+
+/**
+ * @brief Select the current debug mode.
+ *
+ * If the debug mode is different from DEBUG_MODE_NONE, the selected
+ * component will be written to the framebuffer instead of the blended
+ * color. Alpha values are displayed with shades of grey, from black
+ * (transparent) to white (opaque).
+ *
+ * @param mode      Selected debug mode.
+ */
+void set_debug_mode(enum debug_mode mode);
+
+}; /* namespace rdp */
+}; /* namespace R4300 */
 
 #endif /* _R4300_RDP_H_INCLUDED_ */

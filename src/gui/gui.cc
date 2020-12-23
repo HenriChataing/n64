@@ -229,7 +229,7 @@ static void ShowRspCop2Registers(void) {
     }
 }
 
-static void ShowRdpColorConfig(char const *label, R4300::color_t *c) {
+static void ShowRdpColorConfig(char const *label, R4300::rdp::color_t *c) {
     ImGui::SetCursorPosX(ImGui::GetTreeNodeToLabelSpacing());
     ImGui::Text("%s", label);
     ImGui::SameLine(150);
@@ -264,9 +264,18 @@ static char const *bool_to_string(bool val) {
 static void ShowRdpInformation(void) {
     /* Print fill color */
     ImGui::SetCursorPosX(ImGui::GetTreeNodeToLabelSpacing());
+    ImGui::Text("debug mode");
+    ImGui::SameLine(150);
+    static int mode = R4300::rdp::DEBUG_MODE_NONE;
+    ImGui::Combo("", &mode,
+        "none\0shade\0shade alpha\0texture\0texture alpha\0"
+        "combined\0combined alpha\0coverage\0\0");
+    R4300::rdp::set_debug_mode((R4300::rdp::debug_mode)mode);
+    ImGui::Separator();
+
     ImGui::Text("fill_color");
     ImGui::SameLine(150);
-    u32 fill_color = R4300::rdp.fill_color;
+    u32 fill_color = R4300::rdp::rdp.fill_color;
     ImGui::Text("%02x %02x %02x %02x",
         (fill_color >> 24) & 0xffu,
         (fill_color >> 16) & 0xffu,
@@ -298,27 +307,27 @@ static void ShowRdpInformation(void) {
         ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
 
     /* Print other color registers */
-    ShowRdpColorConfig("fog_color", &R4300::rdp.fog_color);
-    ShowRdpColorConfig("blend_color", &R4300::rdp.blend_color);
-    ShowRdpColorConfig("prim_color", &R4300::rdp.prim_color);
-    ShowRdpColorConfig("env_color", &R4300::rdp.env_color);
+    ShowRdpColorConfig("fog_color", &R4300::rdp::rdp.fog_color);
+    ShowRdpColorConfig("blend_color", &R4300::rdp::rdp.blend_color);
+    ShowRdpColorConfig("prim_color", &R4300::rdp::rdp.prim_color);
+    ShowRdpColorConfig("env_color", &R4300::rdp::rdp.env_color);
 
     /* Primitive depth. */
     ImGui::SetCursorPosX(ImGui::GetTreeNodeToLabelSpacing());
-    ImGui::Text("prim_z: %.3f", u32_fixpoint_to_float(R4300::rdp.prim_z, 3));
+    ImGui::Text("prim_z: %.3f", u32_fixpoint_to_float(R4300::rdp::rdp.prim_z, 3));
     ImGui::SetCursorPosX(ImGui::GetTreeNodeToLabelSpacing());
-    ImGui::Text("prim_deltaz: %u", R4300::rdp.prim_deltaz);
+    ImGui::Text("prim_deltaz: %u", R4300::rdp::rdp.prim_deltaz);
 
     /* Scissor box. */
     if (ImGui::TreeNode("scissor")) {
-        ImGui::Text("xh: %.2f", u32_fixpoint_to_float(R4300::rdp.scissor.xh, 2));
-        ImGui::Text("yh: %.2f", u32_fixpoint_to_float(R4300::rdp.scissor.yh, 2));
-        ImGui::Text("xl: %.2f", u32_fixpoint_to_float(R4300::rdp.scissor.xl, 2));
-        ImGui::Text("yl: %.2f", u32_fixpoint_to_float(R4300::rdp.scissor.yl, 2));
+        ImGui::Text("xh: %.2f", u32_fixpoint_to_float(R4300::rdp::rdp.scissor.xh, 2));
+        ImGui::Text("yh: %.2f", u32_fixpoint_to_float(R4300::rdp::rdp.scissor.yh, 2));
+        ImGui::Text("xl: %.2f", u32_fixpoint_to_float(R4300::rdp::rdp.scissor.xl, 2));
+        ImGui::Text("yl: %.2f", u32_fixpoint_to_float(R4300::rdp::rdp.scissor.yl, 2));
         ImGui::Text("skip_odd: %s",
-            bool_to_string(R4300::rdp.scissor.skip_odd));
+            bool_to_string(R4300::rdp::rdp.scissor.skip_odd));
         ImGui::Text("skip_even: %s",
-            bool_to_string(R4300::rdp.scissor.skip_even));
+            bool_to_string(R4300::rdp::rdp.scissor.skip_even));
         ImGui::TreePop();
     }
     ImGui::Separator();
@@ -345,24 +354,24 @@ static void ShowRdpInformation(void) {
     /* Texture image */
     if (ImGui::TreeNode("texture_image")) {
         ImGui::Text("type: %s",
-            R4300::rdp.texture_image.type < 0 ? "inval" :
-            image_data_format_names[R4300::rdp.texture_image.type]);
-        ImGui::Text("width: %u", R4300::rdp.texture_image.width);
-        ImGui::Text("addr: 0x%06x", R4300::rdp.texture_image.addr);
+            R4300::rdp::rdp.texture_image.type < 0 ? "inval" :
+            image_data_format_names[R4300::rdp::rdp.texture_image.type]);
+        ImGui::Text("width: %u", R4300::rdp::rdp.texture_image.width);
+        ImGui::Text("addr: 0x%06x", R4300::rdp::rdp.texture_image.addr);
         ImGui::TreePop();
     }
     /* Color image */
     if (ImGui::TreeNode("color_image")) {
         ImGui::Text("type: %s",
-            R4300::rdp.color_image.type < 0 ? "inval" :
-            image_data_format_names[R4300::rdp.color_image.type]);
-        ImGui::Text("width: %u", R4300::rdp.color_image.width);
-        ImGui::Text("addr: 0x%06x", R4300::rdp.color_image.addr);
+            R4300::rdp::rdp.color_image.type < 0 ? "inval" :
+            image_data_format_names[R4300::rdp::rdp.color_image.type]);
+        ImGui::Text("width: %u", R4300::rdp::rdp.color_image.width);
+        ImGui::Text("addr: 0x%06x", R4300::rdp::rdp.color_image.addr);
         ImGui::TreePop();
     }
     /* Z image */
     if (ImGui::TreeNode("z_image")) {
-        ImGui::Text("addr: 0x%06x", R4300::rdp.z_image.addr);
+        ImGui::Text("addr: 0x%06x", R4300::rdp::rdp.z_image.addr);
         ImGui::TreePop();
     }
 
@@ -372,24 +381,24 @@ static void ShowRdpInformation(void) {
         ImGui::Separator();
         if (ImGui::TreeNode("tile", "tile[%u]", i)) {
             ImGui::Text("type: %s",
-                R4300::rdp.tiles[i].type < 0 ? "inval" :
-                image_data_format_names[R4300::rdp.tiles[i].type]);
-            ImGui::Text("line: %u", R4300::rdp.tiles[i].line);
+                R4300::rdp::rdp.tiles[i].type < 0 ? "inval" :
+                image_data_format_names[R4300::rdp::rdp.tiles[i].type]);
+            ImGui::Text("line: %u", R4300::rdp::rdp.tiles[i].line);
             ImGui::Text("tmem_addr: 0x%03x",
-                R4300::rdp.tiles[i].tmem_addr << 3);
-            ImGui::Text("palette: %u", R4300::rdp.tiles[i].palette);
-            ImGui::Text("clamp_t: %s", bool_to_string(R4300::rdp.tiles[i].clamp_t));
-            ImGui::Text("mirror_t: %s", bool_to_string(R4300::rdp.tiles[i].mirror_t));
-            ImGui::Text("mask_t: %u", R4300::rdp.tiles[i].mask_t);
-            ImGui::Text("shift_t: %u", R4300::rdp.tiles[i].shift_t);
-            ImGui::Text("clamp_s: %s", bool_to_string(R4300::rdp.tiles[i].clamp_s));
-            ImGui::Text("mirror_s: %s", bool_to_string(R4300::rdp.tiles[i].mirror_s));
-            ImGui::Text("mask_s: %u", R4300::rdp.tiles[i].mask_s);
-            ImGui::Text("shift_s: %u", R4300::rdp.tiles[i].shift_s);
-            ImGui::Text("sl: %.2f", u32_fixpoint_to_float(R4300::rdp.tiles[i].sl, 2));
-            ImGui::Text("tl: %.2f", u32_fixpoint_to_float(R4300::rdp.tiles[i].tl, 2));
-            ImGui::Text("sh: %.2f", u32_fixpoint_to_float(R4300::rdp.tiles[i].sh, 2));
-            ImGui::Text("th: %.2f", u32_fixpoint_to_float(R4300::rdp.tiles[i].th, 2));
+                R4300::rdp::rdp.tiles[i].tmem_addr << 3);
+            ImGui::Text("palette: %u", R4300::rdp::rdp.tiles[i].palette);
+            ImGui::Text("clamp_t: %s", bool_to_string(R4300::rdp::rdp.tiles[i].clamp_t));
+            ImGui::Text("mirror_t: %s", bool_to_string(R4300::rdp::rdp.tiles[i].mirror_t));
+            ImGui::Text("mask_t: %u", R4300::rdp::rdp.tiles[i].mask_t);
+            ImGui::Text("shift_t: %u", R4300::rdp::rdp.tiles[i].shift_t);
+            ImGui::Text("clamp_s: %s", bool_to_string(R4300::rdp::rdp.tiles[i].clamp_s));
+            ImGui::Text("mirror_s: %s", bool_to_string(R4300::rdp::rdp.tiles[i].mirror_s));
+            ImGui::Text("mask_s: %u", R4300::rdp::rdp.tiles[i].mask_s);
+            ImGui::Text("shift_s: %u", R4300::rdp::rdp.tiles[i].shift_s);
+            ImGui::Text("sl: %.2f", u32_fixpoint_to_float(R4300::rdp::rdp.tiles[i].sl, 2));
+            ImGui::Text("tl: %.2f", u32_fixpoint_to_float(R4300::rdp::rdp.tiles[i].tl, 2));
+            ImGui::Text("sh: %.2f", u32_fixpoint_to_float(R4300::rdp::rdp.tiles[i].sh, 2));
+            ImGui::Text("th: %.2f", u32_fixpoint_to_float(R4300::rdp::rdp.tiles[i].th, 2));
             ImGui::TreePop();
         }
         ImGui::PopID();
@@ -431,23 +440,23 @@ static void ShowRdpInformation(void) {
             "ENVIRONMENT A", "1", "0",
         };
 
-        ImGui::Text("sub_a_R_0: %s", sub_a_R_sels[R4300::rdp.combine_mode.sub_a_R_0]);
-        ImGui::Text("sub_b_R_0: %s", sub_b_R_sels[R4300::rdp.combine_mode.sub_b_R_0]);
-        ImGui::Text("mul_R_0: %s", mul_R_sels[R4300::rdp.combine_mode.mul_R_0]);
-        ImGui::Text("add_R_0: %s", add_R_sels[R4300::rdp.combine_mode.add_R_0]);
-        ImGui::Text("sub_a_A_0: %s", sub_A_sels[R4300::rdp.combine_mode.sub_a_A_0]);
-        ImGui::Text("sub_b_A_0: %s", sub_A_sels[R4300::rdp.combine_mode.sub_b_A_0]);
-        ImGui::Text("mul_A_0: %s", mul_A_sels[R4300::rdp.combine_mode.mul_A_0]);
-        ImGui::Text("add_A_0: %s", add_A_sels[R4300::rdp.combine_mode.add_A_0]);
+        ImGui::Text("sub_a_R_0: %s", sub_a_R_sels[R4300::rdp::rdp.combine_mode.sub_a_R_0]);
+        ImGui::Text("sub_b_R_0: %s", sub_b_R_sels[R4300::rdp::rdp.combine_mode.sub_b_R_0]);
+        ImGui::Text("mul_R_0: %s", mul_R_sels[R4300::rdp::rdp.combine_mode.mul_R_0]);
+        ImGui::Text("add_R_0: %s", add_R_sels[R4300::rdp::rdp.combine_mode.add_R_0]);
+        ImGui::Text("sub_a_A_0: %s", sub_A_sels[R4300::rdp::rdp.combine_mode.sub_a_A_0]);
+        ImGui::Text("sub_b_A_0: %s", sub_A_sels[R4300::rdp::rdp.combine_mode.sub_b_A_0]);
+        ImGui::Text("mul_A_0: %s", mul_A_sels[R4300::rdp::rdp.combine_mode.mul_A_0]);
+        ImGui::Text("add_A_0: %s", add_A_sels[R4300::rdp::rdp.combine_mode.add_A_0]);
         ImGui::Separator();
-        ImGui::Text("sub_a_R_1: %s", sub_a_R_sels[R4300::rdp.combine_mode.sub_a_R_1]);
-        ImGui::Text("sub_b_R_1: %s", sub_b_R_sels[R4300::rdp.combine_mode.sub_b_R_1]);
-        ImGui::Text("mul_R_1: %s", mul_R_sels[R4300::rdp.combine_mode.mul_R_1]);
-        ImGui::Text("add_R_1: %s", add_R_sels[R4300::rdp.combine_mode.add_R_1]);
-        ImGui::Text("sub_a_A_1: %s", sub_A_sels[R4300::rdp.combine_mode.sub_a_A_1]);
-        ImGui::Text("sub_b_A_1: %s", sub_A_sels[R4300::rdp.combine_mode.sub_b_A_1]);
-        ImGui::Text("mul_A_1: %s", mul_A_sels[R4300::rdp.combine_mode.mul_A_1]);
-        ImGui::Text("add_A_1: %s", add_A_sels[R4300::rdp.combine_mode.add_A_1]);
+        ImGui::Text("sub_a_R_1: %s", sub_a_R_sels[R4300::rdp::rdp.combine_mode.sub_a_R_1]);
+        ImGui::Text("sub_b_R_1: %s", sub_b_R_sels[R4300::rdp::rdp.combine_mode.sub_b_R_1]);
+        ImGui::Text("mul_R_1: %s", mul_R_sels[R4300::rdp::rdp.combine_mode.mul_R_1]);
+        ImGui::Text("add_R_1: %s", add_R_sels[R4300::rdp::rdp.combine_mode.add_R_1]);
+        ImGui::Text("sub_a_A_1: %s", sub_A_sels[R4300::rdp::rdp.combine_mode.sub_a_A_1]);
+        ImGui::Text("sub_b_A_1: %s", sub_A_sels[R4300::rdp::rdp.combine_mode.sub_b_A_1]);
+        ImGui::Text("mul_A_1: %s", mul_A_sels[R4300::rdp::rdp.combine_mode.mul_A_1]);
+        ImGui::Text("add_A_1: %s", add_A_sels[R4300::rdp::rdp.combine_mode.add_A_1]);
         ImGui::TreePop();
     }
 
@@ -462,21 +471,21 @@ static void ShowRdpInformation(void) {
         static char const *alpha_dither_sels[] = {
             "PATTERN", "NEG PATTERN", "NOISE", "NONE", };
 
-        ImGui::Text("cycle_type: %s", cycle_types[R4300::rdp.other_modes.cycle_type]);
-        ImGui::Text("persp_tex_en: %s", bool_to_string(R4300::rdp.other_modes.persp_tex_en));
-        ImGui::Text("detail_tex_en: %s", bool_to_string(R4300::rdp.other_modes.detail_tex_en));
-        ImGui::Text("sharpen_tex_en: %s", bool_to_string(R4300::rdp.other_modes.sharpen_tex_en));
-        ImGui::Text("tex_lod_en: %s", bool_to_string(R4300::rdp.other_modes.tex_lod_en));
-        ImGui::Text("tlut_en: %s", bool_to_string(R4300::rdp.other_modes.tlut_en));
-        ImGui::Text("tlut_type: %s", tlut_types[R4300::rdp.other_modes.tlut_type]);
-        ImGui::Text("sample_type: %s", sample_types[R4300::rdp.other_modes.sample_type]);
-        ImGui::Text("mid_texel: %s", bool_to_string(R4300::rdp.other_modes.mid_texel));
-        ImGui::Text("bi_lerp_0: %s", bool_to_string(R4300::rdp.other_modes.bi_lerp_0));
-        ImGui::Text("bi_lerp_1: %s", bool_to_string(R4300::rdp.other_modes.bi_lerp_1));
-        ImGui::Text("convert_one: %s", bool_to_string(R4300::rdp.other_modes.convert_one));
-        ImGui::Text("key_en: %s", bool_to_string(R4300::rdp.other_modes.key_en));
-        ImGui::Text("rgb_dither_sel: %s", rgb_dither_sels[R4300::rdp.other_modes.rgb_dither_sel]);
-        ImGui::Text("alpha_dither_sel: %s", alpha_dither_sels[R4300::rdp.other_modes.alpha_dither_sel]);
+        ImGui::Text("cycle_type: %s", cycle_types[R4300::rdp::rdp.other_modes.cycle_type]);
+        ImGui::Text("persp_tex_en: %s", bool_to_string(R4300::rdp::rdp.other_modes.persp_tex_en));
+        ImGui::Text("detail_tex_en: %s", bool_to_string(R4300::rdp::rdp.other_modes.detail_tex_en));
+        ImGui::Text("sharpen_tex_en: %s", bool_to_string(R4300::rdp::rdp.other_modes.sharpen_tex_en));
+        ImGui::Text("tex_lod_en: %s", bool_to_string(R4300::rdp::rdp.other_modes.tex_lod_en));
+        ImGui::Text("tlut_en: %s", bool_to_string(R4300::rdp::rdp.other_modes.tlut_en));
+        ImGui::Text("tlut_type: %s", tlut_types[R4300::rdp::rdp.other_modes.tlut_type]);
+        ImGui::Text("sample_type: %s", sample_types[R4300::rdp::rdp.other_modes.sample_type]);
+        ImGui::Text("mid_texel: %s", bool_to_string(R4300::rdp::rdp.other_modes.mid_texel));
+        ImGui::Text("bi_lerp_0: %s", bool_to_string(R4300::rdp::rdp.other_modes.bi_lerp_0));
+        ImGui::Text("bi_lerp_1: %s", bool_to_string(R4300::rdp::rdp.other_modes.bi_lerp_1));
+        ImGui::Text("convert_one: %s", bool_to_string(R4300::rdp::rdp.other_modes.convert_one));
+        ImGui::Text("key_en: %s", bool_to_string(R4300::rdp::rdp.other_modes.key_en));
+        ImGui::Text("rgb_dither_sel: %s", rgb_dither_sels[R4300::rdp::rdp.other_modes.rgb_dither_sel]);
+        ImGui::Text("alpha_dither_sel: %s", alpha_dither_sels[R4300::rdp::rdp.other_modes.alpha_dither_sel]);
 
         static char const *b_ma_sels[] = {
             "PIXEL", "MEMORY", "BLEND", "FOG", };
@@ -486,15 +495,15 @@ static void ShowRdpInformation(void) {
             "1 - Amux", "MEMORY A", "1", "0", };
 
         ImGui::Separator();
-        ImGui::Text("b_m1a_0: %s", b_ma_sels[R4300::rdp.other_modes.b_m1a_0]);
-        ImGui::Text("b_m1b_0: %s", b_m1b_sels[R4300::rdp.other_modes.b_m1b_0]);
-        ImGui::Text("b_m2a_0: %s", b_ma_sels[R4300::rdp.other_modes.b_m2a_0]);
-        ImGui::Text("b_m2b_0: %s", b_m2b_sels[R4300::rdp.other_modes.b_m2b_0]);
-        ImGui::Text("b_m1a_1: %s", b_ma_sels[R4300::rdp.other_modes.b_m1a_1]);
-        ImGui::Text("b_m1b_1: %s", b_m1b_sels[R4300::rdp.other_modes.b_m1b_1]);
-        ImGui::Text("b_m2a_1: %s", b_ma_sels[R4300::rdp.other_modes.b_m2a_1]);
-        ImGui::Text("b_m2b_1: %s", b_m2b_sels[R4300::rdp.other_modes.b_m2b_1]);
-        ImGui::Text("force_blend: %s", bool_to_string(R4300::rdp.other_modes.force_blend));
+        ImGui::Text("b_m1a_0: %s", b_ma_sels[R4300::rdp::rdp.other_modes.b_m1a_0]);
+        ImGui::Text("b_m1b_0: %s", b_m1b_sels[R4300::rdp::rdp.other_modes.b_m1b_0]);
+        ImGui::Text("b_m2a_0: %s", b_ma_sels[R4300::rdp::rdp.other_modes.b_m2a_0]);
+        ImGui::Text("b_m2b_0: %s", b_m2b_sels[R4300::rdp::rdp.other_modes.b_m2b_0]);
+        ImGui::Text("b_m1a_1: %s", b_ma_sels[R4300::rdp::rdp.other_modes.b_m1a_1]);
+        ImGui::Text("b_m1b_1: %s", b_m1b_sels[R4300::rdp::rdp.other_modes.b_m1b_1]);
+        ImGui::Text("b_m2a_1: %s", b_ma_sels[R4300::rdp::rdp.other_modes.b_m2a_1]);
+        ImGui::Text("b_m2b_1: %s", b_m2b_sels[R4300::rdp::rdp.other_modes.b_m2b_1]);
+        ImGui::Text("force_blend: %s", bool_to_string(R4300::rdp::rdp.other_modes.force_blend));
 
         static char const *z_modes[] = {
             "OPAQUE", "INTERPENETRATING", "TRANSPARENT", "DECAL", };
@@ -503,18 +512,18 @@ static void ShowRdpInformation(void) {
         static char const *z_source_sels[] = { "PIXEL", "PRIMITIVE", };
 
         ImGui::Separator();
-        ImGui::Text("alpha_cvg_sel: %s", bool_to_string(R4300::rdp.other_modes.alpha_cvg_sel));
-        ImGui::Text("cvg_times_alpha: %s", bool_to_string(R4300::rdp.other_modes.cvg_times_alpha));
-        ImGui::Text("z_mode: %s", z_modes[R4300::rdp.other_modes.z_mode]);
-        ImGui::Text("cvg_dest: %s", cvg_dests[R4300::rdp.other_modes.cvg_dest]);
-        ImGui::Text("color_on_cvg: %s", bool_to_string(R4300::rdp.other_modes.color_on_cvg));
-        ImGui::Text("image_read_en: %s", bool_to_string(R4300::rdp.other_modes.image_read_en));
-        ImGui::Text("z_update_en: %s", bool_to_string(R4300::rdp.other_modes.z_update_en));
-        ImGui::Text("z_compare_en: %s", bool_to_string(R4300::rdp.other_modes.z_compare_en));
-        ImGui::Text("antialias_en: %s", bool_to_string(R4300::rdp.other_modes.antialias_en));
-        ImGui::Text("z_source_sel: %s", z_source_sels[R4300::rdp.other_modes.z_source_sel]);
-        ImGui::Text("dither_alpha_en: %s", bool_to_string(R4300::rdp.other_modes.dither_alpha_en));
-        ImGui::Text("alpha_compare_en: %s", bool_to_string(R4300::rdp.other_modes.alpha_compare_en));
+        ImGui::Text("alpha_cvg_sel: %s", bool_to_string(R4300::rdp::rdp.other_modes.alpha_cvg_sel));
+        ImGui::Text("cvg_times_alpha: %s", bool_to_string(R4300::rdp::rdp.other_modes.cvg_times_alpha));
+        ImGui::Text("z_mode: %s", z_modes[R4300::rdp::rdp.other_modes.z_mode]);
+        ImGui::Text("cvg_dest: %s", cvg_dests[R4300::rdp::rdp.other_modes.cvg_dest]);
+        ImGui::Text("color_on_cvg: %s", bool_to_string(R4300::rdp::rdp.other_modes.color_on_cvg));
+        ImGui::Text("image_read_en: %s", bool_to_string(R4300::rdp::rdp.other_modes.image_read_en));
+        ImGui::Text("z_update_en: %s", bool_to_string(R4300::rdp::rdp.other_modes.z_update_en));
+        ImGui::Text("z_compare_en: %s", bool_to_string(R4300::rdp::rdp.other_modes.z_compare_en));
+        ImGui::Text("antialias_en: %s", bool_to_string(R4300::rdp::rdp.other_modes.antialias_en));
+        ImGui::Text("z_source_sel: %s", z_source_sels[R4300::rdp::rdp.other_modes.z_source_sel]);
+        ImGui::Text("dither_alpha_en: %s", bool_to_string(R4300::rdp::rdp.other_modes.dither_alpha_en));
+        ImGui::Text("alpha_compare_en: %s", bool_to_string(R4300::rdp::rdp.other_modes.alpha_compare_en));
         ImGui::TreePop();
     }
 }

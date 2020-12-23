@@ -31,9 +31,11 @@
  * [2] U.S. Patent 6,331,856 B1, Dec. 18,2001
  */
 
-namespace R4300 {
-
 using namespace R4300;
+using namespace rdp;
+
+namespace R4300 {
+namespace rdp {
 
 /* Addr in 64bit words */
 #define HIGH_TMEM_ADDR 256
@@ -167,6 +169,7 @@ static float s10_21_to_float(i32 val) {
 
 
 static void print_pixel(pixel_t *px) {
+#if 0
     debugger::debug(Debugger::RDP,
         "  x,y,z:{},{},{}"
         "  tex:{},{},{}"
@@ -191,6 +194,7 @@ static void print_pixel(pixel_t *px) {
         (int)px->mem_color.r, (int)px->mem_color.g,
         (int)px->mem_color.b, (int)px->mem_color.a,
         px->blend_en);
+#endif
 }
 
 /**
@@ -827,15 +831,93 @@ static void pipeline_mi_store(unsigned mem_color_addr, color_t color,
     }
 }
 
+/** No debug mode. */
+static void pipeline_mi_store_none(pixel_t *px) {
+    pipeline_mi_store(px->mem_color_addr, px->blended_color, px->coverage);
+}
+
+/** Shade debug mode. */
+static void pipeline_mi_store_shade(pixel_t *px) {
+    pipeline_mi_store(px->mem_color_addr, px->shade_color, px->coverage);
+}
+
+/** Shade alpha debug mode. */
+static void pipeline_mi_store_shade_alpha(pixel_t *px) {
+    uint8_t alpha = px->shade_color.a;
+    color_t color = { alpha, alpha, alpha, alpha };
+    pipeline_mi_store(px->mem_color_addr, color, px->coverage);
+}
+
+/** Texture debug mode. */
+static void pipeline_mi_store_texture(pixel_t *px) {
+    pipeline_mi_store(px->mem_color_addr, px->texel0_color, px->coverage);
+}
+
+/** Texture alpha debug mode. */
+static void pipeline_mi_store_texture_alpha(pixel_t *px) {
+    uint8_t alpha = px->texel0_color.a;
+    color_t color = { alpha, alpha, alpha, alpha };
+    pipeline_mi_store(px->mem_color_addr, color, px->coverage);
+}
+
+/** Color combiner debug mode. */
+static void pipeline_mi_store_combined(pixel_t *px) {
+    pipeline_mi_store(px->mem_color_addr, px->combined_color, px->coverage);
+}
+
+/** Color combiner alpha debug mode. */
+static void pipeline_mi_store_combined_alpha(pixel_t *px) {
+    uint8_t alpha = px->combined_color.a;
+    color_t color = { alpha, alpha, alpha, alpha };
+    pipeline_mi_store(px->mem_color_addr, color, px->coverage);
+}
+
+/** Color combiner alpha debug mode. */
+static void pipeline_mi_store_coverage(pixel_t *px) {
+    uint8_t alpha = (px->coverage << 5) - 1;
+    color_t color = { alpha, alpha, alpha, alpha };
+    pipeline_mi_store(px->mem_color_addr, color, px->coverage);
+}
+
+/* Implemented debug modes. */
+static void (*pipeline_mi_store_modes[8])(pixel_t *) = {
+    pipeline_mi_store_none,
+    pipeline_mi_store_shade,
+    pipeline_mi_store_shade_alpha,
+    pipeline_mi_store_texture,
+    pipeline_mi_store_texture_alpha,
+    pipeline_mi_store_combined,
+    pipeline_mi_store_combined_alpha,
+    pipeline_mi_store_coverage,
+};
+
+/* Current debug mode. */
+static enum debug_mode pipeline_mi_store_mode = DEBUG_MODE_NONE;
+
+/**
+ * @brief Select the current debug mode.
+ *
+ * If the debug mode is different from DEBUG_MODE_NONE, the selected
+ * component will be written to the framebuffer instead of the blended
+ * color. Alpha values are displayed with shades of grey, from black
+ * (transparent) to white (opaque).
+ *
+ * @param mode      Selected debug mode.
+ */
+void set_debug_mode(enum debug_mode mode) {
+    if (mode <= DEBUG_MODE_COVERAGE)
+        pipeline_mi_store_mode = mode;
+}
+
 /**
  * Write the blended color to the current color image.
  * The color is read from px->blended_color and written
  * to px->mem_color_addr.
  */
 static void pipeline_mi_store(pixel_t *px) {
-    if (px->color_write_en)
-        pipeline_mi_store(px->mem_color_addr, px->blended_color,
-            px->coverage);
+    if (px->color_write_en) {
+        pipeline_mi_store_modes[pipeline_mi_store_mode](px);
+    }
 }
 
 /**
@@ -2515,6 +2597,8 @@ void setColorImage(u64 command, u64 const *params) {
         return;
     }
 }
+
+}; /* namespace rdp */
 
 void noop(u64 command, u64 const *params) {
 }
