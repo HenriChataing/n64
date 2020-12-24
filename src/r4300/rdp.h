@@ -76,24 +76,6 @@ enum alpha_dither_sel {
     ALPHA_DITHER_SEL_NONE = 3,
 };
 
-/** Blender mode set by the SetOtherModes DPC command */
-enum blender_src_sel {
-    /* P and M mux input source selection */
-    BLENDER_SRC_SEL_IN_COLOR = 0,
-    BLENDER_SRC_SEL_MEM_COLOR = 1,
-    BLENDER_SRC_SEL_BLEND_COLOR = 2,
-    BLENDER_SRC_SEL_FOG_COLOR = 3,
-    /* A mux input source selection */
-    BLENDER_SRC_SEL_IN_ALPHA = 0,
-    BLENDER_SRC_SEL_FOG_ALPHA = 1,
-    BLENDER_SRC_SEL_SHADE_ALPHA = 2,
-    BLENDER_SRC_SEL_0 = 3,
-    /* B mux input source selection */
-    BLENDER_SRC_SEL_1_AMUX = 0,
-    BLENDER_SRC_SEL_MEM_ALPHA = 1,
-    BLENDER_SRC_SEL_1 = 2,
-};
-
 /** Z mode set by the SetOtherModes DPC command */
 enum z_mode {
     Z_MODE_OPAQUE = 0,
@@ -264,14 +246,14 @@ struct rdp {
         bool key_en;
         enum rgb_dither_sel rgb_dither_sel;
         enum alpha_dither_sel alpha_dither_sel;
-        enum blender_src_sel b_m1a_0;
-        enum blender_src_sel b_m1b_0;
-        enum blender_src_sel b_m2a_0;
-        enum blender_src_sel b_m2b_0;
-        enum blender_src_sel b_m1a_1;
-        enum blender_src_sel b_m1b_1;
-        enum blender_src_sel b_m2a_1;
-        enum blender_src_sel b_m2b_1;
+        unsigned b_m1a_0;
+        unsigned b_m1b_0;
+        unsigned b_m2a_0;
+        unsigned b_m2b_0;
+        unsigned b_m1a_1;
+        unsigned b_m1b_1;
+        unsigned b_m2a_1;
+        unsigned b_m2b_1;
         bool force_blend;
         bool alpha_cvg_sel;
         bool cvg_times_alpha;

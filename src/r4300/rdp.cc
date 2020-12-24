@@ -222,8 +222,8 @@ static void print_pixel(pixel_t *px) {
 static void pipeline_tx(pixel_t *px);
 static void pipeline_tx_load(struct tile const *tile, unsigned s, unsigned t, color_t *tx);
 static void pipeline_tf(pixel_t *px);
-static void pipeline_cc(pixel_t *px);
-static void pipeline_bl(pixel_t *px);
+static void pipeline_cc(pixel_t *px, unsigned cycle);
+static void pipeline_bl(pixel_t *px, unsigned cycle);
 static void pipeline_mi_store(unsigned mem_color_addr, color_t color,
                               unsigned coverage);
 static void pipeline_mi_store(pixel_t *px);
@@ -494,7 +494,8 @@ static void pipeline_tx_load(struct tile const *tile, unsigned s, unsigned t, co
 
 static void pipeline_tf(pixel_t *px) {
     px->texel0_color = px->texel_colors[0];
-    px->lod_frac = 255;
+    px->texel1_color = { 0, 0, 0, 0 };
+    px->lod_frac = 0;
 }
 
 /**
@@ -530,13 +531,43 @@ static void pipeline_tf(pixel_t *px) {
  *  1               1.0
  *  0               0.0
  */
-static void pipeline_cc(pixel_t *px) {
+static void pipeline_cc(pixel_t *px, unsigned cycle) {
     color_t sub_a;
     color_t sub_b;
     color_t mul;
     color_t add;
 
-    switch (rdp.combine_mode.sub_a_R_1) {
+    unsigned sub_a_R;
+    unsigned sub_b_R;
+    unsigned mul_R;
+    unsigned add_R;
+
+    unsigned sub_a_A;
+    unsigned sub_b_A;
+    unsigned mul_A;
+    unsigned add_A;
+
+    if (cycle == 0) {
+        sub_a_R = rdp.combine_mode.sub_a_R_0;
+        sub_b_R = rdp.combine_mode.sub_b_R_0;
+        mul_R = rdp.combine_mode.mul_R_0;
+        add_R = rdp.combine_mode.add_R_0;
+        sub_a_A = rdp.combine_mode.sub_a_A_0;
+        sub_b_A = rdp.combine_mode.sub_b_A_0;
+        mul_A = rdp.combine_mode.mul_A_0;
+        add_A = rdp.combine_mode.add_A_0;
+    } else {
+        sub_a_R = rdp.combine_mode.sub_a_R_1;
+        sub_b_R = rdp.combine_mode.sub_b_R_1;
+        mul_R = rdp.combine_mode.mul_R_1;
+        add_R = rdp.combine_mode.add_R_1;
+        sub_a_A = rdp.combine_mode.sub_a_A_1;
+        sub_b_A = rdp.combine_mode.sub_b_A_1;
+        mul_A = rdp.combine_mode.mul_A_1;
+        add_A = rdp.combine_mode.add_A_1;
+    }
+
+    switch (sub_a_R) {
     case 0 /* COMBINED */:      sub_a = px->combined_color; break;
     case 1 /* TEXEL0 */:        sub_a = px->texel0_color; break;
     case 2 /* TEXEL1 */:        sub_a = px->texel1_color; break;
@@ -551,7 +582,7 @@ static void pipeline_cc(pixel_t *px) {
         break;
     default /* 0 */:            sub_a.r = sub_a.g = sub_a.b = 0; break;
     }
-    switch (rdp.combine_mode.sub_b_R_1) {
+    switch (sub_b_R) {
     case 0 /* COMBINED */:      sub_b = px->combined_color; break;
     case 1 /* TEXEL0 */:        sub_b = px->texel0_color; break;
     case 2 /* TEXEL1 */:        sub_b = px->texel1_color; break;
@@ -562,7 +593,7 @@ static void pipeline_cc(pixel_t *px) {
     case 7 /* K4 */:            sub_b.r = sub_b.g = sub_b.b = rdp.convert.k4; break;
     default /* 0 */:            sub_b.r = sub_b.g = sub_b.b = 0; break;
     }
-    switch (rdp.combine_mode.mul_R_1) {
+    switch (mul_R) {
     case 0 /* COMBINED */:      mul = px->combined_color; break;
     case 1 /* TEXEL0 */:        mul = px->texel0_color; break;
     case 2 /* TEXEL1 */:        mul = px->texel1_color; break;
@@ -581,7 +612,7 @@ static void pipeline_cc(pixel_t *px) {
     case 15 /* K5 */:           mul.r = mul.g = mul.b = rdp.convert.k4; break;
     default /* 0 */:            mul.r = mul.g = mul.b = 0; break;
     }
-    switch (rdp.combine_mode.add_R_1) {
+    switch (add_R) {
     case 0 /* COMBINED */:      add = px->combined_color; break;
     case 1 /* TEXEL0 */:        add = px->texel0_color; break;
     case 2 /* TEXEL1 */:        add = px->texel1_color; break;
@@ -597,7 +628,7 @@ static void pipeline_cc(pixel_t *px) {
     px->combined_color.g = ((((sub_a.g - sub_b.g)) * mul.g) >> 8) + add.g;
     px->combined_color.b = ((((sub_a.b - sub_b.b)) * mul.b) >> 8) + add.b;
 
-    switch (rdp.combine_mode.sub_a_A_1) {
+    switch (sub_a_A) {
     case 0 /* COMBINED A */:    sub_a.a = px->combined_color.a; break;
     case 1 /* TEXEL0 A */:      sub_a.a = px->texel0_color.a; break;
     case 2 /* TEXEL1 A */:      sub_a.a = px->texel1_color.a; break;
@@ -607,7 +638,7 @@ static void pipeline_cc(pixel_t *px) {
     case 6 /* 1 */:             sub_a.a = 255; break;
     default /* 0 */:            sub_a.a = 0; break;
     }
-    switch (rdp.combine_mode.sub_b_A_1) {
+    switch (sub_b_A) {
     case 0 /* COMBINED A */:    sub_b.a = px->combined_color.a; break;
     case 1 /* TEXEL0 A */:      sub_b.a = px->texel0_color.a; break;
     case 2 /* TEXEL1 A */:      sub_b.a = px->texel1_color.a; break;
@@ -617,7 +648,7 @@ static void pipeline_cc(pixel_t *px) {
     case 6 /* 1 */:             sub_b.a = 255; break;
     default /* 0 */:            sub_b.a = 0; break;
     }
-    switch (rdp.combine_mode.mul_A_1) {
+    switch (mul_A) {
     case 0 /* LOD FRACTION */:  mul.a = px->lod_frac; break;
     case 1 /* TEXEL0 A */:      mul.a = px->texel0_color.a; break;
     case 2 /* TEXEL1 A */:      mul.a = px->texel1_color.a; break;
@@ -627,7 +658,7 @@ static void pipeline_cc(pixel_t *px) {
     case 6 /* PRIM LOD FRAC */: mul.a = px->prim_lod_frac; break;
     default /* 0 */:            mul.a = 0; break;
     }
-    switch (rdp.combine_mode.add_A_1) {
+    switch (add_A) {
     case 0 /* COMBINED A */:    add.a = px->combined_color.a; break;
     case 1 /* TEXEL0 A */:      add.a = px->texel0_color.a; break;
     case 2 /* TEXEL1 A */:      add.a = px->texel1_color.a; break;
@@ -657,7 +688,7 @@ static void pipeline_cc(pixel_t *px) {
  * In two cycle mode, the formula is applied twice; and the result of the
  * first cycle can be injected as input of the second cycle.
  */
-static void pipeline_bl(pixel_t *px) {
+static void pipeline_bl(pixel_t *px, unsigned cycle) {
     if (!px->blend_en) {
         px->blended_color = px->combined_color;
         return;
@@ -668,40 +699,60 @@ static void pipeline_bl(pixel_t *px) {
     u8 a = 0;
     u8 b = 0;
 
-    switch (rdp.other_modes.b_m1a_0) {
-    case BLENDER_SRC_SEL_IN_COLOR: p = px->combined_color; break; // blended color in second cycle
-    case BLENDER_SRC_SEL_MEM_COLOR: p = px->mem_color; break;
-    case BLENDER_SRC_SEL_BLEND_COLOR: p = rdp.blend_color; break;
-    case BLENDER_SRC_SEL_FOG_COLOR: p = rdp.fog_color; break;
+    unsigned b_m1a;
+    unsigned b_m1b;
+    unsigned b_m2a;
+    unsigned b_m2b;
+
+    if (cycle == 0) {
+        b_m1a = rdp.other_modes.b_m1a_0;
+        b_m1b = rdp.other_modes.b_m1b_0;
+        b_m2a = rdp.other_modes.b_m2a_0;
+        b_m2b = rdp.other_modes.b_m2b_0;
+    } else {
+        b_m1a = rdp.other_modes.b_m1a_1;
+        b_m1b = rdp.other_modes.b_m1b_1;
+        b_m2a = rdp.other_modes.b_m2a_1;
+        b_m2b = rdp.other_modes.b_m2b_1;
     }
-    switch (rdp.other_modes.b_m1b_0) {
-    case BLENDER_SRC_SEL_IN_ALPHA: a = px->combined_color.a; break;
-    case BLENDER_SRC_SEL_FOG_ALPHA: a = rdp.fog_color.a; break;
-    case BLENDER_SRC_SEL_SHADE_ALPHA: a = px->shade_color.a; break;
-    case BLENDER_SRC_SEL_0: a = 0; break;
+
+    switch (b_m1a) {
+    case 0 /* PIXEL */:         p = cycle == 0 ? px->combined_color :
+                                    px->blended_color; break;
+    case 1 /* MEMORY */:        p = px->mem_color; break;
+    case 2 /* BLEND */:         p = rdp.blend_color; break;
+    case 3 /* FOG */:           p = rdp.fog_color; break;
     }
-    switch (rdp.other_modes.b_m2a_0) {
-    case BLENDER_SRC_SEL_IN_COLOR: m = px->combined_color; break;  // blended color in second cycle
-    case BLENDER_SRC_SEL_MEM_COLOR: m = px->mem_color; break;
-    case BLENDER_SRC_SEL_BLEND_COLOR: m = rdp.blend_color; break;
-    case BLENDER_SRC_SEL_FOG_COLOR: m = rdp.fog_color; break;
+    switch (b_m1b) {
+    case 0 /* PIXEL A */:       a = px->combined_color.a; break;
+    case 1 /* FOG A */:         a = rdp.fog_color.a; break;
+    case 2 /* SHADE A */:       a = px->shade_color.a; break;
+    case 3 /* 0 */:             a = 0; break;
     }
-    switch (rdp.other_modes.b_m2b_0) {
-    case BLENDER_SRC_SEL_1_AMUX: b = 255 - a; break;
-    case BLENDER_SRC_SEL_MEM_ALPHA: b = px->mem_color.a; break;
-    case BLENDER_SRC_SEL_1: b = 255; break;
-    case BLENDER_SRC_SEL_0: b = 0; break;
+    switch (b_m2a) {
+    case 0 /* PIXEL */:         m = cycle == 0 ? px->combined_color :
+                                    px->blended_color; break;
+    case 1 /* MEMORY */:        m = px->mem_color; break;
+    case 2 /* BLEND */:         m = rdp.blend_color; break;
+    case 3 /* FOG */:           m = rdp.fog_color; break;
+    }
+    switch (b_m2b) {
+    case 0 /* 1 - A MUX */:     b = 255 - a; break;
+    case 1 /* MEMORY A */:      b = px->mem_color.a; break;
+    case 2 /* 1 */:             b = 255; break;
+    case 3 /* 0 */:             b = 0; break;
     }
 
     if ((a + b) == 0) {
-        debugger::warn(Debugger::RDP, "pipeline_bl: divide by 0");
-        return;
+        // debugger::warn(Debugger::RDP, "pipeline_bl: divide by 0");
+        px->blended_color.r = 0;
+        px->blended_color.g = 0;
+        px->blended_color.b = 0;
+    } else {
+        px->blended_color.r = ((p.r * a + m.r * b) / (a + b));
+        px->blended_color.g = ((p.g * a + m.g * b) / (a + b));
+        px->blended_color.b = ((p.b * a + m.b * b) / (a + b));
     }
-
-    px->blended_color.r = ((p.r * a + m.r * b) / (a + b));
-    px->blended_color.g = ((p.g * a + m.g * b) / (a + b));
-    px->blended_color.b = ((p.b * a + m.b * b) / (a + b));
-    px->blended_color.a = ((p.a * a + m.a * b) / (a + b));
 }
 
 /**
@@ -1301,7 +1352,7 @@ static void render_span(i32 y, i32 xs, i32 xe,
 
 }; /* CopyMode */
 
-namespace Cycle1Mode {
+namespace CycleMode {
 
 /** @brief Run the RDP pipeline (save the rasterizer), to generate the
  * color of one pixel. The coordinates, and pixel attributes should have
@@ -1314,13 +1365,25 @@ static void render_pixel(pixel_t *px, bool texture) {
         pipeline_tx(px);
         pipeline_tf(px);
     }
-    pipeline_cc(px);
-    pipeline_mi_load(px);
-    pipeline_ctl(px);
-    pipeline_bl(px);
-    pipeline_mi_store(px);
-    pipeline_mi_store_z(px);
-    print_pixel(px);
+    if (rdp.other_modes.cycle_type == CYCLE_TYPE_1CYCLE) {
+        pipeline_cc(px, 0);
+        pipeline_mi_load(px);
+        pipeline_ctl(px);
+        pipeline_bl(px, 0);
+        pipeline_mi_store(px);
+        pipeline_mi_store_z(px);
+        print_pixel(px);
+    } else {
+        pipeline_cc(px, 0);
+        pipeline_cc(px, 1);
+        pipeline_mi_load(px);
+        pipeline_ctl(px);
+        pipeline_bl(px, 0);
+        pipeline_bl(px, 1);
+        pipeline_mi_store(px);
+        pipeline_mi_store_z(px);
+        print_pixel(px);
+    }
 }
 
 /** @brief Renders the line composed of the four quarter lines
@@ -1357,10 +1420,16 @@ static void render_span(bool left, i32 y, i32 x[8],
 
         if (_xs < rdp.scissor.xh)
             _xs = rdp.scissor.xh;
+        if (_xe < rdp.scissor.xh)
+            _xe = rdp.scissor.xh;
         if (_xe > rdp.scissor.xl - 1)
             _xe = rdp.scissor.xl - 1;
+        if (_xs > rdp.scissor.xl - 1)
+            _xs = rdp.scissor.xl - 1;
         if (_xe > ((i32)rdp.color_image.width << 2))
             _xe = (i32)rdp.color_image.width << 2;
+        if (_xs > ((i32)rdp.color_image.width << 2))
+            _xs = (i32)rdp.color_image.width << 2;
 
         x[i]     = _xs;
         x[i + 4] = _xe;
@@ -1382,16 +1451,16 @@ static void render_span(bool left, i32 y, i32 x[8],
 
     if (mem_color_end > sizeof(state.dram)) {
         debugger::warn(Debugger::RDP,
-            "(cycle1) render_span out-of-bounds, base:{}, end:{}",
+            "(cycle1) render_span out-of-bounds, base:0x{:x}, end:0x{:x}",
             mem_color_base, mem_color_end);
-        core::halt("Cycle1Mode::render_span out-of-bounds");
+        core::halt("CycleMode::render_span out-of-bounds");
         return;
     }
 
     pixel_t px = { 0 };
-    px.shade_color.a = 255;
-    px.texel0_color.a = 255;
-    px.combined_color.a = 255;
+    px.shade_color.a = 0;
+    px.texel0_color.a = 0;
+    px.combined_color.a = 0;
     px.lod_frac = 255;
     px.edge_coefs.y = y;
 
@@ -1420,7 +1489,7 @@ static void render_span(bool left, i32 y, i32 x[8],
             debugger::warn(Debugger::RDP,
                 "(cycle1) render_span zbuffer out-of-bounds, base:{}, end:{}",
                 mem_z_base, mem_z_end);
-            core::halt("Cycle1Mode::render_span zbuffer out-of-bounds");
+            core::halt("CycleMode::render_span zbuffer out-of-bounds");
             return;
         }
 
@@ -1663,7 +1732,7 @@ static void render_triangle(bool left,
     for (yc = ys; yc <= edge->ym; yc++) {
         bool line_start = (yc & 0x3) == 0 && yc != ys;
         if (line_start) {
-            Cycle1Mode::render_span(left, (yc >> 2) - 1, x,
+            CycleMode::render_span(left, (yc >> 2) - 1, x,
                 shade, texture, zbuffer);
             add_coefs_dXde(shade, texture, zbuffer);
             xm += edge->dxmdy;
@@ -1677,7 +1746,7 @@ static void render_triangle(bool left,
     for (; yc <= ye; yc++) {
         bool line_start = (yc & 0x3) == 0 && yc != ys;
         if (line_start) {
-            Cycle1Mode::render_span(left, (yc >> 2) - 1, x,
+            CycleMode::render_span(left, (yc >> 2) - 1, x,
                 shade, texture, zbuffer);
             add_coefs_dXde(shade, texture, zbuffer);
             xh += edge->dxhdy;
@@ -1689,7 +1758,7 @@ static void render_triangle(bool left,
     }
 }
 
-}; /* Cycle1Mode */
+}; /* CycleMode */
 
 static i32 read_s15_16(u64 val, u64 frac, unsigned shift) {
     u32 top = ((val >> shift) << 16) & 0xffff0000lu;
@@ -1828,9 +1897,6 @@ static void render_triangle(u64 command, u64 const *params,
     debugger::debug(Debugger::RDP, "  level: {}", level);
     debugger::debug(Debugger::RDP, "  tile: {}", tile);
 
-    if (rdp.other_modes.cycle_type != CYCLE_TYPE_1CYCLE)
-        core::halt("render_triangle: unsupported cycle type");
-
     read_edge_coefs(command, params, &edge);
     print_edge_coefs(&edge);
     params += 3;
@@ -1852,10 +1918,16 @@ static void render_triangle(u64 command, u64 const *params,
         print_zbuffer_coefs(&zbuffer);
     }
 
-    Cycle1Mode::render_triangle(left, &edge,
-        has_shade ? &shade : NULL,
-        has_texture ? &texture : NULL,
-        has_zbuffer ? &zbuffer : NULL);
+    if (rdp.other_modes.cycle_type == CYCLE_TYPE_1CYCLE ||
+        rdp.other_modes.cycle_type == CYCLE_TYPE_2CYCLE) {
+        CycleMode::render_triangle(left, &edge,
+            has_shade ? &shade : NULL,
+            has_texture ? &texture : NULL,
+            has_zbuffer ? &zbuffer : NULL);
+    }
+    else {
+        core::halt("render_triangle: unsupported cycle type");
+    }
 }
 
 void nonShadedTriangle(u64 command, u64 const *params) {
@@ -1933,9 +2005,10 @@ void textureRectangle(u64 command, u64 const *params) {
 
     switch (rdp.other_modes.cycle_type) {
     case CYCLE_TYPE_1CYCLE:
+    case CYCLE_TYPE_2CYCLE:
         for (i32 y = yh; y < yl; y++) {
             i32 x[8] = { xh, xh, xh, xh, xl, xl, xl, xl };
-            Cycle1Mode::render_span(true, y, x, NULL, &texture, NULL);
+            CycleMode::render_span(true, y, x, NULL, &texture, NULL);
             texture.t += texture.dtdy;
         }
         break;
@@ -1994,9 +2067,10 @@ void textureRectangleFlip(u64 command, u64 const *params) {
 
     switch (rdp.other_modes.cycle_type) {
     case CYCLE_TYPE_1CYCLE:
+    case CYCLE_TYPE_2CYCLE:
         for (i32 y = yh; y < yl; y++) {
             i32 x[8] = { xh, xh, xh, xh, xl, xl, xl, xl };
-            Cycle1Mode::render_span(true, y, x, NULL, &texture, NULL);
+            CycleMode::render_span(true, y, x, NULL, &texture, NULL);
             texture.t += texture.dtdy;
             texture.s += texture.dsdy;
         }
@@ -2089,14 +2163,14 @@ void setOtherModes(u64 command, u64 const *params) {
     rdp.other_modes.key_en = (command >> 40) & 0x1u;
     rdp.other_modes.rgb_dither_sel = (enum rgb_dither_sel)((command >> 38) & 0x3u);
     rdp.other_modes.alpha_dither_sel = (enum alpha_dither_sel)((command >> 36) & 0x3u);
-    rdp.other_modes.b_m1a_0 = (enum blender_src_sel)((command >> 30) & 0x3u);
-    rdp.other_modes.b_m1a_1 = (enum blender_src_sel)((command >> 28) & 0x3u);
-    rdp.other_modes.b_m1b_0 = (enum blender_src_sel)((command >> 26) & 0x3u);
-    rdp.other_modes.b_m1b_1 = (enum blender_src_sel)((command >> 24) & 0x3u);
-    rdp.other_modes.b_m2a_0 = (enum blender_src_sel)((command >> 22) & 0x3u);
-    rdp.other_modes.b_m2a_1 = (enum blender_src_sel)((command >> 20) & 0x3u);
-    rdp.other_modes.b_m2b_0 = (enum blender_src_sel)((command >> 18) & 0x3u);
-    rdp.other_modes.b_m2b_1 = (enum blender_src_sel)((command >> 16) & 0x3u);
+    rdp.other_modes.b_m1a_0 = (command >> 30) & 0x3u;
+    rdp.other_modes.b_m1a_1 = (command >> 28) & 0x3u;
+    rdp.other_modes.b_m1b_0 = (command >> 26) & 0x3u;
+    rdp.other_modes.b_m1b_1 = (command >> 24) & 0x3u;
+    rdp.other_modes.b_m2a_0 = (command >> 22) & 0x3u;
+    rdp.other_modes.b_m2a_1 = (command >> 20) & 0x3u;
+    rdp.other_modes.b_m2b_0 = (command >> 18) & 0x3u;
+    rdp.other_modes.b_m2b_1 = (command >> 16) & 0x3u;
     rdp.other_modes.force_blend = (command >> 14) & 0x1u;
     rdp.other_modes.alpha_cvg_sel = (command >> 13) & 0x1u;
     rdp.other_modes.cvg_times_alpha = (command >> 12) & 0x1u;
@@ -2151,9 +2225,6 @@ void setOtherModes(u64 command, u64 const *params) {
 
     if (rdp.other_modes.cycle_type == CYCLE_TYPE_COPY)
         rdp.other_modes.sample_type = SAMPLE_TYPE_4X1;
-
-    if (rdp.other_modes.cycle_type == CYCLE_TYPE_2CYCLE)
-        core::halt("unsupported cycle type 2CYCLE");
 }
 
 void loadTlut(u64 command, u64 const *params) {
@@ -2434,7 +2505,7 @@ void fillRectangle(u64 command, u64 const *params) {
     case CYCLE_TYPE_1CYCLE:
         for (i32 y = yh; y < yl; y++) {
             i32 x[8] = { xh, xh, xh, xh, xl, xl, xl, xl };
-            Cycle1Mode::render_span(true, y, x, NULL, NULL, NULL);
+            CycleMode::render_span(true, y, x, NULL, NULL, NULL);
         }
         break;
     case CYCLE_TYPE_FILL:
