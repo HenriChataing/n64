@@ -274,6 +274,7 @@ extern struct rdp rdp;
 
 enum debug_mode {
     DEBUG_MODE_NONE,
+    DEBUG_MODE_CYCLE_TYPE,
     DEBUG_MODE_SHADE,
     DEBUG_MODE_SHADE_ALPHA,
     DEBUG_MODE_TEXTURE,

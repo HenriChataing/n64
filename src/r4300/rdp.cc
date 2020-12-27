@@ -887,6 +887,19 @@ static void pipeline_mi_store_none(pixel_t *px) {
     pipeline_mi_store(px->mem_color_addr, px->blended_color, px->coverage);
 }
 
+/** Cycle type mode. */
+static void pipeline_mi_store_cycle_type(pixel_t *px) {
+    const color_t cycle_type_colors[] = {
+        { 255, 0, 0 },      /* 1CYCLE, red */
+        { 0, 255, 0 },      /* 2CYCLE, green */
+        { 0, 0, 255 },      /* COPY, blue */
+        { 255, 255, 0 },    /* FILL, yellow */
+    };
+
+    color_t color = cycle_type_colors[rdp.other_modes.cycle_type];
+    pipeline_mi_store(px->mem_color_addr, color, px->coverage);
+}
+
 /** Shade debug mode. */
 static void pipeline_mi_store_shade(pixel_t *px) {
     pipeline_mi_store(px->mem_color_addr, px->shade_color, px->coverage);
@@ -960,8 +973,9 @@ static void pipeline_mi_store_coverage(pixel_t *px) {
 }
 
 /* Implemented debug modes. */
-static void (*pipeline_mi_store_modes[10])(pixel_t *) = {
+static void (*pipeline_mi_store_modes[11])(pixel_t *) = {
     pipeline_mi_store_none,
+    pipeline_mi_store_cycle_type,
     pipeline_mi_store_shade,
     pipeline_mi_store_shade_alpha,
     pipeline_mi_store_texture,
