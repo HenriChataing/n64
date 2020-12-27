@@ -911,6 +911,35 @@ static void pipeline_mi_store_texture_alpha(pixel_t *px) {
     pipeline_mi_store(px->mem_color_addr, color, px->coverage);
 }
 
+/** Texture format debug mode. */
+static void pipeline_mi_store_texture_format(pixel_t *px) {
+    const color_t format_colors[] = {
+        { 0, 0, 0 },        /* none, black */
+        { 255, 0, 0 },      /* RGBA, red */
+        { 0, 255, 0 },      /* YUV, green */
+        { 0, 0, 255 },      /* CI, blue */
+        { 255, 255, 0 },    /* IA, yellow */
+        { 255, 0, 255 },    /* I, magenta */
+    };
+
+    unsigned format = px->tile ? px->tile->format + 1 : 0;
+    pipeline_mi_store(px->mem_color_addr, format_colors[format], px->coverage);
+}
+
+/** Texture format debug mode. */
+static void pipeline_mi_store_texture_size(pixel_t *px) {
+    const color_t size_colors[] = {
+        { 0, 0, 0 },        /* none, black */
+        { 255, 0, 0 },      /* 4B, red */
+        { 0, 255, 0 },      /* 8B, green */
+        { 0, 0, 255 },      /* 16B, blue */
+        { 255, 255, 0 },    /* 32B, yellow */
+    };
+
+    unsigned size = px->tile ? px->tile->size + 1 : 0;
+    pipeline_mi_store(px->mem_color_addr, size_colors[size], px->coverage);
+}
+
 /** Color combiner debug mode. */
 static void pipeline_mi_store_combined(pixel_t *px) {
     pipeline_mi_store(px->mem_color_addr, px->combined_color, px->coverage);
@@ -931,12 +960,14 @@ static void pipeline_mi_store_coverage(pixel_t *px) {
 }
 
 /* Implemented debug modes. */
-static void (*pipeline_mi_store_modes[8])(pixel_t *) = {
+static void (*pipeline_mi_store_modes[10])(pixel_t *) = {
     pipeline_mi_store_none,
     pipeline_mi_store_shade,
     pipeline_mi_store_shade_alpha,
     pipeline_mi_store_texture,
     pipeline_mi_store_texture_alpha,
+    pipeline_mi_store_texture_format,
+    pipeline_mi_store_texture_size,
     pipeline_mi_store_combined,
     pipeline_mi_store_combined_alpha,
     pipeline_mi_store_coverage,

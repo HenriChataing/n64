@@ -268,8 +268,8 @@ static void ShowRdpInformation(void) {
     ImGui::SameLine(150);
     static int mode = R4300::rdp::DEBUG_MODE_NONE;
     ImGui::Combo("", &mode,
-        "none\0shade\0shade alpha\0texture\0texture alpha\0"
-        "combined\0combined alpha\0coverage\0\0");
+        "none\0shade\0shade alpha\0texture\0texture alpha\0texture format\0"
+        "texture size\0combined\0combined alpha\0coverage\0\0");
     R4300::rdp::set_debug_mode((R4300::rdp::debug_mode)mode);
     ImGui::Separator();
 
