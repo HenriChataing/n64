@@ -29,12 +29,22 @@ struct hwreg {
 
     u32 DPC_START_REG;
     u32 DPC_END_REG;
-    u32 DPC_CURRENT_REG;
     u32 DPC_STATUS_REG;
     u32 DPC_CLOCK_REG;
     u32 DPC_BUF_BUSY_REG;
     u32 DPC_PIPE_BUSY_REG;
     u32 DPC_TMEM_REG;
+
+    u32 dpc_Start;
+    u32 dpc_End;
+    u32 dpc_Current;
+
+    /* Command buffer to cache command words as they are read
+     * from DRAM or DMEM. The longest command is shade_texture_zbuff_triangle,
+     * while 22 total double words. */
+    u64  dpc_CommandBuffer[22];
+    uint dpc_CommandBufferIndex;
+    uint dpc_CommandBufferLen;
 
     u32 DPS_TBIST_REG;
     u32 DPS_TEST_MODE_REG;

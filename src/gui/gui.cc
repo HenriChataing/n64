@@ -575,8 +575,6 @@ static void ShowDPCommandRegisters(void) {
         R4300::state.hwreg.DPC_START_REG);
     ImGui::Text("DPC_END_REG            %08" PRIx32 "\n",
         R4300::state.hwreg.DPC_END_REG);
-    ImGui::Text("DPC_CURRENT_REG        %08" PRIx32 "\n",
-        R4300::state.hwreg.DPC_CURRENT_REG);
     ImGui::Text("DPC_STATUS_REG         %08" PRIx32 "\n",
         R4300::state.hwreg.DPC_STATUS_REG);
     ImGui::Text("DPC_CLOCK_REG          %08" PRIx32 "\n",
@@ -587,6 +585,12 @@ static void ShowDPCommandRegisters(void) {
         R4300::state.hwreg.DPC_PIPE_BUSY_REG);
     ImGui::Text("DPC_TMEM_REG           %08" PRIx32 "\n",
         R4300::state.hwreg.DPC_TMEM_REG);
+    ImGui::Text("dpc_Start              %08" PRIx32 "\n",
+        R4300::state.hwreg.dpc_Start);
+    ImGui::Text("dpc_Current            %08" PRIx32 "\n",
+        R4300::state.hwreg.dpc_Current);
+    ImGui::Text("dpc_End                %08" PRIx32 "\n",
+        R4300::state.hwreg.dpc_End);
 }
 
 static void ShowDPSpanRegisters(void) {

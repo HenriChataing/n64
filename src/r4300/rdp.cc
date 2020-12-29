@@ -2758,39 +2758,6 @@ void write_DPC_STATUS_REG(u32 value) {
     }
 }
 
-/**
- * @brief Write the DPC_START_REG register.
- * This action is emulated as writing to DPC_CURRENT_REG at the same time,
- * which is only an approximation.
- */
-void write_DPC_START_REG(u32 value) {
-    state.hwreg.DPC_START_REG = value & 0xfffffflu;
-    state.hwreg.DPC_CURRENT_REG = value & 0xfffffflu;
-    // state.hwreg.DPC_STATUS_REG |= DPC_STATUS_START_VALID;
-}
-
-static bool DPC_hasNext(unsigned count) {
-    return state.hwreg.DPC_CURRENT_REG + (count * 8) <= state.hwreg.DPC_END_REG;
-}
-
-static void DPC_read(u64 *dwords, unsigned nr_dwords) {
-    u32 start = state.hwreg.DPC_CURRENT_REG;
-    u32 end = start + nr_dwords * 8;
-    for (; start < end; start += 8, dwords++) {
-        u64 value;
-        if (state.hwreg.DPC_STATUS_REG & DPC_STATUS_XBUS_DMEM_DMA) {
-            u64 offset = start & UINT64_C(0xfff);
-            memcpy(&value, &state.dmem[offset], sizeof(value));
-            value = __builtin_bswap64(value);
-        } else {
-            u64 offset = start & UINT64_C(0xffffff);
-            memcpy(&value, &state.dram[offset], sizeof(value));
-            value = __builtin_bswap64(value);
-        }
-        *dwords = value;
-    }
-}
-
 typedef void (*RDPCommand)(u64, u64 const *);
 struct {
     unsigned nrDoubleWords; /**< Number of double words composing the command */
@@ -2863,6 +2830,123 @@ struct {
     { 1,  setColorImage,                "set_color_image" },
 };
 
+static bool DPC_hasNext(void) {
+    return (state.hwreg.dpc_End - state.hwreg.dpc_Current) >= sizeof(uint64_t);
+}
+
+static uint64_t DPC_read(void) {
+    uint32_t current = state.hwreg.dpc_Current;
+    uint8_t *addr;
+
+    if (state.hwreg.DPC_STATUS_REG & DPC_STATUS_XBUS_DMEM_DMA) {
+        addr = state.dmem + (current & SP_MEM_ADDR_MASK);
+    } else {
+        addr = state.dram + (current & SP_DRAM_ADDR_MASK);
+    }
+
+    state.hwreg.dpc_Current += sizeof(uint64_t);
+    return ((uint64_t)addr[0] << 56) |
+           ((uint64_t)addr[1] << 48) |
+           ((uint64_t)addr[2] << 40) |
+           ((uint64_t)addr[3] << 32) |
+           ((uint64_t)addr[4] << 24) |
+           ((uint64_t)addr[5] << 16) |
+           ((uint64_t)addr[6] <<  8) |
+           ((uint64_t)addr[7] <<  0);
+}
+
+/**
+ * @brief Prepare the command buffer to receive the command
+ * starting with the input double word.
+ */
+static void start_DPC_command(uint64_t dword) {
+    uint64_t opcode = (dword >> 56) & UINT64_C(0x3f);
+
+    // Unknown opcode. Report the offending opcode and
+    // skip this command word.
+    if (RDPCommands[opcode].command == NULL) {
+        debugger::warn(Debugger::RDP, "unknown command 0x{:02x} [{:016x}]",
+            opcode, dword);
+        core::halt("DPC unknown command");
+        state.hwreg.dpc_CommandBufferLen = 0;
+        state.hwreg.dpc_CommandBufferIndex = 0;
+    }
+    // Otherwise, save the input double word to the command buffer.
+    else {
+        state.hwreg.dpc_CommandBuffer[0] = dword;
+        state.hwreg.dpc_CommandBufferLen = RDPCommands[opcode].nrDoubleWords;
+        state.hwreg.dpc_CommandBufferIndex = 1;
+    }
+}
+
+/**
+ * @brief Write the continuation of the current command.
+ */
+static void continue_DPC_command(uint64_t dword) {
+    state.hwreg.dpc_CommandBuffer[state.hwreg.dpc_CommandBufferIndex] = dword;
+    state.hwreg.dpc_CommandBufferIndex++;
+}
+
+/**
+ * @brief Execute the command saved in the command buffer and reset
+ * the buffer state.
+ */
+static void execute_DPC_command(void) {
+    uint64_t dword = state.hwreg.dpc_CommandBuffer[0];
+    uint64_t opcode = (dword >> 56) & UINT64_C(0x3f);
+
+    debugger::info(Debugger::RDP, "{} [{:016x}]",
+        RDPCommands[opcode].name, dword);
+
+    RDPCommands[opcode].command(dword, state.hwreg.dpc_CommandBuffer + 1);
+    state.hwreg.dpc_CommandBufferIndex = 0;
+    state.hwreg.dpc_CommandBufferLen = 0;
+}
+
+
+/**
+ * @brief Execute DPC commands.
+ * Commands are read from the DPC_CURRENT_REG until the DPC_END_REG excluded,
+ * updating DPC_CURRENT_REG at the same time.
+ */
+static void load_DPC_commands(void) {
+    if (state.hwreg.DPC_STATUS_REG & DPC_STATUS_START_VALID) {
+        state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_START_VALID;
+        state.hwreg.dpc_Start = state.hwreg.DPC_START_REG;
+        state.hwreg.dpc_Current = state.hwreg.DPC_START_REG;
+    }
+
+    if (state.hwreg.DPC_STATUS_REG & DPC_STATUS_END_VALID) {
+        state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_END_VALID;
+        state.hwreg.dpc_End = state.hwreg.DPC_END_REG;
+    }
+
+    while (DPC_hasNext()) {
+        uint64_t dword = DPC_read();
+
+        if (state.hwreg.dpc_CommandBufferLen == 0) {
+            start_DPC_command(dword);
+        } else {
+            continue_DPC_command(dword);
+        }
+
+        if (state.hwreg.dpc_CommandBufferLen > 0 &&
+            state.hwreg.dpc_CommandBufferIndex == state.hwreg.dpc_CommandBufferLen) {
+            execute_DPC_command();
+        }
+    }
+}
+
+/**
+ * @brief Write the DPC_START_REG register.
+ * This action is emulated as writing to DPC_CURRENT_REG at the same time,
+ * which is only an approximation.
+ */
+void write_DPC_START_REG(u32 value) {
+    state.hwreg.DPC_START_REG = value & SP_DRAM_ADDR_MASK;
+    state.hwreg.DPC_STATUS_REG |= DPC_STATUS_START_VALID;
+}
+
 /**
  * @brief Write the DPC_END_REG register, which kickstarts the process of
  * loading commands from memory.
@@ -2870,36 +2954,10 @@ struct {
  * updating DPC_CURRENT_REG at the same time.
  */
 void write_DPC_END_REG(u32 value) {
-    state.hwreg.DPC_END_REG = value & 0xfffffflu;
-    while (DPC_hasNext(1) && !core::halted()) {
-        u64 command = 0;
-        DPC_read(&command, 1);
-        u64 opcode = (command >> 56) & 0x3flu;
+    state.hwreg.DPC_END_REG = value & SP_DRAM_ADDR_MASK;
+    state.hwreg.DPC_STATUS_REG |= DPC_STATUS_END_VALID;
 
-        if (RDPCommands[opcode].command == NULL) {
-            debugger::warn(Debugger::RDP, "unknown command {:02x} [{:016x}]",
-                opcode, command);
-            core::halt("DPC unknown command");
-            break;
-        }
-
-        unsigned nr_dwords = RDPCommands[opcode].nrDoubleWords;
-        if (!DPC_hasNext(nr_dwords)) {
-            debugger::info(Debugger::RDP, "incomplete command {} [{:016x}]",
-                RDPCommands[opcode].name, command);
-            break;
-        }
-
-        // Read the command parameters.
-        u64 params[nr_dwords] = { 0 };
-        DPC_read(params, nr_dwords);
-
-        debugger::info(Debugger::RDP, "{} [{:016x}]",
-            RDPCommands[opcode].name, command);
-
-        RDPCommands[opcode].command(command, params + 1);
-        state.hwreg.DPC_CURRENT_REG += 8 * nr_dwords;
-    }
+    load_DPC_commands();
 }
 
 }; /* namespace R4300 */
