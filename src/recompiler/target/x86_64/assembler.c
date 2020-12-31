@@ -670,13 +670,13 @@ static void assemble_instr(recompiler_backend_t const *backend,
 static void assemble_block(recompiler_backend_t const *backend,
                            code_buffer_t *emitter,
                            ir_block_t const *block) {
-    ir_instr_t const *instr = block->instrs;
+    ir_instr_t const *instr = block->entry;
     for (; instr != NULL; instr = instr->next) {
         assemble_instr(backend, emitter, instr);
     }
 }
 
-static void set_liveness_end(ir_value_t const *value, void *index) {
+static void set_liveness_end(void *index, ir_value_t const *value) {
     if (value->kind == IR_VAR) {
         ir_var_context[value->var].liveness_end = *(unsigned *)index;
     }
@@ -693,7 +693,7 @@ static void compute_liveness(ir_graph_t const *graph) {
     unsigned index = 0;
     for (unsigned label = 0; label < graph->nr_blocks; label++) {
         ir_block_t const *block = graph->blocks + label;
-        ir_instr_t const *instr = block->instrs;
+        ir_instr_t const *instr = block->entry;
 
         for (; instr != NULL; instr = instr->next, index++) {
             ir_iter_values(instr, set_liveness_end, &index);
@@ -711,7 +711,7 @@ struct release_register_params {
  * Release the register used by a pseudo variable if the liveness
  * interval ends on the current instruction.
  */
-static void release_register(ir_value_t const *value, void *params_) {
+static void release_register(void *params_, ir_value_t const *value) {
 
     struct release_register_params *params = params_;
     if (value->kind != IR_VAR) {
@@ -781,7 +781,7 @@ static unsigned alloc_vars(ir_graph_t const *graph,
     /* Iterate through instructions to allocate variables.  */
     for (unsigned label = 0; label < graph->nr_blocks; label++) {
         ir_block_t const *block = graph->blocks + label;
-        ir_instr_t const *instr = block->instrs;
+        ir_instr_t const *instr = block->entry;
 
         for (; instr != NULL; instr = instr->next, index++) {
             // Update register bitmap with liveness interval ends.

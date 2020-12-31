@@ -46,7 +46,7 @@ static void const_res(ir_instr_t *instr, ir_value_t value) {
 }
 
 static void remap_res(ir_instr_t *instr) {
-    ir_var_context[instr->res].value = ir_make_var(ir_cur_var, instr->type);
+    ir_var_context[instr->res].value = ir_make_var(instr->type, ir_cur_var);
     instr->res = ir_cur_var;
     ir_cur_var++;
 }
@@ -296,7 +296,7 @@ static bool optimize_read(recompiler_backend_t *backend,
         remap_res(instr);
         ir_global_context[instr->read.global].set = true;
         ir_global_context[instr->read.global].value =
-            ir_make_var(instr->res, instr->type);
+            ir_make_var(instr->type, instr->res);
         return false;
     }
 }
@@ -408,9 +408,9 @@ static bool optimize_instr(recompiler_backend_t *backend,
  */
 static void optimize_block(recompiler_backend_t *backend,
                            ir_block_t *block) {
-    ir_instr_t *instr = block->instrs;
+    ir_instr_t *instr = block->entry;
     ir_instr_t *next_instr;
-    ir_instr_t **prev_instr = &block->instrs;
+    ir_instr_t **prev_instr = &block->entry;
 
     memset(ir_global_context, 0, sizeof(ir_global_context));
 

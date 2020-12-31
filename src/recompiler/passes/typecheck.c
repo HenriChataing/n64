@@ -325,7 +325,7 @@ static bool typecheck_block(recompiler_backend_t *backend,
                             ir_block_t const *block) {
     bool valid = true;
     cur_block = block;
-    for (cur_instr = block->instrs; cur_instr != NULL; cur_instr = cur_instr->next) {
+    for (cur_instr = block->entry; cur_instr != NULL; cur_instr = cur_instr->next) {
         valid &= typecheck_instr(backend, cur_instr);
     }
     return valid;

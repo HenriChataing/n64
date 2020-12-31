@@ -324,7 +324,7 @@ void print_ir_disassembly(struct test_header &test) {
     for (unsigned label = 0; label < test.graph->nr_blocks; label++) {
         fmt::print(".L{}:\n", label);
         block = &test.graph->blocks[label];
-        for (instr = block->instrs; instr != NULL; instr = instr->next) {
+        for (instr = block->entry; instr != NULL; instr = instr->next) {
             ir_print_instr(line, sizeof(line), instr);
             fmt::print("    {}\n", line);
         }

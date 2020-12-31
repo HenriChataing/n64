@@ -56,7 +56,7 @@ static bool run_br(recompiler_backend_t *backend,
                    ir_instr_t const *instr) {
     ir_const_t value = eval_value(instr->br.cond);
     cur_block = instr->br.target[value.int_ != 0];
-    next_instr = cur_block ? cur_block->instrs : NULL;
+    next_instr = cur_block ? cur_block->entry : NULL;
     return true;
 }
 
@@ -418,7 +418,7 @@ bool ir_run(recompiler_backend_t *backend,
     cur_block = &graph->blocks[0];
     ir_instr_t const *instr;
 
-    for (instr = cur_block->instrs; instr != NULL; instr = next_instr) {
+    for (instr = cur_block->entry; instr != NULL; instr = next_instr) {
         next_instr = instr->next;
         cur_instr = instr;
 

@@ -240,60 +240,60 @@ int ir_print_instr(char *buf, size_t len, ir_instr_t const *instr) {
     return 0;
 }
 
-static void iter_none(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
+static void iter_none(ir_instr_t const *instr, ir_value_iterator_t iter, void *arg) {
     (void)instr;
     (void)iter;
-    (void)param;
+    (void)arg;
 }
 
-static void iter_assert(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
-    iter(&instr->assert_.cond, param);
+static void iter_assert(ir_instr_t const *instr, ir_value_iterator_t iter, void *arg) {
+    iter(arg, &instr->assert_.cond);
 }
 
-static void iter_br(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
-    iter(&instr->br.cond, param);
+static void iter_br(ir_instr_t const *instr, ir_value_iterator_t iter, void *arg) {
+    iter(arg, &instr->br.cond);
 }
 
-static void iter_call(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
+static void iter_call(ir_instr_t const *instr, ir_value_iterator_t iter, void *arg) {
     for (unsigned nr = 0; nr < instr->call.nr_params; nr++) {
-        iter(instr->call.params + nr, param);
+        iter(arg, instr->call.params + nr);
     }
 }
 
-static void iter_unop(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
-    iter(&instr->unop.value, param);
+static void iter_unop(ir_instr_t const *instr, ir_value_iterator_t iter, void *arg) {
+    iter(arg, &instr->unop.value);
 }
 
-static void iter_binop(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
-    iter(&instr->binop.left, param);
-    iter(&instr->binop.right, param);
+static void iter_binop(ir_instr_t const *instr, ir_value_iterator_t iter, void *arg) {
+    iter(arg, &instr->binop.left);
+    iter(arg, &instr->binop.right);
 }
 
-static void iter_icmp(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
-    iter(&instr->icmp.left, param);
-    iter(&instr->icmp.right, param);
+static void iter_icmp(ir_instr_t const *instr, ir_value_iterator_t iter, void *arg) {
+    iter(arg, &instr->icmp.left);
+    iter(arg, &instr->icmp.right);
 }
 
-static void iter_load(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
-    iter(&instr->load.address, param);
+static void iter_load(ir_instr_t const *instr, ir_value_iterator_t iter, void *arg) {
+    iter(arg, &instr->load.address);
 }
 
-static void iter_store(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
-    iter(&instr->store.address, param);
-    iter(&instr->store.value, param);
+static void iter_store(ir_instr_t const *instr, ir_value_iterator_t iter, void *arg) {
+    iter(arg, &instr->store.address);
+    iter(arg, &instr->store.value);
 }
 
-static void iter_write(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
-    iter(&instr->write.value, param);
+static void iter_write(ir_instr_t const *instr, ir_value_iterator_t iter, void *arg) {
+    iter(arg, &instr->write.value);
 }
 
-static void iter_cvt(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
-    iter(&instr->cvt.value, param);
+static void iter_cvt(ir_instr_t const *instr, ir_value_iterator_t iter, void *arg) {
+    iter(arg, &instr->cvt.value);
 }
 
 static const void (*iter_callbacks[])(ir_instr_t const *instr,
-                                     ir_value_callback_t iter,
-                                     void *param) = {
+                                     ir_value_iterator_t iter,
+                                     void *arg) = {
     [IR_EXIT]   = iter_none,
     [IR_ASSERT] = iter_assert,
     [IR_BR]     = iter_br,
@@ -323,6 +323,6 @@ static const void (*iter_callbacks[])(ir_instr_t const *instr,
     [IR_ZEXT]   = iter_cvt,
 };
 
-void ir_iter_values(ir_instr_t const *instr, ir_value_callback_t iter, void *param) {
-    iter_callbacks[instr->kind](instr, iter, param);
+void ir_iter_values(ir_instr_t const *instr, ir_value_iterator_t iter, void *arg) {
+    iter_callbacks[instr->kind](instr, iter, arg);
 }
