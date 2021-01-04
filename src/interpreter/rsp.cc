@@ -18,7 +18,6 @@
 
 using namespace R4300;
 using namespace n64;
-using namespace assembly;
 
 namespace interpreter::rsp {
 
@@ -570,10 +569,10 @@ static inline unsigned selectElementIndex(unsigned i, u32 e) {
 }
 
 void eval_VABS(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -592,10 +591,10 @@ void eval_VABS(u32 instr) {
 }
 
 void eval_VADD(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -614,10 +613,10 @@ void eval_VADD(u32 instr) {
 }
 
 void eval_VADDC(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     state.rspreg.vco = 0;
@@ -637,10 +636,10 @@ void eval_VADDC(u32 instr) {
 }
 
 void eval_VAND(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -657,10 +656,10 @@ void eval_VAND(u32 instr) {
 }
 
 void eval_VCH(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     state.rspreg.vcc = 0;
@@ -709,10 +708,10 @@ void eval_VCH(u32 instr) {
 }
 
 void eval_VCL(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -757,10 +756,10 @@ void eval_VCL(u32 instr) {
 }
 
 void eval_VCR(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     state.rspreg.vcc = 0;
@@ -800,10 +799,10 @@ void eval_VCR(u32 instr) {
 }
 
 void eval_VEQ(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     state.rspreg.vcc = 0;
@@ -833,10 +832,10 @@ void eval_VEQ(u32 instr) {
 }
 
 void eval_VGE(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     state.rspreg.vcc = 0;
@@ -867,10 +866,10 @@ void eval_VGE(u32 instr) {
 }
 
 void eval_VLT(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     state.rspreg.vcc = 0;
@@ -901,10 +900,10 @@ void eval_VLT(u32 instr) {
 }
 
 void eval_VMACF(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -925,10 +924,10 @@ void eval_VMACQ(u32 instr) {
 }
 
 void eval_VMACU(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -945,10 +944,10 @@ void eval_VMACU(u32 instr) {
 }
 
 void eval_VMADH(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -965,10 +964,10 @@ void eval_VMADH(u32 instr) {
 }
 
 void eval_VMADL(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -985,10 +984,10 @@ void eval_VMADL(u32 instr) {
 }
 
 void eval_VMADM(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -1005,10 +1004,10 @@ void eval_VMADM(u32 instr) {
 }
 
 void eval_VMADN(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -1025,20 +1024,20 @@ void eval_VMADN(u32 instr) {
 }
 
 void eval_VMOV(u32 instr) {
-    u32 e = getElement(instr) & 0x7u;
-    u32 vt = getVt(instr);
-    u32 de = getVs(instr) & 0x7u;
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr) & 0x7u;
+    u32 vt = assembly::getVt(instr);
+    u32 de = assembly::getVs(instr) & 0x7u;
+    u32 vd = assembly::getVd(instr);
 
     state.rspreg.vacc[de].write_lo(state.rspreg.vr[vt].h[e]);
     state.rspreg.vr[vd].h[de] = state.rspreg.vr[vt].h[e];
 }
 
 void eval_VMRG(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -1057,10 +1056,10 @@ void eval_VMRG(u32 instr) {
 }
 
 void eval_VMUDH(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -1077,10 +1076,10 @@ void eval_VMUDH(u32 instr) {
 }
 
 void eval_VMUDL(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -1097,10 +1096,10 @@ void eval_VMUDL(u32 instr) {
 }
 
 void eval_VMUDM(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -1117,10 +1116,10 @@ void eval_VMUDM(u32 instr) {
 }
 
 void eval_VMUDN(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -1137,10 +1136,10 @@ void eval_VMUDN(u32 instr) {
 }
 
 void eval_VMULF(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -1161,10 +1160,10 @@ void eval_VMULQ(u32 instr) {
 }
 
 void eval_VMULU(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -1181,10 +1180,10 @@ void eval_VMULU(u32 instr) {
 }
 
 void eval_VNAND(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -1201,10 +1200,10 @@ void eval_VNAND(u32 instr) {
 }
 
 void eval_VNE(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     state.rspreg.vcc = 0;
@@ -1242,10 +1241,10 @@ void eval_VNULL(u32 instr) {
 }
 
 void eval_VNOR(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -1262,10 +1261,10 @@ void eval_VNOR(u32 instr) {
 }
 
 void eval_VNXOR(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -1282,10 +1281,10 @@ void eval_VNXOR(u32 instr) {
 }
 
 void eval_VOR(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -1323,10 +1322,10 @@ static inline u32 load_RCP_ROM(u32 divin) {
  *  with the 10 most significant bits, i.e. there is precision loss.
  */
 void eval_VRCP(u32 instr) {
-    u32 e = getElement(instr) & 0x7u;
-    u32 vt = getVt(instr);
-    u32 de = getVs(instr) & 0x7u;
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr) & 0x7u;
+    u32 vt = assembly::getVt(instr);
+    u32 de = assembly::getVs(instr) & 0x7u;
+    u32 vd = assembly::getVd(instr);
 
     i16 in = state.rspreg.vr[vt].h[e];
     u32 divin = in < 0 ? (u16)(i16)-in : (u16)in;
@@ -1350,10 +1349,10 @@ void eval_VRCP(u32 instr) {
 }
 
 void eval_VRCPH(u32 instr) {
-    u32 e = getElement(instr) & 0x7u;
-    u32 vt = getVt(instr);
-    u32 de = getVs(instr) & 0x7u;
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr) & 0x7u;
+    u32 vt = assembly::getVt(instr);
+    u32 de = assembly::getVs(instr) & 0x7u;
+    u32 vd = assembly::getVd(instr);
 
     for (unsigned i = 0; i < 8; i++) {
         state.rspreg.vacc[i].write_lo(state.rspreg.vr[vt].h[i]);
@@ -1364,10 +1363,10 @@ void eval_VRCPH(u32 instr) {
 }
 
 void eval_VRCPL(u32 instr) {
-    u32 e = getElement(instr) & 0x7u;
-    u32 vt = getVt(instr);
-    u32 de = getVs(instr) & 0x7u;
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr) & 0x7u;
+    u32 vt = assembly::getVt(instr);
+    u32 de = assembly::getVs(instr) & 0x7u;
+    u32 vd = assembly::getVd(instr);
 
     if (state.rspreg.divin_loaded) {
         state.rspreg.divin &= ~UINT32_C(0xffff);
@@ -1419,10 +1418,10 @@ static inline u32 load_RSQ_ROM(u32 divin) {
 }
 
 void eval_VRSQ(u32 instr) {
-    u32 e = getElement(instr) & 0x7u;
-    u32 vt = getVt(instr);
-    u32 de = getVs(instr) & 0x7u;
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr) & 0x7u;
+    u32 vt = assembly::getVt(instr);
+    u32 de = assembly::getVs(instr) & 0x7u;
+    u32 vd = assembly::getVd(instr);
 
     i16 in = state.rspreg.vr[vt].h[e];
     u32 divin = in < 0 ? (u16)(i16)-in : (u16)in;
@@ -1448,10 +1447,10 @@ void eval_VRSQ(u32 instr) {
 }
 
 void eval_VRSQH(u32 instr) {
-    u32 e = getElement(instr) & 0x7u;
-    u32 vt = getVt(instr);
-    u32 de = getVs(instr) & 0x7u;
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr) & 0x7u;
+    u32 vt = assembly::getVt(instr);
+    u32 de = assembly::getVs(instr) & 0x7u;
+    u32 vd = assembly::getVd(instr);
 
     for (unsigned i = 0; i < 8; i++) {
         state.rspreg.vacc[i].write_lo(state.rspreg.vr[vt].h[i]);
@@ -1462,10 +1461,10 @@ void eval_VRSQH(u32 instr) {
 }
 
 void eval_VRSQL(u32 instr) {
-    u32 e = getElement(instr) & 0x7u;
-    u32 vt = getVt(instr);
-    u32 de = getVs(instr) & 0x7u;
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr) & 0x7u;
+    u32 vt = assembly::getVt(instr);
+    u32 de = assembly::getVs(instr) & 0x7u;
+    u32 vd = assembly::getVd(instr);
 
     if (state.rspreg.divin_loaded) {
         state.rspreg.divin &= ~UINT32_C(0xffff);
@@ -1496,9 +1495,9 @@ void eval_VRSQL(u32 instr) {
 }
 
 void eval_VSAR(u32 instr) {
-    u32 e = getElement(instr);
-    // u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    // u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
 
     // According to the reference specification, VSAR both reads _and_ writes
     // selected slices of the accumulator, following the value of e (0, 1 or 2).
@@ -1533,10 +1532,10 @@ void eval_VSAR(u32 instr) {
 }
 
 void eval_VSUB(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
@@ -1555,10 +1554,10 @@ void eval_VSUB(u32 instr) {
 }
 
 void eval_VSUBC(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     state.rspreg.vco = 0;
@@ -1584,10 +1583,10 @@ void eval_VSUBC(u32 instr) {
 }
 
 void eval_VXOR(u32 instr) {
-    u32 e = getElement(instr);
-    u32 vt = getVt(instr);
-    u32 vs = getVs(instr);
-    u32 vd = getVd(instr);
+    u32 e = assembly::getElement(instr);
+    u32 vt = assembly::getVt(instr);
+    u32 vs = assembly::getVs(instr);
+    u32 vd = assembly::getVd(instr);
     vr_t out;
 
     for (unsigned i = 0; i < 8; i++) {
