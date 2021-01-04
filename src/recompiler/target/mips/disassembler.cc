@@ -2444,7 +2444,7 @@ recompiler_backend_t *ir_mips_recompiler_backend(void) {
 ir_graph_t *ir_mips_disassemble(recompiler_backend_t *backend,
                                 uint64_t address, unsigned char *ptr, size_t len) {
     /* Catch recompiler allocation errors. */
-    if (reset_recompiler_backend(backend) < 0) {
+    if (catch_recompiler_error(backend) < 0) {
         return NULL;
     }
 
