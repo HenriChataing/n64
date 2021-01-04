@@ -230,6 +230,145 @@ static inline void branch_likely(bool cond, u64 btrue, u64 bfalse) {
 }
 
 }; /* namespace cpu */
+
+namespace rsp {
+
+/** Fetch and execute exactly one instruction at the current
+ * program counter address. */
+void eval(void);
+
+void eval_Reserved(u32 instr);
+
+void eval_ADD(u32 instr);
+void eval_ADDU(u32 instr);
+void eval_AND(u32 instr);
+void eval_BREAK(u32 instr);
+void eval_JALR(u32 instr);
+void eval_JR(u32 instr);
+void eval_MOVN(u32 instr);
+void eval_MOVZ(u32 instr);
+void eval_NOR(u32 instr);
+void eval_OR(u32 instr);
+void eval_SLL(u32 instr);
+void eval_SLLV(u32 instr);
+void eval_SLT(u32 instr);
+void eval_SLTU(u32 instr);
+void eval_SRA(u32 instr);
+void eval_SRAV(u32 instr);
+void eval_SRL(u32 instr);
+void eval_SRLV(u32 instr);
+void eval_SUB(u32 instr);
+void eval_SUBU(u32 instr);
+void eval_XOR(u32 instr);
+void eval_BGEZ(u32 instr);
+void eval_BLTZ(u32 instr);
+void eval_BGEZAL(u32 instr);
+void eval_BLTZAL(u32 instr);
+void eval_ADDI(u32 instr);
+void eval_ADDIU(u32 instr);
+void eval_ANDI(u32 instr);
+void eval_BEQ(u32 instr);
+void eval_BGTZ(u32 instr);
+void eval_BLEZ(u32 instr);
+void eval_BNE(u32 instr);
+void eval_CACHE(u32 instr);
+void eval_J(u32 instr);
+void eval_JAL(u32 instr);
+void eval_LB(u32 instr);
+void eval_LBU(u32 instr);
+void eval_LH(u32 instr);
+void eval_LHU(u32 instr);
+void eval_LUI(u32 instr);
+void eval_LW(u32 instr);
+void eval_ORI(u32 instr);
+void eval_SB(u32 instr);
+void eval_SH(u32 instr);
+void eval_SLTI(u32 instr);
+void eval_SLTIU(u32 instr);
+void eval_SW(u32 instr);
+void eval_XORI(u32 instr);
+void eval_SPECIAL(u32 instr);
+void eval_REGIMM(u32 instr);
+void eval_Instr(u32 instr);
+
+void eval_MFC0(u32 instr);
+void eval_MTC0(u32 instr);
+void eval_COP0(u32 instr);
+
+void eval_MFC2(u32 instr);
+void eval_MTC2(u32 instr);
+void eval_CFC2(u32 instr);
+void eval_CTC2(u32 instr);
+
+void eval_LTV(u32 instr);
+void eval_LWV(u32 instr);
+void eval_LRV(u32 instr);
+void eval_LPV(u32 instr);
+void eval_LUV(u32 instr);
+void eval_LHV(u32 instr);
+void eval_LFV(u32 instr);
+void eval_LWC2(u32 instr);
+
+void eval_SRV(u32 instr);
+void eval_SPV(u32 instr);
+void eval_SUV(u32 instr);
+void eval_SHV(u32 instr);
+void eval_SFV(u32 instr);
+void eval_STV(u32 instr);
+void eval_SWV(u32 instr);
+void eval_SWC2(u32 instr);
+
+void eval_VABS(u32 instr);
+void eval_VADD(u32 instr);
+void eval_VADDC(u32 instr);
+void eval_VAND(u32 instr);
+void eval_VCH(u32 instr);
+void eval_VCL(u32 instr);
+void eval_VCR(u32 instr);
+void eval_VEQ(u32 instr);
+void eval_VGE(u32 instr);
+void eval_VLT(u32 instr);
+void eval_VMACF(u32 instr);
+void eval_VMACQ(u32 instr);
+void eval_VMACU(u32 instr);
+void eval_VMADH(u32 instr);
+void eval_VMADL(u32 instr);
+void eval_VMADM(u32 instr);
+void eval_VMADN(u32 instr);
+void eval_VMOV(u32 instr);
+void eval_VMRG(u32 instr);
+void eval_VMUDH(u32 instr);
+void eval_VMUDL(u32 instr);
+void eval_VMUDM(u32 instr);
+void eval_VMUDN(u32 instr);
+void eval_VMULF(u32 instr);
+void eval_VMULQ(u32 instr);
+void eval_VMULU(u32 instr);
+void eval_VNAND(u32 instr);
+void eval_VNE(u32 instr);
+void eval_VNOP(u32 instr);
+void eval_VNULL(u32 instr);
+void eval_VNOR(u32 instr);
+void eval_VNXOR(u32 instr);
+void eval_VOR(u32 instr);
+void eval_VRCP(u32 instr);
+void eval_VRCPH(u32 instr);
+void eval_VRCPL(u32 instr);
+void eval_VRNDN(u32 instr);
+void eval_VRNDP(u32 instr);
+void eval_VRSQ(u32 instr);
+void eval_VRSQH(u32 instr);
+void eval_VRSQL(u32 instr);
+void eval_VSAR(u32 instr);
+void eval_VSUB(u32 instr);
+void eval_VSUBC(u32 instr);
+void eval_VXOR(u32 instr);
+void eval_COP2(u32 instr);
+
+extern u16 RCP_ROM[512];
+extern u16 RSQ_ROM[512];
+
+}; /* namespace rsp */
 }; /* namespace interpreter */
 
 #endif /* _INTERPRETER_H_INCLUDED_ */

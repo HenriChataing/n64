@@ -76,6 +76,7 @@ OBJS      := \
     src/interpreter/cpu.o \
     src/interpreter/cop0.o \
     src/interpreter/cop1.o \
+    src/interpreter/rsp.o \
     src/recompiler/ir.o \
     src/recompiler/backend.o \
     src/recompiler/code_buffer.o \
@@ -86,6 +87,7 @@ OBJS      := \
     src/recompiler/target/x86_64/emitter.o \
     src/assembly/disassembler.o \
     src/r4300/cpu.o \
+    src/r4300/rsp.o \
     src/r4300/state.o \
     src/r4300/hw/ai.o \
     src/r4300/hw/cart.o \
@@ -96,7 +98,6 @@ OBJS      := \
     src/r4300/hw/ri.o \
     src/r4300/hw/sp.o \
     src/r4300/hw/vi.o \
-    src/r4300/rsp.o \
     src/r4300/rdp.o \
     src/r4300/mmu.o \
     src/r4300/export.o \
