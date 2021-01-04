@@ -7,8 +7,42 @@
 
 #include <r4300/state.h>
 #include <debugger.h>
+#include <core.h>
 
 using namespace std::string_view_literals;
+
+/* Define stubs for core functions. */
+namespace core {
+
+static bool interpreter_halted;
+static std::string interpreter_halted_reason;
+
+void halt(std::string reason) {
+    if (!interpreter_halted) {
+        interpreter_halted = true;
+        interpreter_halted_reason = reason;
+    }
+}
+
+bool halted(void) {
+    return interpreter_halted;
+}
+
+std::string halted_reason(void) {
+    return interpreter_halted_reason;
+}
+
+void resume(void) {
+    interpreter_halted = false;
+}
+
+void invalidate_recompiler_cache(uint64_t start_phys_address,
+                                 uint64_t end_phys_address) {
+    (void)start_phys_address;
+    (void)end_phys_address;
+}
+
+}; /* namespace core */
 
 /* Define stubs for used, but unrequired machine features. */
 namespace R4300 {
@@ -26,23 +60,23 @@ State::~State() {
 }
 
 void set_MI_INTR_REG(u32 bits) {
-    debugger::halt("MI_INTR_REG unimplemented for RSP tests");
+    core::halt("MI_INTR_REG unimplemented for RSP tests");
 }
 
 void clear_MI_INTR_REG(u32 bits) {
-    debugger::halt("MI_INTR_REG unimplemented for RSP tests");
+    core::halt("MI_INTR_REG unimplemented for RSP tests");
 }
 
 void write_DPC_STATUS_REG(u32 value) {
-    debugger::halt("DPC_STATUS_REG unimplemented for RSP tests");
+    core::halt("DPC_STATUS_REG unimplemented for RSP tests");
 }
 
 void write_DPC_START_REG(u32 value) {
-    debugger::halt("DPC_START_REG unimplemented for RSP tests");
+    core::halt("DPC_START_REG unimplemented for RSP tests");
 }
 
 void write_DPC_END_REG(u32 value) {
-    debugger::halt("DPC_END_REG unimplemented for RSP tests");
+    core::halt("DPC_END_REG unimplemented for RSP tests");
 }
 
 }; /* namespace R4300 */
@@ -259,21 +293,23 @@ int run_test_suite(char const *test_suite_name, struct test_statistics *stats) {
         R4300::state.rsp.nextAction = R4300::State::Action::Jump;
         R4300::state.rsp.nextPc = 0x0;
         R4300::state.hwreg.SP_STATUS_REG = 0;
-        debugger::debugger.halted = false;
+
+        // Clear halted flag.
+        core::resume();
 
         fmt::print("+ [test {}/{}] {}:{} -- ",
             nr + 1, nr_tests, test_suite_name, test_name);
 
         while ((R4300::state.hwreg.SP_STATUS_REG & SP_STATUS_BROKE) == 0 &&
-               !debugger::debugger.halted) {
+               !core::halted()) {
             R4300::RSP::step();
         }
 
-        if (debugger::debugger.halted) {
+        if (core::halted()) {
             fmt::print(fmt::fg(fmt::color::dark_orange), "HALTED\n");
             fmt::print(fmt::emphasis::italic,
                 "The RSP stopped with the following halt reason: {}\n",
-                debugger::debugger.haltedReason);
+                core::halted_reason());
             stats->total_halted++;
             continue;
         }

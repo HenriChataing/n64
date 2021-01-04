@@ -161,6 +161,7 @@ bin/rsp_test_suite: CXXFLAGS += \
 
 bin/rsp_test_suite: \
     $(OBJDIR)/test/rsp_test_suite.o \
+    $(OBJDIR)/src/interpreter/rsp.o \
     $(OBJDIR)/src/memory.o \
     $(OBJDIR)/src/debugger.o \
     $(OBJDIR)/src/r4300/rsp.o \
