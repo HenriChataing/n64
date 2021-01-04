@@ -28,14 +28,18 @@ int ir_print_value(char *buf, size_t len, ir_value_t const *value) {
     return 0;
 }
 
-static int ir_print_assert(char *buf, size_t len, ir_instr_t const *instr) {
+static int print_exit(char *buf, size_t len, ir_instr_t const *instr) {
+    return snprintf(buf, len, "exit");
+}
+
+static int print_assert(char *buf, size_t len, ir_instr_t const *instr) {
     int written;
     written  = snprintf(buf, len, "assert ");
     written += ir_print_value(buf+written, len-written, &instr->assert_.cond);
     return written;
 }
 
-static int ir_print_br(char *buf, size_t len, ir_instr_t const *instr) {
+static int print_br(char *buf, size_t len, ir_instr_t const *instr) {
     int written;
     written  = snprintf(buf, len, "br ");
     written += ir_print_value(buf+written, len-written, &instr->br.cond);
@@ -45,7 +49,7 @@ static int ir_print_br(char *buf, size_t len, ir_instr_t const *instr) {
     return written;
 }
 
-static int ir_print_call(char *buf, size_t len, ir_instr_t const *instr) {
+static int print_call(char *buf, size_t len, ir_instr_t const *instr) {
     int written;
     if (instr->type.width > 0) {
         written  = snprintf(buf, len, "%%%u = call_", instr->res);
@@ -61,12 +65,12 @@ static int ir_print_call(char *buf, size_t len, ir_instr_t const *instr) {
     return written;
 }
 
-static int ir_print_alloc(char *buf, size_t len, ir_instr_t const *instr) {
+static int print_alloc(char *buf, size_t len, ir_instr_t const *instr) {
     return snprintf(buf, len, "%%%u = alloc_i%u",
         instr->res, instr->alloc.type.width);
 }
 
-static int ir_print_unop(char *buf, size_t len, ir_instr_t const *instr) {
+static int print_unop(char *buf, size_t len, ir_instr_t const *instr) {
     char const *op = "?";
     switch (instr->kind) {
     case IR_NOT:  op = "not"; break;
@@ -81,7 +85,7 @@ static int ir_print_unop(char *buf, size_t len, ir_instr_t const *instr) {
     return written;
 }
 
-static int ir_print_binop(char *buf, size_t len, ir_instr_t const *instr) {
+static int print_binop(char *buf, size_t len, ir_instr_t const *instr) {
     char const *op = "?";
     switch (instr->kind) {
     case IR_ADD:  op = "add"; break;
@@ -110,7 +114,7 @@ static int ir_print_binop(char *buf, size_t len, ir_instr_t const *instr) {
     return written;
 }
 
-static int ir_print_icmp(char *buf, size_t len, ir_instr_t const *instr) {
+static int print_icmp(char *buf, size_t len, ir_instr_t const *instr) {
     char const *op = "?";
     switch (instr->icmp.op) {
     case IR_EQ:  op = "eq"; break;
@@ -136,7 +140,7 @@ static int ir_print_icmp(char *buf, size_t len, ir_instr_t const *instr) {
     return written;
 }
 
-static int ir_print_load(char *buf, size_t len, ir_instr_t const *instr) {
+static int print_load(char *buf, size_t len, ir_instr_t const *instr) {
     int written;
     written  = snprintf(buf, len, "%%%u = load_", instr->res);
     written += ir_print_type(buf+written, len-written, &instr->type);
@@ -145,7 +149,7 @@ static int ir_print_load(char *buf, size_t len, ir_instr_t const *instr) {
     return written;
 }
 
-static int ir_print_store(char *buf, size_t len, ir_instr_t const *instr) {
+static int print_store(char *buf, size_t len, ir_instr_t const *instr) {
     int written;
     written  = snprintf(buf, len, "store_");
     written += ir_print_type(buf+written, len-written, &instr->type);
@@ -156,7 +160,7 @@ static int ir_print_store(char *buf, size_t len, ir_instr_t const *instr) {
     return written;
 }
 
-static int ir_print_read(char *buf, size_t len, ir_instr_t const *instr) {
+static int print_read(char *buf, size_t len, ir_instr_t const *instr) {
     int written;
     written  = snprintf(buf, len, "%%%u = read_", instr->res);
     written += ir_print_type(buf+written, len-written, &instr->type);
@@ -164,7 +168,7 @@ static int ir_print_read(char *buf, size_t len, ir_instr_t const *instr) {
     return written;
 }
 
-static int ir_print_write(char *buf, size_t len, ir_instr_t const *instr) {
+static int print_write(char *buf, size_t len, ir_instr_t const *instr) {
     int written;
     written  = snprintf(buf, len, "write_");
     written += ir_print_type(buf+written, len-written, &instr->type);
@@ -174,7 +178,7 @@ static int ir_print_write(char *buf, size_t len, ir_instr_t const *instr) {
     return written;
 }
 
-static int ir_print_cvt(char *buf, size_t len, ir_instr_t const *instr) {
+static int print_cvt(char *buf, size_t len, ir_instr_t const *instr) {
     char const *op = "?";
     switch (instr->kind) {
     case IR_TRUNC: op = "trunc"; break;
@@ -193,51 +197,41 @@ static int ir_print_cvt(char *buf, size_t len, ir_instr_t const *instr) {
     return written;
 }
 
-int ir_print_instr(char *buf, size_t len, ir_instr_t const *instr) {
-    switch (instr->kind) {
-    case IR_EXIT:
-        return snprintf(buf, len, "exit");
-    case IR_ASSERT:
-        return ir_print_assert(buf, len, instr);
-    case IR_BR:
-        return ir_print_br(buf, len, instr);
-    case IR_CALL:
-        return ir_print_call(buf, len, instr);
-    case IR_ALLOC:
-        return ir_print_alloc(buf, len, instr);
-    case IR_NOT:
-        return ir_print_unop(buf, len, instr);
-    case IR_ADD:
-    case IR_SUB:
-    case IR_MUL:
-    case IR_UDIV:
-    case IR_SDIV:
-    case IR_UREM:
-    case IR_SREM:
-    case IR_SLL:
-    case IR_SRL:
-    case IR_SRA:
-    case IR_AND:
-    case IR_OR:
-    case IR_XOR:
-        return ir_print_binop(buf, len, instr);
-    case IR_ICMP:
-        return ir_print_icmp(buf, len, instr);
-    case IR_LOAD:
-        return ir_print_load(buf, len, instr);
-    case IR_STORE:
-        return ir_print_store(buf, len, instr);
-    case IR_READ:
-        return ir_print_read(buf, len, instr);
-    case IR_WRITE:
-        return ir_print_write(buf, len, instr);
-    case IR_TRUNC:
-    case IR_SEXT:
-    case IR_ZEXT:
-        return ir_print_cvt(buf, len, instr);
-    }
+_Static_assert(IR_ZEXT == 26,
+    "IR instruction set changed, code may need to be updated");
 
-    return 0;
+static const int (*print_callbacks[])(char *, size_t, ir_instr_t const *) = {
+    [IR_EXIT]   = print_exit,
+    [IR_ASSERT] = print_assert,
+    [IR_BR]     = print_br,
+    [IR_CALL]   = print_call,
+    [IR_ALLOC]  = print_alloc,
+    [IR_NOT]    = print_unop,
+    [IR_ADD]    = print_binop,
+    [IR_SUB]    = print_binop,
+    [IR_MUL]    = print_binop,
+    [IR_UDIV]   = print_binop,
+    [IR_SDIV]   = print_binop,
+    [IR_UREM]   = print_binop,
+    [IR_SREM]   = print_binop,
+    [IR_SLL]    = print_binop,
+    [IR_SRL]    = print_binop,
+    [IR_SRA]    = print_binop,
+    [IR_AND]    = print_binop,
+    [IR_OR]     = print_binop,
+    [IR_XOR]    = print_binop,
+    [IR_ICMP]   = print_icmp,
+    [IR_LOAD]   = print_load,
+    [IR_STORE]  = print_store,
+    [IR_READ]   = print_read,
+    [IR_WRITE]  = print_write,
+    [IR_TRUNC]  = print_cvt,
+    [IR_SEXT]   = print_cvt,
+    [IR_ZEXT]   = print_cvt,
+};
+
+int ir_print_instr(char *buf, size_t len, ir_instr_t const *instr) {
+    return print_callbacks[instr->kind](buf, len, instr);
 }
 
 static void iter_none(ir_instr_t const *instr, ir_value_iterator_t iter, void *arg) {
@@ -291,9 +285,12 @@ static void iter_cvt(ir_instr_t const *instr, ir_value_iterator_t iter, void *ar
     iter(arg, &instr->cvt.value);
 }
 
+_Static_assert(IR_ZEXT == 26,
+    "IR instruction set changed, code may need to be updated");
+
 static const void (*iter_callbacks[])(ir_instr_t const *instr,
-                                     ir_value_iterator_t iter,
-                                     void *arg) = {
+                                      ir_value_iterator_t iter,
+                                      void *arg) = {
     [IR_EXIT]   = iter_none,
     [IR_ASSERT] = iter_assert,
     [IR_BR]     = iter_br,

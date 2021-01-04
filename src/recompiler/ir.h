@@ -703,7 +703,7 @@ ir_instr_t ir_make_read(ir_var_t res,
 /**
  * @brief Create a write instruction.
  * @param type      Write access type.
- * @param address   Global variable identifier.
+ * @param global    Global variable identifier.
  * @param value     Written value.
  * @return          Created write instruction.
  */
@@ -740,7 +740,7 @@ ir_instr_t ir_make_cvt(ir_var_t res,
  * \ref ir_instr_kind::IR_EXIT, \ref ir_instr_kind::IR_BR,
  * \ref ir_instr_kind::IR_STORE, \ref ir_instr_kind::IR_WRITE and
  * \ref ir_instr_kind::IR_CALL if the function is void.
- * @param Pointer to the tested instruction.
+ * @param instr     Pointer to the tested instruction.
  * @return
  *      True if the instruction does not return a value, false otherwise.
  */
@@ -759,7 +759,7 @@ int ir_print_type(char *buf, size_t len, ir_type_t const *type);
  * @brief Print the input value to the selected buffer.
  * @param buf       Pointer to the output buffer.
  * @param len       Length of the output buffer.
- * @param type      Pointer to the input value.
+ * @param value     Pointer to the input value.
  * @return          Number of written characters, or -1 if the print failed.
  */
 int ir_print_value(char *buf, size_t len, ir_value_t const *value);
@@ -768,7 +768,7 @@ int ir_print_value(char *buf, size_t len, ir_value_t const *value);
  * @brief Print the input instruction to the selected buffer.
  * @param buf       Pointer to the output buffer.
  * @param len       Length of the output buffer.
- * @param type      Pointer to the input instruction.
+ * @param instr     Pointer to the input instruction.
  * @return          Number of written characters, or -1 if the print failed.
  */
 int ir_print_instr(char *buf, size_t len, ir_instr_t const *instr);
@@ -783,6 +783,7 @@ typedef void (*ir_value_iterator_t)(void *arg, ir_value_t const *value);
 
 /**
  * @brief Iterate over the input values of an instruction.
+ * @param instr     Pointer to the target instruction.
  * @param iter      Iterator callback function.
  * @param arg       Iterator private argument.
  */
