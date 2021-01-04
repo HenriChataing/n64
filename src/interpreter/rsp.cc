@@ -77,6 +77,7 @@ static inline bool checkAddressAlignment(u64 addr, u64 bytes) {
     u32 shamnt = assembly::getShamnt(instr); \
     (void)rd; (void)rs; (void)rt; (void)shamnt;
 
+
 static void loadVectorBytesAt(unsigned vr, unsigned element, u8 *addr,
                               unsigned count) {
     for (unsigned i = 0; i < count && element < 16; i++, element++, addr++) {
@@ -1743,38 +1744,34 @@ void eval_XOR(u32 instr) {
 
 void eval_BGEZ(u32 instr) {
     IType(instr, sign_extend);
-    if ((i64)state.rspreg.gpr[rs] >= 0) {
-        state.rsp.nextAction = State::Action::Delay;
-        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
-    }
+    branch((i64)state.rspreg.gpr[rs] >= 0,
+        state.rspreg.pc + 4 + (i64)(imm << 2),
+        state.rspreg.pc + 8);
 }
 
 void eval_BLTZ(u32 instr) {
     IType(instr, sign_extend);
-    if ((i64)state.rspreg.gpr[rs] < 0) {
-        state.rsp.nextAction = State::Action::Delay;
-        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
-    }
+    branch((i64)state.rspreg.gpr[rs] < 0,
+        state.rspreg.pc + 4 + (i64)(imm << 2),
+        state.rspreg.pc + 8);
 }
 
 void eval_BGEZAL(u32 instr) {
     IType(instr, sign_extend);
     i64 r = state.rspreg.gpr[rs];
     state.rspreg.gpr[31] = state.rspreg.pc + 8;
-    if (r >= 0) {
-        state.rsp.nextAction = State::Action::Delay;
-        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
-    }
+    branch(r >= 0,
+        state.rspreg.pc + 4 + (i64)(imm << 2),
+        state.rspreg.pc + 8);
 }
 
 void eval_BLTZAL(u32 instr) {
     IType(instr, sign_extend);
     i64 r = state.rspreg.gpr[rs];
     state.rspreg.gpr[31] = state.rspreg.pc + 8;
-    if (r < 0) {
-        state.rsp.nextAction = State::Action::Delay;
-        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
-    }
+    branch(r < 0,
+        state.rspreg.pc + 4 + (i64)(imm << 2),
+        state.rspreg.pc + 8);
 }
 
 /* Other opcodes */
@@ -1796,34 +1793,30 @@ void eval_ANDI(u32 instr) {
 
 void eval_BEQ(u32 instr) {
     IType(instr, sign_extend);
-    if (state.rspreg.gpr[rt] == state.rspreg.gpr[rs]) {
-        state.rsp.nextAction = State::Action::Delay;
-        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
-    }
+    branch(state.rspreg.gpr[rt] == state.rspreg.gpr[rs],
+        state.rspreg.pc + 4 + (i64)(imm << 2),
+        state.rspreg.pc + 8);
 }
 
 void eval_BGTZ(u32 instr) {
     IType(instr, sign_extend);
-    if ((i64)state.rspreg.gpr[rs] > 0) {
-        state.rsp.nextAction = State::Action::Delay;
-        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
-    }
+    branch((i64)state.rspreg.gpr[rs] > 0,
+        state.rspreg.pc + 4 + (i64)(imm << 2),
+        state.rspreg.pc + 8);
 }
 
 void eval_BLEZ(u32 instr) {
     IType(instr, sign_extend);
-    if ((i64)state.rspreg.gpr[rs] <= 0) {
-        state.rsp.nextAction = State::Action::Delay;
-        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
-    }
+    branch((i64)state.rspreg.gpr[rs] <= 0,
+        state.rspreg.pc + 4 + (i64)(imm << 2),
+        state.rspreg.pc + 8);
 }
 
 void eval_BNE(u32 instr) {
     IType(instr, sign_extend);
-    if (state.rspreg.gpr[rt] != state.rspreg.gpr[rs]) {
-        state.rsp.nextAction = State::Action::Delay;
-        state.rsp.nextPc = state.rspreg.pc + 4 + (i64)(imm << 2);
-    }
+    branch(state.rspreg.gpr[rt] != state.rspreg.gpr[rs],
+        state.rspreg.pc + 4 + (i64)(imm << 2),
+        state.rspreg.pc + 8);
 }
 
 void eval_CACHE(u32 instr) {
@@ -2099,7 +2092,7 @@ void eval_XORI(u32 instr) {
 }
 
 
-void (*COP2_callbacks[64])(u32) = {
+static void (*COP2_callbacks[64])(u32) = {
     /* Multiply group */
     eval_VMULF,     eval_VMULU,     eval_VRNDP,     eval_VMULQ,
     eval_VMUDL,     eval_VMUDM,     eval_VMUDN,     eval_VMUDH,
@@ -2140,7 +2133,7 @@ void eval_COP2(u32 instr) {
     }
 }
 
-void (*SPECIAL_callbacks[64])(u32) = {
+static void (*SPECIAL_callbacks[64])(u32) = {
     eval_SLL,       eval_Reserved,  eval_SRL,       eval_SRA,
     eval_SLLV,      eval_Reserved,  eval_SRLV,      eval_SRAV,
     eval_JR,        eval_JALR,      eval_MOVZ,      eval_MOVN,
@@ -2163,7 +2156,7 @@ void eval_SPECIAL(u32 instr) {
     SPECIAL_callbacks[assembly::getFunct(instr)](instr);
 }
 
-void (*REGIMM_callbacks[32])(u32) = {
+static void (*REGIMM_callbacks[32])(u32) = {
     eval_BLTZ,      eval_BGEZ,      eval_Reserved,  eval_Reserved,
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
     eval_Reserved,  eval_Reserved,  eval_Reserved,  eval_Reserved,
@@ -2178,7 +2171,7 @@ void eval_REGIMM(u32 instr) {
     REGIMM_callbacks[assembly::getRt(instr)](instr);
 }
 
-void (*CPU_callbacks[64])(u32) = {
+static void (*CPU_callbacks[64])(u32) = {
     eval_SPECIAL,   eval_REGIMM,    eval_J,         eval_JAL,
     eval_BEQ,       eval_BNE,       eval_BLEZ,      eval_BGTZ,
     eval_ADDI,      eval_ADDIU,     eval_SLTI,      eval_SLTIU,

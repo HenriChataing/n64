@@ -368,6 +368,13 @@ void eval_COP2(u32 instr);
 extern u16 RCP_ROM[512];
 extern u16 RSQ_ROM[512];
 
+/** Helper for branch instructions: update the state to branch to \p btrue
+ * or \p bfalse depending on the tested condition \p cond. */
+static inline void branch(bool cond, u64 btrue, u64 bfalse) {
+    R4300::state.rsp.nextAction = R4300::State::Delay;
+    R4300::state.rsp.nextPc = cond ? btrue : bfalse;
+}
+
 }; /* namespace rsp */
 }; /* namespace interpreter */
 
