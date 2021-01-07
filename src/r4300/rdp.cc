@@ -2231,7 +2231,7 @@ void setOtherModes(u64 command, u64 const *params) {
     rdp.other_modes.alpha_compare_en = (command >> 0) & 0x1u;
 
     debugger::debug(Debugger::RDP, "  atomic_prim: {}", rdp.other_modes.atomic_prim);
-    debugger::info(Debugger::RDP, "  cycle_type: {}", rdp.other_modes.cycle_type);
+    debugger::info(Debugger::RDP,  "  cycle_type: {}", rdp.other_modes.cycle_type);
     debugger::debug(Debugger::RDP, "  persp_tex_en: {}", rdp.other_modes.persp_tex_en);
     debugger::debug(Debugger::RDP, "  detail_tex_en: {}", rdp.other_modes.detail_tex_en);
     debugger::debug(Debugger::RDP, "  sharpen_tex_en: {}", rdp.other_modes.sharpen_tex_en);
@@ -2921,7 +2921,7 @@ static void load_DPC_commands(void) {
         state.hwreg.dpc_End = state.hwreg.DPC_END_REG;
     }
 
-    while (DPC_hasNext()) {
+    while (DPC_hasNext() && !core::halted()) {
         uint64_t dword = DPC_read();
 
         if (state.hwreg.dpc_CommandBufferLen == 0) {
