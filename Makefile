@@ -108,6 +108,7 @@ OBJS      := \
     $(OBJDIR)/src/debugger.o \
     $(OBJDIR)/src/core.o \
     $(OBJDIR)/src/trace.o \
+    $(OBJDIR)/src/lib/crc32.o \
     $(OBJDIR)/src/interpreter/cpu.o \
     $(OBJDIR)/src/interpreter/cop0.o \
     $(OBJDIR)/src/interpreter/cop1.o \

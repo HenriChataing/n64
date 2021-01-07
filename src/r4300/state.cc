@@ -8,8 +8,17 @@
 #include <r4300/hw.h>
 #include <r4300/state.h>
 
+#include <lib/crc32.h>
 #include <debugger.h>
 #include <trace.h>
+
+#define CIC_SEED_NUS_5101 UINT32_C(0x0000ac00)
+#define CIC_SEED_NUS_6101 UINT32_C(0x00043f3f)
+#define CIC_SEED_NUS_6102 UINT32_C(0x00003f3f)
+#define CIC_SEED_NUS_6103 UINT32_C(0x0000783f)
+#define CIC_SEED_NUS_6105 UINT32_C(0x0000913f)
+#define CIC_SEED_NUS_6106 UINT32_C(0x0000853f)
+#define CIC_SEED_NUS_8303 UINT32_C(0x0000dd00)
 
 using namespace R4300;
 
@@ -21,6 +30,7 @@ State state;
 static bool RAZ(unsigned bytes, u64 addr, u64 *val) {
     (void)bytes; (void)addr;
     *val = 0;
+    debugger::warn(Debugger::CPU, "read undefined address 0x{:x}", addr);
     core::halt("RAZ");
     return true;
 }
@@ -28,6 +38,8 @@ static bool RAZ(unsigned bytes, u64 addr, u64 *val) {
 /* Write-Ignored */
 static bool WI(unsigned bytes, u64 addr, u64 val) {
     (void)bytes; (void)addr; (void)val;
+    debugger::warn(Debugger::CPU, "write undefined address 0x{:x} <- 0x{:x}",
+        addr, val);
     // core::halt("WI");
     return true;
 }
@@ -111,13 +123,30 @@ void State::reset() {
 
     // Reproduce the pif ROM boot sequence, instruction by instruction.
     // The ROM reproduced here is IPL 1.0 NTSC.
+    // First determine the CIC seed by comparing the boot segment to a list
+    // of known seeds. The crc check skips the variable ROM header.
 
-    // After reset, the CIC has input the following value
-    // at the offset 0x24 of the PIF RAM (based on the CIC-NUS-6102)
+    uint32_t crc = calculate_crc32(rom + 0x40, 0xfc0);
+    uint32_t cic_seed;
+
+    switch (crc) {
+    case UINT32_C(0x76371d23):
+    case UINT32_C(0x87fcd537):
+        cic_seed = CIC_SEED_NUS_6102; break;
+    case UINT32_C(0x8ffb9504):
+        cic_seed = CIC_SEED_NUS_6105; break;
+    default:
+        debugger::warn(Debugger::CPU, "unrecognized CIC seed, crc32={:x}", crc);
+        cic_seed = CIC_SEED_NUS_6102;
+        break;
+    }
+
+    // After reset, the CIC has input the seed
+    // at the offset 0x24 of the PIF RAM.
     pifram[36] = 0;
     pifram[37] = 0;
-    pifram[38] = UINT8_C(0x3f);
-    pifram[39] = UINT8_C(0x3f);
+    pifram[38] = (uint8_t)(cic_seed >> 8);
+    pifram[39] = (uint8_t)(cic_seed >> 0);
 
     // 1fc00004: Write SR = 0x34000000
     cp0reg.sr     = UINT32_C(0x34000000);
