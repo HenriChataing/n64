@@ -67,56 +67,68 @@ CXXFLAGS  += `pkg-config --cflags glfw3`
 .PHONY: all
 all: $(EXE)
 
+RECOMPILER_OBJS := \
+    $(OBJDIR)/src/recompiler/ir.o \
+    $(OBJDIR)/src/recompiler/backend.o \
+    $(OBJDIR)/src/recompiler/code_buffer.o \
+    $(OBJDIR)/src/recompiler/passes/typecheck.o \
+    $(OBJDIR)/src/recompiler/passes/run.o \
+    $(OBJDIR)/src/recompiler/passes/optimize.o \
+    $(OBJDIR)/src/recompiler/target/mips/disassembler.o \
+    $(OBJDIR)/src/recompiler/target/x86_64/assembler.o \
+    $(OBJDIR)/src/recompiler/target/x86_64/emitter.o
+
+UI_OBJS := \
+    $(OBJDIR)/src/gui/gui.o \
+    $(OBJDIR)/src/gui/graphics.o \
+    $(OBJDIR)/src/gui/imgui_impl_glfw.o \
+    $(OBJDIR)/src/gui/imgui_impl_opengl3.o
+
+HW_OBJS := \
+    $(OBJDIR)/src/r4300/rdp.o \
+    $(OBJDIR)/src/r4300/hw/ai.o \
+    $(OBJDIR)/src/r4300/hw/cart.o \
+    $(OBJDIR)/src/r4300/hw/dpc.o \
+    $(OBJDIR)/src/r4300/hw/mi.o \
+    $(OBJDIR)/src/r4300/hw/pi.o \
+    $(OBJDIR)/src/r4300/hw/pif.o \
+    $(OBJDIR)/src/r4300/hw/ri.o \
+    $(OBJDIR)/src/r4300/hw/sp.o \
+    $(OBJDIR)/src/r4300/hw/vi.o \
+
+EXTERNAL_OBJS := \
+    $(OBJDIR)/external/fmt/src/format.o \
+    $(OBJDIR)/external/imgui/imgui.o \
+    $(OBJDIR)/external/imgui/imgui_draw.o \
+    $(OBJDIR)/external/imgui/imgui_widgets.o
+
 OBJS      := \
-    src/main.o \
-    src/memory.o \
-    src/debugger.o \
-    src/core.o \
-    src/trace.o \
-    src/interpreter/cpu.o \
-    src/interpreter/cop0.o \
-    src/interpreter/cop1.o \
-    src/interpreter/rsp.o \
-    src/recompiler/ir.o \
-    src/recompiler/backend.o \
-    src/recompiler/code_buffer.o \
-    src/recompiler/passes/run.o \
-    src/recompiler/passes/optimize.o \
-    src/recompiler/target/mips/disassembler.o \
-    src/recompiler/target/x86_64/assembler.o \
-    src/recompiler/target/x86_64/emitter.o \
-    src/assembly/disassembler.o \
-    src/r4300/cpu.o \
-    src/r4300/rsp.o \
-    src/r4300/state.o \
-    src/r4300/hw/ai.o \
-    src/r4300/hw/cart.o \
-    src/r4300/hw/dpc.o \
-    src/r4300/hw/mi.o \
-    src/r4300/hw/pi.o \
-    src/r4300/hw/pif.o \
-    src/r4300/hw/ri.o \
-    src/r4300/hw/sp.o \
-    src/r4300/hw/vi.o \
-    src/r4300/rdp.o \
-    src/r4300/mmu.o \
-    src/r4300/export.o \
-    src/gui/gui.o \
-    src/gui/graphics.o \
-    src/gui/imgui_impl_glfw.o \
-    src/gui/imgui_impl_opengl3.o
+    $(OBJDIR)/src/main.o \
+    $(OBJDIR)/src/memory.o \
+    $(OBJDIR)/src/debugger.o \
+    $(OBJDIR)/src/core.o \
+    $(OBJDIR)/src/trace.o \
+    $(OBJDIR)/src/interpreter/cpu.o \
+    $(OBJDIR)/src/interpreter/cop0.o \
+    $(OBJDIR)/src/interpreter/cop1.o \
+    $(OBJDIR)/src/interpreter/rsp.o \
+    $(OBJDIR)/src/assembly/disassembler.o \
+    $(OBJDIR)/src/r4300/mmu.o \
+    $(OBJDIR)/src/r4300/cpu.o \
+    $(OBJDIR)/src/r4300/rsp.o \
+    $(OBJDIR)/src/r4300/state.o \
+    $(OBJDIR)/src/r4300/export.o \
 
 ifeq ($(ENABLE_CAPTURE),1)
-OBJS += src/interpreter/trace.o
+OBJS      += $(OBJDIR)/src/interpreter/trace.o
 endif
 
-OBJS      += \
-    external/fmt/src/format.o \
-    external/imgui/imgui.o \
-    external/imgui/imgui_draw.o \
-    external/imgui/imgui_widgets.o
+OBJS      += $(RECOMPILER_OBJS)
+OBJS      += $(HW_OBJS)
+OBJS      += $(UI_OBJS)
+OBJS      += $(EXTERNAL_OBJS)
 
-DEPS      := $(patsubst %.o,$(OBJDIR)/%.d,$(OBJS))
+DEPS      := $(patsubst %.o,%.d,$(OBJS))
 
 -include $(DEPS)
 
@@ -135,19 +147,9 @@ $(OBJDIR)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(Q)$(CC) $(CFLAGS) -c $< -MMD -MF $(@:.o=.d) -o $@
 
-$(EXE): $(addprefix $(OBJDIR)/,$(OBJS))
+$(EXE): $(OBJS)
 	@echo "  LD      $@"
 	$(Q)$(LD) -o $@ $(LDFLAGS) $^ $(LIBS)
-
-.PHONY: gprof2dot
-gprof2dot:
-	gprof $(EXE) | gprof2dot | dot -Tpng -o n64-prof.png
-
-clean:
-	@rm -rf $(OBJDIR) $(EXE)
-
-# test: bin/rsp_test_suite
-# 	@./bin/rsp_test_suite
 
 test: bin/recompiler_test_suite
 	@./bin/recompiler_test_suite
@@ -194,17 +196,10 @@ bin/recompiler_test_suite: \
     $(OBJDIR)/src/interpreter/cop0.o \
     $(OBJDIR)/src/interpreter/cop1.o \
     $(OBJDIR)/test/recompiler_test_suite.o \
-    $(OBJDIR)/src/recompiler/ir.o \
-    $(OBJDIR)/src/recompiler/backend.o \
-    $(OBJDIR)/src/recompiler/code_buffer.o \
-    $(OBJDIR)/src/recompiler/passes/typecheck.o \
-    $(OBJDIR)/src/recompiler/passes/run.o \
-    $(OBJDIR)/src/recompiler/passes/optimize.o \
-    $(OBJDIR)/src/recompiler/target/mips/disassembler.o \
-    $(OBJDIR)/src/recompiler/target/x86_64/assembler.o \
-    $(OBJDIR)/src/recompiler/target/x86_64/emitter.o \
-    $(OBJDIR)/src/assembly/disassembler.o \
-    $(OBJDIR)/external/fmt/src/format.o
+    $(OBJDIR)/src/assembly/disassembler.o
+
+bin/recompiler_test_suite: $(RECOMPILER_OBJS)
+bin/recompiler_test_suite: $(EXTERNAL_OBJS)
 
 bin/recompiler_test_suite:
 	@echo "  LD      $@"
@@ -230,44 +225,27 @@ bin/recompiler_test_server: \
     $(OBJDIR)/src/r4300/mmu.o \
     $(OBJDIR)/src/r4300/cpu.o \
     $(OBJDIR)/src/r4300/state.o \
-    $(OBJDIR)/src/r4300/hw/ai.o \
-    $(OBJDIR)/src/r4300/hw/cart.o \
-    $(OBJDIR)/src/r4300/hw/dpc.o \
-    $(OBJDIR)/src/r4300/hw/mi.o \
-    $(OBJDIR)/src/r4300/hw/pi.o \
-    $(OBJDIR)/src/r4300/hw/pif.o \
-    $(OBJDIR)/src/r4300/hw/ri.o \
-    $(OBJDIR)/src/r4300/hw/sp.o \
-    $(OBJDIR)/src/r4300/hw/vi.o \
     $(OBJDIR)/src/r4300/rsp.o \
-    $(OBJDIR)/src/r4300/rdp.o \
     $(OBJDIR)/src/interpreter/cpu.o \
     $(OBJDIR)/src/interpreter/cop0.o \
     $(OBJDIR)/src/interpreter/cop1.o \
     $(OBJDIR)/test/recompiler_test_server.o \
-    $(OBJDIR)/src/recompiler/ir.o \
-    $(OBJDIR)/src/recompiler/backend.o \
-    $(OBJDIR)/src/recompiler/cache.o \
-    $(OBJDIR)/src/recompiler/code_buffer.o \
-    $(OBJDIR)/src/recompiler/passes/typecheck.o \
-    $(OBJDIR)/src/recompiler/passes/run.o \
-    $(OBJDIR)/src/recompiler/passes/optimize.o \
-    $(OBJDIR)/src/recompiler/target/mips/disassembler.o \
-    $(OBJDIR)/src/recompiler/target/x86_64/assembler.o \
-    $(OBJDIR)/src/recompiler/target/x86_64/emitter.o \
-    $(OBJDIR)/src/assembly/disassembler.o \
-    $(OBJDIR)/src/gui/gui.o \
-    $(OBJDIR)/src/gui/graphics.o \
-    $(OBJDIR)/src/gui/imgui_impl_glfw.o \
-    $(OBJDIR)/src/gui/imgui_impl_opengl3.o \
-    $(OBJDIR)/external/fmt/src/format.o \
-    $(OBJDIR)/external/imgui/imgui.o \
-    $(OBJDIR)/external/imgui/imgui_draw.o \
-    $(OBJDIR)/external/imgui/imgui_widgets.o
+    $(OBJDIR)/src/assembly/disassembler.o
+
+bin/recompiler_test_server: $(RECOMPILER_OBJS)
+bin/recompiler_test_server: $(HW_OBJS)
+bin/recompiler_test_server: $(UI_OBJS)
+bin/recompiler_test_server: $(EXTERNAL_OBJS)
 
 bin/recompiler_test_server:
 	@echo "  LD      $@"
 	@mkdir -p bin
 	$(Q)$(LD) -o $@ $(LDFLAGS) $^ $(LIBS)
 
-.PHONY: clean all
+.PHONY: gprof2dot
+gprof2dot:
+	gprof $(EXE) | gprof2dot | dot -Tpng -o n64-prof.png
+
+.PHONY: clean
+clean:
+	@rm -rf $(OBJDIR) $(EXE)
