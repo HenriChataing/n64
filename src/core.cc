@@ -354,12 +354,19 @@ void exec_interpreter(struct recompiler_request_queue *queue,
         // When the translation fails, reset the cached region
         // and jump immediatly to interpreter code after taking
         // the exception.
+        // The exceptions vectors are located in a 0x200+ byte region starting
+        // either at 0x1fc00200 or 0x0. The processor mode is forced to kernel
+        // in this case, the exception vectors have a simple mapping.
         if (exn != Exception::None) {
-            virt_start = 0;
-            virt_end = 0;
-            // TODO take exception here.
-            (void)exec_cpu_interpreter(1);
-            return;
+            state.reg.pc = state.cpu.nextPc;
+            state.cpu.nextAction = State::Action::Continue;
+            state.cpu.delaySlot = false;
+            takeException(exn, virt_address, true, true, 0);
+            virt_address = state.cpu.nextPc;
+            phys_address = virt_address & UINT64_C(0x1fffffff);
+            phys_start = phys_address & UINT64_C(0x1ffffe00);
+            virt_start = virt_address & ~UINT64_C(0x1ff);
+            virt_end = virt_address | UINT64_C(0x1ff);
         }
         // When the translation succeeds, update the cached region.
         else {
