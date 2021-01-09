@@ -75,12 +75,31 @@ void fail_code_buffer(code_buffer_t *emitter) {
     longjmp(emitter->jmp_buf, -1);
 }
 
+void dump_code_buffer(FILE *fd, const code_buffer_t *emitter) {
+    fprintf(fd, "   ");
+    for (unsigned i = 0; i < emitter->length; i++) {
+        if (i && (i % 16) == 0) fprintf(fd, "\n   ");
+        fprintf(fd, " %02x", emitter->ptr[i]);
+    }
+    fprintf(fd, "\n");
+}
+
+/**
+ * @brief Append \p b to the code buffer \p emitter.
+ * @param emitter       Pointer to a code buffer object.
+ * @param b             Byte to append.
+ */
 void emit_u8(code_buffer_t *emitter, uint8_t b) {
     if (emitter->length >= emitter->capacity)
         longjmp(emitter->jmp_buf, -1);
     emitter->ptr[emitter->length++] = b;
 }
 
+/**
+ * @brief Append \p w to the code buffer \p emitter.
+ * @param emitter       Pointer to a code buffer object.
+ * @param w             Word to append.
+ */
 void emit_u16_le(code_buffer_t *emitter, uint16_t w) {
     if ((emitter->length + 1) >= emitter->capacity)
         longjmp(emitter->jmp_buf, -1);
@@ -88,6 +107,11 @@ void emit_u16_le(code_buffer_t *emitter, uint16_t w) {
     emitter->ptr[emitter->length++] = w >> 8;
 }
 
+/**
+ * @brief Append \p d to the code buffer \p emitter.
+ * @param emitter       Pointer to a code buffer object.
+ * @param d             Double word to append.
+ */
 void emit_u32_le(code_buffer_t *emitter, uint32_t d) {
     if ((emitter->length + 3) >= emitter->capacity)
         longjmp(emitter->jmp_buf, -1);
@@ -97,6 +121,11 @@ void emit_u32_le(code_buffer_t *emitter, uint32_t d) {
     emitter->ptr[emitter->length++] = d >> 24;
 }
 
+/**
+ * @brief Append \p q to the code buffer \p emitter.
+ * @param emitter       Pointer to a code buffer object.
+ * @param q             Quad word to append.
+ */
 void emit_u64_le(code_buffer_t *emitter, uint64_t q) {
     if ((emitter->length + 8) >= emitter->capacity)
         longjmp(emitter->jmp_buf, -1);
@@ -110,27 +139,38 @@ void emit_u64_le(code_buffer_t *emitter, uint64_t q) {
     emitter->ptr[emitter->length++] = q >> 56;
 }
 
+/**
+ * @brief Append \p b to the code buffer \p emitter.
+ * @param emitter       Pointer to a code buffer object.
+ * @param b             Byte to append.
+ */
 void emit_i8(code_buffer_t *emitter, int8_t b) {
     emit_u8(emitter, (uint8_t)b);
 }
 
+/**
+ * @brief Append \p w to the code buffer \p emitter.
+ * @param emitter       Pointer to a code buffer object.
+ * @param w             Word to append.
+ */
 void emit_i16_le(code_buffer_t *emitter, int16_t w) {
     emit_u16_le(emitter, (uint16_t)w);
 }
 
+/**
+ * @brief Append \p d to the code buffer \p emitter.
+ * @param emitter       Pointer to a code buffer object.
+ * @param d             Double word to append.
+ */
 void emit_i32_le(code_buffer_t *emitter, int32_t d) {
     emit_u32_le(emitter, (uint32_t)d);
 }
 
+/**
+ * @brief Append \p q to the code buffer \p emitter.
+ * @param emitter       Pointer to a code buffer object.
+ * @param q             Quad word to append.
+ */
 void emit_i64_le(code_buffer_t *emitter, int64_t q) {
     emit_u64_le(emitter, (uint64_t)q);
-}
-
-void dump_code_buffer(FILE *fd, const code_buffer_t *emitter) {
-    fprintf(fd, "   ");
-    for (unsigned i = 0; i < emitter->length; i++) {
-        if (i && (i % 16) == 0) fprintf(fd, "\n   ");
-        fprintf(fd, " %02x", emitter->ptr[i]);
-    }
-    fprintf(fd, "\n");
 }
