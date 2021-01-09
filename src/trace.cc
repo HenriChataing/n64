@@ -9,6 +9,46 @@
 #include "memory.h"
 #include "trace.h"
 
+/** @brief Enable the bus transaction trace. */
+void DebugBus::start_trace() {
+    enable_trace = true;
+    trace.clear();
+}
+
+/** @brief Disable the bus transaction trace. */
+void DebugBus::end_trace() {
+    enable_trace = false;
+}
+
+/** @brief Clear the bus transaction trace of a \ref DebugBus. */
+void DebugBus::clear_trace() {
+    trace.clear();
+}
+
+/** @brief Retrieve the bus transaction trace of a \ref DebugBus. */
+void DebugBus::copy_trace(std::vector<Memory::BusTransaction> &trace) {
+    std::copy(this->trace.begin(), this->trace.end(),
+        std::back_inserter(trace));
+}
+
+bool DebugBus::load(unsigned bytes, uint64_t addr, uint64_t *val) {
+    bool res = root.load(bytes, addr, val);
+    if (enable_trace) {
+        trace.push_back(
+            Memory::BusTransaction(true, res, bytes, addr, res ? *val : 0));
+    }
+    return res;
+}
+
+bool DebugBus::store(unsigned bytes, uint64_t addr, uint64_t val) {
+    bool res = root.store(bytes, addr, val);
+    if (enable_trace) {
+        trace.push_back(
+            Memory::BusTransaction(false, res, bytes, addr, val));
+    }
+    return res;
+}
+
 static inline void serialize(uint64_t value, unsigned char *ptr) {
     ptr[0] = (unsigned char)(value >> 56);
     ptr[1] = (unsigned char)(value >> 48);

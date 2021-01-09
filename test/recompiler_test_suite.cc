@@ -35,10 +35,10 @@ public:
     ReplayBus(unsigned bits) : Bus(bits) {}
     virtual ~ReplayBus() {}
 
-    std::vector<BusLog> log;
+    std::vector<Memory::BusTransaction> log;
     unsigned index;
 
-    void reset(std::vector<BusLog> &log) {
+    void reset(std::vector<Memory::BusTransaction> &log) {
         this->log.clear();
         this->index = 0;
         this->_bad = false;
@@ -56,7 +56,7 @@ public:
                 "unexpected memory access: outside recorded trace\n");
             return false;
         }
-        if (log[index].access != Memory::Load ||
+        if (!log[index].load ||
             log[index].bytes != bytes ||
             log[index].address != addr) {
             _bad = true;
@@ -65,17 +65,17 @@ public:
             fmt::print(fmt::emphasis::italic,
                 "    played:   load_u{}(0x{:x})\n",
                 bytes * 8, addr);
-            if (log[index].access == Memory::Store) {
+            if (log[index].load) {
+                fmt::print(fmt::emphasis::italic,
+                    "    expected: load_u{}(0x{:x})\n",
+                    log[index].bytes * 8,
+                    log[index].address);
+            } else {
                 fmt::print(fmt::emphasis::italic,
                     "    expected: store_u{}(0x{:x}, 0x{:x})\n",
                     log[index].bytes * 8,
                     log[index].address,
                     log[index].value);
-            } else {
-                fmt::print(fmt::emphasis::italic,
-                    "    expected: load_u{}(0x{:x})\n",
-                    log[index].bytes * 8,
-                    log[index].address);
             }
             return false;
         }
@@ -88,7 +88,7 @@ public:
                 "unexpected memory access: outside recorded trace\n");
             return false;
         }
-        if (log[index].access != Memory::Store ||
+        if (log[index].load ||
             log[index].bytes != bytes ||
             log[index].address != addr ||
             log[index].value != val) {
@@ -98,17 +98,17 @@ public:
             fmt::print(fmt::emphasis::italic,
                 "    played:   store_u{}(0x{:x}, 0x{:x})\n",
                 bytes * 8, addr, val);
-            if (log[index].access == Memory::Store) {
+            if (log[index].load) {
+                fmt::print(fmt::emphasis::italic,
+                    "    expected: load_u{}(0x{:x})\n",
+                    log[index].bytes * 8,
+                    log[index].address);
+            } else {
                 fmt::print(fmt::emphasis::italic,
                     "    expected: store_u{}(0x{:x}, 0x{:x})\n",
                     log[index].bytes * 8,
                     log[index].address,
                     log[index].value);
-            } else {
-                fmt::print(fmt::emphasis::italic,
-                    "    expected: load_u{}(0x{:x})\n",
-                    log[index].bytes * 8,
-                    log[index].address);
             }
             return false;
         }
@@ -291,7 +291,7 @@ struct test_case {
     uint64_t end_address;
     uint64_t start_cycles;
     uint64_t end_cycles;
-    std::vector<Memory::BusLog> trace;
+    std::vector<Memory::BusTransaction> trace;
     unsigned char *input;
     unsigned char *output;
 };
@@ -402,7 +402,7 @@ static int parse_word_array(toml::array const *array,
 }
 
 static int parse_trace_entry(toml::node const *trace_node,
-                             Memory::BusLog &entry) {
+                             Memory::BusTransaction &entry) {
     if (!trace_node->is_table()) {
         debugger::error(Debugger::CPU, "test trace entry is not a table node");
         return -1;
@@ -433,38 +433,38 @@ static int parse_trace_entry(toml::node const *trace_node,
     uint64_t address = strtoull((**address_node.as_string()).c_str(), NULL, 0);
     uint64_t value = strtoull((**value_node.as_string()).c_str(), NULL, 0);
     unsigned bytes;
-    Memory::BusAccess access;
+    bool load;
 
     if (type == "load_u8") {
-        access = Memory::Load;
+        load = true;
         bytes = 1;
     }
     else if (type == "load_u16") {
-        access = Memory::Load;
+        load = true;
         bytes = 2;
     }
     else if (type == "load_u32") {
-        access = Memory::Load;
+        load = true;
         bytes = 4;
     }
     else if (type == "load_u64") {
-        access = Memory::Load;
+        load = true;
         bytes = 8;
     }
     else if (type == "store_u8") {
-        access = Memory::Store;
+        load = false;
         bytes = 1;
     }
     else if (type == "store_u16") {
-        access = Memory::Store;
+        load = false;
         bytes = 2;
     }
     else if (type == "store_u32") {
-        access = Memory::Store;
+        load = false;
         bytes = 4;
     }
     else if (type == "store_u64") {
-        access = Memory::Store;
+        load = false;
         bytes = 8;
     }
     else {
@@ -475,7 +475,7 @@ static int parse_trace_entry(toml::node const *trace_node,
 
     entry.address = address;
     entry.value = value;
-    entry.access = access;
+    entry.load = load;
     entry.bytes = bytes;
     return 0;
 }
@@ -517,7 +517,7 @@ static int parse_test_case(toml::node const *test_node,
 
     trace_array = trace_node.as_array();
     for (unsigned i = 0; i < trace_array->size(); i++) {
-        Memory::BusLog entry;
+        Memory::BusTransaction entry;
         if (parse_trace_entry(trace_array->get(i), entry) < 0) {
             return -1;
         }

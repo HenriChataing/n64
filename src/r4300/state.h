@@ -71,11 +71,6 @@ public:
 
     u8 loadHiddenBits(u32 addr);
     void storeHiddenBits(u32 addr, u8 val);
-
-    void getMemoryLog(std::vector<Memory::BusLog> &log) {
-        Memory::LoggingBus *bus = dynamic_cast<Memory::LoggingBus *>(this->bus);
-        if (bus) bus->copy(log);
-    }
 };
 
 /** Current machine state. */

@@ -91,55 +91,31 @@ public:
     }
 };
 
-/** Type of bus access. */
-enum BusAccess {
-    Load,
-    Store,
-};
-
-/** Bus access log. */
-struct BusLog {
-    BusAccess access;
+/**
+ * @struct BusTransaction
+ * @brief Record of a bus transaction.
+ *
+ * @var BusTransaction::load
+ * @brief True if the access is a load, false otherwise.
+ * @var BusTransaction::result
+ * @brief True if the address was valid, false if the address was invalid.
+ * @var BusTransaction::bytes
+ * @brief Bus access size in bytes (1, 2, 4, 8).
+ * @var BusTransaction::value
+ * @brief Bus access input or output value.
+ */
+struct BusTransaction {
+    bool load;
+    bool valid;
     unsigned bytes;
-    u64 address;
-    u64 value;
-    bool result;
+    uint64_t address;
+    uint64_t value;
 
-    BusLog() :
-        access(Memory::Load), bytes(0), address(0), value(0), result(0) {}
-    BusLog(BusAccess access, unsigned bytes, u64 address, u64 value, bool result) :
-        access(access), bytes(bytes), address(address), value(value), result(result) {}
-};
-
-/** Derive the Bus class to log all load and store memory accesses. */
-class LoggingBus: public Memory::Bus
-{
-public:
-    LoggingBus(unsigned bits) : Bus(bits), _capture(false) {}
-    virtual ~LoggingBus() {}
-
-    std::vector<BusLog> log;
-
-    void capture(bool enabled) { this->_capture = enabled; }
-    void copy(std::vector<BusLog> &log) {
-        std::copy(this->log.begin(), this->log.end(),
-            std::back_inserter(log));
-    }
-    void clear() { log.clear(); }
-
-    virtual bool load(unsigned bytes, u64 addr, u64 *val) {
-        bool res = root.load(bytes, addr, val);
-        if (_capture) log.push_back(BusLog(Load, bytes, addr, res ? *val : 0, res));
-        return res;
-    }
-    virtual bool store(unsigned bytes, u64 addr, u64 val) {
-        bool res = root.store(bytes, addr, val);
-        if (_capture) log.push_back(BusLog(Store, bytes, addr, val, res));
-        return res;
-    }
-
-private:
-    bool _capture;
+    BusTransaction() :
+        load(false), valid(false), bytes(0), address(0), value(0) {}
+    BusTransaction(bool load, bool valid, unsigned bytes,
+                   uint64_t address, uint64_t value) :
+        load(load), valid(valid), bytes(bytes), address(address), value(value) {}
 };
 
 }; /* namespace Memory */

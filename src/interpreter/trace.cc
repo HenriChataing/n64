@@ -8,7 +8,9 @@
 #include <interpreter/interpreter.h>
 #include <r4300/state.h>
 #include <r4300/export.h>
+#include <core.h>
 #include <debugger.h>
+#include <trace.h>
 
 using namespace n64;
 using namespace R4300;
@@ -48,15 +50,15 @@ void start_capture(void) {
     captureCpuPre = state.reg;
     captureCp0Pre = state.cp0reg;
     captureCp1Pre = state.cp1reg;
-    Memory::LoggingBus *bus = dynamic_cast<Memory::LoggingBus *>(state.bus);
-    bus->capture(true);
+    DebugBus *bus = dynamic_cast<DebugBus *>(state.bus);
+    bus->start_trace();
 }
 
 void stop_capture(u64 finalAddress) {
     if (!captureRunning)
         return;
 
-    Memory::LoggingBus *bus = dynamic_cast<Memory::LoggingBus *>(state.bus);
+    DebugBus *bus = dynamic_cast<DebugBus *>(state.bus);
     std::string filename =
         fmt::format("test/recompiler/test_{:08x}.toml",
             captureStart & 0xfffffffflu);
@@ -99,13 +101,13 @@ void stop_capture(u64 finalAddress) {
 
         u64 address = captureStart;
         unsigned count = 0;
-        for (Memory::BusLog entry: bus->log) {
+        for (Memory::BusTransaction entry: bus->trace) {
             debugger::warn(Debugger::CPU,
                 "  {}_{}(0x{:x}, 0x{:x})",
-                entry.access == Memory::BusAccess::Load ? "load" : "store",
+                entry.load ? "load" : "store",
                 entry.bytes * 8, entry.address, entry.value);
 
-            if (entry.access == Memory::BusAccess::Load && entry.bytes == 4 &&
+            if (entry.load && entry.bytes == 4 &&
                 (entry.address & 0xffffffflu) == (address & 0xffffffflu)) {
                 if ((count % 4) == 0) bin_code += "\n   ";
                 bin_code += fmt::format(" 0x{:08x},", entry.value);
@@ -117,7 +119,7 @@ void stop_capture(u64 finalAddress) {
         if (address != (state.reg.pc + 4)) {
             debugger::warn(Debugger::CPU,
                 "incomplete memory trace: missing instruction fetches {}/{}/{}",
-                count, bus->log.size(), state.reg.pc - captureStart + 4);
+                count, bus->trace.size(), state.reg.pc - captureStart + 4);
             core::halt(
                 "incomplete memory trace: missing instruction fetches");
         }
@@ -145,14 +147,14 @@ void stop_capture(u64 finalAddress) {
     fmt::print(ofs, "end_address = \"0x{:016x}\"\n", finalAddress);
     fmt::print(ofs, "trace = [\n");
     u64 address = captureStart;
-    for (Memory::BusLog entry: bus->log) {
-        if (entry.access == Memory::BusAccess::Load && entry.bytes == 4 &&
+    for (Memory::BusTransaction entry: bus->trace) {
+        if (entry.load && entry.bytes == 4 &&
             (entry.address & 0xffffffflu) == (address & 0xffffffflu)) {
             address += 4;
         } else {
             fmt::print(ofs,
                 "    {{ type = \"{}_u{}\", address = \"0x{:08x}\", value = \"0x{:x}\" }},\n",
-                entry.access == Memory::BusAccess::Load ? "load" : "store",
+                entry.load ? "load" : "store",
                 entry.bytes * 8, entry.address, entry.value);
         }
     }
@@ -170,8 +172,7 @@ void stop_capture(u64 finalAddress) {
     prefs.close();
     postfs.close();
 
-    bus->capture(false);
-    bus->clear();
+    bus->end_trace();
     captureRunning = false;
     captureCount++;
 }
