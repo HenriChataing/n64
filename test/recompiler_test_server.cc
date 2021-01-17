@@ -1,5 +1,6 @@
 
 #include <cstdlib>
+#include <fstream>
 #include <semaphore.h>
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -13,7 +14,6 @@
 #include <interpreter/interpreter.h>
 #include <recompiler/ir.h>
 #include <recompiler/backend.h>
-#include <recompiler/cache.h>
 #include <recompiler/code_buffer.h>
 #include <recompiler/passes.h>
 #include <recompiler/target/mips.h>
@@ -21,12 +21,13 @@
 #include <r4300/state.h>
 #include <core.h>
 #include <debugger.h>
+#include <trace.h>
 
 using namespace Memory;
 using namespace R4300;
 using namespace n64;
 
-namespace Memory {
+namespace Test {
 
 /** Implement a bus replaying memory accesses previously recorded with the
  * LoggingBus. An exception is raised if an attempt is made at :
@@ -42,10 +43,10 @@ public:
     ReplayBus(unsigned bits) : Bus(bits) {}
     virtual ~ReplayBus() {}
 
-    std::vector<BusLog> log;
+    std::vector<Memory::BusTransaction> log;
     unsigned index;
 
-    void reset(BusLog *log, size_t log_len) {
+    void reset(Memory::BusTransaction *log, size_t log_len) {
         this->log.clear();
         this->index = 0;
         this->_bad = false;
@@ -65,7 +66,7 @@ public:
             _bad = true;
             return false;
         }
-        if (log[index].access != Memory::Load ||
+        if (!log[index].load ||
             log[index].bytes != bytes ||
             log[index].address != addr) {
             fmt::print(fmt::emphasis::italic,
@@ -73,17 +74,17 @@ public:
             fmt::print(fmt::emphasis::italic,
                 "    played:  load_u{}(0x{:x})\n",
                 bytes * 8, addr);
-            if (log[index].access == Memory::Store) {
+            if (log[index].load) {
+                fmt::print(fmt::emphasis::italic,
+                    "    expected: load_u{}(0x{:x})\n",
+                    log[index].bytes * 8,
+                    log[index].address);
+            } else {
                 fmt::print(fmt::emphasis::italic,
                     "    expected: store_u{}(0x{:x}, 0x{:x})\n",
                     log[index].bytes * 8,
                     log[index].address,
                     log[index].value);
-            } else {
-                fmt::print(fmt::emphasis::italic,
-                    "    expected: load_u{}(0x{:x})\n",
-                    log[index].bytes * 8,
-                    log[index].address);
             }
             _bad = true;
             return false;
@@ -98,7 +99,7 @@ public:
             _bad = true;
             return false;
         }
-        if (log[index].access != Memory::Store ||
+        if (log[index].load ||
             log[index].bytes != bytes ||
             log[index].address != addr ||
             log[index].value != val) {
@@ -107,17 +108,17 @@ public:
             fmt::print(fmt::emphasis::italic,
                 "    played:  store_u{}(0x{:x}, 0x{:x})\n",
                 bytes * 8, addr, val);
-            if (log[index].access == Memory::Store) {
+            if (log[index].load) {
+                fmt::print(fmt::emphasis::italic,
+                    "    expected: load_u{}(0x{:x})\n",
+                    log[index].bytes * 8,
+                    log[index].address);
+            } else {
                 fmt::print(fmt::emphasis::italic,
                     "    expected: store_u{}(0x{:x}, 0x{:x})\n",
                     log[index].bytes * 8,
                     log[index].address,
                     log[index].value);
-            } else {
-                fmt::print(fmt::emphasis::italic,
-                    "    expected: load_u{}(0x{:x})\n",
-                    log[index].bytes * 8,
-                    log[index].address);
             }
             _bad = true;
             return false;
@@ -127,7 +128,7 @@ public:
     }
 };
 
-}; /* Memory */
+}; /* Test */
 
 static inline void print_register_diff(uintmax_t left, uintmax_t right,
                                        const std::string &name) {
@@ -249,7 +250,7 @@ static struct trace_registers {
 } *trace_registers;
 
 /** Records the memory access log of a recorded cpu trace. */
-static BusLog  *trace_memory_log;
+static Memory::BusTransaction  *trace_memory_log;
 static size_t   trace_memory_log_maxlen = 0x1000;
 
 /** Records the executed binary code of a recorded cpu trace. */
@@ -292,7 +293,7 @@ void print_ir_disassembly(ir_graph_t *graph) {
     for (unsigned label = 0; label < graph->nr_blocks; label++) {
         fmt::print(".L{}:\n", label);
         block = &graph->blocks[label];
-        for (instr = block->instrs; instr != NULL; instr = instr->next) {
+        for (instr = block->entry; instr != NULL; instr = instr->next) {
             ir_print_instr(line, sizeof(line), instr);
             fmt::print("    {}\n", line);
         }
@@ -324,13 +325,13 @@ void print_memory_log(void) {
     fmt::print("--------------- memory log ----------------\n");
 
     for (unsigned nr = 0; nr < trace_sync->memory_log_len; nr++) {
-        if (trace_memory_log[nr].access == Memory::Store) {
-            fmt::print("    store_u{}(0x{:x}, 0x{:x})\n",
+        if (trace_memory_log[nr].load) {
+            fmt::print("    load_u{}(0x{:x}) -> 0x{:x}\n",
                 trace_memory_log[nr].bytes * 8,
                 trace_memory_log[nr].address,
                 trace_memory_log[nr].value);
         } else {
-            fmt::print("    load_u{}(0x{:x}) -> 0x{:x}\n",
+            fmt::print("    store_u{}(0x{:x}, 0x{:x})\n",
                 trace_memory_log[nr].bytes * 8,
                 trace_memory_log[nr].address,
                 trace_memory_log[nr].value);
@@ -341,14 +342,15 @@ void print_memory_log(void) {
 namespace interpreter::cpu {
 
 void start_capture(void) {
+    fmt::print("start capture\n");
     trace_registers->start_address = R4300::state.reg.pc;
     trace_registers->start_cycles = R4300::state.cycles;
     trace_registers->start_cpureg = R4300::state.reg;
     trace_registers->start_cp0reg = R4300::state.cp0reg;
     trace_registers->start_cp1reg = R4300::state.cp1reg;
 
-    Memory::LoggingBus *bus = dynamic_cast<Memory::LoggingBus *>(state.bus);
-    bus->capture(true);
+    DebugBus *bus = dynamic_cast<DebugBus *>(state.bus);
+    bus->start_trace();
 }
 
 void stop_capture(u64 address) {
@@ -361,19 +363,20 @@ void stop_capture(u64 address) {
     trace_sync->memory_log_len = 0;
     trace_sync->binary_len = 0;
 
-    Memory::LoggingBus *bus = dynamic_cast<Memory::LoggingBus *>(state.bus);
+    DebugBus *bus = dynamic_cast<DebugBus *>(state.bus);
     address = trace_registers->start_address;
 
+    fmt::print("stop capture\n");
+
     uint64_t phys_address;
-    if (translateAddress(address, &phys_address, false) != R4300::Exception::None) {
+    if (translate_address(address, &phys_address, false, NULL, NULL) != R4300::Exception::None) {
         fmt::print(fmt::fg(fmt::color::dark_orange),
             "cannot translate start address 0x{:x}\n", address);
         goto clear_capture;
     }
 
-    for (Memory::BusLog entry: bus->log) {
-        if (entry.access == Memory::BusAccess::Load && entry.bytes == 4 &&
-            entry.address == phys_address) {
+    for (Memory::BusTransaction entry: bus->trace) {
+        if (entry.load && entry.bytes == 4 && entry.address == phys_address) {
             if ((trace_sync->binary_len + 4) > trace_binary_maxlen) {
                 // Insufficient binary storage, cannot store the full binary
                 // code for the recompiler.
@@ -447,8 +450,8 @@ void stop_capture(u64 address) {
         core::halt("Recompiler test fail");
 
 clear_capture:
-    bus->capture(false);
-    bus->clear();
+    bus->end_trace();
+    bus->clear_trace();
 }
 
 }; /* namespace interpreter:cpu */
@@ -458,71 +461,59 @@ void run_interpreter(void) {
     startGui();
 }
 
-int run_recompiler_test(recompiler_backend_t *backend,
-                        recompiler_cache_t *cache) {
+int run_recompiler_test(recompiler_backend_t *backend) {
 
-    Memory::ReplayBus *bus = dynamic_cast<Memory::ReplayBus*>(R4300::state.bus);
+    Test::ReplayBus *bus = dynamic_cast<Test::ReplayBus*>(R4300::state.bus);
     uint64_t address = trace_registers->start_address;
     uint64_t phys_address;
     ir_graph_t *graph = NULL;
     code_buffer_t *emitter = NULL;
-    code_entry_t binary;
-    size_t binary_len;
+    code_entry_t binary = NULL;
+    size_t binary_len = 0;
     bool run = false;
 
     // Translate the program counter, i.e. the block start address.
     // The block is skipped if the address is not from the physical ram.
-    if (translateAddress(address, &phys_address, false) != Exception::None ||
+    if (translate_address(address, &phys_address, false, NULL, NULL) != Exception::None ||
         phys_address >= 0x400000) {
         return 0;
     }
 
-    // Query the recompiler cache.
-    binary = query_recompiler_cache(cache, phys_address, &emitter, &binary_len);
+    // Run the recompiler on the trace recorded.
+    // Memory synchronization with interpreter process is handled by
+    // the caller, the trace records can be safely accessed.
+
+    if (emitter == NULL) {
+        fmt::print(fmt::fg(fmt::color::tomato), "emitter is not provided\n");
+        goto failure;
+    }
+
+    clear_recompiler_backend(backend);
+    graph = ir_mips_disassemble(
+        backend, trace_registers->start_address,
+        trace_binary, trace_sync->binary_len);
+
+    // Preliminary sanity checks on the generated intermediate
+    // representation. Really should not fail here.
+    if (!ir_typecheck(backend, graph)) {
+        print_backend_error_log(backend);
+        goto failure;
+    }
+
+    // Optimize generated graph.
+    ir_optimize(backend, graph);
+
+    // Sanity checks on the optimized intermediate
+    // representation. Really should not fail here.
+    if (!ir_typecheck(backend, graph)) {
+        print_backend_error_log(backend);
+        goto failure;
+    }
+
+    // Re-compile to x86_64.
+    binary = ir_x86_64_assemble(backend, emitter, graph, &binary_len);
     if (binary == NULL) {
-        // Run the recompiler on the trace recorded.
-        // Memory synchronization with interpreter process is handled by
-        // the caller, the trace records can be safely accessed.
-
-        if (emitter == NULL) {
-            fmt::print(fmt::fg(fmt::color::tomato), "emitter is not provided\n");
-            goto failure;
-        }
-
-        clear_recompiler_backend(backend);
-        graph = ir_mips_disassemble(
-            backend, trace_registers->start_address,
-            trace_binary, trace_sync->binary_len);
-
-        // Preliminary sanity checks on the generated intermediate
-        // representation. Really should not fail here.
-        if (!ir_typecheck(backend, graph)) {
-            print_backend_error_log(backend);
-            goto failure;
-        }
-
-        // Optimize generated graph.
-        ir_optimize(backend, graph);
-
-        // Sanity checks on the optimized intermediate
-        // representation. Really should not fail here.
-        if (!ir_typecheck(backend, graph)) {
-            print_backend_error_log(backend);
-            goto failure;
-        }
-
-        // Re-compile to x86_64.
-        binary = ir_x86_64_assemble(backend, emitter, graph, &binary_len);
-        if (binary == NULL) {
-            invalidate_recompiler_cache(cache, phys_address, phys_address + 1);
-            return 0;
-        }
-
-        // Update the recompiler cache.
-        if (update_recompiler_cache(cache, phys_address, binary, binary_len) < 0) {
-            invalidate_recompiler_cache(cache, phys_address, phys_address + 1);
-            return 0;
-        }
+        return 0;
     }
 
     // Load the trace registers and memory log into the state context,
@@ -638,8 +629,7 @@ failure:
 void run_recompiler(void) {
     // First things first, replace the state memory bus by a replay bus.
     // The recompiler will be replaying the traces sent over by the interpreter.
-    delete R4300::state.bus;
-    R4300::state.bus = new Memory::ReplayBus(32);
+    R4300::state.swapMemoryBus(new Test::ReplayBus(32));
 
     // Allocate a recompiler backend.
     recompiler_backend_t *backend = ir_mips_recompiler_backend();
@@ -649,22 +639,11 @@ void run_recompiler(void) {
         return;
     }
 
-    // Allocate recompiler cache for the physical address range
-    // 0x0 - 0x400000.
-    recompiler_cache_t *cache =
-        alloc_recompiler_cache(0x4000, 0x100, 0x20000, 0x200);
-    if (cache == NULL) {
-        fmt::print(fmt::fg(fmt::color::tomato),
-            "failed to allocate recompiler cache\n");
-        free(backend);
-        return;
-    }
-
     while (1) {
         // Wait for a trace from the interpreter process,
         // handle it and notify the test result.
         if (sem_wait(&trace_sync->request) != 0) break;
-        trace_sync->status = run_recompiler_test(backend, cache);
+        trace_sync->status = run_recompiler_test(backend);
         if (sem_post(&trace_sync->response) != 0) break;
     }
 
@@ -692,7 +671,7 @@ int start_recompiler_process(void) {
         sizeof(*trace_sync) +
         sizeof(*trace_registers) +
         trace_binary_maxlen +
-        sizeof(BusLog) * trace_memory_log_maxlen;
+        sizeof(Memory::BusTransaction) * trace_memory_log_maxlen;
 
     unsigned char *shared_mem = reinterpret_cast<unsigned char *>(
         alloc_shared_memory(shared_mem_len));
@@ -709,7 +688,7 @@ int start_recompiler_process(void) {
     shared_mem += sizeof(*trace_registers);
     trace_binary = shared_mem;
     shared_mem += trace_binary_maxlen;
-    trace_memory_log = reinterpret_cast<BusLog *>(shared_mem);
+    trace_memory_log = reinterpret_cast<Memory::BusTransaction *>(shared_mem);
 
     // Initialize the semaphores used to synchronize the interpreter and
     // recompiler processes.
@@ -756,6 +735,215 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    R4300::state.load(argv[1]);
+    std::string rom_file = argv[1];
+    std::ifstream rom_contents(rom_file);
+    if (!rom_contents.good()) {
+        std::cout << "ROM file '" << rom_file << "' not found" << std::endl;
+        exit(1);
+    }
+
+    R4300::state.load(rom_contents);
+    R4300::state.swapMemoryBus(new DebugBus(32));
     return start_recompiler_process();
 }
+
+namespace core {
+
+unsigned long recompiler_cycles;
+unsigned long recompiler_clears;
+unsigned long recompiler_requests;
+
+static std::thread            *interpreter_thread;
+static std::mutex              interpreter_mutex;
+static std::condition_variable interpreter_semaphore;
+static std::atomic_bool        interpreter_halted;
+static std::atomic_bool        interpreter_stopped;
+static std::string             interpreter_halted_reason;
+
+/**
+ * @brief Invalidate the recompiler cache entry for the provided address range.
+ *  Called from the interpreter thread only.
+ * @param start_phys_address    Start address of the range to invalidate.
+ * @param end_phys_address      Exclusive end address of the range to invalidate.
+ */
+void invalidate_recompiler_cache(uint64_t start_phys_address,
+                                 uint64_t end_phys_address) {
+
+    (void)start_phys_address;
+    (void)end_phys_address;
+}
+
+/**
+ * Run the RSP interpreter for the given number of cycles.
+ */
+static
+void exec_rsp_interpreter(unsigned long cycles) {
+    for (unsigned long nr = 0; nr < cycles; nr++) {
+        R4300::RSP::step();
+    }
+}
+
+/**
+ * Handle scheduled events (counter timeout, VI interrupt).
+ * Called only at block endings.
+ */
+static
+void check_cpu_events(void) {
+    if (state.cycles >= state.cpu.nextEvent) {
+        state.handleEvent();
+    }
+}
+
+/**
+ * Run the interpreter until the n-th branching instruction.
+ * The loop is also brokn by setting the halted flag.
+ * The state is left with action Jump.
+ * @return true exiting because of a branch instruction, false if because
+ *  of a breakpoint.
+ */
+static
+bool exec_cpu_interpreter(int nr_jumps) {
+    while (!interpreter_halted.load(std::memory_order_acquire)) {
+        switch (state.cpu.nextAction) {
+        case State::Action::Continue:
+            state.reg.pc += 4;
+            state.cpu.delaySlot = false;
+            interpreter::cpu::eval();
+            break;
+
+        case State::Action::Delay:
+            state.reg.pc += 4;
+            state.cpu.nextAction = State::Action::Jump;
+            state.cpu.delaySlot = true;
+            interpreter::cpu::eval();
+            break;
+
+        case State::Action::Jump:
+            interpreter::cpu::stop_capture(state.cpu.nextPc);
+            if (nr_jumps-- <= 0) return true;
+            state.reg.pc = state.cpu.nextPc;
+            state.cpu.nextAction = State::Action::Continue;
+            state.cpu.delaySlot = false;
+            interpreter::cpu::start_capture();
+            interpreter::cpu::eval();
+        }
+    }
+    return false;
+}
+
+/** Return the cache usage statistics. */
+void get_recompiler_cache_stats(float *cache_usage,
+                                float *buffer_usage) {
+    *cache_usage = 0;
+    *buffer_usage = 0;
+}
+
+/**
+ * @brief Interpreter thead routine.
+ * Loops interpreting machine instructions.
+ * The interpreter will run in three main modes:
+ *  1. interpreter execution, until coming to a block starting point,
+ *     and then when the recompilation hasn't been issued or completed.
+ *  2. recompiled code execution, when available. Always starts at the
+ *     target of a branching instruction, and stops at the next branch
+ *     or synchronous exception.
+ *  3. step-by-step execution from the GUI. The interpreter is stopped
+ *     during this time, and instructions are executed from the main thread.
+ */
+static
+void interpreter_routine(void) {
+    fmt::print(fmt::fg(fmt::color::dark_orange),
+        "interpreter thread starting\n");
+
+    for (;;) {
+        std::unique_lock<std::mutex> lock(interpreter_mutex);
+        interpreter_semaphore.wait(lock, [] {
+            return !interpreter_halted.load(std::memory_order_acquire) ||
+                interpreter_stopped.load(std::memory_order_acquire); });
+
+        if (interpreter_stopped.load(std::memory_order_acquire)) {
+            fmt::print(fmt::fg(fmt::color::dark_orange),
+                "interpreter thread exiting\n");
+            return;
+        }
+
+        fmt::print(fmt::fg(fmt::color::dark_orange),
+            "interpreter thread resuming\n");
+
+        lock.unlock();
+
+        unsigned long cycles = state.cycles;
+        exec_cpu_interpreter(0);
+        exec_rsp_interpreter(state.cycles - cycles);
+
+        while (!interpreter_halted.load(std::memory_order_relaxed)) {
+            // Ensure that the interpreter is at a jump
+            // at the start of the loop contents.
+            cycles = state.cycles;
+            check_cpu_events();
+            // trace_point(state.cpu.nextPc, state.cycles);
+            exec_cpu_interpreter(1);
+            exec_rsp_interpreter(state.cycles - cycles);
+        }
+
+        fmt::print(fmt::fg(fmt::color::dark_orange),
+            "interpreter thread halting\n");
+    }
+}
+
+void start(void) {
+    if (interpreter_thread == NULL) {
+        interpreter_halted = true;
+        interpreter_halted_reason = "reset";
+        interpreter_thread = new std::thread(interpreter_routine);
+    }
+}
+
+void stop(void) {
+    if (interpreter_thread != NULL) {
+        interpreter_halted.store(true, std::memory_order_release);
+        interpreter_stopped.store(true, std::memory_order_release);
+        interpreter_semaphore.notify_one();
+        interpreter_thread->join();
+        delete interpreter_thread;
+        interpreter_thread = NULL;
+    }
+}
+
+void reset(void) {
+    R4300::state.reset();
+    recompiler_cycles = 0;
+}
+
+void halt(std::string reason) {
+    if (!interpreter_halted) {
+        interpreter_halted_reason = reason;
+        interpreter_halted.store(true, std::memory_order_release);
+    }
+}
+
+bool halted(void) {
+    return interpreter_halted;
+}
+
+std::string halted_reason(void) {
+    return interpreter_halted_reason;
+}
+
+void step(void) {
+    if (interpreter_thread != NULL &&
+        interpreter_halted.load(std::memory_order_acquire)) {
+        R4300::step();
+        RSP::step();
+    }
+}
+
+void resume(void) {
+    if (interpreter_thread != NULL &&
+        interpreter_halted.load(std::memory_order_acquire)) {
+        interpreter_halted.store(false, std::memory_order_release);
+        interpreter_semaphore.notify_one();
+    }
+}
+
+}; /* namespace core */

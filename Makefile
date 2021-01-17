@@ -218,7 +218,6 @@ bin/recompiler_test_server: CXXFLAGS += \
     -I$(EXTDIR)/fmt/include
 
 bin/recompiler_test_server: \
-    $(OBJDIR)/src/core.o \
     $(OBJDIR)/src/debugger.o \
     $(OBJDIR)/src/memory.o \
     $(OBJDIR)/src/trace.o \
@@ -227,9 +226,11 @@ bin/recompiler_test_server: \
     $(OBJDIR)/src/r4300/cpu.o \
     $(OBJDIR)/src/r4300/state.o \
     $(OBJDIR)/src/r4300/rsp.o \
+    $(OBJDIR)/src/lib/crc32.o \
     $(OBJDIR)/src/interpreter/cpu.o \
     $(OBJDIR)/src/interpreter/cop0.o \
     $(OBJDIR)/src/interpreter/cop1.o \
+    $(OBJDIR)/src/interpreter/rsp.o \
     $(OBJDIR)/test/recompiler_test_server.o \
     $(OBJDIR)/src/assembly/disassembler.o
 
