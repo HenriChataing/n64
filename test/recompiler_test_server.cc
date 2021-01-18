@@ -342,7 +342,6 @@ void print_memory_log(void) {
 namespace interpreter::cpu {
 
 void start_capture(void) {
-    fmt::print("start capture\n");
     trace_registers->start_address = R4300::state.reg.pc;
     trace_registers->start_cycles = R4300::state.cycles;
     trace_registers->start_cpureg = R4300::state.reg;
@@ -365,8 +364,6 @@ void stop_capture(u64 address) {
 
     DebugBus *bus = dynamic_cast<DebugBus *>(state.bus);
     address = trace_registers->start_address;
-
-    fmt::print("stop capture\n");
 
     uint64_t phys_address;
     if (translate_address(address, &phys_address, false, NULL, NULL) != R4300::Exception::None) {
@@ -461,16 +458,32 @@ void run_interpreter(void) {
     startGui();
 }
 
-int run_recompiler_test(recompiler_backend_t *backend) {
+int run_recompiler_test(recompiler_backend_t *backend,
+                        code_buffer_t *emitter) {
 
     Test::ReplayBus *bus = dynamic_cast<Test::ReplayBus*>(R4300::state.bus);
     uint64_t address = trace_registers->start_address;
     uint64_t phys_address;
     ir_graph_t *graph = NULL;
-    code_buffer_t *emitter = NULL;
     code_entry_t binary = NULL;
     size_t binary_len = 0;
     bool run = false;
+
+    // Reset the recompiler and code generation contexts.
+    clear_recompiler_backend(backend);
+    clear_code_buffer(emitter);
+
+    // Catch recompiler and code generation failures.
+    // For recompiler errors retrieve errors from the internal log.
+    if (catch_recompiler_error(backend)) {
+        fmt::print(fmt::fg(fmt::color::tomato), "caught recompiler failure\n");
+        print_backend_error_log(backend);
+        goto failure;
+    }
+    if (catch_code_buffer_error(emitter)) {
+        fmt::print(fmt::fg(fmt::color::tomato), "caught emitter failure\n");
+        goto failure;
+    }
 
     // Translate the program counter, i.e. the block start address.
     // The block is skipped if the address is not from the physical ram.
@@ -482,16 +495,17 @@ int run_recompiler_test(recompiler_backend_t *backend) {
     // Run the recompiler on the trace recorded.
     // Memory synchronization with interpreter process is handled by
     // the caller, the trace records can be safely accessed.
-
-    if (emitter == NULL) {
-        fmt::print(fmt::fg(fmt::color::tomato), "emitter is not provided\n");
-        goto failure;
-    }
-
-    clear_recompiler_backend(backend);
     graph = ir_mips_disassemble(
         backend, trace_registers->start_address,
         trace_binary, trace_sync->binary_len);
+
+    // Disassembly failure.
+    if (graph == NULL) {
+        fmt::print(fmt::fg(fmt::color::tomato),
+            "failed to disassemble recorded trace\n");
+        print_backend_error_log(backend);
+        goto failure;
+    }
 
     // Preliminary sanity checks on the generated intermediate
     // representation. Really should not fail here.
@@ -528,22 +542,19 @@ int run_recompiler_test(recompiler_backend_t *backend) {
     bus->reset(trace_memory_log, trace_sync->memory_log_len);
     run = true;
 
-#if 0
-    if (!ir_run(backend, graph, &err_instr, line, sizeof(line))) {
-        fmt::print(fmt::emphasis::italic, "run failure:\n");
-        fmt::print(fmt::emphasis::italic, "    {}\n", line);
-        fmt::print(fmt::emphasis::italic, "in instruction:\n");
-        ir_print_instr(line, sizeof(line), err_instr);
-        fmt::print(fmt::emphasis::italic, "    {}\n", line);
-        goto failure;
-    }
-#endif
-
     R4300::state.cpu.delaySlot = false;
     R4300::state.cpu.nextAction = R4300::State::Continue;
 
+#if 1
+    // Run disassembled instructions.
+    if (!ir_run(backend, graph)) {
+        print_backend_error_log(backend);
+        goto failure;
+    }
+#else
     // Run generated assembly.
     binary();
+#endif
 
     // Post-binary state rectification.
     // The nextPc, nextAction need to be corrected after exiting from an
@@ -617,12 +628,9 @@ failure:
     print_ir_disassembly(graph);
     print_x86_64_assembly(binary, binary_len);
 
-    fmt::print(
-        "----------------------------------------"
-        "----------------------------------------\n");
+    fmt::print("===========================================");
 
     // Save the trace to non-regression tests.
-    // TODO.
     return -1;
 }
 
@@ -639,16 +647,26 @@ void run_recompiler(void) {
         return;
     }
 
+    // Allocate a code buffer.
+    code_buffer_t *emitter = alloc_code_buffer(4096);
+    if (emitter == NULL) {
+        fmt::print(fmt::fg(fmt::color::tomato),
+            "failed to allocate code buffer\n");
+        free_recompiler_backend(backend);
+        return;
+    }
+
     while (1) {
         // Wait for a trace from the interpreter process,
         // handle it and notify the test result.
         if (sem_wait(&trace_sync->request) != 0) break;
-        trace_sync->status = run_recompiler_test(backend);
+        trace_sync->status = run_recompiler_test(backend, emitter);
         if (sem_post(&trace_sync->response) != 0) break;
     }
 
     fmt::print(fmt::fg(fmt::color::tomato), "recompiler process exiting\n");
-    free(backend);
+    free_recompiler_backend(backend);
+    free_code_buffer(emitter);
 }
 
 void *alloc_shared_memory(size_t size) {
@@ -715,10 +733,12 @@ int start_recompiler_process(void) {
 
     // In child, start the recompiler loop.
     if (pid == 0) {
+        fmt::print("starting recompiler process\n");
         run_recompiler();
     }
     // In parent, start the interpreter loop.
     else {
+        fmt::print("starting interpreter process\n");
         run_interpreter();
     }
 
@@ -738,12 +758,12 @@ int main(int argc, char *argv[]) {
     std::string rom_file = argv[1];
     std::ifstream rom_contents(rom_file);
     if (!rom_contents.good()) {
-        std::cout << "ROM file '" << rom_file << "' not found" << std::endl;
+        fmt::print("ROM file '{}' not found\n", rom_file);
         exit(1);
     }
 
-    R4300::state.load(rom_contents);
     R4300::state.swapMemoryBus(new DebugBus(32));
+    R4300::state.load(rom_contents);
     return start_recompiler_process();
 }
 
@@ -802,7 +822,8 @@ void check_cpu_events(void) {
  *  of a breakpoint.
  */
 static
-bool exec_cpu_interpreter(int nr_jumps) {
+bool exec_cpu_interpreter(void) {
+    int nr_jumps = state.cpu.nextAction == State::Action::Jump;
     while (!interpreter_halted.load(std::memory_order_acquire)) {
         switch (state.cpu.nextAction) {
         case State::Action::Continue:
@@ -826,8 +847,10 @@ bool exec_cpu_interpreter(int nr_jumps) {
             state.cpu.delaySlot = false;
             interpreter::cpu::start_capture();
             interpreter::cpu::eval();
+            return true;
         }
     }
+    interpreter::cpu::stop_capture(state.cpu.nextPc);
     return false;
 }
 
@@ -872,17 +895,12 @@ void interpreter_routine(void) {
 
         lock.unlock();
 
-        unsigned long cycles = state.cycles;
-        exec_cpu_interpreter(0);
-        exec_rsp_interpreter(state.cycles - cycles);
-
         while (!interpreter_halted.load(std::memory_order_relaxed)) {
             // Ensure that the interpreter is at a jump
             // at the start of the loop contents.
-            cycles = state.cycles;
+            unsigned long cycles = state.cycles;
             check_cpu_events();
-            // trace_point(state.cpu.nextPc, state.cycles);
-            exec_cpu_interpreter(1);
+            exec_cpu_interpreter();
             exec_rsp_interpreter(state.cycles - cycles);
         }
 
