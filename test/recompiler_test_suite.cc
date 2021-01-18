@@ -8,6 +8,7 @@
 
 #include <toml++/toml.h>
 #include <fmt/format.h>
+#include <cxxopts.hpp>
 
 #include <r4300/export.h>
 #include <recompiler/ir.h>
@@ -528,15 +529,17 @@ static int parse_test_case(toml::node const *test_node,
 
 int run_test_suite(recompiler_backend_t *backend,
                    code_buffer_t *emitter,
+                   std::string const &test_dir,
                    std::string const &test_suite_name,
                    struct test_statistics *stats,
+                   bool interpret,
                    bool verbose) {
     std::string test_filename   =
-        "test/recompiler/" + test_suite_name + ".toml";
+        test_dir + "/" + test_suite_name + ".toml";
     std::string input_filename  =
-        "test/recompiler/" + test_suite_name + ".input";
+        test_dir + "/" + test_suite_name + ".input";
     std::string output_filename  =
-        "test/recompiler/" + test_suite_name + ".output";
+        test_dir + "/" + test_suite_name + ".output";
     toml::table test_table;
 
     /* Load the test description from the *.toml file, and parse
@@ -702,9 +705,11 @@ int run_test_suite(recompiler_backend_t *backend,
         bus->reset(test.trace);
         bool run_success;
 
-        // if (!(run_success = print_run(backend, header)) ||
-        if (!(run_success = print_assembly_run(backend, header, entry)) ||
-            bus->bad() ||
+        run_success = interpret ?
+            print_run(backend, header) :
+            print_assembly_run(backend, header, entry);
+
+        if (!run_success || bus->bad() ||
             !match_cpureg(reg,    R4300::state.reg) ||
             !match_cp0reg(cp0reg, R4300::state.cp0reg) ||
             !match_cp1reg(cp1reg, R4300::state.cp1reg) ||
@@ -753,8 +758,8 @@ test_preparation_failure:
     return -1;
 }
 
-std::vector<std::string> list_test_suites(void) {
-    DIR* dirp = opendir("test/recompiler");
+std::vector<std::string> list_test_suites(std::string &dir) {
+    DIR* dirp = opendir(dir.c_str());
     std::vector<std::string> test_suites;
     struct dirent * dp;
     while ((dp = readdir(dirp)) != NULL) {
@@ -780,22 +785,41 @@ enum {
 
 int main(int argc, char **argv) {
     std::srand(std::time(nullptr));
-    int mode = RANDOM;
-    unsigned long selected = 0;
 
-    if (argc > 1) {
-        if (strcmp(argv[1], "all") == 0) {
-            mode = ALL;
-        }
-        else if (strcmp(argv[1], "rand") == 0) {
-            mode = RANDOM;
-        }
-        else {
-            mode = SELECTED;
-        }
+    cxxopts::Options options("recompiler_test_suite", "N64 recompiler tests");
+    options.add_options()
+        ("a,all",       "Run all recompiler tests")
+        ("r,random",    "Run a randomly selected recompiler test")
+        ("regression",  "Select regression tests")
+        ("i,interpret", "Run the IR interpreter")
+        ("v,verbose",   "Enable verbose logs")
+        ("h,help",      "Print usage");
+
+    auto result = options.parse(argc, argv);
+    std::string test_dir = "test/recompiler";
+    unsigned mode = RANDOM;
+    unsigned selected = 0;
+    bool interpret = result.count("interpret") > 0;
+    bool verbose = result.count("verbose") > 0;
+
+    if (result.count("help")) {
+        std::cout << options.help() << std::endl;
+        exit(0);
     }
 
-    std::vector<std::string> test_suites = list_test_suites();
+    if (result.count("regression") > 0) {
+        test_dir = "test/recompiler/regression";
+    }
+
+    if (result.count("all") > 0) {
+        mode = ALL;
+    }
+
+    if (result.count("random") > 0) {
+        mode = RANDOM;
+    }
+
+    std::vector<std::string> test_suites = list_test_suites(test_dir);
     struct test_statistics test_stats = {};
     bool stop_at_first_fail = false;
     recompiler_backend_t *backend = ir_mips_recompiler_backend();
@@ -819,12 +843,16 @@ int main(int argc, char **argv) {
 
     if (mode == ALL) {
         for (unsigned nr = 0; nr < test_suites.size(); nr++) {
-            run_test_suite(backend, emitter, test_suites[nr], &test_stats, false);
+            run_test_suite(backend, emitter,
+                test_dir, test_suites[nr], &test_stats,
+                interpret, verbose);
             if (stop_at_first_fail && test_stats.total_failed)
                 break;
         }
     } else {
-        run_test_suite(backend, emitter, test_suites[selected], &test_stats, true);
+        run_test_suite(backend, emitter,
+            test_dir, test_suites[selected], &test_stats,
+            interpret, verbose);
     }
 
     unsigned total_tests =
