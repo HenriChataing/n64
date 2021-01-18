@@ -155,11 +155,12 @@ typedef struct recompiler_backend {
 } recompiler_backend_t;
 
 recompiler_backend_t *
-create_recompiler_backend(ir_global_definition_t const *globals,
-                          unsigned nr_globals,
-                          unsigned nr_blocks,
-                          unsigned nr_instrs,
-                          unsigned nr_params);
+alloc_recompiler_backend(ir_global_definition_t const *globals,
+                         unsigned nr_globals,
+                         unsigned nr_blocks,
+                         unsigned nr_instrs,
+                         unsigned nr_params);
+void free_recompiler_backend(recompiler_backend_t *backend);
 
 /**
  * @brief Catch recompiler errors.

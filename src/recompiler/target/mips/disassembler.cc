@@ -2435,10 +2435,10 @@ recompiler_backend_t *ir_mips_recompiler_backend(void) {
         };
     }
 
-    return create_recompiler_backend(global_definitions, REG_MAX,
-                                     RECOMPILER_BLOCK_MAX,
-                                     RECOMPILER_INSTR_MAX,
-                                     RECOMPILER_PARAM_MAX);
+    return alloc_recompiler_backend(global_definitions, REG_MAX,
+                                    RECOMPILER_BLOCK_MAX,
+                                    RECOMPILER_INSTR_MAX,
+                                    RECOMPILER_PARAM_MAX);
 }
 
 ir_graph_t *ir_mips_disassemble(recompiler_backend_t *backend,

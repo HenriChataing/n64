@@ -18,11 +18,11 @@
  * @return              The allocated backend, or NULL on failure.
  */
 recompiler_backend_t *
-create_recompiler_backend(ir_global_definition_t const *globals,
-                          unsigned nr_globals,
-                          unsigned nr_blocks,
-                          unsigned nr_instrs,
-                          unsigned nr_params) {
+alloc_recompiler_backend(ir_global_definition_t const *globals,
+                         unsigned nr_globals,
+                         unsigned nr_blocks,
+                         unsigned nr_instrs,
+                         unsigned nr_params) {
     recompiler_backend_t *backend = malloc(sizeof(recompiler_backend_t));
     if (backend == NULL) {
         return NULL;
@@ -69,6 +69,21 @@ failure:
     free(backend->params);
     free(backend);
     return NULL;
+}
+
+/**
+ * @brief Destory a recompiler backend.
+ * @details Free the backend object and all pre-allocated resources.
+ * @param backend       Pointer to the recompiler backend to release.
+ */
+void free_recompiler_backend(recompiler_backend_t *backend) {
+    if (backend != NULL) {
+        free(backend->globals);
+        free(backend->blocks);
+        free(backend->instrs);
+        free(backend->params);
+        free(backend);
+    }
 }
 
 /**
