@@ -8,6 +8,7 @@
 
 #include <fmt/color.h>
 #include <fmt/format.h>
+#include <fmt/ostream.h>
 
 #include <assembly/disassembler.h>
 #include <assembly/registers.h>
@@ -19,6 +20,7 @@
 #include <recompiler/target/mips.h>
 #include <recompiler/target/x86_64.h>
 #include <r4300/state.h>
+#include <r4300/export.h>
 #include <core.h>
 #include <debugger.h>
 #include <trace.h>
@@ -628,9 +630,74 @@ failure:
     print_ir_disassembly(graph);
     print_x86_64_assembly(binary, binary_len);
 
-    fmt::print("===========================================");
+    fmt::print("==========================================\n");
 
     // Save the trace to non-regression tests.
+    std::string filename =
+        fmt::format("test/recompiler/regression/test_{:08x}.toml",
+            trace_registers->start_address & 0xfffffffflu);
+    std::string filename_input =
+        fmt::format("test/recompiler/regression/test_{:08x}.input",
+            trace_registers->start_address & 0xfffffffflu);
+    std::string filename_output =
+        fmt::format("test/recompiler/regression/test_{:08x}.output",
+            trace_registers->start_address & 0xfffffffflu);
+    std::ofstream of(filename, std::ios::app);
+    std::ofstream inputf(filename_input, std::ios::binary | std::ios::app);
+    std::ofstream outputf(filename_output, std::ios::binary | std::ios::app);
+
+    if (of.bad() || inputf.bad() || outputf.bad()) {
+        fmt::print(fmt::fg(fmt::color::tomato), "cannot open capture files\n");
+        return -1;
+    }
+
+    fmt::print(of, "start_address = \"0x{:016x}\"\n\n",
+        trace_registers->start_address);
+    fmt::print(of, "asm_code = \"\"\"\n");
+    for (unsigned i = 0; i < trace_sync->binary_len; i+=4) {
+        u32 instr =
+           ((uint32_t)trace_binary[i+0] << 24) |
+           ((uint32_t)trace_binary[i+1] << 16) |
+           ((uint32_t)trace_binary[i+2] << 8)  |
+           ((uint32_t)trace_binary[i+3] << 0);
+        fmt::print(of, "    {}\n", assembly::cpu::disassemble(
+            trace_registers->start_address + i, instr));
+    }
+    fmt::print(of, "\"\"\"\n\n");
+    fmt::print(of, "bin_code = [");
+    for (unsigned i = 0; i < trace_sync->binary_len; i+=4) {
+        u32 instr =
+           ((uint32_t)trace_binary[i+0] << 24) |
+           ((uint32_t)trace_binary[i+1] << 16) |
+           ((uint32_t)trace_binary[i+2] << 8)  |
+           ((uint32_t)trace_binary[i+3] << 0);
+        if ((i % 16) == 0) fmt::print(of, "\n    ");
+        fmt::print(of, "0x{:08x}, ", instr);
+    }
+    fmt::print(of, "\n]\n\n");
+
+    fmt::print(of, "[[test]]\n");
+    fmt::print(of, "start_cycles = {}\n", trace_registers->start_cycles);
+    fmt::print(of, "end_cycles = {}\n", trace_registers->end_cycles);
+    fmt::print(of, "end_address = \"0x{:016x}\"\n", trace_registers->end_address);
+    fmt::print(of, "trace = [\n");
+    for (unsigned nr = 0; nr < trace_sync->memory_log_len; nr++) {
+        fmt::print(of,
+            "    {{ type = \"{}_u{}\", address = \"0x{:x}\", value = \"0x{:x}\" }},\n",
+            trace_memory_log[nr].load ? "load" : "store",
+            trace_memory_log[nr].bytes * 8,
+            trace_memory_log[nr].address,
+            trace_memory_log[nr].value);
+    }
+    fmt::print(of, "]\n\n");
+
+    R4300::serialize(inputf, trace_registers->start_cpureg);
+    R4300::serialize(inputf, trace_registers->start_cp0reg);
+    R4300::serialize(inputf, trace_registers->start_cp1reg);
+
+    R4300::serialize(outputf, trace_registers->end_cpureg);
+    R4300::serialize(outputf, trace_registers->end_cp0reg);
+    R4300::serialize(outputf, trace_registers->end_cp1reg);
     return -1;
 }
 
