@@ -9,6 +9,7 @@
 #include <fmt/color.h>
 #include <fmt/format.h>
 #include <fmt/ostream.h>
+#include <cxxopts.hpp>
 
 #include <assembly/disassembler.h>
 #include <assembly/registers.h>
@@ -461,7 +462,8 @@ void run_interpreter(void) {
 }
 
 int run_recompiler_test(recompiler_backend_t *backend,
-                        code_buffer_t *emitter) {
+                        code_buffer_t *emitter,
+                        bool interpret) {
 
     Test::ReplayBus *bus = dynamic_cast<Test::ReplayBus*>(R4300::state.bus);
     uint64_t address = trace_registers->start_address;
@@ -547,16 +549,16 @@ int run_recompiler_test(recompiler_backend_t *backend,
     R4300::state.cpu.delaySlot = false;
     R4300::state.cpu.nextAction = R4300::State::Continue;
 
-#if 1
-    // Run disassembled instructions.
-    if (!ir_run(backend, graph)) {
-        print_backend_error_log(backend);
-        goto failure;
+    if (interpret) {
+        // Run disassembled instructions.
+        if (!ir_run(backend, graph)) {
+            print_backend_error_log(backend);
+            goto failure;
+        }
+    } else {
+        // Run generated assembly.
+        binary();
     }
-#else
-    // Run generated assembly.
-    binary();
-#endif
 
     // Post-binary state rectification.
     // The nextPc, nextAction need to be corrected after exiting from an
@@ -701,7 +703,7 @@ failure:
     return -1;
 }
 
-void run_recompiler(void) {
+void run_recompiler(bool interpret, bool verbose) {
     // First things first, replace the state memory bus by a replay bus.
     // The recompiler will be replaying the traces sent over by the interpreter.
     R4300::state.swapMemoryBus(new Test::ReplayBus(32));
@@ -727,7 +729,7 @@ void run_recompiler(void) {
         // Wait for a trace from the interpreter process,
         // handle it and notify the test result.
         if (sem_wait(&trace_sync->request) != 0) break;
-        trace_sync->status = run_recompiler_test(backend, emitter);
+        trace_sync->status = run_recompiler_test(backend, emitter, interpret);
         if (sem_post(&trace_sync->response) != 0) break;
     }
 
@@ -749,7 +751,7 @@ void *alloc_shared_memory(size_t size) {
     return mmap(NULL, size, protection, visibility, -1, 0);
 }
 
-int start_recompiler_process(void) {
+int start_recompiler_process(bool interpret, bool verbose) {
     // Allocate shared memory to communicate between the interpreter and
     // the recompiler processes.
     size_t shared_mem_len =
@@ -801,7 +803,7 @@ int start_recompiler_process(void) {
     // In child, start the recompiler loop.
     if (pid == 0) {
         fmt::print("starting recompiler process\n");
-        run_recompiler();
+        run_recompiler(interpret, verbose);
     }
     // In parent, start the interpreter loop.
     else {
@@ -814,24 +816,6 @@ int start_recompiler_process(void) {
     sem_destroy(&trace_sync->response);
     (void)munmap(shared_mem, shared_mem_len);
     return 0;
-}
-
-int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        fmt::print("Missing path to .z64/.N64 ROM image\n");
-        return -1;
-    }
-
-    std::string rom_file = argv[1];
-    std::ifstream rom_contents(rom_file);
-    if (!rom_contents.good()) {
-        fmt::print("ROM file '{}' not found\n", rom_file);
-        exit(1);
-    }
-
-    R4300::state.swapMemoryBus(new DebugBus(32));
-    R4300::state.load(rom_contents);
-    return start_recompiler_process();
 }
 
 namespace core {
@@ -1032,3 +1016,56 @@ void resume(void) {
 }
 
 }; /* namespace core */
+
+
+int main(int argc, char *argv[]) {
+
+    cxxopts::Options options("n64", "N64 console emulator");
+    options.add_options()
+        ("i,interpret", "Run the IR interpreter")
+        ("v,verbose",   "Enable verbose logs")
+        ("b,bios",      "Select PIF boot rom", cxxopts::value<std::string>())
+        ("rom",         "ROM file", cxxopts::value<std::string>())
+        ("h,help",      "Print usage");
+    options.parse_positional("rom");
+    options.positional_help("FILE");
+
+    auto result = options.parse(argc, argv);
+    bool interpret = result.count("interpret") > 0;
+    bool verbose = result.count("verbose") > 0;
+
+    R4300::state.swapMemoryBus(new DebugBus(32));
+
+    if (result.count("help")) {
+        std::cout << options.help() << std::endl;
+        exit(0);
+    }
+
+    if (result.count("rom") == 0) {
+        std::cout << "ROM file unspecified" << std::endl;
+        std::cout << options.help() << std::endl;
+        exit(1);
+    }
+
+    std::string rom_file = result["rom"].as<std::string>();
+    std::ifstream rom_contents(rom_file);
+    if (!rom_contents.good()) {
+        std::cout << "ROM file '" << rom_file << "' not found" << std::endl;
+        std::cout << options.help() << std::endl;
+        exit(1);
+    }
+
+    if (result.count("bios") > 0) {
+        std::string bios_file = result["bios"].as<std::string>();
+        std::ifstream bios_contents(bios_file);
+        if (!bios_contents.good()) {
+            std::cout << "BIOS file '" << bios_file << "' not found" << std::endl;
+            std::cout << options.help() << std::endl;
+            exit(1);
+        }
+        R4300::state.loadBios(bios_contents);
+    }
+
+    R4300::state.load(rom_contents);
+    return start_recompiler_process(interpret, verbose);
+}
