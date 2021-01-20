@@ -4,6 +4,7 @@
 #include <semaphore.h>
 #include <sys/mman.h>
 #include <sys/types.h>
+#include <dirent.h>
 #include <unistd.h>
 
 #include <fmt/color.h>
@@ -633,24 +634,27 @@ failure:
     print_x86_64_assembly(binary, binary_len);
 
     fmt::print("==========================================\n");
+    return -1;
+}
 
-    // Save the trace to non-regression tests.
+/** Save the trace as a regression test */
+void save_regression_test(std::string &output_dir) {
     std::string filename =
-        fmt::format("test/recompiler/regression/test_{:08x}.toml",
-            trace_registers->start_address & 0xfffffffflu);
+        fmt::format("{}/test_{:08x}.toml",
+            output_dir, trace_registers->start_address & 0xfffffffflu);
     std::string filename_input =
-        fmt::format("test/recompiler/regression/test_{:08x}.input",
-            trace_registers->start_address & 0xfffffffflu);
+        fmt::format("{}/test_{:08x}.input",
+            output_dir, trace_registers->start_address & 0xfffffffflu);
     std::string filename_output =
-        fmt::format("test/recompiler/regression/test_{:08x}.output",
-            trace_registers->start_address & 0xfffffffflu);
+        fmt::format("{}/test_{:08x}.output",
+            output_dir, trace_registers->start_address & 0xfffffffflu);
     std::ofstream of(filename, std::ios::app);
     std::ofstream inputf(filename_input, std::ios::binary | std::ios::app);
     std::ofstream outputf(filename_output, std::ios::binary | std::ios::app);
 
     if (of.bad() || inputf.bad() || outputf.bad()) {
         fmt::print(fmt::fg(fmt::color::tomato), "cannot open capture files\n");
-        return -1;
+        return;
     }
 
     fmt::print(of, "start_address = \"0x{:016x}\"\n\n",
@@ -673,8 +677,8 @@ failure:
            ((uint32_t)trace_binary[i+1] << 16) |
            ((uint32_t)trace_binary[i+2] << 8)  |
            ((uint32_t)trace_binary[i+3] << 0);
-        if ((i % 16) == 0) fmt::print(of, "\n    ");
-        fmt::print(of, "0x{:08x}, ", instr);
+        if ((i % 16) == 0) fmt::print(of, "\n   ");
+        fmt::print(of, " 0x{:08x},", instr);
     }
     fmt::print(of, "\n]\n\n");
 
@@ -700,10 +704,11 @@ failure:
     R4300::serialize(outputf, trace_registers->end_cpureg);
     R4300::serialize(outputf, trace_registers->end_cp0reg);
     R4300::serialize(outputf, trace_registers->end_cp1reg);
-    return -1;
 }
 
-void run_recompiler(bool interpret, bool verbose) {
+void run_recompiler(std::string &output_dir,
+    unsigned max_failures, bool interpret, bool verbose) {
+
     // First things first, replace the state memory bus by a replay bus.
     // The recompiler will be replaying the traces sent over by the interpreter.
     R4300::state.swapMemoryBus(new Test::ReplayBus(32));
@@ -725,11 +730,30 @@ void run_recompiler(bool interpret, bool verbose) {
         return;
     }
 
+    unsigned nr_failures = 0;
+
     while (1) {
         // Wait for a trace from the interpreter process,
         // handle it and notify the test result.
         if (sem_wait(&trace_sync->request) != 0) break;
-        trace_sync->status = run_recompiler_test(backend, emitter, interpret);
+
+        // Run the recompiler on the recorded trace.
+        // If the test fails, save the trace as regression test.
+        // The interpreter is notified of a failure only after \p max_failured
+        // test failed.
+        int status = run_recompiler_test(backend, emitter, interpret);
+        if (status < 0) {
+            save_regression_test(output_dir);
+            nr_failures++;
+        }
+        status = 0;
+        if (nr_failures >= max_failures) {
+            nr_failures = 0;
+            status = -1;
+        }
+
+        // Notify end of test with test status.
+        trace_sync->status = status;
         if (sem_post(&trace_sync->response) != 0) break;
     }
 
@@ -751,7 +775,9 @@ void *alloc_shared_memory(size_t size) {
     return mmap(NULL, size, protection, visibility, -1, 0);
 }
 
-int start_recompiler_process(bool interpret, bool verbose) {
+int start_recompiler_process(std::string &output_dir,
+    unsigned max_failures, bool interpret, bool verbose) {
+
     // Allocate shared memory to communicate between the interpreter and
     // the recompiler processes.
     size_t shared_mem_len =
@@ -803,7 +829,7 @@ int start_recompiler_process(bool interpret, bool verbose) {
     // In child, start the recompiler loop.
     if (pid == 0) {
         fmt::print("starting recompiler process\n");
-        run_recompiler(interpret, verbose);
+        run_recompiler(output_dir, max_failures, interpret, verbose);
     }
     // In parent, start the interpreter loop.
     else {
@@ -1025,6 +1051,11 @@ int main(int argc, char *argv[]) {
         ("i,interpret", "Run the IR interpreter")
         ("v,verbose",   "Enable verbose logs")
         ("b,bios",      "Select PIF boot rom", cxxopts::value<std::string>())
+        ("o,output",    "Select folder to write regression test files",
+            cxxopts::value<std::string>())
+        ("f,fails",     "Select the maximum number of failed tests until the"
+                        " interpreter is halted",
+            cxxopts::value<int>())
         ("rom",         "ROM file", cxxopts::value<std::string>())
         ("h,help",      "Print usage");
     options.parse_positional("rom");
@@ -1033,6 +1064,8 @@ int main(int argc, char *argv[]) {
     auto result = options.parse(argc, argv);
     bool interpret = result.count("interpret") > 0;
     bool verbose = result.count("verbose") > 0;
+    std::string output_dir = "test/recompiler/regression";
+    unsigned max_failures = 1;
 
     R4300::state.swapMemoryBus(new DebugBus(32));
 
@@ -1040,6 +1073,23 @@ int main(int argc, char *argv[]) {
         std::cout << options.help() << std::endl;
         exit(0);
     }
+
+    if (result.count("fails") > 0) {
+        max_failures = result["fails"].as<int>();
+    }
+
+    if (result.count("output") > 0) {
+        output_dir = result["output"].as<std::string>();
+    }
+
+    DIR* dirp = opendir(output_dir.c_str());
+    if (dirp == NULL) {
+        fmt::print(fmt::fg(fmt::color::tomato),
+            "output directory '{}' does not exist\n",
+            output_dir);
+        exit(1);
+    }
+    closedir(dirp);
 
     if (result.count("rom") == 0) {
         std::cout << "ROM file unspecified" << std::endl;
@@ -1067,5 +1117,6 @@ int main(int argc, char *argv[]) {
     }
 
     R4300::state.load(rom_contents);
-    return start_recompiler_process(interpret, verbose);
+    return start_recompiler_process(
+        output_dir, max_failures, interpret, verbose);
 }
