@@ -141,10 +141,30 @@ static inline void write_pifram_byte(size_t index, uint8_t val) {
 }
 
 /**
+ * Compute the mempack data CRC.
+ * Reference:
+ * https://raw.githubusercontent.com/mikeryan/n64dev/master/docs/n64dox.txt
+ */
+static uint8_t mempack_data_crc(uint8_t data[32]) {
+    uint8_t crc = 0;
+    for (unsigned i = 0; i <= 32; i++) {
+        for (unsigned j = 0; j < 8; j++) {
+            uint8_t tmp = (crc & 0x80) ? 0x85 : 0x00;
+            uint8_t d = (i < 32) ? data[i] : 0x00;
+            crc <<= 1;
+            crc |= (d >> (7 - j)) & 1;
+            crc ^= tmp;
+        }
+    }
+    return crc;
+}
+
+/**
  * Evaluate a controller command.
  * The behavior implemented is described here:
  * https://raw.githubusercontent.com/mikeryan/n64dev/master/docs/n64dox.txt
  * https://sites.google.com/site/consoleprotocols/home/nintendo-joy-bus-documentation
+ * https://github.com/joeldipops/TransferBoy/blob/master/docs/TransferPakReference.md
  */
 static void eval_PIF_controller_command(size_t index, uint8_t t, uint8_t r) {
     switch (state.pifram[index + 2]) {
@@ -156,7 +176,7 @@ static void eval_PIF_controller_command(size_t index, uint8_t t, uint8_t r) {
             state.pifram[index + 1] |= 0x40;
             return;
         }
-        write_pifram_byte(index + 3, 0x00);
+        write_pifram_byte(index + 3, 0x05);
         write_pifram_byte(index + 4, 0x00);
         write_pifram_byte(index + 5, 0x1);
         break;
@@ -188,6 +208,54 @@ static void eval_PIF_controller_command(size_t index, uint8_t t, uint8_t r) {
         write_pifram_byte(index + 6, (unsigned)state.hwreg.buttons.y);
         break;
 
+    case JOYBUS_MEMPACK_READ: {
+        if (t != 3 || r != 33) {
+            debugger::warn(Debugger::SI,
+                "JOYBUS_MEMPACK_READ invalid t/r {}/{}", t, r);
+            state.pifram[index + 1] |= 0x40;
+            return;
+        }
+        uint16_t address =
+            (state.pifram[index + 3] << 8) |
+            (state.pifram[index + 4] << 0);
+        address = address & UINT16_C(0xffe0);
+        if (address < 0x8000) {
+            // Addresses the controller mempack.
+            // TODO.
+            state.pifram[index + 1] |= 0x80;
+        } else {
+            // Addresses unsupported extension pack.
+            // Set the CRC as if only zeros were written.
+            memset(state.pifram + index + 5, 0, 32);
+            uint8_t crc = mempack_data_crc(state.pifram + index + 5);
+            write_pifram_byte(index + 37, crc);
+        }
+        break;
+    }
+    case JOYBUS_MEMPACK_WRITE: {
+        if (t != 35 || r != 1) {
+            debugger::warn(Debugger::SI,
+                "JOYBUS_MEMPACK_WRITE invalid t/r {}/{}", t, r);
+            state.pifram[index + 1] |= 0x40;
+            return;
+        }
+        uint16_t address =
+            (state.pifram[index + 3] << 8) |
+            (state.pifram[index + 4] << 0);
+        address = address & UINT16_C(0xffe0);
+        if (address < 0x8000) {
+            // Addresses the controller mempack.
+            // TODO.
+            state.pifram[index + 1] |= 0x80;
+        } else {
+            // Addresses unsupported extension pack.
+            // Set the CRC as if only zeros were written.
+            uint8_t data[32] = { 0 };
+            uint8_t crc = mempack_data_crc(data);
+            write_pifram_byte(index + 37, crc);
+        }
+        break;
+    }
     default:
         debugger::warn(Debugger::SI,
             "unknown JOYBUS command {:x}", state.pifram[index + 2]);
