@@ -48,6 +48,11 @@ const u32 SI_STATUS_REG = UINT32_C(0x04800018);
  *    0x00 - no error, operation successful.
  *    0x80 - error, device not present for specified command.
  *    0x40 - error, unable to send/recieve the number bytes for command type.
+ *
+ * Notes:
+ * - reading and writing to the mempack slot accesses an extension bus,
+ *   of which the first 32k addresses are reserved for the memory pack.
+ *   More devices can be accessed at higher addresses.
  */
 
 enum JoybusCommand {
@@ -90,12 +95,43 @@ enum JoybusCommand {
      *    + [7:0] Y (two's complement, signed)
      */
     JOYBUS_CONTROLLER_STATUS = 0x01,
+    /*
+     * Send:
+     * - Mempack address (2B)
+     *    + [15:5] Address aligned to 32B
+     *    + [4:0] Address CRC
+     * Receive:
+     * - Mempack bytes (32B)
+     * - Mempack bytes CRC (1B)
+     */
     JOYBUS_MEMPACK_READ = 0x02,
+    /*
+     * Send:
+     * - Mempack address (2B)
+     *    + [15:5] Address aligned to 32B
+     *    + [4:0] Address CRC
+     * - Mempack bytes (32B)
+     * Receive:
+     * - Mempack bytes CRC (1B)
+     */
     JOYBUS_MEMPACK_WRITE = 0x03,
     JOYBUS_EEPROM_READ = 0x04,
     JOYBUS_EEPROM_WRITE = 0x05,
     JOYBUS_RESET = 0xff,
 };
+
+static inline char const *get_PIF_command_name(uint8_t command) {
+    switch (command) {
+    case JOYBUS_INFO: return "JOYBUS_INFO";
+    case JOYBUS_CONTROLLER_STATUS: return "JOYBUS_CONTROLLER_STATUS";
+    case JOYBUS_MEMPACK_READ: return "JOYBUS_MEMPACK_READ";
+    case JOYBUS_MEMPACK_WRITE: return "JOYBUS_MEMPACK_WRITE";
+    case JOYBUS_EEPROM_READ: return "JOYBUS_EEPROM_READ";
+    case JOYBUS_EEPROM_WRITE: return "JOYBUS_EEPROM_WRITE";
+    case JOYBUS_RESET: return "JOYBUS_RESET";
+    default: return "JOYBUS_??";
+    }
+}
 
 /**
  * Write the value \p val to the PIF ram index \p index.
@@ -197,6 +233,10 @@ static void eval_PIF_commands()
             break;
         }
 
+        debugger::info(Debugger::SI, "  {}: {:02x}={}",
+            channel, state.pifram[index + 2],
+            get_PIF_command_name(state.pifram[index + 2]));
+
         /* Call the command handle corresponding to the channel. */
         switch (channel) {
         case 0x0: eval_PIF_controller_command(index, t, r); break;
@@ -209,7 +249,7 @@ static void eval_PIF_commands()
         }
 
         channel++;
-        index += t + r + 1;
+        index += t + r + 2;
     }
 
     state.pifram[0x3f] = 0;
@@ -234,9 +274,6 @@ static void write_SI_PIF_ADDR_RD64B_REG(u32 value)
         set_MI_INTR_REG(MI_INTR_SI);
         return;
     }
-
-    // Run the commands stored in the PIF ram.
-    eval_PIF_commands();
 
     // Copy the result to the designated DRAM address.
     memcpy(state.dram + dst, state.pifram, 64);
@@ -287,6 +324,11 @@ static void write_SI_PIF_ADDR_WR64B_REG(u32 value)
             state.pifram[n + 2], state.pifram[n + 3],
             state.pifram[n + 4], state.pifram[n + 5],
             state.pifram[n + 6], state.pifram[n + 7]);
+    }
+
+    // Run the commands stored in the PIF ram.
+    if (state.pifram[0x3f] & 0x1) {
+        eval_PIF_commands();
     }
 }
 
