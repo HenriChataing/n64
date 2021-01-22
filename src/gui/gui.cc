@@ -25,6 +25,7 @@ using namespace n64;
 static Disassembler imemDisassembler(12);
 static Disassembler dramDisassembler(22);
 static Disassembler romDisassembler(12);
+static Disassembler pifromDisassembler(12);
 static Trace cpuTrace(&debugger::debugger.cpuTrace);
 static Trace rspTrace(&debugger::debugger.rspTrace);
 
@@ -33,6 +34,7 @@ static unsigned long startCycles;
 static unsigned long startRecompilerCycles;
 static unsigned long startRecompilerRequests;
 static unsigned long startRecompilerCacheClears;
+static int activeController;
 
 static void glfwErrorCallback(int error, const char* description) {
     fprintf(stderr, "Glfw Error %d: %s\n", error, description);
@@ -786,6 +788,77 @@ static void ShowSIRegisters(void) {
         R4300::state.hwreg.SI_STATUS_REG);
 }
 
+static void ShowControllerInformation(unsigned channel) {
+    R4300::controller *controller = R4300::state.controllers[channel];
+    if (controller == NULL) {
+        ImGui::Text("No controller plugged in this slot");
+        if (ImGui::Button("Plug")) {
+            R4300::state.plugController(channel, new R4300::controller());
+        }
+        return;
+    }
+
+    if (ImGui::Button("Unplug")) {
+        R4300::state.unplugController(channel);
+        return;
+    }
+
+    ImGui::Button("A");
+    controller->A = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("B");
+    controller->B = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("Z");
+    controller->Z = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("Start");
+    controller->start = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("L");
+    controller->L = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("R");
+    controller->R = ImGui::IsItemActive();
+    ImGui::Text("Direction:");
+    ImGui::PushID("joycon.direction");
+    ImGui::SameLine();
+    ImGui::Button("Up");
+    controller->direction_up = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("Down");
+    controller->direction_down = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("Left");
+    controller->direction_left = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("Right");
+    controller->direction_right = ImGui::IsItemActive();
+    ImGui::PopID();
+    ImGui::Text("Camera:   ");
+    ImGui::PushID("joycon.camera");
+    ImGui::SameLine();
+    ImGui::Button("Up");
+    controller->camera_up = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("Down");
+    controller->camera_down = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("Left");
+    controller->camera_left = ImGui::IsItemActive();
+    ImGui::SameLine();
+    ImGui::Button("Right");
+    controller->camera_right = ImGui::IsItemActive();
+    ImGui::PopID();
+
+    int x = controller->direction_x;
+    int y = controller->direction_y;
+    ImGui::SliderInt("X", &x, -128, 127);
+    ImGui::SliderInt("Y", &y, -128, 127);
+    controller->direction_x = x;
+    controller->direction_y = y;
+}
+
 static void ShowPIFInformation(void) {
     for (size_t index = 0; index < 64; index += 8) {
         ImGui::Text("%02zx: "
@@ -798,61 +871,32 @@ static void ShowPIFInformation(void) {
             R4300::state.pifram[index + 6], R4300::state.pifram[index + 7]);
     }
 
-    ImGui::Separator();
-    ImGui::Button("A");
-    R4300::state.hwreg.buttons.A = ImGui::IsItemActive();
-    ImGui::SameLine();
-    ImGui::Button("B");
-    R4300::state.hwreg.buttons.B = ImGui::IsItemActive();
-    ImGui::SameLine();
-    ImGui::Button("Z");
-    R4300::state.hwreg.buttons.Z = ImGui::IsItemActive();
-    ImGui::SameLine();
-    ImGui::Button("Start");
-    R4300::state.hwreg.buttons.start = ImGui::IsItemActive();
-    ImGui::SameLine();
-    ImGui::Button("L");
-    R4300::state.hwreg.buttons.L = ImGui::IsItemActive();
-    ImGui::SameLine();
-    ImGui::Button("R");
-    R4300::state.hwreg.buttons.R = ImGui::IsItemActive();
-    ImGui::Text("Direction:");
-    ImGui::PushID("joycon.direction");
-    ImGui::SameLine();
-    ImGui::Button("Up");
-    R4300::state.hwreg.buttons.up = ImGui::IsItemActive();
-    ImGui::SameLine();
-    ImGui::Button("Down");
-    R4300::state.hwreg.buttons.down = ImGui::IsItemActive();
-    ImGui::SameLine();
-    ImGui::Button("Left");
-    R4300::state.hwreg.buttons.left = ImGui::IsItemActive();
-    ImGui::SameLine();
-    ImGui::Button("Right");
-    R4300::state.hwreg.buttons.right = ImGui::IsItemActive();
-    ImGui::PopID();
-    ImGui::Text("Camera:   ");
-    ImGui::PushID("joycon.camera");
-    ImGui::SameLine();
-    ImGui::Button("Up");
-    R4300::state.hwreg.buttons.C_up = ImGui::IsItemActive();
-    ImGui::SameLine();
-    ImGui::Button("Down");
-    R4300::state.hwreg.buttons.C_down = ImGui::IsItemActive();
-    ImGui::SameLine();
-    ImGui::Button("Left");
-    R4300::state.hwreg.buttons.C_left = ImGui::IsItemActive();
-    ImGui::SameLine();
-    ImGui::Button("Right");
-    R4300::state.hwreg.buttons.C_right = ImGui::IsItemActive();
-    ImGui::PopID();
+    ImGui::Text("Active controller: "); ImGui::SameLine();
+    ImGui::RadioButton("0", &activeController, 0); ImGui::SameLine();
+    ImGui::RadioButton("1", &activeController, 1); ImGui::SameLine();
+    ImGui::RadioButton("2", &activeController, 2); ImGui::SameLine();
+    ImGui::RadioButton("3", &activeController, 3);
 
-    int x = R4300::state.hwreg.buttons.x;
-    int y = R4300::state.hwreg.buttons.y;
-    ImGui::SliderInt("X", &x, -128, 127);
-    ImGui::SliderInt("Y", &y, -128, 127);
-    R4300::state.hwreg.buttons.x = x;
-    R4300::state.hwreg.buttons.y = y;
+    ImGui::Separator();
+    if (ImGui::BeginTabBar("Controllers", 0)) {
+        if (ImGui::BeginTabItem("#0")) {
+            ShowControllerInformation(0);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("#1")) {
+            ShowControllerInformation(1);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("#2")) {
+            ShowControllerInformation(2);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("#3")) {
+            ShowControllerInformation(3);
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
 }
 
 static void ShowCartInformation(void) {
@@ -956,6 +1000,15 @@ static void ShowDisassembler(bool *show_disassembler) {
                 R4300::state.rom, 0x1000,
                 R4300::state.reg.pc,
                 0x10000000lu,
+                true);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("PIFROM")) {
+            romDisassembler.DrawContents(
+                assembly::cpu::disassemble,
+                R4300::state.pifrom, 0x7c0,
+                R4300::state.reg.pc,
+                0x1fc00000lu,
                 true);
             ImGui::EndTabItem();
         }
@@ -1149,30 +1202,35 @@ void joyKeyCallback(GLFWwindow* window, int key, int scancode, int action, int m
     default: return;
     }
 
+    R4300::controller *controller = R4300::state.controllers[activeController];
+    if (controller == NULL) {
+        return;
+    }
+
     switch (key) {
-    case GLFW_KEY_A:     R4300::state.hwreg.buttons.A       = keyval; break;
-    case GLFW_KEY_B:     R4300::state.hwreg.buttons.B       = keyval; break;
-    case GLFW_KEY_Z:     R4300::state.hwreg.buttons.Z       = keyval; break;
-    case GLFW_KEY_SPACE: R4300::state.hwreg.buttons.start   = keyval; break;
-    case GLFW_KEY_UP:    R4300::state.hwreg.buttons.up      = keyval; break;
-    case GLFW_KEY_DOWN:  R4300::state.hwreg.buttons.down    = keyval; break;
-    case GLFW_KEY_LEFT:  R4300::state.hwreg.buttons.left    = keyval; break;
-    case GLFW_KEY_RIGHT: R4300::state.hwreg.buttons.right   = keyval; break;
-    case GLFW_KEY_L:     R4300::state.hwreg.buttons.L       = keyval; break;
-    case GLFW_KEY_R:     R4300::state.hwreg.buttons.R       = keyval; break;
-    case GLFW_KEY_U:     R4300::state.hwreg.buttons.C_up    = keyval; break;
-    case GLFW_KEY_J:     R4300::state.hwreg.buttons.C_down  = keyval; break;
-    case GLFW_KEY_H:     R4300::state.hwreg.buttons.C_left  = keyval; break;
-    case GLFW_KEY_K:     R4300::state.hwreg.buttons.C_right = keyval; break;
+    case GLFW_KEY_A:     controller->A               = keyval; break;
+    case GLFW_KEY_B:     controller->B               = keyval; break;
+    case GLFW_KEY_Z:     controller->Z               = keyval; break;
+    case GLFW_KEY_SPACE: controller->start           = keyval; break;
+    case GLFW_KEY_UP:    controller->direction_up    = keyval; break;
+    case GLFW_KEY_DOWN:  controller->direction_down  = keyval; break;
+    case GLFW_KEY_LEFT:  controller->direction_left  = keyval; break;
+    case GLFW_KEY_RIGHT: controller->direction_right = keyval; break;
+    case GLFW_KEY_L:     controller->L               = keyval; break;
+    case GLFW_KEY_R:     controller->R               = keyval; break;
+    case GLFW_KEY_U:     controller->camera_up       = keyval; break;
+    case GLFW_KEY_J:     controller->camera_down     = keyval; break;
+    case GLFW_KEY_H:     controller->camera_left     = keyval; break;
+    case GLFW_KEY_K:     controller->camera_right    = keyval; break;
     default: break;
     }
 
-    R4300::state.hwreg.buttons.x =
-        127 * R4300::state.hwreg.buttons.right +
-        -127 * R4300::state.hwreg.buttons.left;
-    R4300::state.hwreg.buttons.y =
-        127 * R4300::state.hwreg.buttons.up +
-        -127 * R4300::state.hwreg.buttons.down;
+    controller->direction_x =
+        127 * controller->direction_right -
+        127 * controller->direction_left;
+    controller->direction_y =
+        127 * controller->direction_up -
+        127 * controller->direction_down;
 }
 
 int startGui()

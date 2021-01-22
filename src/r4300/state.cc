@@ -48,6 +48,12 @@ State::State() : bus(NULL) {
     // Create the physical memory address space for this machine
     // importing the rom bytes for the select file.
     swapMemoryBus(new Memory::Bus(32));
+
+    // Plug a controller in slot 0.
+    controllers[0] = new R4300::controller();
+    controllers[1] = NULL;
+    controllers[2] = NULL;
+    controllers[3] = NULL;
 }
 
 State::~State() {
@@ -320,4 +326,22 @@ void State::handleEvent(void) {
     }
     cpu.nextEvent =
         (cpu.eventQueue != NULL) ? cpu.eventQueue->timeout : cycles - 1;
+}
+
+void State::plugController(unsigned channel, struct controller *controller) {
+    delete controllers[channel];
+    controllers[channel] = controller;
+}
+
+void State::plugAccessory(unsigned channel, struct extension_pak *accessory) {
+    if (controllers[channel] != NULL) {
+        controllers[channel]->set_mempak(accessory);
+    } else {
+        delete accessory;
+    }
+}
+
+void State::unplugController(unsigned channel) {
+    delete controllers[channel];
+    controllers[channel] = NULL;
 }

@@ -7,6 +7,7 @@
 #include <r4300/cpu.h>
 #include <r4300/rsp.h>
 #include <r4300/hw.h>
+#include <r4300/controller.h>
 
 namespace R4300 {
 
@@ -62,6 +63,12 @@ public:
         bool    delaySlot;
         Event  *eventQueue;
     } cpu, rsp;
+
+    struct controller *controllers[4];
+
+    void plugController(unsigned channel, struct controller *controller);
+    void plugAccessory(unsigned channel, struct extension_pak *accessory);
+    void unplugController(unsigned channel);
 
     void swapMemoryBus(Memory::Bus *bus);
     void scheduleEvent(ulong timeout, void (*callback)());

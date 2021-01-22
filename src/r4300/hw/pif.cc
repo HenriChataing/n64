@@ -6,6 +6,7 @@
 #include <r4300/rdp.h>
 #include <r4300/hw.h>
 #include <r4300/state.h>
+#include <r4300/controller.h>
 
 #include <core.h>
 #include <debugger.h>
@@ -166,7 +167,17 @@ static uint8_t mempack_data_crc(uint8_t data[32]) {
  * https://sites.google.com/site/consoleprotocols/home/nintendo-joy-bus-documentation
  * https://github.com/joeldipops/TransferBoy/blob/master/docs/TransferPakReference.md
  */
-static void eval_PIF_controller_command(size_t index, uint8_t t, uint8_t r) {
+static void eval_PIF_controller_command(unsigned channel, size_t index, uint8_t t, uint8_t r) {
+    // Clear error flags.
+    state.pifram[index + 1] &= 0x3f;
+
+    // Controller not plugged in the selected port.
+    struct controller *controller = state.controllers[channel];
+    if (controller == NULL) {
+        state.pifram[index + 1] |= 0x80;
+        return;
+    }
+
     switch (state.pifram[index + 2]) {
     case JOYBUS_INFO:
     case JOYBUS_RESET:
@@ -178,7 +189,8 @@ static void eval_PIF_controller_command(size_t index, uint8_t t, uint8_t r) {
         }
         write_pifram_byte(index + 3, 0x05);
         write_pifram_byte(index + 4, 0x00);
-        write_pifram_byte(index + 5, 0x1);
+        write_pifram_byte(index + 5,
+            controller->mempak == NULL ? 0x02 : 0x01);
         break;
 
     case JOYBUS_CONTROLLER_STATUS:
@@ -189,23 +201,23 @@ static void eval_PIF_controller_command(size_t index, uint8_t t, uint8_t r) {
             return;
         }
         write_pifram_byte(index + 3,
-            (state.hwreg.buttons.A << 7) |
-            (state.hwreg.buttons.B << 6) |
-            (state.hwreg.buttons.Z << 5) |
-            (state.hwreg.buttons.start << 4) |
-            (state.hwreg.buttons.up << 3) |
-            (state.hwreg.buttons.down << 2) |
-            (state.hwreg.buttons.left << 1) |
-            (state.hwreg.buttons.right << 0));
+            (controller->A << 7) |
+            (controller->B << 6) |
+            (controller->Z << 5) |
+            (controller->start << 4) |
+            (controller->direction_up << 3) |
+            (controller->direction_down << 2) |
+            (controller->direction_left << 1) |
+            (controller->direction_right << 0));
         write_pifram_byte(index + 4,
-            (state.hwreg.buttons.L << 5) |
-            (state.hwreg.buttons.R << 4) |
-            (state.hwreg.buttons.C_up << 3) |
-            (state.hwreg.buttons.C_down << 2) |
-            (state.hwreg.buttons.C_left << 1) |
-            (state.hwreg.buttons.C_right << 0));
-        write_pifram_byte(index + 5, (unsigned)state.hwreg.buttons.x);
-        write_pifram_byte(index + 6, (unsigned)state.hwreg.buttons.y);
+            (controller->L << 5) |
+            (controller->R << 4) |
+            (controller->camera_up << 3) |
+            (controller->camera_down << 2) |
+            (controller->camera_left << 1) |
+            (controller->camera_right << 0));
+        write_pifram_byte(index + 5, (unsigned)controller->direction_x);
+        write_pifram_byte(index + 6, (unsigned)controller->direction_y);
         break;
 
     case JOYBUS_MEMPACK_READ: {
@@ -218,18 +230,14 @@ static void eval_PIF_controller_command(size_t index, uint8_t t, uint8_t r) {
         uint16_t address =
             (state.pifram[index + 3] << 8) |
             (state.pifram[index + 4] << 0);
+        uint8_t *data = state.pifram + index + 5;
         address = address & UINT16_C(0xffe0);
-        if (address < 0x8000) {
-            // Addresses the controller mempack.
-            // TODO.
-            state.pifram[index + 1] |= 0x80;
-        } else {
-            // Addresses unsupported extension pack.
-            // Set the CRC as if only zeros were written.
-            memset(state.pifram + index + 5, 0, 32);
-            uint8_t crc = mempack_data_crc(state.pifram + index + 5);
-            write_pifram_byte(index + 37, crc);
+        memset(data, 0, 32);
+        if (controller->mempak != NULL) {
+            controller->mempak->read(address, data);
         }
+        uint8_t crc = mempack_data_crc(data);
+        write_pifram_byte(index + 37, crc);
         break;
     }
     case JOYBUS_MEMPACK_WRITE: {
@@ -242,18 +250,13 @@ static void eval_PIF_controller_command(size_t index, uint8_t t, uint8_t r) {
         uint16_t address =
             (state.pifram[index + 3] << 8) |
             (state.pifram[index + 4] << 0);
+        uint8_t *data = state.pifram + index + 5;
+        uint8_t crc = mempack_data_crc(data);
         address = address & UINT16_C(0xffe0);
-        if (address < 0x8000) {
-            // Addresses the controller mempack.
-            // TODO.
-            state.pifram[index + 1] |= 0x80;
-        } else {
-            // Addresses unsupported extension pack.
-            // Set the CRC as if only zeros were written.
-            uint8_t data[32] = { 0 };
-            uint8_t crc = mempack_data_crc(data);
-            write_pifram_byte(index + 37, crc);
+        if (controller->mempak != NULL) {
+            controller->mempak->write(address, data);
         }
+        write_pifram_byte(index + 37, crc);
         break;
     }
     default:
@@ -275,8 +278,9 @@ static void eval_PIF_commands()
     size_t channel = 0;
 
     while (index < 0x3e) {
+        /* Read transmit and receive lengths. */
         size_t t = state.pifram[index];
-        size_t r = state.pifram[index + 1];
+        size_t r = state.pifram[index + 1] & 0x3f;
 
         if (t == 0xfe) {
             /* Break command */
@@ -307,10 +311,12 @@ static void eval_PIF_commands()
 
         /* Call the command handle corresponding to the channel. */
         switch (channel) {
-        case 0x0: eval_PIF_controller_command(index, t, r); break;
-        // case 0x1: eval_PIF_controller_command(index, t, r); break;
-        // case 0x2: eval_PIF_controller_command(index, t, r); break;
-        // case 0x3: eval_PIF_controller_command(index, t, r); break;
+        case 0x0:
+        case 0x1:
+        case 0x2:
+        case 0x3:
+            eval_PIF_controller_command(channel, index, t, r);
+            break;
         // case 0x4: eval_PIF_eeprom_command(index, t, r); break;
         // case 0x5: eval_PIF_eeprom_command(index, t, r); break;
         default: state.pifram[index + 1] |= 0x80;
@@ -342,6 +348,9 @@ static void write_SI_PIF_ADDR_RD64B_REG(u32 value)
         set_MI_INTR_REG(MI_INTR_SI);
         return;
     }
+
+    // Run the commands stored in the PIF ram.
+    eval_PIF_commands();
 
     // Copy the result to the designated DRAM address.
     memcpy(state.dram + dst, state.pifram, 64);
@@ -394,10 +403,10 @@ static void write_SI_PIF_ADDR_WR64B_REG(u32 value)
             state.pifram[n + 6], state.pifram[n + 7]);
     }
 
-    // Run the commands stored in the PIF ram.
-    if (state.pifram[0x3f] & 0x1) {
-        eval_PIF_commands();
-    }
+    // // Run the commands stored in the PIF ram.
+    // if (state.pifram[0x3f] & 0x1) {
+    //     eval_PIF_commands();
+    // }
 }
 
 bool read_SI_REG(uint bytes, u64 addr, u64 *value)

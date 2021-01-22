@@ -106,26 +106,6 @@ struct hwreg {
 
     u32 SI_DRAM_ADDR_REG;
     u32 SI_STATUS_REG;
-
-    struct {
-        unsigned A : 1;
-        unsigned B : 1;
-        unsigned Z : 1;
-        unsigned start : 1;
-        unsigned up : 1;
-        unsigned down : 1;
-        unsigned left : 1;
-        unsigned right : 1;
-        unsigned : 2;
-        unsigned L : 1;
-        unsigned R : 1;
-        unsigned C_up : 1;
-        unsigned C_down : 1;
-        unsigned C_left : 1;
-        unsigned C_right : 1;
-        signed x : 8;
-        signed y : 8;
-    } buttons;
 };
 
 /* RdRam */
