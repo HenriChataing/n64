@@ -776,83 +776,66 @@ std::vector<std::string> list_test_suites(std::string &dir) {
     return test_suites;
 }
 
-
-enum {
-    ALL,
-    RANDOM,
-    SELECTED,
-};
-
 int main(int argc, char **argv) {
     std::srand(std::time(nullptr));
 
     cxxopts::Options options("recompiler_test_suite", "N64 recompiler tests");
     options.add_options()
         ("a,all",       "Run all recompiler tests")
-        ("r,random",    "Run a randomly selected recompiler test")
-        ("regression",  "Select regression tests")
+        ("I,input",     "Select test input directory",
+             cxxopts::value<std::string>())
         ("i,interpret", "Run the IR interpreter")
         ("v,verbose",   "Enable verbose logs")
+        ("test",        "Test files",
+            cxxopts::value<std::vector<std::string>>())
         ("h,help",      "Print usage");
+    options.parse_positional("test");
+    options.positional_help("TEST");
 
     auto result = options.parse(argc, argv);
-    std::string test_dir = "test/recompiler";
-    unsigned mode = RANDOM;
-    unsigned selected = 0;
+    std::string input_dir = "test/recompiler";
     bool interpret = result.count("interpret") > 0;
     bool verbose = result.count("verbose") > 0;
+    bool all = result.count("all") > 0;
+    bool random = !all && result.count("test") == 0;
 
     if (result.count("help")) {
         std::cout << options.help() << std::endl;
         exit(0);
     }
 
-    if (result.count("regression") > 0) {
-        test_dir = "test/recompiler/regression";
+    if (result.count("input") > 0) {
+        input_dir = result["input"].as<std::string>();
     }
 
-    if (result.count("all") > 0) {
-        mode = ALL;
-    }
-
-    if (result.count("random") > 0) {
-        mode = RANDOM;
-    }
-
-    std::vector<std::string> test_suites = list_test_suites(test_dir);
+    std::vector<std::string> test_suites = list_test_suites(input_dir);
     struct test_statistics test_stats = {};
-    bool stop_at_first_fail = false;
     recompiler_backend_t *backend = ir_mips_recompiler_backend();
     code_buffer_t *emitter = alloc_code_buffer(0x4000);
 
-    if (mode == SELECTED) {
-        for (; selected < test_suites.size(); selected++) {
-            if (test_suites[selected] == argv[1])
-                break;
-        }
-        if (selected == test_suites.size()) {
-            fmt::print(fmt::fg(fmt::color::tomato),
-                "the selected test suite '{}' does not exist\n", argv[1]);
-            return 1;
-        }
+    if (random) {
+        unsigned selected = std::rand() % test_suites.size();
+        run_test_suite(backend, emitter,
+            input_dir, test_suites[selected], &test_stats,
+            interpret, verbose);
     }
 
-    if (mode == RANDOM) {
-        selected = std::rand() % test_suites.size();
-    }
-
-    if (mode == ALL) {
+    if (all) {
         for (unsigned nr = 0; nr < test_suites.size(); nr++) {
             run_test_suite(backend, emitter,
-                test_dir, test_suites[nr], &test_stats,
+                input_dir, test_suites[nr], &test_stats,
                 interpret, verbose);
-            if (stop_at_first_fail && test_stats.total_failed)
-                break;
         }
-    } else {
-        run_test_suite(backend, emitter,
-            test_dir, test_suites[selected], &test_stats,
-            interpret, verbose);
+    }
+
+    if (result["test"].count() > 0) {
+        std::vector<std::string> const &tests =
+            result["test"].as<std::vector<std::string>>();
+        for (std::string const &test: tests) {
+            run_test_suite(backend, emitter,
+                input_dir, test, &test_stats,
+                interpret, verbose);
+        }
     }
 
     unsigned total_tests =
