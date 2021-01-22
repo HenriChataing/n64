@@ -86,6 +86,7 @@ UI_OBJS := \
 
 HW_OBJS := \
     $(OBJDIR)/src/r4300/rdp.o \
+    $(OBJDIR)/src/r4300/controller.o \
     $(OBJDIR)/src/r4300/hw/ai.o \
     $(OBJDIR)/src/r4300/hw/cart.o \
     $(OBJDIR)/src/r4300/hw/dpc.o \
