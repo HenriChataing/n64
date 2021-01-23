@@ -487,7 +487,6 @@ static void pipeline_tx_load(struct tile const *tile, unsigned s, unsigned t, co
     default:
         debugger::warn(Debugger::RDP,
             "pipeline_tx_load: unexpected image data type {}", tile->type);
-        core::halt("pipeline_tx_load: unexpected image data type");
         break;
     }
 }
@@ -2317,8 +2316,8 @@ void loadTlut(u64 command, u64 const *params) {
         core::halt("load_tlut: inverted palette indexes");
         return;
     }
-    if ((tmem_addr + 8 * (sh - sl)) >= sizeof(state.tmem) ||
-        (dram_addr + 2 * sh) >= sizeof(state.dram)) {
+    if ((tmem_addr + 8 * (sh - sl + 1)) > sizeof(state.tmem) ||
+        (dram_addr + 2 * (sh + 1)) > sizeof(state.dram)) {
         debugger::warn(Debugger::RDP,
             "load_tlut: out-of-bounds memory access: {}, {}", sl, sh);
         core::halt("load_tlut: out-of-bounds memory access");
@@ -2328,12 +2327,10 @@ void loadTlut(u64 command, u64 const *params) {
     /* Load the palette to texture memory.
      * Each entry is quadricated into the four high banks
      * of the texture memory. */
-    unsigned start = sl << 1;
-    unsigned end = sh << 1;
-    u16 *src = (u16 *)&state.dram[dram_addr + start];
+    u16 *src = (u16 *)&state.dram[dram_addr + (sl << 1)];
     u16 *dst = (u16 *)&state.tmem[tmem_addr];
 
-    for (unsigned i = start; i <= end; i++, src++, dst+=4) {
+    for (unsigned i = sl; i <= sh; i++, src++, dst += 4) {
         dst[0] = *src;
         dst[1] = *src;
         dst[2] = *src;
@@ -2378,19 +2375,65 @@ void loadBlock(u64 command, u64 const *params) {
     debugger::debug(Debugger::RDP, "  sh: {}", sh);
     debugger::debug(Debugger::RDP, "  dxt: {}", i32_fixpoint_to_float((u32)dxt, 11));
 
+    /* 4b textures should be loaded as 8b textures if they are larger than
+     * 4K texels. TODO if this assert fails, implement support for 4b texture
+     * types. */
     unsigned src_size = rdp.texture_image.size;
     if (src_size == PIXEL_SIZE_4B) {
-        core::halt("Invalid texture format for loadBlock");
+        debugger::warn(Debugger::RDP,
+            "load_block: invalid texture type");
+        core::halt("load_block: invalid texture type");
+        return;
     }
 
-    unsigned src_size_shift = src_size - 1;
-    unsigned line_size = (sh - sl) << src_size_shift;
-    unsigned src_stride = rdp.texture_image.width << src_size_shift;
-    unsigned dst_stride = rdp.tiles[tile].line << 3;
+    /* TODO: dont know what to do with non-zero TL coordinate. */
+    if (tl != 0) {
+        debugger::warn(Debugger::RDP,
+            "load_block: non-zero tl texel index: {}", tl);
+        core::halt("load_block: non-zero tl texel index");
+        return;
+    }
 
-    line_size = (line_size + 7u) & ~7u; /* Rounded-up to 64bit boundary. */
-    u8 *src = &state.dram[rdp.texture_image.addr + (tl * src_stride) + (sl << src_size_shift)];
-    u8 *dst = &state.tmem[rdp.tiles[tile].tmem_addr << 3];
+    /* TODO: tile line size represents the number of words to skip
+     * at the end of each line (when T is incremented). */
+    if (rdp.tiles[tile].line != 0) {
+        debugger::warn(Debugger::RDP,
+            "load_block: non-zero line size: {}", rdp.tiles[tile].line);
+        core::halt("load_block: non-zero line size");
+        return;
+    }
+
+    /* Get texture memory source and destination addresses. */
+    unsigned tmem_addr = rdp.tiles[tile].tmem_addr << 3;
+    unsigned dram_addr = rdp.texture_image.addr;
+    unsigned texel_size_shift = src_size - 1;
+
+    /* Sanity checks on SL, SH:
+     * - sl must be lower than sh
+     * - the range [tmem_addr, tmem_addr + texel_size * (sh - sl)]
+     *   must fit in texture memory
+     * - the range [dram_addr + sl, dram_addr + sh]
+     *   must fit in dram memory
+     */
+    if (sl > sh) {
+        debugger::warn(Debugger::RDP,
+            "load_block: inverted texel indexes: {}, {}", sl, sh);
+        core::halt("load_block: inverted texel indexes");
+        return;
+    }
+    if ((tmem_addr + ((sh - sl + 1) << texel_size_shift)) > sizeof(state.tmem) ||
+        (dram_addr + ((sh + 1) << texel_size_shift)) > sizeof(state.dram)) {
+        debugger::warn(Debugger::RDP,
+            "load_block: out-of-bounds memory access: {}, {}", sl, sh);
+        core::halt("load_block: out-of-bounds memory access");
+        return;
+    }
+
+    unsigned line_size = (sh - sl) << texel_size_shift;
+    line_size = (line_size + 7u) & ~7u;
+
+    u8 *src = &state.dram[dram_addr + (sl << texel_size_shift)];
+    u8 *dst = &state.tmem[tmem_addr];
 
     u32 t = 0;
     u32 t_int = 0;
@@ -2399,10 +2442,9 @@ void loadBlock(u64 command, u64 const *params) {
         t += dxt;
         if ((t >> 11) != t_int) {
             t_int = (t >> 11);
-            dst += dst_stride;
+            // TODO interleaving
         }
     }
-    // TODO buffer overflow checks
 }
 
 void loadTile(u64 command, u64 const *params) {
