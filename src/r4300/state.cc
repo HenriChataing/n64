@@ -31,7 +31,7 @@ static bool RAZ(unsigned bytes, u64 addr, u64 *val) {
     (void)bytes; (void)addr;
     *val = 0;
     debugger::warn(Debugger::CPU, "read undefined address 0x{:x}", addr);
-    core::halt("RAZ");
+    // core::halt("RAZ");
     return true;
 }
 

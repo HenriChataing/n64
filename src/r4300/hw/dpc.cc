@@ -46,10 +46,26 @@ bool read_DPC_REG(uint bytes, u64 addr, u64 *value)
         return false;
 
     switch (addr) {
-    case DPC_START_REG:     *value = state.hwreg.DPC_START_REG; break;
-    case DPC_END_REG:       *value = state.hwreg.DPC_END_REG; break;
-    case DPC_STATUS_REG:    *value = state.hwreg.DPC_STATUS_REG; break;
-    case DPC_CURRENT_REG:   *value = state.hwreg.dpc_Current; break;
+    case DPC_START_REG:
+        debugger::info(Debugger::DPCommand, "DPC_START_REG -> {:08x}",
+            state.hwreg.DPC_START_REG);
+        *value = state.hwreg.DPC_START_REG;
+        break;
+    case DPC_END_REG:
+        debugger::info(Debugger::DPCommand, "DPC_END_REG -> {:08x}",
+            state.hwreg.DPC_END_REG);
+        *value = state.hwreg.DPC_END_REG;
+        break;
+    case DPC_STATUS_REG:
+        debugger::info(Debugger::DPCommand, "DPC_STATUS_REG -> {:08x}",
+            state.hwreg.DPC_STATUS_REG);
+        *value = state.hwreg.DPC_STATUS_REG;
+        break;
+    case DPC_CURRENT_REG:
+        debugger::info(Debugger::DPCommand, "DPC_CURRENT_REG -> {:08x}",
+            state.hwreg.dpc_Current);
+        *value = state.hwreg.dpc_Current;
+        break;
     case DPC_CLOCK_REG:
     case DPC_BUF_BUSY_REG:
     case DPC_PIPE_BUSY_REG:

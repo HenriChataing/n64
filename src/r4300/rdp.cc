@@ -2963,6 +2963,8 @@ static void load_DPC_commands(void) {
         state.hwreg.dpc_End = state.hwreg.DPC_END_REG;
     }
 
+    state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_CBUF_READY;
+
     while (DPC_hasNext() && !core::halted()) {
         uint64_t dword = DPC_read();
 
@@ -2977,6 +2979,10 @@ static void load_DPC_commands(void) {
             execute_DPC_command();
         }
     }
+
+    if (!DPC_hasNext() && state.hwreg.dpc_CommandBufferLen == 0) {
+        state.hwreg.DPC_STATUS_REG |= DPC_STATUS_CBUF_READY;
+    }
 }
 
 /**
@@ -2985,6 +2991,8 @@ static void load_DPC_commands(void) {
  * which is only an approximation.
  */
 void write_DPC_START_REG(u32 value) {
+    debugger::info(Debugger::DPCommand, "DPC_START_REG <- {:08x}", value);
+
     state.hwreg.DPC_START_REG = value & SP_DRAM_ADDR_MASK;
     state.hwreg.DPC_STATUS_REG |= DPC_STATUS_START_VALID;
 }
@@ -2996,6 +3004,8 @@ void write_DPC_START_REG(u32 value) {
  * updating DPC_CURRENT_REG at the same time.
  */
 void write_DPC_END_REG(u32 value) {
+    debugger::info(Debugger::DPCommand, "DPC_END_REG <- {:08x}", value);
+
     state.hwreg.DPC_END_REG = value & SP_DRAM_ADDR_MASK;
     state.hwreg.DPC_STATUS_REG |= DPC_STATUS_END_VALID;
 
