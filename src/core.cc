@@ -173,6 +173,14 @@ static std::string             interpreter_halted_reason;
  */
 void invalidate_recompiler_cache(uint64_t start_phys_address,
                                  uint64_t end_phys_address) {
+    // This function is always called when physical memory is written from the
+    // CPU (RDP accesses are notably excluded).
+    // Check watchpoints registered to the debugger.
+    if (debugger::debugger.check_watchpoint(
+        start_phys_address, end_phys_address - 1)) {
+        core::halt("Watchpoint");
+    }
+
 #if ENABLE_RECOMPILER
     if (start_phys_address > 0x400000) {
         return;

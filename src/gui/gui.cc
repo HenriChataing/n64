@@ -1089,18 +1089,70 @@ static void ShowBreakpoints(bool *show_breakpoints) {
     }
 }
 
+static void ShowWatchpoints(bool *show_watchpoints) {
+    static char start_addr_input_buf[32];
+    static char end_addr_input_buf[32];
+    bool added = false;
+    bool removed = false;
+    unsigned removed_id = 0;
+
+    ImGui::Begin("Watchpoints", show_watchpoints);
+    added |= ImGui::InputText("##start_addr", start_addr_input_buf, 32,
+        ImGuiInputTextFlags_CharsHexadecimal |
+        ImGuiInputTextFlags_EnterReturnsTrue);
+    // ImGui::SameLine();
+    added |= ImGui::InputText("##end_addr", end_addr_input_buf, 32,
+        ImGuiInputTextFlags_CharsHexadecimal |
+        ImGuiInputTextFlags_EnterReturnsTrue);
+    ImGui::SameLine();
+    added |= ImGui::Button("Add");
+
+    if (added) {
+        uint64_t start_addr, end_addr;
+        if (sscanf(start_addr_input_buf, "%" PRIx64 "X", &start_addr) == 1 &&
+            sscanf(end_addr_input_buf, "%" PRIx64 "X", &end_addr) == 1) {
+            debugger::debugger.set_watchpoint(start_addr, end_addr);
+        }
+    }
+
+    ImGui::BeginChild("WatchpointList");
+    auto it = debugger::debugger.watchpointsBegin();
+    for (; it != debugger::debugger.watchpointsEnd(); it++) {
+        ImGui::PushID(it->first);
+        ImGui::Text("#%-2u", it->first);
+        ImGui::SameLine();
+        ImGui::Checkbox("", &it->second.enabled);
+        ImGui::SameLine();
+        if (ImGui::Button("Remove")) {
+            removed = true;
+            removed_id = it->first;
+        }
+        ImGui::SameLine();
+        ImGui::Text("%08lx %08lx", it->second.start_addr, it->second.end_addr);
+        ImGui::PopID();
+    }
+    ImGui::EndChild();
+    ImGui::End();
+
+    if (removed) {
+        debugger::debugger.unset_watchpoint(removed_id);
+    }
+}
+
 static void ShowDebuggerWindow(void) {
     static bool show_screen = true;
     static bool show_log_config = false;
     static bool show_disassembler = true;
     static bool show_trace = false;
     static bool show_breakpoints = false;
+    static bool show_watchpoints = false;
 
     if (show_screen) ShowScreen(&show_screen);
     if (show_log_config) ShowLogConfig(&show_log_config);
     if (show_disassembler) ShowDisassembler(&show_disassembler);
     if (show_trace) ShowTrace(&show_trace);
     if (show_breakpoints) ShowBreakpoints(&show_breakpoints);
+    if (show_watchpoints) ShowWatchpoints(&show_watchpoints);
 
     if (ImGui::Begin("Debugger", NULL, ImGuiWindowFlags_MenuBar)) {
         if (ImGui::BeginMenuBar()) {
@@ -1123,6 +1175,7 @@ static void ShowDebuggerWindow(void) {
                 if (ImGui::MenuItem("Disassembler", NULL, &show_disassembler)) {}
                 if (ImGui::MenuItem("Trace", NULL, &show_trace)) {}
                 if (ImGui::MenuItem("Breakpoints", NULL, &show_breakpoints)) {}
+                if (ImGui::MenuItem("Watchpoints", NULL, &show_watchpoints)) {}
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("Options")) {

@@ -74,6 +74,18 @@ public:
             : id(0), addr(0), enabled(false) {}
     };
 
+    struct Watchpoint {
+        unsigned id;
+        uint64_t start_addr;
+        uint64_t end_addr;
+        bool enabled;
+
+        Watchpoint(unsigned id, uint64_t start_addr, uint64_t end_addr)
+            : id(id), start_addr(start_addr), end_addr(end_addr), enabled(true) {}
+        Watchpoint()
+            : id(0), start_addr(0), end_addr(0), enabled(false) {}
+    };
+
     /**
      * @brief Create a new breakpoint.
      * @details The breakpoint is always created; the input address is not
@@ -97,6 +109,34 @@ public:
      */
     bool check_breakpoint(uint64_t addr, unsigned *id = NULL);
 
+    /**
+     * @brief Create a new watchpoint.
+     * @details The watchpoint is always created; the input addresses are not
+     *  checked for duplicates. The watchpoint identifier is monotonic.
+     * @param start_addr
+     *      Start physical address of the RAM memory location to set
+     *      the watchpoint to.
+     * @param end_addr
+     *      End physical address of the RAM memory location to set
+     *      the watchpoint to.
+     * @return The identifier of the created watchpoint.
+     */
+    unsigned set_watchpoint(uint64_t start_addr, uint64_t end_addr);
+    /**
+     * @brief Remove a previously created watchpoint.
+     * @param id    Identifier of the watchpoint to remove.
+     */
+    void unset_watchpoint(unsigned id);
+    /**
+     * @brief Check if the input address range triggers a breakpoint.
+     * @param addr  Physical address to check.
+     * @param id    Return the identifier of the triggered breakpoint.
+     * @return True if and only if the address \p addr is marked by a breakpoint.
+     */
+    bool check_watchpoint(uint64_t start_addr, uint64_t end_addr,
+        unsigned *id = NULL);
+
+
     std::map<unsigned, Debugger::Breakpoint>::iterator breakpointsBegin() {
         return _breakpoints.begin();
     }
@@ -105,9 +145,19 @@ public:
         return _breakpoints.end();
     }
 
+    std::map<unsigned, Debugger::Watchpoint>::iterator watchpointsBegin() {
+        return _watchpoints.begin();
+    }
+
+    std::map<unsigned, Debugger::Watchpoint>::iterator watchpointsEnd() {
+        return _watchpoints.end();
+    }
+
 private:
     unsigned _breakpoints_counter;
+    unsigned _watchpoints_counter;
     std::map<unsigned, Breakpoint> _breakpoints;
+    std::map<unsigned, Watchpoint> _watchpoints;
 };
 
 namespace debugger {

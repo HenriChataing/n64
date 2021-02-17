@@ -76,3 +76,26 @@ bool Debugger::check_breakpoint(uint64_t addr, unsigned *id) {
     }
     return false;
 }
+
+unsigned Debugger::set_watchpoint(uint64_t start_addr, uint64_t end_addr) {
+    unsigned id = _watchpoints_counter++;
+    _watchpoints[id] = Watchpoint(id, start_addr, end_addr);
+    return id;
+}
+
+void Debugger::unset_watchpoint(unsigned id) {
+    _watchpoints.erase(id);
+}
+
+bool Debugger::check_watchpoint(uint64_t start_addr, uint64_t end_addr,
+                                unsigned *id) {
+    for (auto bp: _watchpoints) {
+        if (bp.second.end_addr >= start_addr &&
+            bp.second.start_addr <= end_addr &&
+            bp.second.enabled) {
+            if (id != NULL) *id = bp.second.id;
+            return true;
+        }
+    }
+    return false;
+}
