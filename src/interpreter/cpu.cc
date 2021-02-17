@@ -1331,7 +1331,7 @@ void eval(void) {
         vaddr, true, true, 0);
 
     debugger::debugger.cpuTrace.put(Debugger::TraceEntry(vaddr, instr));
-    if (debugger::debugger.checkBreakpoint(paddr))
+    if (debugger::debugger.check_breakpoint(paddr))
         core::halt("Breakpoint");
 
     eval_Instr(instr);

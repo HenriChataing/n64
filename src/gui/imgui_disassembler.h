@@ -239,8 +239,10 @@ struct Disassembler
             addr = line_i * Cols;
 
             // Draw breakpoint flag.
-            if (debugger::debugger.checkBreakpoint(base_display_addr + addr) &&
-                enable_breakpoints) {
+            bool has_breakpoint = debugger::debugger.check_breakpoint(
+                base_display_addr + addr, NULL);
+
+            if (has_breakpoint && enable_breakpoints) {
                 ImGui::SameLine();
                 ImGui::Text(" *");
             }
@@ -263,12 +265,15 @@ struct Disassembler
             }
         }
         if (ImGui::BeginPopup("breakpoint_popup")) {
-            bool has_breakpoint = debugger::debugger.checkBreakpoint(BreakpointAddr);
+            unsigned breakpoint_id;
+            bool has_breakpoint = debugger::debugger.check_breakpoint(
+                BreakpointAddr, &breakpoint_id);
+
             if (!has_breakpoint && ImGui::MenuItem("Add breakpoint")) {
-                debugger::debugger.setBreakpoint(BreakpointAddr);
+                debugger::debugger.set_breakpoint(BreakpointAddr);
                 ImGui::CloseCurrentPopup();
             } else if (has_breakpoint && ImGui::MenuItem("Remove breakpoint")) {
-                debugger::debugger.unsetBreakpoint(BreakpointAddr);
+                debugger::debugger.unset_breakpoint(breakpoint_id);
                 ImGui::CloseCurrentPopup();
             }
             ImGui::EndPopup();

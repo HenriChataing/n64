@@ -64,23 +64,50 @@ public:
     circular_buffer<TraceEntry> rspTrace;
 
     struct Breakpoint {
-        u64 addr;       /* Virtual memory address of the breakpoint. */
-        bool enabled;   /* Breakpoint enable flag */
-        Breakpoint(u64 addr) : addr(addr), enabled(true) {}
+        unsigned id;
+        uint64_t addr;
+        bool enabled;
+
+        Breakpoint(unsigned id, uint64_t addr)
+            : id(id), addr(addr), enabled(true) {}
+        Breakpoint()
+            : id(0), addr(0), enabled(false) {}
     };
 
-    /** Create a new breakpoint.
-     * \p addr is the physical address of the RAM memory location to set the
-     * breakpoint to. */
-    void setBreakpoint(u64 addr);
-    void unsetBreakpoint(u64 addr);
-    bool checkBreakpoint(u64 addr);
+    /**
+     * @brief Create a new breakpoint.
+     * @details The breakpoint is always created; the input address is not
+     *  checked for duplicates. The breakpoint identifier is monotonic.
+     * @param addr
+     *      Physical address of the RAM memory location to set
+     *      the breakpoint to.
+     * @return The identifier of the created breakpoint.
+     */
+    unsigned set_breakpoint(uint64_t addr);
+    /**
+     * @brief Remove a previously created breakpoint.
+     * @param id    Identifier of the breakpoint to remove.
+     */
+    void unset_breakpoint(unsigned id);
+    /**
+     * @brief Check if the input address triggers a breakpoint.
+     * @param addr  Physical address to check.
+     * @param id    Return the identifier of the triggered breakpoint.
+     * @return True if and only if the address \p addr is marked by a breakpoint.
+     */
+    bool check_breakpoint(uint64_t addr, unsigned *id = NULL);
 
-    std::map<u64, std::unique_ptr<Debugger::Breakpoint>>::const_iterator breakpointsBegin();
-    std::map<u64, std::unique_ptr<Debugger::Breakpoint>>::const_iterator breakpointsEnd();
+    std::map<unsigned, Debugger::Breakpoint>::iterator breakpointsBegin() {
+        return _breakpoints.begin();
+    }
+
+    std::map<unsigned, Debugger::Breakpoint>::iterator breakpointsEnd() {
+        return _breakpoints.end();
+    }
 
 private:
-    std::map<u64, std::unique_ptr<Breakpoint>> _breakpoints;
+    unsigned _breakpoints_counter;
+    std::map<unsigned, Breakpoint> _breakpoints;
 };
 
 namespace debugger {

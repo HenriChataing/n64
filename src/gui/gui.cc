@@ -1049,7 +1049,7 @@ static void ShowBreakpoints(bool *show_breakpoints) {
     static char addr_input_buf[32];
     bool added = false;
     bool removed = false;
-    u64 removed_addr = 0;
+    unsigned removed_id = 0;
 
     ImGui::Begin("Breakpoints", show_breakpoints);
     added |= ImGui::InputText("##addr", addr_input_buf, 32,
@@ -1061,7 +1061,7 @@ static void ShowBreakpoints(bool *show_breakpoints) {
     if (added) {
         u64 addr;
         if (sscanf(addr_input_buf, "%" PRIx64 "X", &addr) == 1) {
-            debugger::debugger.setBreakpoint(addr);
+            debugger::debugger.set_breakpoint(addr);
         }
     }
 
@@ -1069,21 +1069,23 @@ static void ShowBreakpoints(bool *show_breakpoints) {
     auto it = debugger::debugger.breakpointsBegin();
     for (; it != debugger::debugger.breakpointsEnd(); it++) {
         ImGui::PushID(it->first);
-        ImGui::Checkbox("", &it->second->enabled);
+        ImGui::Text("#%-2u", it->first);
+        ImGui::SameLine();
+        ImGui::Checkbox("", &it->second.enabled);
         ImGui::SameLine();
         if (ImGui::Button("Remove")) {
             removed = true;
-            removed_addr = it->first;
+            removed_id = it->first;
         }
         ImGui::SameLine();
-        ImGui::Text("%08lx", it->first);
+        ImGui::Text("%08lx", it->second.addr);
         ImGui::PopID();
     }
     ImGui::EndChild();
     ImGui::End();
 
     if (removed) {
-        debugger::debugger.unsetBreakpoint(removed_addr);
+        debugger::debugger.unset_breakpoint(removed_id);
     }
 }
 

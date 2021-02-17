@@ -8,24 +8,11 @@
 Debugger debugger::debugger;
 
 char const *debugger::LabelName[Debugger::Label::LabelCount] = {
-    "cpu",
-    "cop0",
-    "cop1",
-    "tlb",
-    "rsp",
-    "rdp",
-    "RdRam",
-    "SP",
-    "DPCmd",
-    "DPSpan",
-    "MI",
-    "VI",
-    "AI",
-    "PI",
-    "RI",
-    "SI",
-    "PIF",
-    "Cart",
+    "cpu",      "cop0",         "cop1",         "tlb",
+    "rsp",      "rdp",          "RdRam",        "SP",
+    "DPCmd",    "DPSpan",       "MI",           "VI",
+    "AI",       "PI",           "RI",           "SI",
+    "PIF",      "Cart",
 };
 
 fmt::text_style debugger::VerbosityStyle[] = {
@@ -70,28 +57,22 @@ Debugger::~Debugger() {
 
 /* Breakpoints */
 
-void Debugger::setBreakpoint(u64 addr) {
-    if (_breakpoints.find(addr) == _breakpoints.end()) {
-        Breakpoint* bp = new Breakpoint(addr);
-        _breakpoints[addr] = std::unique_ptr<Breakpoint>(bp);
+unsigned Debugger::set_breakpoint(uint64_t addr) {
+    unsigned id = _breakpoints_counter++;
+    _breakpoints[id] = Breakpoint(id, addr);
+    return id;
+}
+
+void Debugger::unset_breakpoint(unsigned id) {
+    _breakpoints.erase(id);
+}
+
+bool Debugger::check_breakpoint(uint64_t addr, unsigned *id) {
+    for (auto bp: _breakpoints) {
+        if (bp.second.addr == addr && bp.second.enabled) {
+            if (id != NULL) *id = bp.second.id;
+            return true;
+        }
     }
-}
-
-void Debugger::unsetBreakpoint(u64 addr) {
-    _breakpoints.erase(addr);
-}
-
-bool Debugger::checkBreakpoint(u64 addr) {
-    auto it = _breakpoints.find(addr);
-    return it != _breakpoints.end() && it->second->enabled;
-}
-
-std::map<u64, std::unique_ptr<Debugger::Breakpoint>>::const_iterator
-Debugger::breakpointsBegin() {
-    return _breakpoints.begin();
-}
-
-std::map<u64, std::unique_ptr<Debugger::Breakpoint>>::const_iterator
-Debugger::breakpointsEnd() {
-    return _breakpoints.end();
+    return false;
 }
