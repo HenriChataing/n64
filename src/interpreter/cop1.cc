@@ -61,7 +61,6 @@ void eval_DMFC1(u32 instr) {
     // returns the value as if read from the register rd - 1.
     // See \ref cp1reg::setFprAliases for details.
     state.reg.gpr[rt] = state.cp1reg.fpr_d[rd]->l;
-    core::halt("DMFC1 instruction");
 }
 
 void eval_CFC1(u32 instr) {
