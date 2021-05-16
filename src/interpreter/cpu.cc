@@ -87,18 +87,24 @@ void eval_Reserved(u32 instr) {
 
 void eval_ADD(u32 instr) {
     RType(instr);
-    i32 res;
     i32 a = (i32)(u32)state.reg.gpr[rs];
     i32 b = (i32)(u32)state.reg.gpr[rt];
+    i32 res;
+
     if (__builtin_add_overflow(a, b, &res)) {
         core::halt("ADD IntegerOverflow");
+        takeException(IntegerOverflow, 0, 0, 0);
+    } else {
+        state.reg.gpr[rd] = sign_extend<u64, u32>((u32)res);
     }
-    state.reg.gpr[rd] = sign_extend<u64, u32>((u32)res);
 }
 
 void eval_ADDU(u32 instr) {
     RType(instr);
-    u32 res = state.reg.gpr[rs] + state.reg.gpr[rt];
+    u32 a = (u32)state.reg.gpr[rs];
+    u32 b = (u32)state.reg.gpr[rt];
+    u32 res = a + b;
+
     state.reg.gpr[rd] = sign_extend<u64, u32>(res);
 }
 
@@ -587,18 +593,25 @@ void eval_TNEI(u32 instr) {
 
 void eval_ADDI(u32 instr) {
     IType(instr, sign_extend);
-    i32 res;
     i32 a = (i32)(u32)state.reg.gpr[rs];
     i32 b = (i32)(u32)imm;
+    i32 res;
+
     if (__builtin_add_overflow(a, b, &res)) {
         core::halt("ADDI IntegerOverflow");
+        takeException(IntegerOverflow, 0, 0, 0);
+    } else {
+        state.reg.gpr[rt] = sign_extend<u64, u32>((u32)res);
     }
-    state.reg.gpr[rt] = sign_extend<u64, u32>((u32)res);
 }
 
 void eval_ADDIU(u32 instr) {
     IType(instr, sign_extend);
-    state.reg.gpr[rt] = sign_extend<u64, u32>(state.reg.gpr[rs] + imm);
+    u32 a = (u32)state.reg.gpr[rs];
+    u32 b = (u32)imm;
+    u32 res = a + b;
+
+    state.reg.gpr[rt] = sign_extend<u64, u32>(res);
 }
 
 void eval_ANDI(u32 instr) {

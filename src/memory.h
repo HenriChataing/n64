@@ -97,10 +97,12 @@ public:
  *
  * @var BusTransaction::load
  * @brief True if the access is a load, false otherwise.
- * @var BusTransaction::result
- * @brief True if the address was valid, false if the address was invalid.
+ * @var BusTransaction::valid
+ * @brief False if the transaction is invalid.
  * @var BusTransaction::bytes
  * @brief Bus access size in bytes (1, 2, 4, 8).
+ * @var BusTransaction::address
+ * @brief Physical memory address.
  * @var BusTransaction::value
  * @brief Bus access input or output value.
  */

@@ -187,7 +187,7 @@ void takeException(Exception exn, u64 vAddr, bool instr, bool load, u32 ce)
         case AddressError:
             exccode = load ? 4 : 5; // AdEL : AdES
             state.cp0reg.badvaddr = vAddr;
-            debugger::info(Debugger::CPU,
+            debugger::error(Debugger::CPU,
                 "exception AddressError({:08x},{})",
                 vAddr, load);
             core::halt("AddressError");
