@@ -3,6 +3,7 @@
 #include <cinttypes>
 #include <cstdio>
 #include <ctime>
+#include <vector>
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -19,8 +20,12 @@
 #include <r4300/state.h>
 #include <r4300/rdp.h>
 #include <graphics.h>
+#include <gui.h>
 
 using namespace n64;
+
+typedef void (*ExternalWindowRenderer)();
+static std::vector<ExternalWindowRenderer> externalWindowRenderers;
 
 static Disassembler imemDisassembler(12);
 static Disassembler dramDisassembler(22);
@@ -1288,6 +1293,10 @@ void joyKeyCallback(GLFWwindow* window, int key, int scancode, int action, int m
         127 * controller->direction_down;
 }
 
+void addWindowRenderer(void (*renderer)()) {
+    externalWindowRenderers.push_back(renderer);
+}
+
 int startGui()
 {
     // Initialize the machine state.
@@ -1383,6 +1392,11 @@ int startGui()
         // Show the main debugger control window.
         // Displays Continue, Halt commands and register values.
         ShowDebuggerWindow();
+
+        // Call registered window renderers.
+        for (ExternalWindowRenderer renderer: externalWindowRenderers) {
+            renderer();
+        }
 
         // Rendering
         ImGui::Render();
