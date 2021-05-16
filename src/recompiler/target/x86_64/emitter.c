@@ -1803,6 +1803,13 @@ static void emit_binop_dst_src0_src1(code_buffer_t *emitter,
     x86_64_operand_t tmp0 = op_reg(src0->size, RAX);
     x86_64_operand_t tmp1 = op_reg(src0->size, RCX);
 
+    // If the destination is also the second operand,
+    // force mode 3 to use a temporary.
+    // TODO not necessary if the operand is commutative (e.g. and / add)
+    if (op_equals(dst, src1)) {
+        mode = MODE_3;
+    }
+
     // If either source operand is a 64 bit immediate value that is larger
     // than the 32 bit range, the mode is automatically promoted to
     // mode 2 or 3.
@@ -1812,9 +1819,6 @@ static void emit_binop_dst_src0_src1(code_buffer_t *emitter,
     if (src1->kind == IMMEDIATE && src1->size == 64 && !is_int32(src1->imm)) {
         mode = MODE_3;
     }
-
-    // TODO one of the modes is buggy, force to MODE_2 for now
-    mode = MODE_2;
 
     switch (mode) {
     case MODE_0:
