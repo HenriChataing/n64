@@ -57,4 +57,24 @@ static inline T clamp(U x) {
            (T)x;
 }
 
+template<typename T>
+static inline T read_be(uint8_t const *bytes, unsigned nr_bytes = sizeof(T)) {
+    static_assert(std::is_unsigned<T>::value,
+                  "read_be expects an unsigned integral type");
+    T val = 0;
+    for (unsigned n = 0; n < nr_bytes; n++) {
+        val = (val << 8) | (T)bytes[n];
+    }
+    return val;
+}
+
+template<typename T>
+static inline void write_be(uint8_t *bytes, T val, unsigned nr_bytes = sizeof(T)) {
+    static_assert(std::is_unsigned<T>::value,
+                  "read_be expects an unsigned integral type");
+    for (unsigned n = 0; n < nr_bytes; n++) {
+        bytes[n] = val >> (8 * (nr_bytes - n - 1));
+    }
+}
+
 #endif /* _TYPE_H_INCLUDED_ */

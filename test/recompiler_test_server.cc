@@ -93,8 +93,10 @@ public:
             _bad = true;
             return false;
         }
+
+        bool valid = log[index].valid;
         *val = log[index++].value;
-        return true;
+        return valid;
     }
     virtual bool store(unsigned bytes, u64 addr, u64 val) {
         if (index >= log.size()) {
@@ -127,8 +129,10 @@ public:
             _bad = true;
             return false;
         }
+
+        bool valid = log[index].valid;
         index++;
-        return true;
+        return valid;
     }
 };
 
@@ -242,15 +246,17 @@ static struct trace_sync {
     size_t        memory_log_len;
     size_t        binary_len;
     int           status;
+    bool          valid;
 } *trace_sync;
 
 /** Records the start and end register values for a recorded cpu trace. */
 static struct trace_registers {
-    u64           start_address, end_address;
-    unsigned      start_cycles,  end_cycles;
-    struct cpureg start_cpureg,  end_cpureg;
-    struct cp0reg start_cp0reg,  end_cp0reg;
-    struct cp1reg start_cp1reg,  end_cp1reg;
+    uint64_t      start_virt_address, end_virt_address;
+    uint64_t      start_phys_address;
+    unsigned      start_cycles,       end_cycles;
+    struct cpureg start_cpureg,       end_cpureg;
+    struct cp0reg start_cp0reg,       end_cp0reg;
+    struct cp1reg start_cp1reg,       end_cp1reg;
 } *trace_registers;
 
 /** Records the memory access log of a recorded cpu trace. */
@@ -261,14 +267,20 @@ static size_t   trace_memory_log_maxlen = 0x1000;
 static uint8_t *trace_binary;
 static size_t   trace_binary_maxlen = 0x1000;
 
+/** Statistics */
+static unsigned nr_skipped_tests;
+static unsigned nr_passed_tests;
+static unsigned nr_failed_tests;
+
 void print_trace_info(void) {
     fmt::print("------------------ input ------------------\n");
-    fmt::print("start_address:  {:016x}\n", trace_registers->start_address);
-    fmt::print("end_address:    {:016x}\n", trace_registers->end_address);
-    fmt::print("start_cycles:   {}\n", trace_registers->start_cycles);
-    fmt::print("end_cycles:     {}\n", trace_registers->end_cycles);
-    fmt::print("binary_len:     {}\n", trace_sync->binary_len);
-    fmt::print("memory_log_len: {}\n", trace_sync->memory_log_len);
+    fmt::print("start_virt_address:  {:016x}\n", trace_registers->start_virt_address);
+    fmt::print("start_phys_address:  {:016x}\n", trace_registers->start_phys_address);
+    fmt::print("end_virt_address:    {:016x}\n", trace_registers->end_virt_address);
+    fmt::print("start_cycles:        {}\n", trace_registers->start_cycles);
+    fmt::print("end_cycles:          {}\n", trace_registers->end_cycles);
+    fmt::print("binary_len:          {}\n", trace_sync->binary_len);
+    fmt::print("memory_log_len:      {}\n", trace_sync->memory_log_len);
 }
 
 void print_raw_disassembly(void) {
@@ -280,7 +292,7 @@ void print_raw_disassembly(void) {
            ((uint32_t)trace_binary[i+2] << 8)  |
            ((uint32_t)trace_binary[i+3] << 0);
         fmt::print("    {}\n", assembly::cpu::disassemble(
-            trace_registers->start_address + i, instr));
+            trace_registers->start_virt_address + i, instr));
     }
 }
 
@@ -346,7 +358,7 @@ void print_memory_log(void) {
 namespace interpreter::cpu {
 
 void start_capture(void) {
-    trace_registers->start_address = R4300::state.reg.pc;
+    trace_registers->start_virt_address = R4300::state.reg.pc;
     trace_registers->start_cycles = R4300::state.cycles;
     trace_registers->start_cpureg = R4300::state.reg;
     trace_registers->start_cp0reg = R4300::state.cp0reg;
@@ -354,10 +366,20 @@ void start_capture(void) {
 
     DebugBus *bus = dynamic_cast<DebugBus *>(state.bus);
     bus->start_trace();
+    trace_sync->valid = true;
+
+    if (translate_address(trace_registers->start_virt_address,
+                          &trace_registers->start_phys_address,
+                          false, NULL, NULL) != R4300::Exception::None) {
+        fmt::print(fmt::fg(fmt::color::dark_orange),
+            "cannot translate start address 0x{:x}\n",
+            trace_registers->start_virt_address);
+        trace_sync->valid = false;
+    }
 }
 
-void stop_capture(u64 address) {
-    trace_registers->end_address = address;
+void stop_capture(u64 virt_address) {
+    trace_registers->end_virt_address = virt_address;
     trace_registers->end_cycles = R4300::state.cycles;
     trace_registers->end_cpureg = R4300::state.reg;
     trace_registers->end_cp0reg = R4300::state.cp0reg;
@@ -367,12 +389,10 @@ void stop_capture(u64 address) {
     trace_sync->binary_len = 0;
 
     DebugBus *bus = dynamic_cast<DebugBus *>(state.bus);
-    address = trace_registers->start_address;
+    uint64_t phys_address = trace_registers->start_phys_address;
+    virt_address = trace_registers->start_virt_address;
 
-    uint64_t phys_address;
-    if (translate_address(address, &phys_address, false, NULL, NULL) != R4300::Exception::None) {
-        fmt::print(fmt::fg(fmt::color::dark_orange),
-            "cannot translate start address 0x{:x}\n", address);
+    if (!trace_sync->valid) {
         goto clear_capture;
     }
 
@@ -385,13 +405,10 @@ void stop_capture(u64 address) {
                     "out of binary memory\n");
                 goto clear_capture;
             }
-            trace_binary[trace_sync->binary_len + 0] = (uint8_t)(entry.value >> 24);
-            trace_binary[trace_sync->binary_len + 1] = (uint8_t)(entry.value >> 16);
-            trace_binary[trace_sync->binary_len + 2] = (uint8_t)(entry.value >> 8);
-            trace_binary[trace_sync->binary_len + 3] = (uint8_t)(entry.value >> 0);
+            write_be<uint32_t>(trace_binary + trace_sync->binary_len, entry.value);
             trace_sync->binary_len += 4;
             phys_address += 4;
-            address += 4;
+            virt_address += 4;
         } else {
             if (trace_sync->memory_log_len >= trace_memory_log_maxlen) {
                 // Insufficient memory log storage, cannot store the full
@@ -405,35 +422,38 @@ void stop_capture(u64 address) {
         }
     }
 
-    if (address != (R4300::state.reg.pc + 4)) {
-        // Incomplete instruction fetch trace, discard the whole capture.
-        // This will happen for all synchronous interruptions, as
-        // the instruction fetch has yet to be performed when the interrupt
-        // is taken.
-        // fmt::print(fmt::fg(fmt::color::dark_orange),
-        //     "incomplete instruction fetch trace\n");
+    // Ignore traces ending with a triggered interrupt;
+    // asynchronous interrupts are not handled at the moment.
+    if (trace_registers->end_virt_address == UINT64_C(0xffffffff80000180) &&
+        (state.cp0reg.cause & UINT32_C(0xff00)) != 0) {
+        fmt::print(fmt::fg(fmt::color::dark_orange),
+            "interrupt detected\n");
         goto clear_capture;
     }
-    if (trace_registers->end_address == (R4300::state.reg.pc + 8)) {
-        // Missing instruction fetch for the suppressed delay instruction
-        // of a branch likely, do a manual fetch to retrieve the missing
-        // instruction at address (pc + 4).
-        if ((trace_sync->binary_len + 4) > trace_binary_maxlen) {
-            // Insufficient binary storage, cannot store the full binary
-            // code for the recompiler.
-            fmt::print(fmt::fg(fmt::color::dark_orange),
-                "out of binary memory\n");
-            goto clear_capture;
-        }
 
-        u32 instr;
-        bus->load_u32(phys_address, &instr);
-        trace_binary[trace_sync->binary_len + 0] = (uint8_t)(instr >> 24);
-        trace_binary[trace_sync->binary_len + 1] = (uint8_t)(instr >> 16);
-        trace_binary[trace_sync->binary_len + 2] = (uint8_t)(instr >> 8);
-        trace_binary[trace_sync->binary_len + 3] = (uint8_t)(instr >> 0);
-        trace_sync->binary_len += 4;
+    // Ignore traces missing instruction fetches. Can occur
+    // if the trace overlaps two memory mapped pages that are not contiguous
+    // in memory; the instruction fetches are no longer matched passed
+    // the page end.
+    if (virt_address != (state.reg.pc + 4)) {
+        fmt::print(fmt::fg(fmt::color::dark_orange),
+            "missing instruction fetches\n");
+        goto clear_capture;
     }
+
+    // Pad the fetched instructions with a BREAK to fill in potentially
+    // missing instructions (e.g. the delay slot in a branch likely instruction).
+    if ((trace_sync->binary_len + 4) > trace_binary_maxlen) {
+        // Insufficient binary storage, cannot store the full binary
+        // code for the recompiler.
+        fmt::print(fmt::fg(fmt::color::dark_orange),
+            "out of binary memory\n");
+        goto clear_capture;
+    }
+
+    write_be<uint32_t>(trace_binary + trace_sync->binary_len,
+                       UINT32_C(0x0000000d));
+    trace_sync->binary_len += 4;
 
     // Notify the recompiler process and wait for the test result.
     if (sem_post(&trace_sync->request) != 0) {
@@ -447,10 +467,16 @@ void stop_capture(u64 address) {
         goto clear_capture;
     }
 
-    if (trace_sync->status != 0)
+    if (trace_sync->status != 0) {
+        nr_failed_tests++;
         core::halt("Recompiler test fail");
+    } else {
+        nr_passed_tests++;
+    }
+    nr_skipped_tests--;
 
 clear_capture:
+    nr_skipped_tests++;
     bus->end_trace();
     bus->clear_trace();
 }
@@ -467,8 +493,8 @@ int run_recompiler_test(recompiler_backend_t *backend,
                         bool interpret) {
 
     Test::ReplayBus *bus = dynamic_cast<Test::ReplayBus*>(R4300::state.bus);
-    uint64_t address = trace_registers->start_address;
-    uint64_t phys_address;
+    uint64_t virt_address = trace_registers->start_virt_address;
+    uint64_t phys_address = trace_registers->start_phys_address;
     ir_graph_t *graph = NULL;
     code_entry_t binary = NULL;
     size_t binary_len = 0;
@@ -492,8 +518,7 @@ int run_recompiler_test(recompiler_backend_t *backend,
 
     // Translate the program counter, i.e. the block start address.
     // The block is skipped if the address is not from the physical ram.
-    if (translate_address(address, &phys_address, false, NULL, NULL) != Exception::None ||
-        phys_address >= 0x400000) {
+    if (phys_address >= 0x400000) {
         return 0;
     }
 
@@ -501,7 +526,7 @@ int run_recompiler_test(recompiler_backend_t *backend,
     // Memory synchronization with interpreter process is handled by
     // the caller, the trace records can be safely accessed.
     graph = ir_mips_disassemble(
-        backend, trace_registers->start_address,
+        backend, virt_address,
         trace_binary, trace_sync->binary_len);
 
     // Disassembly failure.
@@ -581,7 +606,7 @@ int run_recompiler_test(recompiler_backend_t *backend,
 
     // Finally, compare the registers values on exiting the recompiler,
     // with the recorded values. Make sure the whole memory trace was executed.
-    if (R4300::state.reg.pc != trace_registers->end_address ||
+    if (R4300::state.reg.pc != trace_registers->end_virt_address ||
         R4300::state.cycles != trace_registers->end_cycles ||
         !match_cpureg(trace_registers->end_cpureg, R4300::state.reg) ||
         !match_cp0reg(trace_registers->end_cp0reg, R4300::state.cp0reg) ||
@@ -607,10 +632,10 @@ failure:
                 "    cycles  : {:<16} - {:}\n",
                 trace_registers->end_cycles, R4300::state.cycles);
         }
-        if (R4300::state.reg.pc != trace_registers->end_address) {
+        if (R4300::state.reg.pc != trace_registers->end_virt_address) {
             fmt::print(fmt::emphasis::italic,
                 "    pc      : {:<16x} - {:16x}\n",
-                trace_registers->end_address, R4300::state.reg.pc);
+                trace_registers->end_virt_address, R4300::state.reg.pc);
             fmt::print(fmt::emphasis::italic,
                 "    next_pc : {:<16x}\n",
                 R4300::state.cpu.nextPc);
@@ -641,13 +666,13 @@ failure:
 void save_regression_test(std::string &output_dir) {
     std::string filename =
         fmt::format("{}/test_{:08x}.toml",
-            output_dir, trace_registers->start_address & 0xfffffffflu);
+            output_dir, trace_registers->start_virt_address & 0xfffffffflu);
     std::string filename_input =
         fmt::format("{}/test_{:08x}.input",
-            output_dir, trace_registers->start_address & 0xfffffffflu);
+            output_dir, trace_registers->start_virt_address & 0xfffffffflu);
     std::string filename_output =
         fmt::format("{}/test_{:08x}.output",
-            output_dir, trace_registers->start_address & 0xfffffffflu);
+            output_dir, trace_registers->start_virt_address & 0xfffffffflu);
     std::ofstream of(filename, std::ios::app);
     std::ofstream inputf(filename_input, std::ios::binary | std::ios::app);
     std::ofstream outputf(filename_output, std::ios::binary | std::ios::app);
@@ -658,7 +683,7 @@ void save_regression_test(std::string &output_dir) {
     }
 
     fmt::print(of, "start_address = \"0x{:016x}\"\n\n",
-        trace_registers->start_address);
+        trace_registers->start_virt_address);
     fmt::print(of, "asm_code = \"\"\"\n");
     for (unsigned i = 0; i < trace_sync->binary_len; i+=4) {
         u32 instr =
@@ -667,7 +692,7 @@ void save_regression_test(std::string &output_dir) {
            ((uint32_t)trace_binary[i+2] << 8)  |
            ((uint32_t)trace_binary[i+3] << 0);
         fmt::print(of, "    {}\n", assembly::cpu::disassemble(
-            trace_registers->start_address + i, instr));
+            trace_registers->start_virt_address + i, instr));
     }
     fmt::print(of, "\"\"\"\n\n");
     fmt::print(of, "bin_code = [");
@@ -685,7 +710,7 @@ void save_regression_test(std::string &output_dir) {
     fmt::print(of, "[[test]]\n");
     fmt::print(of, "start_cycles = {}\n", trace_registers->start_cycles);
     fmt::print(of, "end_cycles = {}\n", trace_registers->end_cycles);
-    fmt::print(of, "end_address = \"0x{:016x}\"\n", trace_registers->end_address);
+    fmt::print(of, "end_address = \"0x{:016x}\"\n", trace_registers->end_virt_address);
     fmt::print(of, "trace = [\n");
     for (unsigned nr = 0; nr < trace_sync->memory_log_len; nr++) {
         fmt::print(of,
@@ -739,7 +764,7 @@ void run_recompiler(std::string &output_dir,
 
         // Run the recompiler on the recorded trace.
         // If the test fails, save the trace as regression test.
-        // The interpreter is notified of a failure only after \p max_failured
+        // The interpreter is notified of a failure only after \p max_failures
         // test failed.
         int status = run_recompiler_test(backend, emitter, interpret);
         if (status < 0) {
@@ -802,6 +827,10 @@ int start_recompiler_process(std::string &output_dir,
     trace_binary = shared_mem;
     shared_mem += trace_binary_maxlen;
     trace_memory_log = reinterpret_cast<Memory::BusTransaction *>(shared_mem);
+
+    // stop_capture is called once without start_capture.
+    // Make sure this call is ignored.
+    trace_sync->valid = false;
 
     // Initialize the semaphores used to synchronize the interpreter and
     // recompiler processes.
@@ -888,6 +917,10 @@ static
 void check_cpu_events(void) {
     if (state.cycles >= state.cpu.nextEvent) {
         state.handleEvent();
+
+        // Disable recompiler test when an event is triggered,
+        // there is not proper way to replay the event for now.
+        trace_sync->valid = false;
     }
 }
 
@@ -917,8 +950,8 @@ bool exec_cpu_interpreter(void) {
             break;
 
         case State::Action::Jump:
-            interpreter::cpu::stop_capture(state.cpu.nextPc);
             if (nr_jumps-- <= 0) return true;
+            interpreter::cpu::stop_capture(state.cpu.nextPc);
             state.reg.pc = state.cpu.nextPc;
             state.cpu.nextAction = State::Action::Continue;
             state.cpu.delaySlot = false;
