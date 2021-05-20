@@ -10,6 +10,7 @@
 #include <fmt/color.h>
 #include <fmt/format.h>
 #include <fmt/ostream.h>
+#include <imgui.h>
 #include <cxxopts.hpp>
 
 #include <assembly/disassembler.h>
@@ -26,6 +27,7 @@
 #include <core.h>
 #include <debugger.h>
 #include <trace.h>
+#include <gui.h>
 
 using namespace Memory;
 using namespace R4300;
@@ -193,6 +195,13 @@ bool match_cp0reg(const cp0reg &left, const cp0reg &right) {
            left.errorepc == right.errorepc;
 }
 
+bool match_cp0reg_tlb(const cp0reg &left, const cp0reg &right) {
+    return left.entrylo0 == right.entrylo0 &&
+           left.entrylo1 == right.entrylo1 &&
+           left.pagemask == right.pagemask &&
+           left.entryhi == right.entryhi;
+}
+
 void print_cp0reg_diff(const cp0reg &left, const cp0reg &right) {
     print_register_diff(left.index, right.index, "index");
     print_register_diff(left.random, right.random, "random");
@@ -239,21 +248,28 @@ void print_cp1reg_diff(const cp1reg &left, const cp1reg &right) {
     print_register_diff(left.fcr31, right.fcr31, "fcr31");
 }
 
+enum test_status {
+    TEST_STATUS_PASSED,
+    TEST_STATUS_INCONCLUSIVE,
+    TEST_STATUS_SKIPPED,
+    TEST_STATUS_FAILED,
+};
+
 /** Trace synchronization structure. */
 static struct trace_sync {
-    sem_t         request;
-    sem_t         response;
-    size_t        memory_log_len;
-    size_t        binary_len;
-    int           status;
-    bool          valid;
+    sem_t            request;
+    sem_t            response;
+    size_t           memory_log_len;
+    size_t           binary_len;
+    enum test_status status;
+    bool             valid;
 } *trace_sync;
 
 /** Records the start and end register values for a recorded cpu trace. */
 static struct trace_registers {
     uint64_t      start_virt_address, end_virt_address;
     uint64_t      start_phys_address;
-    unsigned      start_cycles,       end_cycles;
+    uint64_t      start_cycles,       end_cycles;
     struct cpureg start_cpureg,       end_cpureg;
     struct cp0reg start_cp0reg,       end_cp0reg;
     struct cp1reg start_cp1reg,       end_cp1reg;
@@ -270,7 +286,19 @@ static size_t   trace_binary_maxlen = 0x1000;
 /** Statistics */
 static unsigned nr_skipped_tests;
 static unsigned nr_passed_tests;
+static unsigned nr_inconclusive_tests;
 static unsigned nr_failed_tests;
+static bool enable_recompiler_tests;
+static unsigned max_failed_tests = 1;
+
+static void ShowTestConsole() {
+    ImGui::Begin("Test", NULL);
+    ImGui::Checkbox("enable", &enable_recompiler_tests);
+    ImGui::Text("passed:%u\nfailed:%u\ninconclusive:%u\nskipped:%u\n",
+        nr_passed_tests, nr_failed_tests,
+        nr_inconclusive_tests, nr_skipped_tests);
+    ImGui::End();
+}
 
 void print_trace_info(void) {
     fmt::print("------------------ input ------------------\n");
@@ -392,7 +420,7 @@ void stop_capture(u64 virt_address) {
     uint64_t phys_address = trace_registers->start_phys_address;
     virt_address = trace_registers->start_virt_address;
 
-    if (!trace_sync->valid) {
+    if (!trace_sync->valid || !enable_recompiler_tests) {
         goto clear_capture;
     }
 
@@ -467,16 +495,19 @@ void stop_capture(u64 virt_address) {
         goto clear_capture;
     }
 
-    if (trace_sync->status != 0) {
+    switch (trace_sync->status) {
+    case TEST_STATUS_PASSED: nr_passed_tests++; break;
+    case TEST_STATUS_SKIPPED: nr_skipped_tests++; break;
+    case TEST_STATUS_INCONCLUSIVE: nr_inconclusive_tests++; break;
+    case TEST_STATUS_FAILED:
         nr_failed_tests++;
-        core::halt("Recompiler test fail");
-    } else {
-        nr_passed_tests++;
+        if ((nr_failed_tests % max_failed_tests) == 0) {
+            core::halt("Recompiler test fail");
+        }
+        break;
     }
-    nr_skipped_tests--;
 
 clear_capture:
-    nr_skipped_tests++;
     bus->end_trace();
     bus->clear_trace();
 }
@@ -484,13 +515,12 @@ clear_capture:
 }; /* namespace interpreter:cpu */
 
 void run_interpreter(void) {
-    void startGui();
     startGui();
 }
 
-int run_recompiler_test(recompiler_backend_t *backend,
-                        code_buffer_t *emitter,
-                        bool interpret) {
+enum test_status run_recompiler_test(recompiler_backend_t *backend,
+                                     code_buffer_t *emitter,
+                                     bool interpret) {
 
     Test::ReplayBus *bus = dynamic_cast<Test::ReplayBus*>(R4300::state.bus);
     uint64_t virt_address = trace_registers->start_virt_address;
@@ -519,7 +549,10 @@ int run_recompiler_test(recompiler_backend_t *backend,
     // Translate the program counter, i.e. the block start address.
     // The block is skipped if the address is not from the physical ram.
     if (phys_address >= 0x400000) {
-        return 0;
+        fmt::print(fmt::fg(fmt::color::dark_orange),
+            "code block is outide dram range at address {:08x}\n",
+            phys_address);
+        return TEST_STATUS_SKIPPED;
     }
 
     // Run the recompiler on the trace recorded.
@@ -534,7 +567,7 @@ int run_recompiler_test(recompiler_backend_t *backend,
         fmt::print(fmt::fg(fmt::color::tomato),
             "failed to disassemble recorded trace\n");
         print_backend_error_log(backend);
-        goto failure;
+        return TEST_STATUS_INCONCLUSIVE;
     }
 
     // Preliminary sanity checks on the generated intermediate
@@ -557,7 +590,9 @@ int run_recompiler_test(recompiler_backend_t *backend,
     // Re-compile to x86_64.
     binary = ir_x86_64_assemble(backend, emitter, graph, &binary_len);
     if (binary == NULL) {
-        return 0;
+        fmt::print(fmt::fg(fmt::color::dark_orange),
+            "failed to generate target binary\n");
+        return TEST_STATUS_SKIPPED;
     }
 
     // Load the trace registers and memory log into the state context,
@@ -606,18 +641,23 @@ int run_recompiler_test(recompiler_backend_t *backend,
 
     // Finally, compare the registers values on exiting the recompiler,
     // with the recorded values. Make sure the whole memory trace was executed.
-    if (R4300::state.reg.pc != trace_registers->end_virt_address ||
-        R4300::state.cycles != trace_registers->end_cycles ||
-        !match_cpureg(trace_registers->end_cpureg, R4300::state.reg) ||
-        !match_cp0reg(trace_registers->end_cp0reg, R4300::state.cp0reg) ||
-        !match_cp1reg(trace_registers->end_cp1reg, R4300::state.cp1reg) ||
-        bus->bad()) {
-        fmt::print(fmt::fg(fmt::color::tomato), "run invalid:\n");
-        goto failure;
+    if (R4300::state.reg.pc == trace_registers->end_virt_address &&
+        R4300::state.cycles == trace_registers->end_cycles &&
+        match_cpureg(trace_registers->end_cpureg, R4300::state.reg) &&
+        match_cp0reg(trace_registers->end_cp0reg, R4300::state.cp0reg) &&
+        match_cp1reg(trace_registers->end_cp1reg, R4300::state.cp1reg) &&
+        !bus->bad()) {
+        return TEST_STATUS_PASSED;
     }
 
-    // Success: the recompiler was validated on this trace.
-    return 0;
+    // TODO temporary measure to ignore tests failed because of
+    // TLB registers, the TLB is not traced at the moment.
+    if (!match_cp0reg_tlb(trace_registers->end_cp0reg, R4300::state.cp0reg)) {
+        return TEST_STATUS_INCONCLUSIVE;
+    }
+
+    // Test failure.
+    fmt::print(fmt::fg(fmt::color::tomato), "run invalid:\n");
 
 failure:
     // Print debug information.
@@ -659,7 +699,7 @@ failure:
     print_x86_64_assembly(binary, binary_len);
 
     fmt::print("==========================================\n");
-    return -1;
+    return TEST_STATUS_FAILED;
 }
 
 /** Save the trace as a regression test */
@@ -732,7 +772,7 @@ void save_regression_test(std::string &output_dir) {
 }
 
 void run_recompiler(std::string &output_dir,
-    unsigned max_failures, bool interpret, bool verbose) {
+                    bool interpret, bool verbose) {
 
     // First things first, replace the state memory bus by a replay bus.
     // The recompiler will be replaying the traces sent over by the interpreter.
@@ -747,15 +787,13 @@ void run_recompiler(std::string &output_dir,
     }
 
     // Allocate a code buffer.
-    code_buffer_t *emitter = alloc_code_buffer(4096);
+    code_buffer_t *emitter = alloc_code_buffer(16384);
     if (emitter == NULL) {
         fmt::print(fmt::fg(fmt::color::tomato),
             "failed to allocate code buffer\n");
         free_recompiler_backend(backend);
         return;
     }
-
-    unsigned nr_failures = 0;
 
     while (1) {
         // Wait for a trace from the interpreter process,
@@ -764,17 +802,9 @@ void run_recompiler(std::string &output_dir,
 
         // Run the recompiler on the recorded trace.
         // If the test fails, save the trace as regression test.
-        // The interpreter is notified of a failure only after \p max_failures
-        // test failed.
-        int status = run_recompiler_test(backend, emitter, interpret);
-        if (status < 0) {
+        enum test_status status = run_recompiler_test(backend, emitter, interpret);
+        if (status == TEST_STATUS_FAILED) {
             save_regression_test(output_dir);
-            nr_failures++;
-        }
-        status = 0;
-        if (nr_failures >= max_failures) {
-            nr_failures = 0;
-            status = -1;
         }
 
         // Notify end of test with test status.
@@ -801,7 +831,8 @@ void *alloc_shared_memory(size_t size) {
 }
 
 int start_recompiler_process(std::string &output_dir,
-    unsigned max_failures, bool interpret, bool verbose) {
+                             unsigned max_failures,
+                             bool interpret, bool verbose) {
 
     // Allocate shared memory to communicate between the interpreter and
     // the recompiler processes.
@@ -817,6 +848,9 @@ int start_recompiler_process(std::string &output_dir,
         fmt::print("failed to allocate shared memory\n");
         return -1;
     }
+
+    // Save configuration.
+    max_failed_tests = max_failures;
 
     // Allocate the shared trace data structures from the allocated
     // shared memory buffer.
@@ -834,7 +868,7 @@ int start_recompiler_process(std::string &output_dir,
 
     // Initialize the semaphores used to synchronize the interpreter and
     // recompiler processes.
-    trace_sync->status = 0;
+    trace_sync->status = TEST_STATUS_INCONCLUSIVE;
     if (sem_init(&trace_sync->request,  1, 0) != 0 ||
         sem_init(&trace_sync->response, 1, 0) != 0) {
         fmt::print("failed to initialize the synchronization semaphores\n");
@@ -858,7 +892,7 @@ int start_recompiler_process(std::string &output_dir,
     // In child, start the recompiler loop.
     if (pid == 0) {
         fmt::print("starting recompiler process\n");
-        run_recompiler(output_dir, max_failures, interpret, verbose);
+        run_recompiler(output_dir, interpret, verbose);
     }
     // In parent, start the interpreter loop.
     else {
@@ -1149,7 +1183,9 @@ int main(int argc, char *argv[]) {
         R4300::state.loadBios(bios_contents);
     }
 
+    addWindowRenderer(ShowTestConsole);
     R4300::state.load(rom_contents);
+
     return start_recompiler_process(
         output_dir, max_failures, interpret, verbose);
 }
