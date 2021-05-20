@@ -476,12 +476,14 @@ static void disas_branch(ir_instr_cont_t *c, ir_value_t cond, uint64_t address,
     ir_instr_cont_t br_false, br_true;
     uint64_t imm = mips_get_imm_u64(instr);
     uint64_t target = address + 4 + (imm << 2);
-    unsigned long cycles = ir_disas_cycles;
+    unsigned cycles = ir_disas_cycles;
+    bool cop1_guard_generated = ir_cop1_guard_generated;
     uint32_t delay_instr = disas_read_instr(address + 4);
 
     ir_append_br(c, cond, &br_false, &br_true);
 
     ir_disas_cycles = cycles;
+    ir_cop1_guard_generated = cop1_guard_generated;
     ir_disas_branch_target = ir_make_const_i64(address + 8);
     append_delay_instr(&br_false, address + 4, delay_instr);
     ir_append_write_i64(&br_false, REG_PC, ir_make_const_i64(address + 8));
@@ -489,6 +491,7 @@ static void disas_branch(ir_instr_cont_t *c, ir_value_t cond, uint64_t address,
     ir_append_exit(&br_false);
 
     ir_disas_cycles = cycles;
+    ir_cop1_guard_generated = cop1_guard_generated;
     ir_disas_branch_target = ir_make_const_i64(target);
     append_delay_instr(&br_true, address + 4, delay_instr);
     ir_append_write_i64(&br_true, REG_PC, ir_make_const_i64(target));
@@ -2464,6 +2467,7 @@ ir_graph_t *ir_mips_disassemble(recompiler_backend_t *backend,
     ir_block_t *block      = ir_alloc_block(backend);
     ir_instr_cont_t cont = { backend, block, &block->entry };
 
+    ir_disas_cycles = 0;
     ir_cop1_guard_generated = false;
 
     disas_push(address, cont);
