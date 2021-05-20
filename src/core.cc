@@ -29,11 +29,15 @@ using namespace R4300;
 
 struct recompiler_request {
     uint64_t virt_address;
-    uint64_t phys_address;
+    uint32_t phys_address;
+    uint32_t end_phys_address;
 
     recompiler_request() : virt_address(0), phys_address(0) {}
-    recompiler_request(uint64_t virt_address, uint64_t phys_address) :
-        virt_address(virt_address), phys_address(phys_address) {}
+    recompiler_request(uint64_t virt_address, uint32_t phys_address,
+                       uint32_t end_phys_address) :
+        virt_address(virt_address),
+        phys_address(phys_address),
+        end_phys_address(end_phys_address) {}
 };
 
 struct recompiler_request_queue {
@@ -229,9 +233,11 @@ void exec_recompiler_request(struct recompiler_backend *backend,
     // recompiler. The length is computed so as to not cross a cache page
     // boundary: the code must fit inside a cache range.
     uint64_t phys_address = request->phys_address;
-    uint64_t phys_address_end =
+    uint64_t end_phys_address =
         (phys_address + CACHE_PAGE_SIZE) & ~CACHE_PAGE_MASK;
-    uint64_t phys_len = phys_address_end - phys_address;
+    if (end_phys_address > request->end_phys_address)
+        end_phys_address = request->end_phys_address;
+    uint64_t phys_len = end_phys_address - phys_address;
     uint8_t *phys_ptr = state.dram + phys_address;
     uint32_t buffer_index = phys_address >> CACHE_PAGE_SHIFT;
     code_buffer_t *buffer = recompiler_cache.buffers + buffer_index;
@@ -352,6 +358,7 @@ void exec_interpreter(struct recompiler_request_queue *queue,
     static uint64_t virt_start;
     static uint64_t virt_end;
     static uint32_t phys_start;
+    static uint32_t phys_end;
 
     if (virt_address >= virt_start && (virt_address + 3) <= virt_end) {
         phys_address = phys_start + (virt_address - virt_start);
@@ -375,10 +382,12 @@ void exec_interpreter(struct recompiler_request_queue *queue,
             phys_start = phys_address & UINT64_C(0x1ffffe00);
             virt_start = virt_address & ~UINT64_C(0x1ff);
             virt_end = virt_address | UINT64_C(0x1ff);
+            phys_end = phys_address | UINT64_C(0x1ff);
         }
         // When the translation succeeds, update the cached region.
         else {
             phys_start = phys_address - (virt_address - virt_start);
+            phys_end = phys_start + (virt_end - virt_start);
         }
     }
 
@@ -394,7 +403,7 @@ void exec_interpreter(struct recompiler_request_queue *queue,
         switch (entry & 0x3) {
         case 0x0:
             recompiler_cache.map[index] = 0x3;
-            queue->enqueue(recompiler_request(virt_address, phys_address));
+            queue->enqueue(recompiler_request(virt_address, phys_address, phys_end));
             break;
         case 0x1:
             binary = (code_entry_t)(
