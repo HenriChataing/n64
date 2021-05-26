@@ -1343,9 +1343,14 @@ void eval(void) {
         state.bus->load_u32(paddr, &instr) ? None : BusError,
         vaddr, true, true, 0);
 
+#if ENABLE_TRACE
     debugger::debugger.cpuTrace.put(Debugger::TraceEntry(vaddr, instr));
+#endif /* ENABLE_TRACE */
+
+#if ENABLE_BREAKPOINTS
     if (debugger::debugger.check_breakpoint(paddr))
         core::halt("Breakpoint");
+#endif /* ENABLE_BREAKPOINTS */
 
     eval_Instr(instr);
 }

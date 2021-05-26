@@ -2203,7 +2203,9 @@ void eval(void) {
     checkAddressAlignment(addr, 4);
     instr = __builtin_bswap32(*(u32 *)&state.imem[addr & UINT64_C(0xfff)]);
 
+#if ENABLE_TRACE
     debugger::debugger.rspTrace.put(Debugger::TraceEntry(addr, instr));
+#endif /* ENABLE_TRACE */
 
     eval_Instr(instr);
 }

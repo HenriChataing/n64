@@ -22,13 +22,23 @@ ENABLE_SANITIZER ?= 0
 # Enable recompiler.
 ENABLE_RECOMPILER ?= 1
 
+# Enable capturing a trace of executed cpu and rsp instructions.
+# NB: recompiled instructions are never captured.
+ENABLE_TRACE ?= 0
+
+# Enable breakpoints.
+ENABLE_BREAKPOINTS ?= 0
+
 # Enable trace capture. Traces are saved to test/recompiler to be
 # used as recompiler test inputs.
-ENABLE_CAPTURE := 0
+ENABLE_CAPTURE ?= 0
 
 INCLUDE   := $(SRCDIR) $(SRCDIR)/lib $(SRCDIR)/gui $(SRCDIR)/interpreter
 INCLUDE   += $(EXTDIR)/fmt/include $(EXTDIR)/imgui $(EXTDIR)/cxxopts/include
-DEFINE    := TARGET_BIGENDIAN ENABLE_RECOMPILER=$(ENABLE_RECOMPILER)
+DEFINE    := TARGET_BIGENDIAN \
+    ENABLE_RECOMPILER=$(ENABLE_RECOMPILER) \
+    ENABLE_TRACE=$(ENABLE_TRACE) \
+    ENABLE_BREAKPOINTS=$(ENABLE_BREAKPOINTS)
 
 CFLAGS    := -Wall -Wno-unused-function -std=gnu11 -g
 CFLAGS    += -O$(OPTIMISE) $(addprefix -I,$(INCLUDE)) $(addprefix -D,$(DEFINE))
