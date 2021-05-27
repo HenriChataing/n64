@@ -60,6 +60,20 @@ alloc_recompiler_backend(ir_global_definition_t const *globals,
     backend->cur_param = 0;
     backend->errors = NULL;
     backend->last_error = &backend->errors;
+
+    /* Compute globals_base_ptr as the lowest address. */
+    if (nr_globals > 0) {
+        uintptr_t base_ptr = (uintptr_t)backend->globals[0].ptr;
+        for (unsigned nr = 1; nr < nr_globals; nr++) {
+            uintptr_t ptr = (uintptr_t)globals[nr].ptr;
+            base_ptr =
+                base_ptr == 0 ? ptr :
+                ptr == 0 || ptr > base_ptr ?
+                    base_ptr : ptr;
+        }
+        backend->globals_base_ptr = (void *)base_ptr;
+    }
+
     return backend;
 
 failure:

@@ -48,6 +48,10 @@ static inline unsigned round_up_to_power2(unsigned v) {
     return v < 8 ? 8 : v;
 }
 
+static inline bool is_int32(int64_t v) {
+    return v >= INT32_MIN && v <= INT32_MAX;
+}
+
 /**
  * Convert a typed variable to an operand:
  * direct register access for register allocated variables,
@@ -555,11 +559,23 @@ static void assemble_read(recompiler_backend_t const *backend,
     }
 
     void *ptr = backend->globals[global].ptr;
+    void *base_ptr = backend->globals_base_ptr;
+    int64_t ptr_offset = (intptr_t)ptr - (intptr_t)base_ptr;
     x86_64_operand_t dst = op_var(instr->res, instr->type);
-    x86_64_operand_t src = op_mem_indirect(dst.size, RCX);
+    x86_64_operand_t src;
 
-    emit_mov_r64_imm64(emitter, RCX, (intptr_t)ptr);
-    emit_mov_dst_src0(emitter, &dst, &src);
+    // If the offset from the globals base pointer can be represented in
+    // the x86_64 mov instruction, then a single mov instruction is used.
+    // Other the assembler defaults to using an additional move to load
+    // the global pointer value.
+    if (is_int32(ptr_offset)) {
+        src = op_mem_indirect_disp(dst.size, R15, ptr_offset);
+        emit_mov_dst_src0(emitter, &dst, &src);
+    } else {
+        src = op_mem_indirect(dst.size, RCX);
+        emit_mov_r64_imm64(emitter, RCX, (intptr_t)ptr);
+        emit_mov_dst_src0(emitter, &dst, &src);
+    }
 }
 
 static void assemble_write(recompiler_backend_t const *backend,
@@ -574,10 +590,22 @@ static void assemble_write(recompiler_backend_t const *backend,
     }
 
     void *ptr = backend->globals[global].ptr;
-    x86_64_operand_t dst = op_mem_indirect(instr->type.width, RCX);
+    void *base_ptr = backend->globals_base_ptr;
+    int64_t ptr_offset = (intptr_t)ptr - (intptr_t)base_ptr;
+    x86_64_operand_t dst;
 
-    emit_mov_r64_imm64(emitter, RCX, (intptr_t)ptr);
-    emit_mov_dst_val(emitter, &dst, &instr->write.value);
+    // If the offset from the globals base pointer can be represented in
+    // the x86_64 mov instruction, then a single mov instruction is used.
+    // Other the assembler defaults to using an additional move to load
+    // the global pointer value.
+    if (is_int32(ptr_offset)) {
+        dst = op_mem_indirect_disp(instr->type.width, R15, ptr_offset);
+        emit_mov_dst_val(emitter, &dst, &instr->write.value);
+    } else {
+        dst = op_mem_indirect(instr->type.width, RCX);
+        emit_mov_r64_imm64(emitter, RCX, (intptr_t)ptr);
+        emit_mov_dst_val(emitter, &dst, &instr->write.value);
+    }
 }
 
 static void assemble_trunc(recompiler_backend_t const *backend,
@@ -766,11 +794,12 @@ static unsigned alloc_register(unsigned *register_bitmap,
  * Returns the required stack frame size.
  */
 static unsigned alloc_vars(ir_graph_t const *graph,
+                           unsigned banned_register_bitmap,
                            unsigned *used_register_bitmap_ptr) {
     /* Current stack frame offset.  */
     unsigned stack_offset = 0;
     /* Bitmap of unused registers. */
-    unsigned register_bitmap = 0xff00;
+    unsigned register_bitmap = 0xff00 & ~banned_register_bitmap;
     unsigned used_register_bitmap = 0x0;
     /* Instruction index. */
     unsigned index = 0;
@@ -844,9 +873,10 @@ code_entry_t ir_x86_64_assemble(recompiler_backend_t const *backend,
     }
 
     // Generate the standard function prelude to enter into compiled code.
+    // Register R15 is reserved to index global variables.
     void *entry = code_buffer_ptr(emitter);
     unsigned used_register_bitmap = 0;
-    unsigned stack_size = alloc_vars(graph, &used_register_bitmap);
+    unsigned stack_size = alloc_vars(graph, 1u << R15, &used_register_bitmap);
     emit_push_r64(emitter, RBP);
     emit_push_r64(emitter, R12);
     emit_push_r64(emitter, R13);
@@ -854,6 +884,9 @@ code_entry_t ir_x86_64_assemble(recompiler_backend_t const *backend,
     emit_push_r64(emitter, R15);
     emit_mov_r64_r64(emitter, RBP, RSP);
     emit_sub_r64_imm32(emitter, RSP, stack_size);
+
+    // Load globals base pointer to register R15.
+    emit_mov_r64_imm64(emitter, R15, (intptr_t)backend->globals_base_ptr);
 
     // Start the assembly with the first block.
     ir_br_queue[0].rel32 = NULL;

@@ -2431,7 +2431,7 @@ recompiler_backend_t *ir_mips_recompiler_backend(void) {
     global_definitions[REG_DELAY_SLOT] = { ir_make_i8(), "delay_slot", &R4300::state.cpu.delaySlot };
     global_definitions[REG_PC_NEXT] = { ir_make_i64(), "next_pc", &R4300::state.cpu.nextPc };
 
-    for (unsigned i = 1; i < 32; i++) {
+    for (unsigned i = 0; i < 32; i++) {
         global_definitions[i] = {
             ir_make_i64(), n64::assembly::cpu::RegisterNames[i],
             &R4300::state.reg.gpr[i],

@@ -87,6 +87,10 @@ typedef struct recompiler_error {
  * @var recompiler_backend::nr_globals
  * @brief Number of defined global variables.
  *    Length of \ref recompiler_backend::globals.
+ * @var recompiler_backend::globals_base_ptr
+ * @brief Base pointer used for addressing global variables.
+ *    If the value is NULL all variables will be addressed by absolute
+ *    address in the assembled code.
  *
  * @var recompiler_backend::blocks
  * @brief Pointer to the array of pre-allocated instruction blocks.
@@ -135,6 +139,7 @@ typedef struct recompiler_backend {
     ir_graph_t              graph;
     ir_global_definition_t *globals;
     unsigned                nr_globals;
+    void                   *globals_base_ptr;
     ir_block_t             *blocks;
     unsigned                nr_blocks;
     ir_instr_t             *instrs;
