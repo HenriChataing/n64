@@ -25,8 +25,8 @@ static inline uint8_t sib(uint8_t scale, uint8_t index, uint8_t base) {
 static inline void emit_rex_reg_modrm(code_buffer_t *emitter,
                             bool w, unsigned reg, x86_64_mem_t *mem) {
 
-    unsigned base = mem->mode == INDIRECT ||
-                    mem->mode == DIRECT ? mem->rm : mem->base;
+    bool has_sib = mem->mode != DIRECT && mem->rm == 4;
+    unsigned base = has_sib ? mem->base : mem->rm;
     bool r = (reg >> 3) & 1;
     bool x = (mem->index >> 3) & 1;
     bool b = (base  >> 3) & 1;
