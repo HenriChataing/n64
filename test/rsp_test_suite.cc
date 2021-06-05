@@ -184,6 +184,28 @@ static void print_array(uint8_t const *buffer, unsigned size) {
     fmt::print("\n");
 }
 
+static void print_array_diff(uint8_t const *left_buffer,
+                             uint8_t const *right_buffer,
+                             unsigned size) {
+
+    std::string left, right;
+
+    for (unsigned i = 0; i < size; i++) {
+        if (i && !(i % 16)) {
+            fmt::print("{} |{}\n", left, right);
+            left = right = "";
+        }
+
+        auto style = (left_buffer[i] != right_buffer[i])
+            ? fmt::fg(fmt::color::tomato) | fmt::emphasis::bold
+            : fmt::emphasis::italic;
+        left += fmt::format(style, " {:02x}", left_buffer[i]);
+        right += fmt::format(style, " {:02x}", right_buffer[i]);
+    }
+
+    fmt::print("{} |{}\n", left, right);
+}
+
 struct test_statistics {
     unsigned total_pass;
     unsigned total_halted;
@@ -319,10 +341,11 @@ int run_test_suite(char const *test_suite_name, struct test_statistics *stats) {
                 "The RSP execution did not match the expected outcome:\n");
             fmt::print(fmt::emphasis::italic, "Input:\n");
             print_array(input, input_desc_size);
-            fmt::print(fmt::emphasis::italic, "Output:\n");
-            print_array(R4300::state.dmem + 0x800, output_desc_size);
-            fmt::print(fmt::emphasis::italic, "Expected:\n");
-            print_array(test_output, output_desc_size);
+            fmt::print(fmt::emphasis::italic,
+                "Output                                             Expected\n");
+            print_array_diff(
+                R4300::state.dmem + 0x800,
+                test_output, output_desc_size);
             stats->total_failed++;
             continue;
         }
