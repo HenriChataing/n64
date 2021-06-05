@@ -212,20 +212,17 @@ static void ShowRspCop2Registers(void) {
     ImGui::Text("vacc   ");
     for (unsigned e = 0; e < 8; e++) {
         ImGui::SameLine();
-        ImGui::Text("%04" PRIx64,
-            (R4300::state.rspreg.vacc[e].acc >> 32) & UINT64_C(0xffff));
+        ImGui::Text("%04" PRIx16, R4300::state.rspreg.vacc.hi.h[e]);
     }
     ImGui::Text("       ");
     for (unsigned e = 0; e < 8; e++) {
         ImGui::SameLine();
-        ImGui::Text("%04" PRIx64,
-            (R4300::state.rspreg.vacc[e].acc >> 16) & UINT64_C(0xffff));
+        ImGui::Text("%04" PRIx16, R4300::state.rspreg.vacc.md.h[e]);
     }
     ImGui::Text("       ");
     for (unsigned e = 0; e < 8; e++) {
         ImGui::SameLine();
-        ImGui::Text("%04" PRIx64,
-            R4300::state.rspreg.vacc[e].acc & UINT64_C(0xffff));
+        ImGui::Text("%04" PRIx16, R4300::state.rspreg.vacc.lo.h[e]);
     }
     for (unsigned int nr = 0; nr < 32; nr++) {
         ImGui::Text("vr%-2u   ", nr);

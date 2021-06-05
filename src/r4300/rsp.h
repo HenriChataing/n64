@@ -13,34 +13,43 @@ typedef union {
 } vr_t;
 
 typedef struct {
-    u64 acc; /* 48-bits wide. */
+    vr_t hi;
+    vr_t md;
+    vr_t lo;
 
-    u32 read_u32() { return acc; }
-    u64 read_u64() { return acc; }
-
-    inline void write_lo(u16 lo) {
-        acc = (acc & ~UINT64_C(0xffff)) | lo;
+    uint64_t read(int i) const {
+        return ((uint64_t)hi.h[i] << 32) |
+               ((uint64_t)md.h[i] << 16) |
+               ((uint64_t)lo.h[i] <<  0);
+    }
+    void write(int i, uint64_t val) {
+        hi.h[i] = (uint16_t)(val >> 32);
+        md.h[i] = (uint16_t)(val >> 16);
+        lo.h[i] = (uint16_t)(val >>  0);
     }
 
-    inline u16 read_mid_clamp_signed() {
-        i32 mid = (i32)(u32)(acc >> 16);
-        i16 res = mid < INT16_MIN ? INT16_MIN :
-                  mid > INT16_MAX ? INT16_MAX : (i16)mid;
-        return (u16)res;
+    uint16_t read_md_clamp_signed(int i) const {
+        uint32_t acc_u = (uint32_t)hi.h[i] << 16 | (uint32_t)md.h[i];
+        int32_t acc = (int32_t)acc_u;
+        return acc < INT16_MIN ? INT16_MIN :
+               acc > INT16_MAX ? INT16_MAX : md.h[i];
     }
-    inline u16 read_mid_clamp_unsigned() {
-        i32 mid = (i32)(u32)(acc >> 16);
-        i16 res = mid < 0 ? 0 :
-                  mid > INT16_MAX ? UINT16_MAX : (i16)mid;
-        return (u16)res;
+    uint16_t read_md_clamp_unsigned(int i) const {
+        uint32_t acc_u = (uint32_t)hi.h[i] << 16 | (uint32_t)md.h[i];
+        int32_t acc = (int32_t)acc_u;
+        return acc < 0 ? 0 :
+               acc > INT16_MAX ? UINT16_MAX : md.h[i];
     }
-    inline u16 read_lo_clamp_unsigned() {
-        i32 mid = (i32)(u32)(acc >> 16);
-        i16 res = mid < INT16_MIN ? 0 :
-                  mid > INT16_MAX ? UINT16_MAX : (i16)(u16)acc;
-        return (u16)res;
+    uint16_t read_lo_clamp_unsigned(int i) const {
+        uint32_t acc_u = (uint32_t)hi.h[i] << 16 | (uint32_t)md.h[i];
+        int32_t acc = (int32_t)acc_u;
+        return acc < INT16_MIN ? 0 :
+               acc > INT16_MAX ? UINT16_MAX : lo.h[i];
     }
 
+    void add(int i, uint64_t val) {
+        write(i, read(i) + val);
+    }
 } vacc_t;
 
 static_assert(sizeof(vr_t) == 16, "invalid vr_t type representation");
@@ -55,9 +64,11 @@ struct rspreg {
     /* Vector registers. Every 2-byte element of each vector is stored in
      * the host cpu format to minimize byte-swapping. */
     vr_t vr[32];
-    /* The accumulator is saved in host cpu format (typically little endian).
-     * Technically, the accumulator is only 48-bits wide. */
-    vacc_t vacc[8];
+    /* The accumulator is split into three vectors of high, middle, and low
+     * words. This data representation is easier to manimulate with vector
+     * instructions. */
+    vacc_t vacc;
+
     u16 vco;
     u16 vcc;
     u8 vce;
