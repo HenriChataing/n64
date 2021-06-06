@@ -167,6 +167,30 @@ static float s10_21_to_float(i32 val) {
     return i32_fixpoint_to_float(val, 21);
 }
 
+static inline uint16_t read_u16_be(uint8_t *ptr) {
+    return ((uint16_t)ptr[0] << 8) |
+           ((uint16_t)ptr[1] << 0);
+}
+
+static inline uint32_t read_u32_be(uint8_t *ptr) {
+    return ((uint32_t)ptr[0] << 24) |
+           ((uint32_t)ptr[1] << 16) |
+           ((uint32_t)ptr[2] <<  8) |
+           ((uint32_t)ptr[3] <<  0);
+}
+
+static inline void write_u16_be(uint8_t *ptr, uint16_t val) {
+    ptr[0] = (uint8_t)(val >> 8);
+    ptr[1] = (uint8_t)(val >> 0);
+}
+
+static inline void write_u32_be(uint8_t *ptr, uint32_t val) {
+    ptr[0] = (uint8_t)(val >> 24);
+    ptr[1] = (uint8_t)(val >> 16);
+    ptr[2] = (uint8_t)(val >>  8);
+    ptr[3] = (uint8_t)(val >>  0);
+}
+
 
 static void print_pixel(pixel_t *px) {
 #if 0
@@ -334,7 +358,7 @@ static void pipeline_tx(pixel_t *px) {
  * copy loading a tile.
  */
 static void pipeline_palette_load(u8 ci, color_t *tx) {
-    u16 val = __builtin_bswap16(*(u16 *)&state.tmem[0x800 + (ci << 3)]);
+    u16 val = read_u16_be(state.tmem + 0x800 + (ci << 3));
     switch (rdp.other_modes.tlut_type) {
     /* I[15:8],A[7:0] =>
      * R [15:8]
@@ -446,7 +470,7 @@ static void pipeline_tx_load(struct tile const *tile, unsigned s, unsigned t, co
      * B {[5:1],[5:3]}
      * A 255*[0] */
     case IMAGE_DATA_FORMAT_RGBA_5_5_5_1: {
-        u16 rgba = __builtin_bswap16(*(u16 *)&state.tmem[addr >> 1]);
+        u16 rgba = read_u16_be(state.tmem + (addr >> 1));
         u8 r = (rgba >> 11) & 0x1fu;
         u8 g = (rgba >>  6) & 0x1fu;
         u8 b = (rgba >>  1) & 0x1fu;
@@ -462,7 +486,7 @@ static void pipeline_tx_load(struct tile const *tile, unsigned s, unsigned t, co
      * B [15:8]
      * A [7:0] */
     case IMAGE_DATA_FORMAT_IA_8_8: {
-        u16 ia = __builtin_bswap16(*(u16 *)&state.tmem[addr >> 1]);
+        u16 ia = read_u16_be(state.tmem + (addr >> 1));
         tx->r = tx->g = tx->b = (ia >> 8) & 0xffu;
         tx->a = ia & 0xffu;
         break;
@@ -476,8 +500,8 @@ static void pipeline_tx_load(struct tile const *tile, unsigned s, unsigned t, co
      * B [15:8]
      * A [7:0] */
     case IMAGE_DATA_FORMAT_RGBA_8_8_8_8: {
-        u16 rg = __builtin_bswap16(*(u16 *)&state.tmem[addr >> 1]);
-        u16 ba = __builtin_bswap16(*(u16 *)&state.tmem[2048 + (addr >> 1)]);
+        u16 rg = read_u16_be(state.tmem + (addr >> 1));
+        u16 ba = read_u16_be(state.tmem + (addr >> 1) + 2048);
         tx->r = (rg >> 8) & 0xffu;
         tx->g = (rg >> 0) & 0xffu;
         tx->b = (ba >> 8) & 0xffu;
@@ -772,7 +796,7 @@ static void pipeline_mi_load(pixel_t *px) {
      * B {[5:1],[5:3]}
      * A 255*[0] */
     case IMAGE_DATA_FORMAT_RGBA_5_5_5_1: {
-        u16 rgba = __builtin_bswap16(*(u16 *)addr);
+        u16 rgba = read_u16_be(state.dram + px->mem_color_addr);
         u8 r = (rgba >> 11) & 0x1fu;
         u8 g = (rgba >>  6) & 0x1fu;
         u8 b = (rgba >>  1) & 0x1fu;
@@ -792,7 +816,7 @@ static void pipeline_mi_load(pixel_t *px) {
      * B [15:8]
      * A [7:0] */
     case IMAGE_DATA_FORMAT_RGBA_8_8_8_8: {
-        u32 rgba = __builtin_bswap32(*(u32 *)addr);
+        u32 rgba = read_u32_be(state.dram + px->mem_color_addr);
         px->mem_color.r = (rgba >> 24) & 0xffu;
         px->mem_color.g = (rgba >> 16) & 0xffu;
         px->mem_color.b = (rgba >>  8) & 0xffu;
@@ -815,7 +839,7 @@ static void pipeline_mi_load(pixel_t *px) {
 static void pipeline_mi_load_z(pixel_t *px) {
     /* The stepped Z is saved in the zbuffer as a 14bit floating point
      * number with 11bit mantissa and 3bit exponent. */
-    u16 mem_z = __builtin_bswap16(*(u16 *)&state.dram[px->mem_z_addr]);
+    u16 mem_z = read_u16_be(state.dram + px->mem_z_addr);
     u16 mem_z_01 = state.loadHiddenBits(px->mem_z_addr);
     /* Convert 11 bit mantissa and 3 bit exponent to U15.3 number */
     struct {
@@ -861,7 +885,7 @@ static void pipeline_mi_store(unsigned mem_color_addr, color_t color,
         u16 b = color.b >> 3;
         u16 a = coverage >> 2;
         u16 rgba = (r << 11) | (g << 6) | (b << 1) | a;
-        *(u16 *)addr = __builtin_bswap16(rgba);
+        write_u16_be(state.dram + mem_color_addr, rgba);
         state.storeHiddenBits(mem_color_addr, coverage & 0x3);
         break;
     }
@@ -872,7 +896,7 @@ static void pipeline_mi_store(unsigned mem_color_addr, color_t color,
             ((u32)color.b << 8)  |
             ((u32)coverage << 5) |
                  (color.a & 0x1f);
-        *(u32 *)addr = __builtin_bswap32(rgba);
+        write_u32_be(state.dram + mem_color_addr, rgba);
         break;
     }
     default:
@@ -1087,7 +1111,7 @@ static void pipeline_mi_store_z(pixel_t *px) {
     u16 mem_z = exponent << 13 | mantissa << 2 | log2_deltaz >> 2;
     u16 mem_z_01 = log2_deltaz & 0x3u;
 
-    *(u16 *)&state.dram[px->mem_z_addr] = __builtin_bswap16(mem_z);
+    write_u16_be(state.dram + px->mem_z_addr, mem_z);
     state.storeHiddenBits(px->mem_z_addr, mem_z_01);
 }
 
