@@ -2961,8 +2961,13 @@ static void execute_DPC_command(void) {
     uint64_t dword = state.hwreg.dpc_CommandBuffer[0];
     uint64_t opcode = (dword >> 56) & UINT64_C(0x3f);
 
-    debugger::info(Debugger::RDP, "{} [{:016x}]",
-        RDPCommands[opcode].name, dword);
+    debugger::info(Debugger::RDP, "[{:016x}] {}",
+        dword, RDPCommands[opcode].name);
+
+    for (unsigned nr = 1; nr < state.hwreg.dpc_CommandBufferLen; nr++) {
+        debugger::debug(Debugger::RDP, "[{:016x}]",
+            state.hwreg.dpc_CommandBuffer[nr]);
+    }
 
     RDPCommands[opcode].command(dword, state.hwreg.dpc_CommandBuffer + 1);
     state.hwreg.dpc_CommandBufferIndex = 0;
