@@ -2055,6 +2055,9 @@ void emit_sra_dst_src0_src1(code_buffer_t *emitter, x86_64_operand_t *dst,
 
 void emit_mov_dst_src0(code_buffer_t *emitter,
                        x86_64_operand_t *dst, x86_64_operand_t *src0) {
+    if (op_equals(dst, src0)) {
+        return;
+    }
     if (dst->kind == MEMORY && src0->kind == MEMORY) {
         x86_64_operand_t tmp = op_reg(src0->size, RAX);
         emit_mov_op0_op1(emitter, &tmp, src0);

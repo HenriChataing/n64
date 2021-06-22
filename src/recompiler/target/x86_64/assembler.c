@@ -18,6 +18,7 @@ typedef struct ir_var_context {
     unsigned register_;
     bool allocated;
     bool spilled;
+    unsigned liveness_start;
     unsigned liveness_end;
 } ir_var_context_t;
 
@@ -725,6 +726,9 @@ static void compute_liveness(ir_graph_t const *graph) {
 
         for (; instr != NULL; instr = instr->next, index++) {
             ir_iter_values(instr, set_liveness_end, &index);
+            if (!ir_is_void_instr(instr)) {
+                ir_var_context[instr->res].liveness_start = index;
+            }
         }
     }
 }
@@ -748,6 +752,12 @@ static void release_register(void *params_, ir_value_t const *value) {
 
     ir_var_context_t *ctx = ir_var_context + value->var;
     if (ctx->liveness_end != params->index || ctx->spilled) {
+        return;
+    }
+
+    // RAX can only be allocated under special conditions,
+    // do not release it to the freemap.
+    if (ctx->register_ == RAX) {
         return;
     }
 
@@ -789,6 +799,32 @@ static unsigned alloc_register(unsigned *register_bitmap,
 }
 
 /**
+ * Heuristic for determining if the variable can safely to assigned to
+ * the RAX register. The instruction \p instr must not be void and must not
+ * be an allocation.
+ */
+static bool should_use_rax(ir_instr_t const *instr) {
+    // Compute liveness range of current variable.
+    unsigned liveness =
+        ir_var_context[instr->res].liveness_end -
+        ir_var_context[instr->res].liveness_start;
+
+    // Never use RAX if the variable lives for longer than the next
+    // instruction.
+    if (liveness > 1) {
+        return false;
+    }
+
+    // Do use RAX if it is the return value of a function call.
+    if (instr->kind == IR_CALL) {
+        return true;
+    }
+
+    // By default do not use RAX.
+    return false;
+}
+
+/**
  * Allocate the stack frame for storing all intermediate variables.
  * The allocation spills all variables, and ignores lifetime.
  * Returns the required stack frame size.
@@ -824,7 +860,12 @@ static unsigned alloc_vars(ir_graph_t const *graph,
             // is allocated, not the variable slot.
             bool alloc = instr->kind == IR_ALLOC;
 
-            if (!alloc && register_bitmap != 0) {
+            if (!alloc && should_use_rax(instr)) {
+                // Follow heuristic for using the RAX register in priority.
+                ir_var_context[instr->res].spilled = false;
+                ir_var_context[instr->res].register_ = RAX;
+                ir_var_context[instr->res].allocated = false;
+            } else if (!alloc && register_bitmap != 0) {
                 // Allocate a register.
                 reg = alloc_register(&register_bitmap, reg);
                 ir_var_context[instr->res].spilled = false;
@@ -883,7 +924,11 @@ code_entry_t ir_x86_64_assemble(recompiler_backend_t const *backend,
     emit_push_r64(emitter, R14);
     emit_push_r64(emitter, R15);
     emit_mov_r64_r64(emitter, RBP, RSP);
-    emit_sub_r64_imm32(emitter, RSP, stack_size);
+
+    // Allocate space for spilled variables.
+    if (stack_size > 0) {
+        emit_sub_r64_imm32(emitter, RSP, stack_size);
+    }
 
     // Load globals base pointer to register R15.
     emit_mov_r64_imm64(emitter, R15, (intptr_t)backend->globals_base_ptr);
@@ -905,9 +950,14 @@ code_entry_t ir_x86_64_assemble(recompiler_backend_t const *backend,
         patch_jmp_rel32(emitter, context.rel32, start);
     }
 
-    // Generate the standard function postlude.
+    // Mark the current location as exit label.
     unsigned char *exit_label = code_buffer_ptr(emitter);
+
+    // Restore the stack pointer.
+    // Only necessary if variables were spilled on the stack.
     emit_mov_r64_r64(emitter, RSP, RBP);
+
+    // Restore callee saves.
     emit_pop_r64(emitter, R15);
     emit_pop_r64(emitter, R14);
     emit_pop_r64(emitter, R13);
