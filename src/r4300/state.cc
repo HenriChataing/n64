@@ -278,6 +278,7 @@ void State::storeHiddenBits(u32 addr, u8 val) {
 }
 
 void State::scheduleEvent(ulong timeout, void (*callback)()) {
+    std::lock_guard<std::mutex> lock(_mutex);
     State::Event *event = new Event(timeout, callback, NULL);
     State::Event *pos = cpu.eventQueue, **prev = &cpu.eventQueue;
     while (pos != NULL) {
@@ -293,6 +294,7 @@ void State::scheduleEvent(ulong timeout, void (*callback)()) {
 }
 
 void State::cancelEvent(void (*callback)()) {
+    std::lock_guard<std::mutex> lock(_mutex);
     State::Event *pos = cpu.eventQueue, **prev = &cpu.eventQueue;
     while (pos != NULL) {
         if (pos->callback == callback) {
@@ -308,6 +310,7 @@ void State::cancelEvent(void (*callback)()) {
 }
 
 void State::cancelAllEvents(void) {
+    std::lock_guard<std::mutex> lock(_mutex);
     State::Event *pos = cpu.eventQueue;
     cpu.eventQueue = NULL;
     while (pos != NULL) {
@@ -318,9 +321,18 @@ void State::cancelAllEvents(void) {
 }
 
 void State::handleEvent(void) {
+    std::unique_lock<std::mutex> lock(_mutex);
+    if (cpu.nextEvent > cycles) {
+        // false positive, no event actually scheduled to be
+        // executed right now.
+        return;
+    }
     if (cpu.eventQueue != NULL) {
         Event *event = cpu.eventQueue;
         cpu.eventQueue = event->next;
+        // Unlock now: the callback function may re-schedule an event
+        // and may need to re-take the lock for this purpose.
+        lock.unlock();
         event->callback();
         delete event;
     }

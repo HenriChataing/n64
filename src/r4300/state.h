@@ -3,6 +3,7 @@
 #define _R4300_STATE_H_INCLUDED_
 
 #include <iostream>
+#include <mutex>
 
 #include <r4300/cpu.h>
 #include <r4300/rsp.h>
@@ -78,6 +79,13 @@ public:
 
     u8 loadHiddenBits(u32 addr);
     void storeHiddenBits(u32 addr, u8 val);
+
+private:
+    /**
+     * Mutex to control access to concurrent resources:
+     * - eventQueue
+     */
+    std::mutex _mutex;
 };
 
 /** Current machine state. */
