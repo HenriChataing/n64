@@ -40,10 +40,10 @@ DEFINE    := TARGET_BIGENDIAN \
     ENABLE_TRACE=$(ENABLE_TRACE) \
     ENABLE_BREAKPOINTS=$(ENABLE_BREAKPOINTS)
 
-CFLAGS    := -Wall -Wno-unused-function -std=gnu11 -g
+CFLAGS    := -Wall -Wno-unused-function -std=gnu11 -g -msse2
 CFLAGS    += -O$(OPTIMISE) $(addprefix -I,$(INCLUDE)) $(addprefix -D,$(DEFINE))
 
-CXXFLAGS  := -Wall -Wno-unused-function -std=c++11 -g
+CXXFLAGS  := -Wall -Wno-unused-function -std=c++11 -g -msse2
 CXXFLAGS  += -O$(OPTIMISE) $(addprefix -I,$(INCLUDE)) $(addprefix -D,$(DEFINE))
 
 LDFLAGS   :=
@@ -124,6 +124,7 @@ OBJS      := \
     $(OBJDIR)/src/interpreter/cop0.o \
     $(OBJDIR)/src/interpreter/cop1.o \
     $(OBJDIR)/src/interpreter/rsp.o \
+    $(OBJDIR)/src/interpreter/rsp_x86_64.o \
     $(OBJDIR)/src/assembly/disassembler.o \
     $(OBJDIR)/src/r4300/mmu.o \
     $(OBJDIR)/src/r4300/cpu.o \
@@ -176,6 +177,7 @@ bin/rsp_test_suite: CXXFLAGS += \
 bin/rsp_test_suite: \
     $(OBJDIR)/test/rsp_test_suite.o \
     $(OBJDIR)/src/interpreter/rsp.o \
+    $(OBJDIR)/src/interpreter/rsp_x86_64.o \
     $(OBJDIR)/src/memory.o \
     $(OBJDIR)/src/debugger.o \
     $(OBJDIR)/src/r4300/rsp.o \

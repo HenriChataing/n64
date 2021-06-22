@@ -590,6 +590,7 @@ void eval_VABS(u32 instr) {
     state.rspreg.vr[vd] = out;
 }
 
+__attribute__((weak))
 void eval_VADD(u32 instr) {
     u32 e = assembly::getElement(instr);
     u32 vt = assembly::getVt(instr);
@@ -635,6 +636,7 @@ void eval_VADDC(u32 instr) {
     state.rspreg.vr[vd] = out;
 }
 
+__attribute__((weak))
 void eval_VAND(u32 instr) {
     u32 e = assembly::getElement(instr);
     u32 vt = assembly::getVt(instr);
@@ -899,6 +901,7 @@ void eval_VLT(u32 instr) {
     state.rspreg.vr[vd] = out;
 }
 
+__attribute__((weak))
 void eval_VMACF(u32 instr) {
     u32 e = assembly::getElement(instr);
     u32 vt = assembly::getVt(instr);
@@ -923,6 +926,7 @@ void eval_VMACQ(u32 instr) {
     core::halt("VMACQ unsupported");
 }
 
+__attribute__((weak))
 void eval_VMACU(u32 instr) {
     u32 e = assembly::getElement(instr);
     u32 vt = assembly::getVt(instr);
@@ -943,6 +947,7 @@ void eval_VMACU(u32 instr) {
     state.rspreg.vr[vd] = out;
 }
 
+__attribute__((weak))
 void eval_VMADH(u32 instr) {
     u32 e = assembly::getElement(instr);
     u32 vt = assembly::getVt(instr);
@@ -963,6 +968,7 @@ void eval_VMADH(u32 instr) {
     state.rspreg.vr[vd] = out;
 }
 
+__attribute__((weak))
 void eval_VMADL(u32 instr) {
     u32 e = assembly::getElement(instr);
     u32 vt = assembly::getVt(instr);
@@ -983,6 +989,7 @@ void eval_VMADL(u32 instr) {
     state.rspreg.vr[vd] = out;
 }
 
+__attribute__((weak))
 void eval_VMADM(u32 instr) {
     u32 e = assembly::getElement(instr);
     u32 vt = assembly::getVt(instr);
@@ -1003,6 +1010,7 @@ void eval_VMADM(u32 instr) {
     state.rspreg.vr[vd] = out;
 }
 
+__attribute__((weak))
 void eval_VMADN(u32 instr) {
     u32 e = assembly::getElement(instr);
     u32 vt = assembly::getVt(instr);
@@ -1179,6 +1187,7 @@ void eval_VMULU(u32 instr) {
     state.rspreg.vr[vd] = out;
 }
 
+__attribute__((weak))
 void eval_VNAND(u32 instr) {
     u32 e = assembly::getElement(instr);
     u32 vt = assembly::getVt(instr);
@@ -1240,6 +1249,7 @@ void eval_VNULL(u32 instr) {
     (void)instr;
 }
 
+__attribute__((weak))
 void eval_VNOR(u32 instr) {
     u32 e = assembly::getElement(instr);
     u32 vt = assembly::getVt(instr);
@@ -1260,6 +1270,7 @@ void eval_VNOR(u32 instr) {
     state.rspreg.vr[vd] = out;
 }
 
+__attribute__((weak))
 void eval_VNXOR(u32 instr) {
     u32 e = assembly::getElement(instr);
     u32 vt = assembly::getVt(instr);
@@ -1280,6 +1291,7 @@ void eval_VNXOR(u32 instr) {
     state.rspreg.vr[vd] = out;
 }
 
+__attribute__((weak))
 void eval_VOR(u32 instr) {
     u32 e = assembly::getElement(instr);
     u32 vt = assembly::getVt(instr);
@@ -1582,6 +1594,7 @@ void eval_VSUBC(u32 instr) {
     state.rspreg.vr[vd] = out;
 }
 
+__attribute__((weak))
 void eval_VXOR(u32 instr) {
     u32 e = assembly::getElement(instr);
     u32 vt = assembly::getVt(instr);
