@@ -83,6 +83,9 @@ struct hwreg {
     u32 AI_DACRATE_REG;
     u32 AI_BITRATE_REG;
 
+    u32 pi_DramAddr;
+    u32 pi_CartAddr;
+
     u32 PI_DRAM_ADDR_REG;
     u32 PI_CART_ADDR_REG;
     u32 PI_RD_LEN_REG;

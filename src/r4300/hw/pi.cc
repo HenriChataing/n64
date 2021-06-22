@@ -54,6 +54,25 @@ const u32 PI_BSD_DOM2_PGS_REG =     UINT32_C(0x0460002c);
 // (RW): [1:0] domain 2 device R/W release duration
 const u32 PI_BSD_DOM2_RLS_REG =     UINT32_C(0x04600030);
 
+/**
+ * @brief Callback on completion of a read DMA transfer.
+ *  The DMA transfer is actually actuated inside this completion callback,
+ *  since some ROMs continue accessing the memory just before it gets
+ *  overwritten. Triggers the PI interrupt and updates relevant status
+ *  flags in the PI registers.
+ */
+static void PI_RD_DMA_complete() {
+    u32 len = state.hwreg.PI_RD_LEN_REG + 1;
+    u32 dst = state.hwreg.pi_CartAddr;
+    u32 src = state.hwreg.pi_DramAddr;
+
+    // Perform the actual copy.
+    memcpy(&state.rom[dst - 0x10000000llu], &state.dram[src], len);
+
+    // Update status.
+    state.hwreg.PI_STATUS_REG = 0;
+    set_MI_INTR_REG(MI_INTR_PI);
+}
 
 /**
  * @brief Write the PI register PI_RD_LEN_REG.
@@ -61,34 +80,79 @@ const u32 PI_BSD_DOM2_RLS_REG =     UINT32_C(0x04600030);
  */
 static void write_PI_RD_LEN_REG(u32 value) {
     debugger::info(Debugger::PI, "PI_RD_LEN_REG <- {:08x}", value);
-    state.hwreg.PI_RD_LEN_REG = value;
-    u32 len = value + 1;
-    u32 dst = state.hwreg.PI_CART_ADDR_REG;
+    u32 dst = state.hwreg.PI_CART_ADDR_REG & UINT32_C(0x3fffffff);
     u32 src = state.hwreg.PI_DRAM_ADDR_REG;
+    u32 len = value + 1;
+
+    // Check if transfer is active.
+    if (state.hwreg.PI_STATUS_REG & PI_STATUS_DMA_BUSY) {
+        debugger::warn(Debugger::PI,
+            "PI_RD_LEN_REG dma tranfer already active");
+        return;
+    }
+
+    // Check alignment of input addresses.
+    if ((src & UINT32_C(0x7)) != 0 ||
+        (dst & UINT32_C(0x1)) != 0) {
+        debugger::warn(Debugger::PI,
+            "PI_RD_LEN_REG misaligned source or destination address:"
+            " {:08x} ; {:08x}", src, dst);
+        core::halt("PI_RD_LEN_REG");
+        return;
+    }
 
     // Check that the destination range fits in the cartridge memory, and in
     // particular does not overflow.
-    if ((dst + len) <= dst ||
+    if ((u32)(dst + len) <= dst ||
         dst < 0x10000000llu ||
         (dst + len) > 0x1fc00000llu) {
         debugger::warn(Debugger::PI,
-            "PI_RD_LEN_REG destination range invalid: {:08x}+{:08x}",
-            dst, len);
+            "PI_RD_LEN_REG destination range invalid:"
+            " {:08x}+{:08x}", dst, len);
+        core::halt("PI_RD_LEN_REG");
         return;
     }
 
     // Check that the source range fits in the dram memory, and in
     // particular does not overflow.
-    if ((src + len) <= src ||
+    if ((u32)(src + len) <= src ||
         (src + len) > 0x400000llu) {
         debugger::warn(Debugger::PI,
             "PI_RD_LEN_REG source range invalid: {:08x}+{:08x}",
             src, len);
+        core::halt("PI_RD_LEN_REG");
         return;
     }
 
+    /* TODO find correct DMA delay estimation. */
+    ulong dma_delay = len;
+    state.hwreg.pi_CartAddr = dst;
+    state.hwreg.pi_DramAddr = src;
+    state.hwreg.PI_RD_LEN_REG = value;
+    state.hwreg.PI_STATUS_REG = PI_STATUS_DMA_BUSY;
+    state.scheduleEvent(state.cycles + dma_delay, PI_RD_DMA_complete);
+}
+
+/**
+ * @brief Callback on completion of a write DMA transfer.
+ *  The DMA transfer is actually actuated inside this completion callback,
+ *  since some ROMs continue accessing the memory just before it gets
+ *  overwritten. Triggers the PI interrupt and updates relevant status
+ *  flags in the PI registers.
+ */
+static void PI_WR_DMA_complete() {
+    u32 len = state.hwreg.PI_WR_LEN_REG + 1;
+    u32 dst = state.hwreg.pi_DramAddr;
+    u32 src = state.hwreg.pi_CartAddr;
+
+    // Truncate the copy if crossing outside valid RAM addresses.
+    if ((dst + len) > 0x400000llu) {
+        len = 0x400000llu - dst;
+    }
+
     // Perform the actual copy.
-    // memcpy(&state.rom[dst - 0x10000000llu], &state.dram[src], len);
+    memcpy(&state.dram[dst], &state.rom[src - 0x10000000llu], len);
+    core::invalidate_recompiler_cache(dst, dst + len);
     state.hwreg.PI_STATUS_REG = 0;
     set_MI_INTR_REG(MI_INTR_PI);
 }
@@ -99,18 +163,35 @@ static void write_PI_RD_LEN_REG(u32 value) {
  */
 static void write_PI_WR_LEN_REG(u32 value) {
     debugger::info(Debugger::PI, "PI_WR_LEN_REG <- {:08x}", value);
-    state.hwreg.PI_WR_LEN_REG = value;
-    u32 len = value + 1;
     u32 dst = state.hwreg.PI_DRAM_ADDR_REG;
     u32 src = state.hwreg.PI_CART_ADDR_REG;
+    u32 len = value + 1;
+
+    // Check if transfer is active.
+    if (state.hwreg.PI_STATUS_REG & PI_STATUS_DMA_BUSY) {
+        debugger::warn(Debugger::PI,
+            "PI_WR_LEN_REG dma tranfer already active");
+        return;
+    }
+
+    // Check alignment of input addresses.
+    if ((src & UINT32_C(0x1)) != 0 ||
+        (dst & UINT32_C(0x7)) != 0) {
+        debugger::warn(Debugger::PI,
+            "PI_WR_LEN_REG misaligned source / destination address:"
+            " {:08x} / {:08x}", src, dst);
+        core::halt("PI_WR_LEN_REG");
+        return;
+    }
 
     // Check that the destination range fits in the dram memory, and in
     // particular does not overflow.
     if ((u32)(dst + len) <= dst ||
-        (dst + len) > 0x400000llu) {
+        dst >= 0x400000llu) {
         debugger::warn(Debugger::PI,
-            "PI_WR_LEN_REG destination range invalid: {:08x}+{:08x}",
-            dst, len);
+            "PI_WR_LEN_REG destination range invalid:"
+            " {:08x}+{:08x}", dst, len);
+        core::halt("PI_WR_LEN_REG");
         return;
     }
 
@@ -120,16 +201,19 @@ static void write_PI_WR_LEN_REG(u32 value) {
         src < 0x10000000llu ||
         (src + len) > 0x1fc00000llu) {
         debugger::warn(Debugger::PI,
-            "PI_WR_LEN_REG source range invalid: {:08x}+{:08x}",
-            src, len);
+            "PI_WR_LEN_REG source range invalid:"
+            " {:08x}+{:08x}", src, len);
+        core::halt("PI_WR_LEN_REG");
         return;
     }
 
-    // Perform the actual copy.
-    memcpy(&state.dram[dst], &state.rom[src - 0x10000000llu], len);
-    core::invalidate_recompiler_cache(dst, dst + len);
-    state.hwreg.PI_STATUS_REG = 0;
-    set_MI_INTR_REG(MI_INTR_PI);
+    /* TODO find correct DMA delay estimation. */
+    ulong dma_delay = len;
+    state.hwreg.pi_CartAddr = state.hwreg.PI_CART_ADDR_REG;
+    state.hwreg.pi_DramAddr = state.hwreg.PI_DRAM_ADDR_REG;
+    state.hwreg.PI_WR_LEN_REG = value;
+    state.hwreg.PI_STATUS_REG |= PI_STATUS_DMA_BUSY;
+    state.scheduleEvent(state.cycles + dma_delay, PI_WR_DMA_complete);
 }
 
 bool read_PI_REG(uint bytes, u64 addr, u64 *value)
