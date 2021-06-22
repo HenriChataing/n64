@@ -79,10 +79,12 @@ bool recompiler_request_queue::enqueue(struct recompiler_request const &request)
         return false;
     }
 
+    std::unique_lock<std::mutex> lock(mutex);
     uint32_t head = this->head.load(std::memory_order_relaxed);
     buffer[head % capacity] = request;
     this->head.store(head + 1, std::memory_order_release);
 
+    lock.unlock();
     if (!notified.exchange(true, std::memory_order_release)) {
         semaphore.notify_one();
     }
@@ -91,11 +93,9 @@ bool recompiler_request_queue::enqueue(struct recompiler_request const &request)
 }
 
 void recompiler_request_queue::dequeue(struct recompiler_request &request) {
-    while (is_empty()) {
-        std::unique_lock<std::mutex> lock(mutex);
-        notified.store(false, std::memory_order_release);
-        semaphore.wait(lock, [this] { return true; });
-    }
+    std::unique_lock<std::mutex> lock(mutex);
+    semaphore.wait(lock, [this] { return !is_empty(); });
+    notified.store(false, std::memory_order_acquire);
 
     uint32_t tail = this->tail.load(std::memory_order_acquire);
     request = buffer[tail % capacity];
@@ -162,6 +162,7 @@ static struct recompiler_request_queue recompiler_request_queue(
 static recompiler_backend_t   *recompiler_backend;
 static struct recompiler_cache recompiler_cache;
 static std::thread            *recompiler_thread;
+static std::atomic_bool        recompiler_stopped;
 static std::thread            *interpreter_thread;
 static std::mutex              interpreter_mutex;
 static std::condition_variable interpreter_semaphore;
@@ -402,8 +403,9 @@ void exec_interpreter(struct recompiler_request_queue *queue,
         entry = recompiler_cache.map[index];
         switch (entry & 0x3) {
         case 0x0:
-            recompiler_cache.map[index] = 0x3;
-            queue->enqueue(recompiler_request(virt_address, phys_address, phys_end));
+            recompiler_cache.map[index] =
+                queue->enqueue(recompiler_request(virt_address, phys_address, phys_end)) ?
+                0x3 : 0x0;
             break;
         case 0x1:
             binary = (code_entry_t)(
@@ -560,6 +562,7 @@ void start(void) {
             alloc_code_buffer_array(CACHE_PAGE_COUNT, 0x40000);
     }
     if (recompiler_thread == NULL) {
+        recompiler_stopped = false;
         recompiler_thread = new std::thread(recompiler_routine);
     }
 #endif /* ENABLE_RECOMPILER */
@@ -579,6 +582,14 @@ void stop(void) {
         delete interpreter_thread;
         interpreter_thread = NULL;
     }
+#if ENABLE_RECOMPILER
+    if (recompiler_thread != NULL) {
+        recompiler_stopped.store(true, std::memory_order_release);
+        recompiler_thread->join();
+        delete recompiler_thread;
+        recompiler_thread = NULL;
+    }
+#endif /* ENABLE_RECOMPILER */
 }
 
 void reset(void) {
