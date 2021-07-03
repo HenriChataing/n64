@@ -33,12 +33,16 @@ ENABLE_BREAKPOINTS ?= 0
 # used as recompiler test inputs.
 ENABLE_CAPTURE ?= 0
 
+# Use asynchronous RDP implementation.
+ASYNC_RDP ?= 1
+
 INCLUDE   := $(SRCDIR) $(SRCDIR)/lib $(SRCDIR)/gui $(SRCDIR)/interpreter
 INCLUDE   += $(EXTDIR)/fmt/include $(EXTDIR)/imgui $(EXTDIR)/cxxopts/include
 DEFINE    := TARGET_BIGENDIAN \
     ENABLE_RECOMPILER=$(ENABLE_RECOMPILER) \
     ENABLE_TRACE=$(ENABLE_TRACE) \
-    ENABLE_BREAKPOINTS=$(ENABLE_BREAKPOINTS)
+    ENABLE_BREAKPOINTS=$(ENABLE_BREAKPOINTS) \
+    ASYNC_RDP=$(ASYNC_RDP)
 
 CFLAGS    := -Wall -Wno-unused-function -std=gnu11 -g -msse2
 CFLAGS    += -O$(OPTIMISE) $(addprefix -I,$(INCLUDE)) $(addprefix -D,$(DEFINE))

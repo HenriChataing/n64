@@ -298,6 +298,27 @@ enum debug_mode {
  */
 void set_debug_mode(enum debug_mode mode);
 
+/**
+ * @brief Implement DPCommand register accesses.
+ *
+ * The interface can be selected to be synchronous (commands are executed
+ * as soon as received in the interpreter thread) or asynchronous (commands
+ * are executed by an auxiliary thread).
+ */
+class DPCommandInterface {
+public:
+    DPCommandInterface() {}
+    virtual ~DPCommandInterface() {}
+    virtual void write_DPC_STATUS_REG(uint32_t) = 0;
+    virtual void write_DPC_START_REG(uint32_t) = 0;
+    virtual void write_DPC_END_REG(uint32_t) = 0;
+
+    virtual uint32_t read_DPC_STATUS_REG() = 0;
+    virtual uint32_t read_DPC_CURRENT_REG() = 0;
+};
+
+extern DPCommandInterface *interface;
+
 }; /* namespace rdp */
 }; /* namespace R4300 */
 

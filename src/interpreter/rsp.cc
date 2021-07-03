@@ -1849,10 +1849,24 @@ void eval_MFC0(u32 instr) {
     case 5:     val = (state.hwreg.SP_STATUS_REG & SP_STATUS_DMA_FULL) != 0; break;
     case 6:     val = (state.hwreg.SP_STATUS_REG & SP_STATUS_DMA_BUSY) != 0; break;
     case 7:     val = read_SP_SEMAPHORE_REG(); break;
-    case 8:     val = state.hwreg.DPC_START_REG; break;
-    case 9:     val = state.hwreg.DPC_END_REG; break;
-    case 10:    val = state.hwreg.dpc_Current; break;
-    case 11:    val = state.hwreg.DPC_STATUS_REG; break;
+    case 8:
+        debugger::info(Debugger::DPCommand, "DPC_START_REG -> {:08x}",
+            state.hwreg.DPC_START_REG);
+        val = state.hwreg.DPC_START_REG;
+        break;
+    case 9:
+        debugger::info(Debugger::DPCommand, "DPC_END_REG -> {:08x}",
+            state.hwreg.DPC_END_REG);
+        val = state.hwreg.DPC_END_REG;
+        break;
+    case 10:
+        val = rdp::interface->read_DPC_CURRENT_REG();
+        debugger::info(Debugger::DPCommand, "DPC_CURRENT_REG -> {:08x}", val);
+        break;
+    case 11:
+        val = rdp::interface->read_DPC_STATUS_REG();
+        debugger::info(Debugger::DPCommand, "DPC_STATUS_REG -> {:08x}", val);
+        break;
     case 12:
         core::halt("DPC_CLOCK_REG read access");
         val = state.hwreg.DPC_CLOCK_REG;
@@ -1899,10 +1913,10 @@ void eval_MTC0(u32 instr) {
     case 5:     /* DMA_FULL, read only */ break;
     case 6:     /* DMA_BUSY, read only */ break;
     case 7:     state.hwreg.SP_SEMAPHORE_REG = 0; break;
-    case 8:     write_DPC_START_REG(val); break;
-    case 9:     write_DPC_END_REG(val); break;
+    case 8:     rdp::interface->write_DPC_START_REG(val); break;
+    case 9:     rdp::interface->write_DPC_END_REG(val); break;
     case 10:    /* DPC_CURRENT_REG, read only */ break;
-    case 11:    write_DPC_STATUS_REG(val); break;
+    case 11:    rdp::interface->write_DPC_STATUS_REG(val); break;
     case 12:
         core::halt("RSP::RDP_clock_counter");
         break;

@@ -57,14 +57,12 @@ bool read_DPC_REG(uint bytes, u64 addr, u64 *value)
         *value = state.hwreg.DPC_END_REG;
         break;
     case DPC_STATUS_REG:
-        debugger::info(Debugger::DPCommand, "DPC_STATUS_REG -> {:08x}",
-            state.hwreg.DPC_STATUS_REG);
-        *value = state.hwreg.DPC_STATUS_REG;
+        *value = rdp::interface->read_DPC_STATUS_REG();
+        debugger::info(Debugger::DPCommand, "DPC_STATUS_REG -> {:08x}", *value);
         break;
     case DPC_CURRENT_REG:
-        debugger::info(Debugger::DPCommand, "DPC_CURRENT_REG -> {:08x}",
-            state.hwreg.dpc_Current);
-        *value = state.hwreg.dpc_Current;
+        *value = rdp::interface->read_DPC_CURRENT_REG();
+        debugger::info(Debugger::DPCommand, "DPC_CURRENT_REG -> {:08x}", *value);
         break;
     case DPC_CLOCK_REG:
     case DPC_BUF_BUSY_REG:
@@ -87,9 +85,9 @@ bool write_DPC_REG(uint bytes, u64 addr, u64 value)
         return false;
 
     switch (addr) {
-    case DPC_START_REG:     write_DPC_START_REG(value); break;
-    case DPC_END_REG:       write_DPC_END_REG(value); break;
-    case DPC_STATUS_REG:    write_DPC_STATUS_REG(value); break;
+    case DPC_START_REG:     rdp::interface->write_DPC_START_REG(value); break;
+    case DPC_END_REG:       rdp::interface->write_DPC_END_REG(value); break;
+    case DPC_STATUS_REG:    rdp::interface->write_DPC_STATUS_REG(value); break;
     case DPC_CURRENT_REG:
     case DPC_CLOCK_REG:
     case DPC_BUF_BUSY_REG:

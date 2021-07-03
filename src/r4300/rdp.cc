@@ -2167,7 +2167,9 @@ void syncTile(u64 command, u64 const *params) {
 }
 
 void syncFull(u64 command, u64 const *params) {
-    set_MI_INTR_REG(MI_INTR_DP);
+    state.scheduleEvent(state.cycles, [] {
+        set_MI_INTR_REG(MI_INTR_DP);
+    });
 }
 
 void setKeyGB(u64 command, u64 const *params) {
@@ -2780,48 +2782,7 @@ void setColorImage(u64 command, u64 const *params) {
     }
 }
 
-}; /* namespace rdp */
-
 void noop(u64 command, u64 const *params) {
-}
-
-/**
- * @brief Write the DP Command register DPC_STATUS_REG.
- *  This function is used for both the CPU (DPC_STATUS_REG) and
- *  RSP (Coprocessor 0 register 11) view of the register.
- */
-void write_DPC_STATUS_REG(u32 value) {
-    debugger::info(Debugger::DPCommand, "DPC_STATUS_REG <- {:08x}", value);
-    if (value & DPC_STATUS_CLR_XBUS_DMEM_DMA) {
-        state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_XBUS_DMEM_DMA;
-    }
-    if (value & DPC_STATUS_SET_XBUS_DMEM_DMA) {
-        state.hwreg.DPC_STATUS_REG |= DPC_STATUS_XBUS_DMEM_DMA;
-    }
-    if (value & DPC_STATUS_CLR_FREEZE) {
-        state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_FREEZE;
-    }
-    if (value & DPC_STATUS_SET_FREEZE) {
-        state.hwreg.DPC_STATUS_REG |= DPC_STATUS_FREEZE;
-    }
-    if (value & DPC_STATUS_CLR_FLUSH) {
-        state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_FLUSH;
-    }
-    if (value & DPC_STATUS_SET_FLUSH) {
-        state.hwreg.DPC_STATUS_REG |= DPC_STATUS_FLUSH;
-    }
-    if (value & DPC_STATUS_CLR_TMEM_CTR) {
-        state.hwreg.DPC_TMEM_REG = 0;
-    }
-    if (value & DPC_STATUS_CLR_PIPE_CTR) {
-        state.hwreg.DPC_PIPE_BUSY_REG = 0;
-    }
-    if (value & DPC_STATUS_CLR_CMD_CTR) {
-        state.hwreg.DPC_BUF_BUSY_REG = 0;
-    }
-    if (value & DPC_STATUS_CLR_CLOCK_CTR) {
-        state.hwreg.DPC_CLOCK_REG = 0;
-    }
 }
 
 typedef void (*RDPCommand)(u64, u64 const *);
@@ -2900,25 +2861,25 @@ static bool DPC_hasNext(void) {
     return (state.hwreg.dpc_End - state.hwreg.dpc_Current) >= sizeof(uint64_t);
 }
 
-static uint64_t DPC_read(void) {
-    uint32_t current = state.hwreg.dpc_Current;
+static uint64_t DPC_read(uint32_t current, uint32_t status) {
     uint8_t *addr;
 
-    if (state.hwreg.DPC_STATUS_REG & DPC_STATUS_XBUS_DMEM_DMA) {
+    if (status & DPC_STATUS_XBUS_DMEM_DMA) {
         addr = state.dmem + (current & SP_MEM_ADDR_MASK);
     } else {
         addr = state.dram + (current & SP_DRAM_ADDR_MASK);
     }
 
-    state.hwreg.dpc_Current += sizeof(uint64_t);
-    return ((uint64_t)addr[0] << 56) |
-           ((uint64_t)addr[1] << 48) |
-           ((uint64_t)addr[2] << 40) |
-           ((uint64_t)addr[3] << 32) |
-           ((uint64_t)addr[4] << 24) |
-           ((uint64_t)addr[5] << 16) |
-           ((uint64_t)addr[6] <<  8) |
-           ((uint64_t)addr[7] <<  0);
+    uint64_t dword =
+        ((uint64_t)addr[0] << 56) |
+        ((uint64_t)addr[1] << 48) |
+        ((uint64_t)addr[2] << 40) |
+        ((uint64_t)addr[3] << 32) |
+        ((uint64_t)addr[4] << 24) |
+        ((uint64_t)addr[5] << 16) |
+        ((uint64_t)addr[6] <<  8) |
+        ((uint64_t)addr[7] <<  0);
+    return dword;
 }
 
 /**
@@ -2974,7 +2935,6 @@ static void execute_DPC_command(void) {
     state.hwreg.dpc_CommandBufferLen = 0;
 }
 
-
 /**
  * @brief Execute DPC commands.
  * Commands are read from the DPC_CURRENT_REG until the DPC_END_REG excluded,
@@ -2995,7 +2955,10 @@ static void load_DPC_commands(void) {
     state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_CBUF_READY;
 
     while (DPC_hasNext() && !core::halted()) {
-        uint64_t dword = DPC_read();
+        uint64_t dword = DPC_read(
+            state.hwreg.dpc_Current,
+            state.hwreg.DPC_STATUS_REG);
+        state.hwreg.dpc_Current += sizeof(dword);
 
         if (state.hwreg.dpc_CommandBufferLen == 0) {
             start_DPC_command(dword);
@@ -3019,7 +2982,7 @@ static void load_DPC_commands(void) {
  * This action is emulated as writing to DPC_CURRENT_REG at the same time,
  * which is only an approximation.
  */
-void write_DPC_START_REG(u32 value) {
+static void write_DPC_START_REG(u32 value) {
     debugger::info(Debugger::DPCommand, "DPC_START_REG <- {:08x}", value);
 
     state.hwreg.DPC_START_REG = value & SP_DRAM_ADDR_MASK;
@@ -3032,13 +2995,241 @@ void write_DPC_START_REG(u32 value) {
  * Commands are read from the DPC_CURRENT_REG until the DPC_END_REG excluded,
  * updating DPC_CURRENT_REG at the same time.
  */
-void write_DPC_END_REG(u32 value) {
+static void write_DPC_END_REG(u32 value) {
     debugger::info(Debugger::DPCommand, "DPC_END_REG <- {:08x}", value);
 
     state.hwreg.DPC_END_REG = value & SP_DRAM_ADDR_MASK;
     state.hwreg.DPC_STATUS_REG |= DPC_STATUS_END_VALID;
 
-    load_DPC_commands();
+    /* Writing DPC_END is write-through while the DPC_START_VALID bit
+     * is not set. This wiill only update the current transfer end
+     * boundary. */
+    if ((state.hwreg.DPC_STATUS_REG & DPC_STATUS_START_VALID) == 0) {
+        state.hwreg.dpc_End = value;
+        state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_END_VALID;
+    }
 }
 
+/**
+ * @brief Write the DP Command register DPC_STATUS_REG.
+ *  This function is used for both the CPU (DPC_STATUS_REG) and
+ *  RSP (Coprocessor 0 register 11) view of the register.
+ */
+static void write_DPC_STATUS_REG(u32 value) {
+    debugger::info(Debugger::DPCommand, "DPC_STATUS_REG <- {:08x}", value);
+    if (value & DPC_STATUS_CLR_XBUS_DMEM_DMA) {
+        state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_XBUS_DMEM_DMA;
+    }
+    if (value & DPC_STATUS_SET_XBUS_DMEM_DMA) {
+        state.hwreg.DPC_STATUS_REG |= DPC_STATUS_XBUS_DMEM_DMA;
+    }
+    if (value & DPC_STATUS_CLR_FREEZE) {
+        state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_FREEZE;
+    }
+    if (value & DPC_STATUS_SET_FREEZE) {
+        state.hwreg.DPC_STATUS_REG |= DPC_STATUS_FREEZE;
+    }
+    if (value & DPC_STATUS_CLR_FLUSH) {
+        state.hwreg.DPC_STATUS_REG &= ~DPC_STATUS_FLUSH;
+    }
+    if (value & DPC_STATUS_SET_FLUSH) {
+        state.hwreg.DPC_STATUS_REG |= DPC_STATUS_FLUSH;
+    }
+    if (value & DPC_STATUS_CLR_TMEM_CTR) {
+        state.hwreg.DPC_TMEM_REG = 0;
+    }
+    if (value & DPC_STATUS_CLR_PIPE_CTR) {
+        state.hwreg.DPC_PIPE_BUSY_REG = 0;
+    }
+    if (value & DPC_STATUS_CLR_CMD_CTR) {
+        state.hwreg.DPC_BUF_BUSY_REG = 0;
+    }
+    if (value & DPC_STATUS_CLR_CLOCK_CTR) {
+        state.hwreg.DPC_CLOCK_REG = 0;
+    }
+}
+
+class DPCommandSyncInterface : public DPCommandInterface {
+public:
+    DPCommandSyncInterface() {}
+    ~DPCommandSyncInterface() {}
+
+    virtual void write_DPC_STATUS_REG(uint32_t value) {
+        R4300::rdp::write_DPC_STATUS_REG(value);
+    }
+
+    virtual void write_DPC_START_REG(uint32_t value) {
+        R4300::rdp::write_DPC_START_REG(value);
+    }
+
+    virtual void write_DPC_END_REG(uint32_t value) {
+        R4300::rdp::write_DPC_END_REG(value);
+        load_DPC_commands();
+    }
+
+    virtual uint32_t read_DPC_STATUS_REG() {
+        return state.hwreg.DPC_STATUS_REG;
+    }
+
+    virtual uint32_t read_DPC_CURRENT_REG() {
+        return state.hwreg.dpc_Current;
+    }
+
+    virtual void stop() {
+    }
+};
+
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+#include <atomic>
+
+class DPCommandAsyncInterface : public DPCommandInterface {
+public:
+    DPCommandAsyncInterface() {
+        _stopped = false;
+        _thread = new std::thread([this] { this->routine(); });
+    }
+    ~DPCommandAsyncInterface() {
+        _stopped = true;
+        _semaphore.notify_one();
+        _thread->join();
+    }
+
+    virtual void write_DPC_STATUS_REG(uint32_t value) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        R4300::rdp::write_DPC_STATUS_REG(value);
+        _dpc_status.store(
+            state.hwreg.DPC_STATUS_REG,
+            std::memory_order_release);
+    }
+
+    virtual void write_DPC_START_REG(uint32_t value) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        R4300::rdp::write_DPC_START_REG(value);
+        _dpc_status.store(
+            state.hwreg.DPC_STATUS_REG,
+            std::memory_order_relaxed);
+    }
+
+    virtual void write_DPC_END_REG(uint32_t value) {
+        std::unique_lock<std::mutex> lock(_mutex);
+
+        R4300::rdp::write_DPC_END_REG(value);
+        _dpc_status.store(
+            state.hwreg.DPC_STATUS_REG,
+            std::memory_order_release);
+
+        lock.unlock();
+        _semaphore.notify_one();
+    }
+
+    virtual uint32_t read_DPC_STATUS_REG() {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _dpc_status.load(std::memory_order_acquire);
+    }
+
+    virtual uint32_t read_DPC_CURRENT_REG() {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _dpc_current.load(std::memory_order_acquire);
+    }
+
+    virtual void stop() {
+        _stopped.store(true, std::memory_order_release);
+        _semaphore.notify_one();
+    }
+
+private:
+    bool DPC_hasNext(void) {
+        return _dpc_current != state.hwreg.dpc_End;
+    }
+
+    void routine(void) {
+        for (;;) {
+            std::unique_lock<std::mutex> lock(_mutex);
+            _semaphore.wait(lock, [this] {
+                uint32_t status = _dpc_status.load(std::memory_order_acquire);
+                return _stopped ||
+                    (status & DPC_STATUS_END_VALID) ||
+                    (status & DPC_STATUS_START_VALID) ||
+                    DPC_hasNext();
+            });
+
+            if (_stopped) {
+                return;
+            }
+
+            uint32_t status = _dpc_status.load(std::memory_order_acquire);
+
+            /* Conditions for starting a new transfer :
+             * 1. the current transfer has ended (dpc_current == dpc_end)
+             * 2. dpc_start_valid and dpc_end_valid are set */
+            if (!DPC_hasNext() &&
+                (status & DPC_STATUS_START_VALID) != 0 &&
+                (status & DPC_STATUS_END_VALID) != 0) {
+
+                status &= ~DPC_STATUS_START_VALID;
+                status &= ~DPC_STATUS_END_VALID;
+                status &= ~DPC_STATUS_CBUF_READY;
+
+                state.hwreg.dpc_End = state.hwreg.DPC_END_REG;
+                state.hwreg.DPC_STATUS_REG = status;
+
+                _dpc_current.store(
+                    state.hwreg.DPC_START_REG,
+                    std::memory_order_release);
+                _dpc_status.store(status,
+                    std::memory_order_release);
+            }
+
+            lock.unlock();
+            while (DPC_hasNext() && !core::halted()) {
+                uint64_t dword = DPC_read(_dpc_current, _dpc_status);
+                _dpc_current.store(
+                    _dpc_current + sizeof(dword),
+                    std::memory_order_release);
+
+                if (state.hwreg.dpc_CommandBufferLen == 0) {
+                    start_DPC_command(dword);
+                } else {
+                    continue_DPC_command(dword);
+                }
+
+                if (state.hwreg.dpc_CommandBufferLen > 0 &&
+                    state.hwreg.dpc_CommandBufferIndex ==
+                        state.hwreg.dpc_CommandBufferLen) {
+                    execute_DPC_command();
+                }
+            }
+
+            lock.lock();
+            if (!DPC_hasNext() && state.hwreg.dpc_CommandBufferLen == 0) {
+                state.hwreg.DPC_STATUS_REG |= DPC_STATUS_CBUF_READY;
+                _dpc_status |= DPC_STATUS_CBUF_READY;
+            }
+            lock.unlock();
+        }
+    }
+
+    /* Clones of state.hwreg.DPC_STATUS_REG and state.hwreg.dpc_Current that
+     * ensure thread synchronization when accessed. */
+    std::atomic_uint32_t _dpc_status;
+    std::atomic_uint32_t _dpc_current;
+
+    std::atomic_bool _stopped;
+    std::thread *_thread;
+    std::mutex _mutex;
+    std::condition_variable _semaphore;
+};
+
+DPCommandInterface *interface =
+#if ASYNC_RDP
+    new DPCommandAsyncInterface();
+#else
+    new DPCommandSyncInterface();
+#endif /* ASYNC_RDP */
+
+}; /* namespace rdp */
 }; /* namespace R4300 */
